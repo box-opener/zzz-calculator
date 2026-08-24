@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.cache/
+coverage/
+.DS_Store
+
+# Generated or downloaded artifacts. Recreate them with the repository scripts.
+asset/
+archive/
+data/compiled/
+reports/
+scratch/
+
+# Local showcase exports may contain a player's UID and builds.
+zzz_squad_config*.json
+
+# Local secrets and transient logs.
+.env
+.env.*
+*.log

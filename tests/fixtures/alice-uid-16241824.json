@@ -1,0 +1,258 @@
+{
+  "reference": {
+    "uid": "16241824",
+    "nickname": "nina27",
+    "characterName": "爱丽丝",
+    "image": "/Users/jincaistudy201236/Downloads/IMG_1163.PNG",
+    "capturedFrom": "米游社角色面板"
+  },
+  "build": {
+    "schemaVersion": 1,
+    "source": {
+      "type": "reference-image",
+      "uid": "16241824",
+      "provider": "miyoushe-image",
+      "importedAt": "2026-08-14T00:00:00+08:00"
+    },
+    "character": {
+      "id": "1401",
+      "level": 60,
+      "promotion": 6,
+      "cinema": 2,
+      "coreLevel": 7,
+      "skillLevels": {
+        "basic": 12,
+        "dodge": 12,
+        "special": 12,
+        "chain": 12,
+        "assist": 12,
+        "core": 7
+      }
+    },
+    "weapon": {
+      "id": "14140",
+      "level": 60,
+      "refinement": 1
+    },
+    "driveDiscs": [
+      {
+        "id": "32600:1",
+        "setId": "32600",
+        "slot": 1,
+        "level": 15,
+        "rarity": 4,
+        "mainStats": [{ "propertyId": 11101, "key": "hp", "value": 2200 }],
+        "subStats": [
+          { "propertyId": 31203, "key": "anomalyProficiency", "value": 45, "rolls": 4 },
+          { "propertyId": 12103, "key": "atk", "value": 19 },
+          { "propertyId": 13102, "key": "defPct", "value": 9.6, "rolls": 1 },
+          { "propertyId": 11102, "key": "hpPct", "value": 3 }
+        ]
+      },
+      {
+        "id": "32600:2",
+        "setId": "32600",
+        "slot": 2,
+        "level": 15,
+        "rarity": 4,
+        "mainStats": [{ "propertyId": 12101, "key": "atk", "value": 316 }],
+        "subStats": [
+          { "propertyId": 23203, "key": "penFlat", "value": 9 },
+          { "propertyId": 31203, "key": "anomalyProficiency", "value": 27, "rolls": 2 },
+          { "propertyId": 12102, "key": "atkPct", "value": 9, "rolls": 2 },
+          { "propertyId": 13103, "key": "def", "value": 15 }
+        ]
+      },
+      {
+        "id": "32600:3",
+        "setId": "32600",
+        "slot": 3,
+        "level": 15,
+        "rarity": 4,
+        "mainStats": [{ "propertyId": 13101, "key": "def", "value": 184 }],
+        "subStats": [
+          { "propertyId": 31203, "key": "anomalyProficiency", "value": 36, "rolls": 3 },
+          { "propertyId": 20103, "key": "critRate", "value": 2.4 },
+          { "propertyId": 12102, "key": "atkPct", "value": 6, "rolls": 1 },
+          { "propertyId": 13102, "key": "defPct", "value": 9.6, "rolls": 1 }
+        ]
+      },
+      {
+        "id": "31800:4",
+        "setId": "31800",
+        "slot": 4,
+        "level": 15,
+        "rarity": 4,
+        "mainStats": [{ "propertyId": 31201, "key": "anomalyProficiency", "value": 92 }],
+        "subStats": [
+          { "propertyId": 11102, "key": "hpPct", "value": 3 },
+          { "propertyId": 12103, "key": "atk", "value": 38, "rolls": 1 },
+          { "propertyId": 23203, "key": "penFlat", "value": 27, "rolls": 2 },
+          { "propertyId": 12102, "key": "atkPct", "value": 9, "rolls": 2 }
+        ]
+      },
+      {
+        "id": "32600:5",
+        "setId": "32600",
+        "slot": 5,
+        "level": 15,
+        "rarity": 4,
+        "mainStats": [{ "propertyId": 31501, "key": "physicalDmgBonus", "value": 30 }],
+        "subStats": [
+          { "propertyId": 12102, "key": "atkPct", "value": 9, "rolls": 2 },
+          { "propertyId": 12103, "key": "atk", "value": 38, "rolls": 1 },
+          { "propertyId": 11102, "key": "hpPct", "value": 6, "rolls": 1 },
+          { "propertyId": 31203, "key": "anomalyProficiency", "value": 18, "rolls": 1 }
+        ]
+      },
+      {
+        "id": "31800:6",
+        "setId": "31800",
+        "slot": 6,
+        "level": 15,
+        "rarity": 4,
+        "mainStats": [{ "propertyId": 31402, "key": "anomalyMasteryPct", "value": 30 }],
+        "subStats": [
+          { "propertyId": 12102, "key": "atkPct", "value": 6, "rolls": 1 },
+          { "propertyId": 31203, "key": "anomalyProficiency", "value": 45, "rolls": 4 },
+          { "propertyId": 21103, "key": "critDmg", "value": 4.8 },
+          { "propertyId": 11103, "key": "hp", "value": 112 }
+        ]
+      }
+    ],
+    "warnings": ["该配置根据用户提供的参考面板截图建立，等待在线 UID 响应复核物品 UID。"]
+  },
+  "staticData": {
+    "characters": {
+      "1401": {
+        "id": "1401",
+        "name": "爱丽丝",
+        "baseStats": {
+          "hp": 7673.7,
+          "atk": 880.7,
+          "def": 606.6,
+          "impact": 86,
+          "critRate": 5,
+          "critDmg": 50,
+          "anomalyMastery": 142,
+          "anomalyProficiency": 118,
+          "penRate": 0,
+          "penFlat": 0,
+          "energyRegen": 1.2,
+          "physicalDmgBonus": 0,
+          "fireDmgBonus": 0,
+          "iceDmgBonus": 0,
+          "electricDmgBonus": 0,
+          "etherDmgBonus": 0
+        }
+      }
+    },
+    "weapons": {
+      "14140": {
+        "id": "14140",
+        "name": "十方锻星",
+        "baseAtk": 713.76,
+        "secondaryModifiers": [
+          { "sourceId": "weapon:14140:secondary", "label": "十方锻星副属性", "stat": "atkPct", "value": 30 }
+        ]
+      }
+    },
+    "driveDiscSets": {
+      "31800": {
+        "id": "31800",
+        "name": "混沌爵士",
+        "twoPieceModifiers": [
+          { "sourceId": "set:31800:2pc", "label": "混沌爵士 2 件套", "stat": "anomalyProficiency", "value": 30 }
+        ]
+      },
+      "32600": {
+        "id": "32600",
+        "name": "獠牙重金属",
+        "twoPieceModifiers": [
+          { "sourceId": "set:32600:2pc", "label": "獠牙重金属 2 件套", "stat": "physicalDmgBonus", "value": 10 }
+        ]
+      }
+    }
+  },
+  "panelInput": {
+    "character": {
+      "hp": 7673.7,
+      "atk": 880.7,
+      "def": 606.6,
+      "impact": 86,
+      "critRate": 5,
+      "critDmg": 50,
+      "anomalyMastery": 142,
+      "anomalyProficiency": 118,
+      "penRate": 0,
+      "penFlat": 0,
+      "energyRegen": 1.2,
+      "physicalDmgBonus": 0,
+      "fireDmgBonus": 0,
+      "iceDmgBonus": 0,
+      "electricDmgBonus": 0,
+      "etherDmgBonus": 0
+    },
+    "weaponBaseAtk": 713.76,
+    "modifiers": [
+      { "sourceId": "weapon:14140:secondary", "label": "十方锻星副属性", "stat": "atkPct", "value": 30 },
+      { "sourceId": "disc:1:main", "label": "驱动盘 1 主词条", "stat": "hp", "value": 2200 },
+      { "sourceId": "disc:2:main", "label": "驱动盘 2 主词条", "stat": "atk", "value": 316 },
+      { "sourceId": "disc:3:main", "label": "驱动盘 3 主词条", "stat": "def", "value": 184 },
+      { "sourceId": "disc:4:main", "label": "驱动盘 4 主词条", "stat": "anomalyProficiency", "value": 92 },
+      { "sourceId": "disc:5:main", "label": "驱动盘 5 主词条", "stat": "physicalDmgBonus", "value": 30 },
+      { "sourceId": "disc:6:main", "label": "驱动盘 6 主词条", "stat": "anomalyMasteryPct", "value": 30 },
+
+      { "sourceId": "disc:1:sub:ap", "label": "驱动盘 1 异常精通", "stat": "anomalyProficiency", "value": 45 },
+      { "sourceId": "disc:1:sub:atk", "label": "驱动盘 1 固定攻击", "stat": "atk", "value": 19 },
+      { "sourceId": "disc:1:sub:defpct", "label": "驱动盘 1 防御百分比", "stat": "defPct", "value": 9.6 },
+      { "sourceId": "disc:1:sub:hpct", "label": "驱动盘 1 生命百分比", "stat": "hpPct", "value": 3 },
+
+      { "sourceId": "disc:2:sub:pen", "label": "驱动盘 2 穿透值", "stat": "penFlat", "value": 9 },
+      { "sourceId": "disc:2:sub:ap", "label": "驱动盘 2 异常精通", "stat": "anomalyProficiency", "value": 27 },
+      { "sourceId": "disc:2:sub:atkpct", "label": "驱动盘 2 攻击百分比", "stat": "atkPct", "value": 9 },
+      { "sourceId": "disc:2:sub:def", "label": "驱动盘 2 固定防御", "stat": "def", "value": 15 },
+
+      { "sourceId": "disc:3:sub:ap", "label": "驱动盘 3 异常精通", "stat": "anomalyProficiency", "value": 36 },
+      { "sourceId": "disc:3:sub:crit", "label": "驱动盘 3 暴击率", "stat": "critRate", "value": 2.4 },
+      { "sourceId": "disc:3:sub:atkpct", "label": "驱动盘 3 攻击百分比", "stat": "atkPct", "value": 6 },
+      { "sourceId": "disc:3:sub:defpct", "label": "驱动盘 3 防御百分比", "stat": "defPct", "value": 9.6 },
+
+      { "sourceId": "disc:4:sub:hppct", "label": "驱动盘 4 生命百分比", "stat": "hpPct", "value": 3 },
+      { "sourceId": "disc:4:sub:atk", "label": "驱动盘 4 固定攻击", "stat": "atk", "value": 38 },
+      { "sourceId": "disc:4:sub:pen", "label": "驱动盘 4 穿透值", "stat": "penFlat", "value": 27 },
+      { "sourceId": "disc:4:sub:atkpct", "label": "驱动盘 4 攻击百分比", "stat": "atkPct", "value": 9 },
+
+      { "sourceId": "disc:5:sub:atkpct", "label": "驱动盘 5 攻击百分比", "stat": "atkPct", "value": 9 },
+      { "sourceId": "disc:5:sub:atk", "label": "驱动盘 5 固定攻击", "stat": "atk", "value": 38 },
+      { "sourceId": "disc:5:sub:hppct", "label": "驱动盘 5 生命百分比", "stat": "hpPct", "value": 6 },
+      { "sourceId": "disc:5:sub:ap", "label": "驱动盘 5 异常精通", "stat": "anomalyProficiency", "value": 18 },
+
+      { "sourceId": "disc:6:sub:atkpct", "label": "驱动盘 6 攻击百分比", "stat": "atkPct", "value": 6 },
+      { "sourceId": "disc:6:sub:ap", "label": "驱动盘 6 异常精通", "stat": "anomalyProficiency", "value": 45 },
+      { "sourceId": "disc:6:sub:critdmg", "label": "驱动盘 6 暴击伤害", "stat": "critDmg", "value": 4.8 },
+      { "sourceId": "disc:6:sub:hp", "label": "驱动盘 6 固定生命", "stat": "hp", "value": 112 },
+
+      { "sourceId": "set:31800:2pc", "label": "混沌爵士 2 件套", "stat": "anomalyProficiency", "value": 30 },
+      { "sourceId": "set:32600:2pc", "label": "獠牙重金属 2 件套", "stat": "physicalDmgBonus", "value": 10 }
+    ]
+  },
+  "expected": {
+    "hp": 10906,
+    "atk": 3103,
+    "def": 921,
+    "impact": 86,
+    "critRate": 7.4,
+    "critDmg": 54.8,
+    "anomalyMastery": 184,
+    "anomalyProficiency": 411,
+    "penRate": 0,
+    "penFlat": 36,
+    "energyRegen": 1.2,
+    "physicalDmgBonus": 40,
+    "fireDmgBonus": 0,
+    "iceDmgBonus": 0,
+    "electricDmgBonus": 0,
+    "etherDmgBonus": 0
+  }
+}
