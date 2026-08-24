@@ -4,6 +4,15 @@ dist/
 coverage/
 .DS_Store
 
+# Python development environment and test artifacts.
+.venv/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+*.py[cod]
+*.egg-info/
+
 # Generated or downloaded artifacts. Recreate them with the repository scripts.
 asset/
 archive/
