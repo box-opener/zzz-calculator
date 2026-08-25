@@ -1,6 +1,10 @@
 from .anomaly import apply_anomaly_buildup, build_anomaly_record
 from .base import DamageCalculator
-from .calculators import DirectDamageCalculator, InvalidCalculationContextError
+from .calculators import (
+    AttributeAnomalyDamageCalculator,
+    DirectDamageCalculator,
+    InvalidCalculationContextError,
+)
 from .nodes import (
     CALCULATION_NODE_DEFINITIONS,
     CalculationNode,
@@ -12,6 +16,7 @@ from .nodes import (
     NodeUnit,
 )
 from .regions import (
+    AnomalyCritRegionInput,
     BroadVulnerabilityRegionInput,
     CritRegionInput,
     DefenseRegionInput,
@@ -19,6 +24,7 @@ from .regions import (
     ResistanceRegionInput,
     SpecialIndependentRegionInput,
     calculate_broad_vulnerability_region,
+    calculate_anomaly_crit_region,
     calculate_crit_region,
     calculate_defense_region,
     calculate_normal_damage_bonus_region,
@@ -39,6 +45,8 @@ __all__ = [
     "ModifierAggregation",
     "ModifierContribution",
     "DamageCalculator",
+    "AnomalyCritRegionInput",
+    "AttributeAnomalyDamageCalculator",
     "DirectDamageCalculator",
     "InvalidCalculationContextError",
     "BroadVulnerabilityRegionInput",
@@ -48,6 +56,7 @@ __all__ = [
     "ResistanceRegionInput",
     "SpecialIndependentRegionInput",
     "calculate_broad_vulnerability_region",
+    "calculate_anomaly_crit_region",
     "calculate_crit_region",
     "calculate_defense_region",
     "calculate_normal_damage_bonus_region",

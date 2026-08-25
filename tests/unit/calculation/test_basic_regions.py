@@ -3,6 +3,7 @@ from dataclasses import FrozenInstanceError, fields
 import pytest
 
 from core.calculation import (
+    AnomalyCritRegionInput,
     BroadVulnerabilityRegionInput,
     CalculationResult,
     CritRegionInput,
@@ -11,6 +12,7 @@ from core.calculation import (
     ResistanceRegionInput,
     SpecialIndependentRegionInput,
     calculate_broad_vulnerability_region,
+    calculate_anomaly_crit_region,
     calculate_crit_region,
     calculate_defense_region,
     calculate_normal_damage_bonus_region,
@@ -130,6 +132,16 @@ def test_crit_region_returns_expected_value_multiplier() -> None:
 
     assert result.value == 1.5
     assert breakdown[CalculationNode.DAMAGE_STANDARD_CRIT_REGION] == 1.5
+
+
+def test_anomaly_crit_region_does_not_emit_ordinary_crit_nodes() -> None:
+    result = calculate_anomaly_crit_region(
+        AnomalyCritRegionInput(crit_rate=1.0, crit_damage=0.5)
+    )
+    breakdown = _breakdown(result)
+
+    assert result.value == 1.5
+    assert breakdown == {CalculationNode.ANOMALY_CRIT_REGION: 1.5}
 
 
 def test_normal_damage_bonus_region_adds_all_three_bonus_sources() -> None:

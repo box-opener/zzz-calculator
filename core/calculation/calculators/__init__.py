@@ -1,3 +1,9 @@
-from .direct import DirectDamageCalculator, InvalidCalculationContextError
+from .attribute_anomaly import AttributeAnomalyDamageCalculator
+from .direct import DirectDamageCalculator
+from .errors import InvalidCalculationContextError
 
-__all__ = ["DirectDamageCalculator", "InvalidCalculationContextError"]
+__all__ = [
+    "AttributeAnomalyDamageCalculator",
+    "DirectDamageCalculator",
+    "InvalidCalculationContextError",
+]

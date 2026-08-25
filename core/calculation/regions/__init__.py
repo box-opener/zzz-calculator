@@ -1,4 +1,9 @@
-from .crit import CritRegionInput, calculate_crit_region
+from .crit import (
+    AnomalyCritRegionInput,
+    CritRegionInput,
+    calculate_anomaly_crit_region,
+    calculate_crit_region,
+)
 from .damage_bonus import (
     NormalDamageBonusRegionInput,
     calculate_normal_damage_bonus_region,
@@ -20,12 +25,14 @@ from .vulnerability import (
 
 __all__ = [
     "BroadVulnerabilityRegionInput",
+    "AnomalyCritRegionInput",
     "CritRegionInput",
     "DefenseRegionInput",
     "NormalDamageBonusRegionInput",
     "ResistanceRegionInput",
     "SpecialIndependentRegionInput",
     "calculate_broad_vulnerability_region",
+    "calculate_anomaly_crit_region",
     "calculate_crit_region",
     "calculate_defense_region",
     "calculate_normal_damage_bonus_region",
