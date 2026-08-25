@@ -35,6 +35,8 @@ from core.types import (
     EnemyId,
     EnemySnapshot,
     FixedMultiplier,
+    IndependentAnomalyCrit,
+    IndependentAnomalyCritRule,
     Modifier,
     NoAnomalyCrit,
     PenetrationDamageEvent,
@@ -494,6 +496,22 @@ def test_non_direct_event_is_rejected() -> None:
     context = _context(event, snapshots=(_snapshot(dealer),))
 
     with pytest.raises(InvalidCalculationContextError, match="DirectDamageEvent"):
+        DirectDamageCalculator().calculate(context)
+
+
+def test_direct_damage_rejects_independent_discharge_crit_rule() -> None:
+    dealer = CharacterId("character:direct-crit-boundary")
+    event = _direct_event(dealer)
+    invalid_event = replace(
+        event,
+        crit_rule=IndependentAnomalyCritRule(
+            dealer,
+            IndependentAnomalyCrit(Resolved(1.0), Resolved(0.5)),
+        ),  # type: ignore[arg-type]
+    )
+    context = _context(invalid_event, snapshots=(_snapshot(dealer),))
+
+    with pytest.raises(InvalidCalculationContextError, match="StandardCritRule"):
         DirectDamageCalculator().calculate(context)
 
 

@@ -15,6 +15,7 @@ from core.types import (
     EffectOperation,
     FixedMultiplier,
     IndependentAnomalyCrit,
+    IndependentAnomalyCritRule,
     Modifier,
     NoAnomalyCrit,
     NoCritRule,
@@ -173,6 +174,10 @@ def _anomaly_crit_values(
                 "NoCritRule contradicts anomaly record crit capability"
             )
         return 0.0, 0.0
+    if isinstance(rule, IndependentAnomalyCritRule):
+        raise InvalidCalculationContextError(
+            "attribute anomaly damage cannot use independent discharge crit rule"
+        )
     if rule.record_id != record.record_id:
         raise InvalidCalculationContextError(
             "crit rule record does not match anomaly history record"

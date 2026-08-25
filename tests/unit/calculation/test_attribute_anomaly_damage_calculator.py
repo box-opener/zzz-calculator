@@ -36,6 +36,7 @@ from core.types import (
     EnemySnapshot,
     FixedMultiplier,
     IndependentAnomalyCrit,
+    IndependentAnomalyCritRule,
     Modifier,
     NoAnomalyCrit,
     NoCritRule,
@@ -491,6 +492,26 @@ def test_non_attribute_anomaly_event_is_rejected() -> None:
     )
 
     with pytest.raises(InvalidCalculationContextError, match="AttributeAnomalyDamageEvent"):
+        AttributeAnomalyDamageCalculator().calculate(context)
+
+
+def test_attribute_anomaly_rejects_independent_discharge_crit_rule() -> None:
+    record = _record()
+    capability = IndependentAnomalyCrit(Resolved(1.0), Resolved(0.5))
+    event = _event(
+        record,
+        crit_rule=IndependentAnomalyCritRule(
+            record.anomaly_triggerer,
+            capability,
+        ),  # type: ignore[arg-type]
+    )
+    context = _context(
+        event,
+        snapshots=(_snapshot(event.metadata.damage_dealer),),
+        records=(record,),
+    )
+
+    with pytest.raises(InvalidCalculationContextError, match="independent discharge"):
         AttributeAnomalyDamageCalculator().calculate(context)
 
 

@@ -82,6 +82,7 @@ from .damage_event import (
     DischargeDamageEvent,
     DisorderDamageEvent,
     FixedMultiplier,
+    IndependentAnomalyCritRule,
     LuminanceDamageEvent,
     NoCritRule,
     PenetrationDamageEvent,

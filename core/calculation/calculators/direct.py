@@ -167,9 +167,13 @@ class DirectDamageCalculator:
                 event.crit_rule.stat_owner,
                 "crit stat owner",
             )
-        else:
+        elif isinstance(event.crit_rule, Unresolved):
             unresolved.append(event.crit_rule)
             crit_source = None
+        else:
+            raise InvalidCalculationContextError(
+                "direct damage only supports StandardCritRule"
+            )
 
         attack = _resolved_number(
             base_source.settlement_stats.attack,

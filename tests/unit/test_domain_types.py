@@ -47,6 +47,7 @@ from core.types import (
     FieldPosition,
     FixedMultiplier,
     IndependentAnomalyCrit,
+    IndependentAnomalyCritRule,
     ModifierEffect,
     ModifierResult,
     NoAnomalyCrit,
@@ -166,6 +167,19 @@ def test_dynamic_identity_cannot_be_used_as_an_effect_target() -> None:
     assert DynamicIdentity.DAMAGE_DEALER.value not in {item.value for item in EffectTarget}
     with pytest.raises(ValueError):
         EffectTarget(DynamicIdentity.DAMAGE_DEALER.value)
+
+
+def test_independent_anomaly_crit_rule_keeps_explicit_owner() -> None:
+    owner = CharacterId("character:discharge-crit-owner")
+    capability = IndependentAnomalyCrit(
+        crit_rate=Resolved(1.0),
+        crit_damage=Resolved(0.5),
+    )
+    rule = IndependentAnomalyCritRule(owner, capability)
+
+    assert rule.crit_owner == owner
+    assert rule.capability is capability
+    assert rule.kind == "independent-anomaly"
 
 
 def test_direct_damage_has_no_anomaly_subtype() -> None:

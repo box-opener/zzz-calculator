@@ -8,18 +8,28 @@ from core.calculation import (
     CalculationResult,
     CritRegionInput,
     DefenseRegionInput,
+    DischargeCritRegionInput,
+    DischargeDamageBonusRegionInput,
     DisorderDamageBonusRegionInput,
+    LuminanceAnomalyDamageBonusRegionInput,
     NormalDamageBonusRegionInput,
     ResistanceRegionInput,
     SpecialIndependentRegionInput,
+    TurbulenceCritRegionInput,
+    TurbulenceDamageBonusRegionInput,
     calculate_broad_vulnerability_region,
     calculate_anomaly_crit_region,
     calculate_crit_region,
     calculate_defense_region,
+    calculate_discharge_crit_region,
+    calculate_discharge_damage_bonus_region,
     calculate_disorder_damage_bonus_region,
     calculate_normal_damage_bonus_region,
+    calculate_luminance_anomaly_damage_bonus_region,
     calculate_resistance_region,
     calculate_special_independent_region,
+    calculate_turbulence_crit_region,
+    calculate_turbulence_damage_bonus_region,
     defense_level_coefficient,
 )
 from core.types import (
@@ -172,6 +182,45 @@ def test_disorder_bonus_region_defaults_to_one() -> None:
     )
 
     assert result.value == 1.0
+
+
+def test_historical_anomaly_subtype_bonus_regions_use_distinct_nodes() -> None:
+    discharge = calculate_discharge_damage_bonus_region(
+        DischargeDamageBonusRegionInput(0.1)
+    )
+    turbulence = calculate_turbulence_damage_bonus_region(
+        TurbulenceDamageBonusRegionInput(0.2)
+    )
+    luminance = calculate_luminance_anomaly_damage_bonus_region(
+        LuminanceAnomalyDamageBonusRegionInput(0.3)
+    )
+
+    assert _breakdown(discharge) == {
+        CalculationNode.DISCHARGE_DAMAGE_BONUS: 0.1,
+        CalculationNode.DISCHARGE_DAMAGE_BONUS_REGION: 1.1,
+    }
+    assert _breakdown(turbulence) == {
+        CalculationNode.TURBULENCE_DAMAGE_BONUS: 0.2,
+        CalculationNode.TURBULENCE_DAMAGE_BONUS_REGION: 1.2,
+    }
+    assert _breakdown(luminance) == {
+        CalculationNode.LUMINANCE_ANOMALY_DAMAGE_BONUS: 0.3,
+        CalculationNode.LUMINANCE_ANOMALY_DAMAGE_BONUS_REGION: 1.3,
+    }
+
+
+def test_discharge_and_turbulence_crit_regions_use_distinct_nodes() -> None:
+    discharge = calculate_discharge_crit_region(
+        DischargeCritRegionInput(1.0, 0.5)
+    )
+    turbulence = calculate_turbulence_crit_region(
+        TurbulenceCritRegionInput(1.0, 0.5)
+    )
+
+    assert _breakdown(discharge) == {CalculationNode.DISCHARGE_CRIT_REGION: 1.5}
+    assert _breakdown(turbulence) == {
+        CalculationNode.TURBULENCE_CRIT_REGION: 1.5
+    }
 
 
 def test_normal_damage_bonus_region_adds_all_three_bonus_sources() -> None:

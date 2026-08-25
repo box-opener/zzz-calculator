@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal, TypeAlias
 
-from .anomaly_record import AnomalyCritCapability
+from .anomaly_record import AnomalyCritCapability, IndependentAnomalyCrit
 from .calculation_node import CalculationNode
 from .common import (
     AnomalyRecordId,
@@ -93,7 +93,22 @@ class RecordedAnomalyCritRule:
     kind: Literal["recorded-anomaly"] = field(default="recorded-anomaly", init=False)
 
 
-CritRule: TypeAlias = StandardCritRule | NoCritRule | RecordedAnomalyCritRule | Unresolved
+@dataclass(frozen=True, slots=True)
+class IndependentAnomalyCritRule:
+    crit_owner: CharacterId
+    capability: IndependentAnomalyCrit
+    kind: Literal["independent-anomaly"] = field(
+        default="independent-anomaly", init=False
+    )
+
+
+CritRule: TypeAlias = (
+    StandardCritRule
+    | NoCritRule
+    | RecordedAnomalyCritRule
+    | IndependentAnomalyCritRule
+    | Unresolved
+)
 
 
 def _validate_damage_record_source(
@@ -104,8 +119,13 @@ def _validate_damage_record_source(
         raise ValueError(
             "base settlement and history record identities must be explicit and consistent"
         )
-    if source.value_field is not AnomalyRecordValueField.WEIGHTED_ANOMALY_EFFECT_STRENGTH:
-        raise ValueError("damage events read weighted anomaly effect strength, not impact strength")
+    if (
+        source.value_field
+        is not AnomalyRecordValueField.WEIGHTED_ANOMALY_EFFECT_STRENGTH
+    ):
+        raise ValueError(
+            "damage events read weighted anomaly effect strength, not impact strength"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,7 +178,12 @@ class DischargeDamageEvent:
     base_settlement_data_source: AnomalyRecordValueSource
     history_record_source: AnomalyRecordId
     multiplier: DamageMultiplier
-    crit_rule: RecordedAnomalyCritRule | NoCritRule | Unresolved
+    crit_rule: (
+        RecordedAnomalyCritRule
+        | IndependentAnomalyCritRule
+        | NoCritRule
+        | Unresolved
+    )
     damage_type: Literal[DamageType.ANOMALY] = field(default=DamageType.ANOMALY, init=False)
     damage_subtype: Literal[DamageSubtype.DISCHARGE] = field(
         default=DamageSubtype.DISCHARGE, init=False
