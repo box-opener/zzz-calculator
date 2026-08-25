@@ -9,6 +9,21 @@ from .nodes import (
     NodeKind,
     NodeUnit,
 )
+from .regions import (
+    BroadVulnerabilityRegionInput,
+    CritRegionInput,
+    DefenseRegionInput,
+    NormalDamageBonusRegionInput,
+    ResistanceRegionInput,
+    SpecialIndependentRegionInput,
+    calculate_broad_vulnerability_region,
+    calculate_crit_region,
+    calculate_defense_region,
+    calculate_normal_damage_bonus_region,
+    calculate_resistance_region,
+    calculate_special_independent_region,
+    defense_level_coefficient,
+)
 from .result import CalculationResult
 
 __all__ = [
@@ -20,6 +35,19 @@ __all__ = [
     "ModifierAggregation",
     "ModifierContribution",
     "DamageCalculator",
+    "BroadVulnerabilityRegionInput",
+    "CritRegionInput",
+    "DefenseRegionInput",
+    "NormalDamageBonusRegionInput",
+    "ResistanceRegionInput",
+    "SpecialIndependentRegionInput",
+    "calculate_broad_vulnerability_region",
+    "calculate_crit_region",
+    "calculate_defense_region",
+    "calculate_normal_damage_bonus_region",
+    "calculate_resistance_region",
+    "calculate_special_independent_region",
+    "defense_level_coefficient",
     "NodeKind",
     "NodeUnit",
 ]
