@@ -7,6 +7,7 @@ import pytest
 
 from core.calculation import apply_anomaly_buildup, build_anomaly_record
 from core.types import (
+    AnomalyBuildupApplicationContext,
     AnomalyBuildupEvent,
     AnomalyContribution,
     AnomalyGauge,
@@ -37,8 +38,6 @@ def _event(
     contributor: CharacterId | None = None,
     element: Element = Element.FIRE,
     target_enemy: EnemyId | None = None,
-    anomaly_effect_strength: float | Unresolved = 1000.0,
-    impact_strength: float | Unresolved = 100.0,
     occurred_at: float = 1.0,
 ) -> AnomalyBuildupEvent:
     return AnomalyBuildupEvent(
@@ -51,6 +50,27 @@ def _event(
         target_enemy=target_enemy or EnemyId("enemy:target"),
         element=element,
         calculated_buildup=_value(buildup),
+    )
+
+
+def _application(
+    buildup: float | Unresolved,
+    *,
+    contributor: CharacterId | None = None,
+    element: Element = Element.FIRE,
+    target_enemy: EnemyId | None = None,
+    anomaly_effect_strength: float | Unresolved = 1000.0,
+    impact_strength: float | Unresolved = 100.0,
+    occurred_at: float = 1.0,
+) -> AnomalyBuildupApplicationContext:
+    return AnomalyBuildupApplicationContext(
+        event=_event(
+            buildup,
+            contributor=contributor,
+            element=element,
+            target_enemy=target_enemy,
+            occurred_at=occurred_at,
+        ),
         anomaly_effect_strength=_value(anomaly_effect_strength),
         impact_strength=_value(impact_strength),
     )
@@ -85,7 +105,7 @@ def test_partial_buildup_writes_contribution_without_triggering_record() -> None
     gauge = _gauge()
     application = apply_anomaly_buildup(
         gauge,
-        _event(40.0),
+        _application(40.0),
         _trigger_snapshot(),
     )
 
@@ -101,12 +121,12 @@ def test_partial_buildup_writes_contribution_without_triggering_record() -> None
 def test_exact_fill_creates_record_and_resets_gauge() -> None:
     first = apply_anomaly_buildup(
         _gauge(),
-        _event(40.0),
+        _application(40.0),
         _trigger_snapshot(),
     )
     second = apply_anomaly_buildup(
         first.gauge_after,
-        _event(60.0, occurred_at=2.0),
+        _application(60.0, occurred_at=2.0),
         _trigger_snapshot(),
     )
 
@@ -121,12 +141,12 @@ def test_exact_fill_creates_record_and_resets_gauge() -> None:
 def test_overflow_is_clipped_and_not_carried_to_next_gauge() -> None:
     first = apply_anomaly_buildup(
         _gauge(),
-        _event(90.0, anomaly_effect_strength=1000.0),
+        _application(90.0, anomaly_effect_strength=1000.0),
         _trigger_snapshot(),
     )
     second = apply_anomaly_buildup(
         first.gauge_after,
-        _event(
+        _application(
             50.0,
             anomaly_effect_strength=2000.0,
             occurred_at=2.0,
@@ -143,12 +163,29 @@ def test_overflow_is_clipped_and_not_carried_to_next_gauge() -> None:
     assert second.triggered_record.weighted_anomaly_effect_strength == Resolved(1100.0)
 
 
+def test_theoretical_50_writes_20_and_discards_30_when_gauge_is_at_80() -> None:
+    first = apply_anomaly_buildup(
+        _gauge(),
+        _application(80.0),
+        _trigger_snapshot(),
+    )
+    second = apply_anomaly_buildup(
+        first.gauge_after,
+        _application(50.0, occurred_at=2.0),
+        _trigger_snapshot(),
+    )
+
+    assert second.contribution is not None
+    assert second.contribution.actual_written_buildup == 20.0
+    assert second.discarded_buildup == 30.0
+
+
 def test_record_weights_effect_and_impact_by_actual_written_buildup() -> None:
     character_a = CharacterId("character:a")
     character_b = CharacterId("character:b")
     first = apply_anomaly_buildup(
         _gauge(),
-        _event(
+        _application(
             30.0,
             contributor=character_a,
             anomaly_effect_strength=1000.0,
@@ -158,7 +195,7 @@ def test_record_weights_effect_and_impact_by_actual_written_buildup() -> None:
     )
     second = apply_anomaly_buildup(
         first.gauge_after,
-        _event(
+        _application(
             70.0,
             contributor=character_b,
             anomaly_effect_strength=2000.0,
@@ -184,7 +221,7 @@ def test_same_character_can_contribute_at_multiple_snapshot_strengths() -> None:
     contributor = CharacterId("character:changing-state")
     first = apply_anomaly_buildup(
         _gauge(),
-        _event(
+        _application(
             50.0,
             contributor=contributor,
             anomaly_effect_strength=1000.0,
@@ -194,7 +231,7 @@ def test_same_character_can_contribute_at_multiple_snapshot_strengths() -> None:
     )
     second = apply_anomaly_buildup(
         first.gauge_after,
-        _event(
+        _application(
             50.0,
             contributor=contributor,
             anomaly_effect_strength=2000.0,
@@ -217,7 +254,7 @@ def test_record_uses_trigger_snapshot_and_final_event_identity() -> None:
     trigger_snapshot = _trigger_snapshot(record_id="anomaly:snapshot-record")
     application = apply_anomaly_buildup(
         _gauge(element=Element.ICE),
-        _event(
+        _application(
             100.0,
             contributor=triggerer,
             element=Element.ICE,
@@ -243,7 +280,7 @@ def test_zero_buildup_does_not_create_contribution() -> None:
     gauge = _gauge()
     application = apply_anomaly_buildup(
         gauge,
-        _event(0.0),
+        _application(0.0),
         _trigger_snapshot(),
     )
 
@@ -260,7 +297,7 @@ def test_unresolved_buildup_does_not_mutate_gauge() -> None:
     )
     application = apply_anomaly_buildup(
         gauge,
-        _event(unresolved),
+        _application(unresolved),
         _trigger_snapshot(),
     )
 
@@ -277,12 +314,12 @@ def test_unresolved_strength_is_preserved_in_completed_record() -> None:
     )
     first = apply_anomaly_buildup(
         _gauge(),
-        _event(50.0),
+        _application(50.0),
         _trigger_snapshot(),
     )
     second = apply_anomaly_buildup(
         first.gauge_after,
-        _event(
+        _application(
             50.0,
             anomaly_effect_strength=unresolved,
             impact_strength=200.0,
@@ -301,13 +338,13 @@ def test_event_target_and_element_must_match_gauge() -> None:
     with pytest.raises(ValueError, match="target"):
         apply_anomaly_buildup(
             _gauge(),
-            _event(10.0, target_enemy=EnemyId("enemy:other")),
+            _application(10.0, target_enemy=EnemyId("enemy:other")),
             _trigger_snapshot(),
         )
     with pytest.raises(ValueError, match="element"):
         apply_anomaly_buildup(
             _gauge(),
-            _event(10.0, element=Element.ICE),
+            _application(10.0, element=Element.ICE),
             _trigger_snapshot(),
         )
 
@@ -359,12 +396,13 @@ def test_current_buildup_must_equal_contribution_total() -> None:
 
 
 def test_record_builder_rejects_incomplete_contribution_history() -> None:
-    event = _event(10.0)
+    application_context = _application(10.0)
+    event = application_context.event
     contribution = AnomalyContribution(
         contributor=event.contributor,
         actual_written_buildup=10.0,
-        anomaly_effect_strength=event.anomaly_effect_strength,
-        impact_strength=event.impact_strength,
+        anomaly_effect_strength=application_context.anomaly_effect_strength,
+        impact_strength=application_context.impact_strength,
         occurred_at=event.metadata.occurred_at,
     )
 
@@ -387,9 +425,10 @@ def test_resolved_event_buildup_must_be_finite_and_non_negative(
 
 def test_gauge_and_application_are_frozen() -> None:
     gauge = _gauge()
+    application_context = _application(10.0)
     application = apply_anomaly_buildup(
         gauge,
-        _event(10.0),
+        application_context,
         _trigger_snapshot(),
     )
 
@@ -397,6 +436,8 @@ def test_gauge_and_application_are_frozen() -> None:
         gauge.current_buildup = 10.0  # type: ignore[misc]
     with pytest.raises(FrozenInstanceError):
         application.discarded_buildup = 1.0  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        application_context.impact_strength = Resolved(1.0)  # type: ignore[misc]
 
 
 def test_anomaly_gauge_modules_do_not_cross_future_boundaries() -> None:

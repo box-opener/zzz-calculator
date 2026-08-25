@@ -51,8 +51,6 @@ class AnomalyBuildupEvent:
     target_enemy: EnemyId
     element: Element
     calculated_buildup: Resolvable[float]
-    anomaly_effect_strength: Resolvable[float]
-    impact_strength: Resolvable[float]
     kind: Literal["anomaly-buildup"] = field(
         default="anomaly-buildup", init=False
     )

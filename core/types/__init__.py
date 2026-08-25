@@ -8,6 +8,7 @@ from .anomaly_record import (
     NoAnomalyCrit,
 )
 from .anomaly_gauge import (
+    AnomalyBuildupApplicationContext,
     AnomalyGauge,
     AnomalyGaugeApplication,
     AnomalyTriggerSnapshot,

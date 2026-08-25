@@ -10,6 +10,7 @@ from .anomaly_record import (
     AnomalyCritCapability,
     AnomalyRecord,
 )
+from .battle_event import AnomalyBuildupEvent
 from .common import (
     AnomalyRecordId,
     EnemyId,
@@ -61,6 +62,13 @@ class AnomalyTriggerSnapshot:
     anomaly_damage_bonus_region: Resolvable[Multiplier]
     crit_capability: AnomalyCritCapability
     duration: Resolvable[Seconds]
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyBuildupApplicationContext:
+    event: AnomalyBuildupEvent
+    anomaly_effect_strength: Resolvable[float]
+    impact_strength: Resolvable[float]
 
 
 @dataclass(frozen=True, slots=True)

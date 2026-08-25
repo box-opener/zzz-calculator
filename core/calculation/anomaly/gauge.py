@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from core.types import (
-    AnomalyBuildupEvent,
+    AnomalyBuildupApplicationContext,
     AnomalyContribution,
     AnomalyGauge,
     AnomalyGaugeApplication,
@@ -18,9 +18,10 @@ from .record import build_anomaly_record
 
 def apply_anomaly_buildup(
     gauge: AnomalyGauge,
-    event: AnomalyBuildupEvent,
+    application_context: AnomalyBuildupApplicationContext,
     trigger_snapshot: AnomalyTriggerSnapshot,
 ) -> AnomalyGaugeApplication:
+    event = application_context.event
     if event.target_enemy != gauge.target_enemy:
         raise ValueError("anomaly buildup target does not match gauge target")
     if event.element != gauge.element:
@@ -53,8 +54,8 @@ def apply_anomaly_buildup(
     contribution = AnomalyContribution(
         contributor=event.contributor,
         actual_written_buildup=actual_written,
-        anomaly_effect_strength=event.anomaly_effect_strength,
-        impact_strength=event.impact_strength,
+        anomaly_effect_strength=application_context.anomaly_effect_strength,
+        impact_strength=application_context.impact_strength,
         occurred_at=event.metadata.occurred_at,
     )
     contributions = (*gauge.contributions, contribution)
