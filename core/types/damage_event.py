@@ -6,9 +6,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal, TypeAlias
 
-from core.calculation.nodes import CalculationNode
-
 from .anomaly_record import AnomalyCritCapability
+from .calculation_node import CalculationNode
 from .common import (
     AnomalyRecordId,
     BattleStateId,

@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
-from core.calculation.nodes import CalculationNode
-
+from .calculation_node import CalculationNode
 from .common import (
     CharacterId,
     EffectId,
@@ -177,6 +176,8 @@ EffectFilter: TypeAlias = AtomicFilter | AnyFilter | NotFilter
 
 @dataclass(frozen=True, slots=True)
 class EffectRule:
+    """All top-level filters are combined with AND; OR and NOT are explicit."""
+
     effect_id: EffectId
     source: RuleSource
     owner: CharacterId | None

@@ -89,5 +89,12 @@ class AnomalyRecord:
         if self.anomaly_triggerer not in self.contributors:
             raise ValueError("the anomaly triggerer is also an anomaly contributor")
         contribution_ids = {item.contributor for item in self.contributions}
-        if contribution_ids and not contribution_ids.issubset(set(self.contributors)):
-            raise ValueError("contribution identities must be present in contributors")
+        if self.contributions:
+            if self.anomaly_triggerer not in contribution_ids:
+                raise ValueError(
+                    "the anomaly triggerer must have a detailed contribution"
+                )
+            if contribution_ids != set(self.contributors):
+                raise ValueError(
+                    "detailed contribution identities must exactly match contributors"
+                )

@@ -8,6 +8,7 @@ from .anomaly_record import (
     NoAnomalyCrit,
 )
 from .battle_state import BattleState, CharacterCombatState, EnemyCombatState
+from .calculation_node import CalculationNode
 from .character import Character, CharacterPanelLayers, CharacterStats
 from .common import (
     AnomalyRecordId,

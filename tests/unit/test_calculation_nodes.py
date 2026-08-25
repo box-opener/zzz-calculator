@@ -10,6 +10,7 @@ from core.calculation import (
 )
 from core.types import (
     BattleStateId,
+    CalculationNode as DomainCalculationNode,
     DamageEventId,
     EffectId,
     EffectOperation,
@@ -19,6 +20,7 @@ from core.types import (
 
 
 def test_every_calculation_node_has_metadata() -> None:
+    assert CalculationNode is DomainCalculationNode
     assert set(CALCULATION_NODE_DEFINITIONS) == set(CalculationNode)
 
 
