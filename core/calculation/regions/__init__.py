@@ -13,6 +13,10 @@ from .defense import (
     calculate_defense_region,
     defense_level_coefficient,
 )
+from .disorder import (
+    DisorderDamageBonusRegionInput,
+    calculate_disorder_damage_bonus_region,
+)
 from .resistance import ResistanceRegionInput, calculate_resistance_region
 from .special_independent import (
     SpecialIndependentRegionInput,
@@ -28,6 +32,7 @@ __all__ = [
     "AnomalyCritRegionInput",
     "CritRegionInput",
     "DefenseRegionInput",
+    "DisorderDamageBonusRegionInput",
     "NormalDamageBonusRegionInput",
     "ResistanceRegionInput",
     "SpecialIndependentRegionInput",
@@ -35,6 +40,7 @@ __all__ = [
     "calculate_anomaly_crit_region",
     "calculate_crit_region",
     "calculate_defense_region",
+    "calculate_disorder_damage_bonus_region",
     "calculate_normal_damage_bonus_region",
     "calculate_resistance_region",
     "calculate_special_independent_region",

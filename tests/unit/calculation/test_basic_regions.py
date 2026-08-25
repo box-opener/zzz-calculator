@@ -8,6 +8,7 @@ from core.calculation import (
     CalculationResult,
     CritRegionInput,
     DefenseRegionInput,
+    DisorderDamageBonusRegionInput,
     NormalDamageBonusRegionInput,
     ResistanceRegionInput,
     SpecialIndependentRegionInput,
@@ -15,6 +16,7 @@ from core.calculation import (
     calculate_anomaly_crit_region,
     calculate_crit_region,
     calculate_defense_region,
+    calculate_disorder_damage_bonus_region,
     calculate_normal_damage_bonus_region,
     calculate_resistance_region,
     calculate_special_independent_region,
@@ -142,6 +144,34 @@ def test_anomaly_crit_region_does_not_emit_ordinary_crit_nodes() -> None:
 
     assert result.value == 1.5
     assert breakdown == {CalculationNode.ANOMALY_CRIT_REGION: 1.5}
+
+
+def test_disorder_bonus_region_keeps_two_identity_sources_separate() -> None:
+    result = calculate_disorder_damage_bonus_region(
+        DisorderDamageBonusRegionInput(
+            trigger_damage_bonus=0.2,
+            settled_contributor_damage_bonus=0.15,
+        )
+    )
+    breakdown = _breakdown(result)
+
+    assert result.value == pytest.approx(1.35)
+    assert breakdown[CalculationNode.DISORDER_TRIGGER_DAMAGE_BONUS] == 0.2
+    assert (
+        breakdown[CalculationNode.DISORDER_SETTLED_CONTRIBUTOR_DAMAGE_BONUS]
+        == 0.15
+    )
+    assert breakdown[CalculationNode.DISORDER_DAMAGE_BONUS_REGION] == pytest.approx(
+        1.35
+    )
+
+
+def test_disorder_bonus_region_defaults_to_one() -> None:
+    result = calculate_disorder_damage_bonus_region(
+        DisorderDamageBonusRegionInput()
+    )
+
+    assert result.value == 1.0
 
 
 def test_normal_damage_bonus_region_adds_all_three_bonus_sources() -> None:
