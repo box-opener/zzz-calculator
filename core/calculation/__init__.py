@@ -1,4 +1,5 @@
 from .base import DamageCalculator
+from .calculators import DirectDamageCalculator, InvalidCalculationContextError
 from .nodes import (
     CALCULATION_NODE_DEFINITIONS,
     CalculationNode,
@@ -35,6 +36,8 @@ __all__ = [
     "ModifierAggregation",
     "ModifierContribution",
     "DamageCalculator",
+    "DirectDamageCalculator",
+    "InvalidCalculationContextError",
     "BroadVulnerabilityRegionInput",
     "CritRegionInput",
     "DefenseRegionInput",
