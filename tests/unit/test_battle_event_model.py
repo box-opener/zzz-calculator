@@ -96,6 +96,8 @@ def _buildup_outcome(
         target_enemy=EnemyId("enemy:target"),
         element=Element.FIRE,
         calculated_buildup=Resolved(50.0),
+        anomaly_effect_strength=Resolved(1000.0),
+        impact_strength=Resolved(100.0),
     )
     return AnomalyBuildupOutcome(
         outcome_id=BattleOutcomeId(outcome_id),
@@ -161,6 +163,8 @@ def test_buildup_outcome_precedes_actual_contribution_generation() -> None:
 
     assert isinstance(outcome.event, AnomalyBuildupEvent)
     assert outcome.event.calculated_buildup == Resolved(50.0)
+    assert outcome.event.anomaly_effect_strength == Resolved(1000.0)
+    assert outcome.event.impact_strength == Resolved(100.0)
     assert not hasattr(outcome.event, "actual_written_buildup")
     assert not hasattr(outcome, "contribution")
 
@@ -173,6 +177,8 @@ def test_luminance_cannot_create_ordinary_anomaly_buildup_event() -> None:
             target_enemy=EnemyId("enemy:target"),
             element=Element.LUMINANCE,
             calculated_buildup=Resolved(1.0),
+            anomaly_effect_strength=Resolved(1000.0),
+            impact_strength=Resolved(100.0),
         )
 
 

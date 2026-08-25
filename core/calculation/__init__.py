@@ -1,3 +1,4 @@
+from .anomaly import apply_anomaly_buildup, build_anomaly_record
 from .base import DamageCalculator
 from .calculators import DirectDamageCalculator, InvalidCalculationContextError
 from .nodes import (
@@ -29,6 +30,8 @@ from .result import CalculationResult
 
 __all__ = [
     "CALCULATION_NODE_DEFINITIONS",
+    "apply_anomaly_buildup",
+    "build_anomaly_record",
     "CalculationResult",
     "CalculationNode",
     "CalculationNodeDefinition",

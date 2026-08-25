@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
 
@@ -16,6 +17,7 @@ from .common import (
     MoveId,
     ResourceId,
     Resolvable,
+    Resolved,
     Unresolved,
 )
 from .damage_event import DamageEvent
@@ -49,6 +51,8 @@ class AnomalyBuildupEvent:
     target_enemy: EnemyId
     element: Element
     calculated_buildup: Resolvable[float]
+    anomaly_effect_strength: Resolvable[float]
+    impact_strength: Resolvable[float]
     kind: Literal["anomaly-buildup"] = field(
         default="anomaly-buildup", init=False
     )
@@ -56,6 +60,11 @@ class AnomalyBuildupEvent:
     def __post_init__(self) -> None:
         if self.element not in ANOMALY_ELEMENTS:
             raise ValueError("luminance has no ordinary anomaly buildup event")
+        if isinstance(self.calculated_buildup, Resolved) and (
+            not math.isfinite(self.calculated_buildup.value)
+            or self.calculated_buildup.value < 0
+        ):
+            raise ValueError("calculated anomaly buildup must be finite and non-negative")
 
 
 @dataclass(frozen=True, slots=True)

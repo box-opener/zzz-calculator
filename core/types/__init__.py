@@ -7,6 +7,11 @@ from .anomaly_record import (
     IndependentAnomalyCrit,
     NoAnomalyCrit,
 )
+from .anomaly_gauge import (
+    AnomalyGauge,
+    AnomalyGaugeApplication,
+    AnomalyTriggerSnapshot,
+)
 from .battle_state import BattleState, CharacterCombatState, EnemyCombatState
 from .battle_event import (
     AnomalyBuildupEvent,
