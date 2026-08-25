@@ -4,6 +4,7 @@ from .direct import DirectDamageCalculator
 from .disorder import DisorderDamageCalculator
 from .errors import InvalidCalculationContextError
 from .luminance import LuminanceDamageCalculator
+from .penetration import PenetrationDamageCalculator
 from .turbulence import TurbulenceDamageCalculator
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "DisorderDamageCalculator",
     "InvalidCalculationContextError",
     "LuminanceDamageCalculator",
+    "PenetrationDamageCalculator",
     "TurbulenceDamageCalculator",
 ]

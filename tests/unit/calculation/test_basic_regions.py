@@ -13,6 +13,8 @@ from core.calculation import (
     DisorderDamageBonusRegionInput,
     LuminanceAnomalyDamageBonusRegionInput,
     NormalDamageBonusRegionInput,
+    PenetrationDamageBonusRegionInput,
+    PenetrationForceInput,
     ResistanceRegionInput,
     SpecialIndependentRegionInput,
     TurbulenceCritRegionInput,
@@ -26,6 +28,8 @@ from core.calculation import (
     calculate_disorder_damage_bonus_region,
     calculate_normal_damage_bonus_region,
     calculate_luminance_anomaly_damage_bonus_region,
+    calculate_penetration_damage_bonus_region,
+    calculate_penetration_force,
     calculate_resistance_region,
     calculate_special_independent_region,
     calculate_turbulence_crit_region,
@@ -220,6 +224,34 @@ def test_discharge_and_turbulence_crit_regions_use_distinct_nodes() -> None:
     assert _breakdown(discharge) == {CalculationNode.DISCHARGE_CRIT_REGION: 1.5}
     assert _breakdown(turbulence) == {
         CalculationNode.TURBULENCE_CRIT_REGION: 1.5
+    }
+
+
+def test_penetration_force_reads_live_attack_and_maximum_hp() -> None:
+    result = calculate_penetration_force(
+        PenetrationForceInput(
+            current_attack=2000.0,
+            current_max_hp=10000.0,
+        )
+    )
+
+    assert result.value == 1500.0
+    assert _breakdown(result) == {
+        CalculationNode.CHARACTER_CURRENT_ATTACK: 2000.0,
+        CalculationNode.CHARACTER_CURRENT_MAX_HP: 10000.0,
+        CalculationNode.PENETRATION_FORCE: 1500.0,
+    }
+
+
+def test_penetration_damage_bonus_region_is_independent() -> None:
+    result = calculate_penetration_damage_bonus_region(
+        PenetrationDamageBonusRegionInput(0.25)
+    )
+
+    assert result.value == 1.25
+    assert _breakdown(result) == {
+        CalculationNode.PENETRATION_DAMAGE_BONUS: 0.25,
+        CalculationNode.PENETRATION_DAMAGE_BONUS_REGION: 1.25,
     }
 
 

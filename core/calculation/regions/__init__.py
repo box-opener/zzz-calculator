@@ -29,6 +29,12 @@ from .derived_anomaly import (
     calculate_luminance_anomaly_damage_bonus_region,
     calculate_turbulence_damage_bonus_region,
 )
+from .penetration_damage import (
+    PenetrationDamageBonusRegionInput,
+    PenetrationForceInput,
+    calculate_penetration_damage_bonus_region,
+    calculate_penetration_force,
+)
 from .resistance import ResistanceRegionInput, calculate_resistance_region
 from .special_independent import (
     SpecialIndependentRegionInput,
@@ -49,6 +55,8 @@ __all__ = [
     "DisorderDamageBonusRegionInput",
     "NormalDamageBonusRegionInput",
     "LuminanceAnomalyDamageBonusRegionInput",
+    "PenetrationDamageBonusRegionInput",
+    "PenetrationForceInput",
     "ResistanceRegionInput",
     "SpecialIndependentRegionInput",
     "TurbulenceCritRegionInput",
@@ -62,6 +70,8 @@ __all__ = [
     "calculate_disorder_damage_bonus_region",
     "calculate_normal_damage_bonus_region",
     "calculate_luminance_anomaly_damage_bonus_region",
+    "calculate_penetration_damage_bonus_region",
+    "calculate_penetration_force",
     "calculate_resistance_region",
     "calculate_special_independent_region",
     "calculate_turbulence_crit_region",

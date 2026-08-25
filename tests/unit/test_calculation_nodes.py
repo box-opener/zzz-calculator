@@ -50,6 +50,22 @@ def test_formula_region_is_not_itself_a_buff_collection() -> None:
     assert definition.modifier_aggregation is None
 
 
+def test_penetration_force_bonus_and_region_keep_distinct_node_roles() -> None:
+    force = CALCULATION_NODE_DEFINITIONS[CalculationNode.PENETRATION_FORCE]
+    bonus = CALCULATION_NODE_DEFINITIONS[
+        CalculationNode.PENETRATION_DAMAGE_BONUS
+    ]
+    region = CALCULATION_NODE_DEFINITIONS[
+        CalculationNode.PENETRATION_DAMAGE_BONUS_REGION
+    ]
+
+    assert force.kind is NodeKind.DERIVED
+    assert bonus.kind is NodeKind.MODIFIER
+    assert bonus.modifier_aggregation is ModifierAggregation.SUM
+    assert region.kind is NodeKind.REGION
+    assert region.modifier_aggregation is None
+
+
 def test_calculation_node_value_preserves_modifier_contributions() -> None:
     contribution = ModifierContribution(
         effect_id=EffectId("effect:normal-damage"),
