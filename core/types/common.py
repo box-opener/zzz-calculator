@@ -10,6 +10,8 @@ from typing import Generic, NewType, TypeAlias, TypeVar
 CharacterId = NewType("CharacterId", str)
 EnemyId = NewType("EnemyId", str)
 DamageEventId = NewType("DamageEventId", str)
+BattleEventId = NewType("BattleEventId", str)
+BattleOutcomeId = NewType("BattleOutcomeId", str)
 BattleStateId = NewType("BattleStateId", str)
 AnomalyRecordId = NewType("AnomalyRecordId", str)
 StateId = NewType("StateId", str)
