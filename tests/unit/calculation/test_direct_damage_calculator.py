@@ -295,6 +295,91 @@ def test_calculator_keeps_base_dealer_and_crit_identities_separate() -> None:
     assert result.value == pytest.approx(2400.0)
 
 
+def test_calculator_routes_defense_resistance_and_reduction_modifiers() -> None:
+    dealer = CharacterId("character:modifier-routing")
+    event = _direct_event(
+        dealer,
+        multiplier=FixedMultiplier(Resolved(1.0)),
+    )
+    context = _context(
+        event,
+        snapshots=(
+            _snapshot(
+                dealer,
+                attack=1000.0,
+                crit_rate=0.0,
+                penetration_rate=0.1,
+                penetration_flat=20.0,
+            ),
+        ),
+        target=_target(
+            initial_defense=1000.0,
+            damage_resistance={Element.FIRE: 0.2},
+            damage_reduction=0.1,
+        ),
+        modifiers=(
+            _modifier(CalculationNode.ENEMY_DEFENSE_INCREASE, 0.1),
+            _modifier(CalculationNode.ENEMY_DEFENSE_REDUCTION, 0.2),
+            _modifier(CalculationNode.DAMAGE_DEFENSE_IGNORE, 0.1),
+            _modifier(CalculationNode.DAMAGE_PENETRATION_RATE, 0.05),
+            _modifier(CalculationNode.DAMAGE_PENETRATION_FLAT, 30.0),
+            _modifier(CalculationNode.DAMAGE_RESISTANCE_IGNORE, 0.1),
+            _modifier(CalculationNode.ENEMY_RESISTANCE_REDUCTION, 0.05),
+            _modifier(CalculationNode.ENEMY_DAMAGE_REDUCTION, 0.1),
+        ),
+    )
+
+    result = DirectDamageCalculator().calculate(context)
+    breakdown = _breakdown(result)
+    expected_defense_region = 794.0 / (630.0 + 794.0)
+
+    assert breakdown[CalculationNode.ENEMY_CURRENT_EFFECTIVE_DEFENSE] == pytest.approx(
+        630.0
+    )
+    assert breakdown[CalculationNode.DAMAGE_DEFENSE_REGION] == pytest.approx(
+        expected_defense_region
+    )
+    assert breakdown[CalculationNode.DAMAGE_RESISTANCE_REGION] == pytest.approx(0.95)
+    assert breakdown[CalculationNode.DAMAGE_REDUCTION_REGION] == pytest.approx(0.8)
+    assert result.value == pytest.approx(
+        1000.0 * expected_defense_region * 0.95 * 0.8
+    )
+
+
+def test_modifier_effect_identity_does_not_replace_damage_identities() -> None:
+    damage_dealer = CharacterId("character:damage-dealer")
+    base_source = CharacterId("character:base-source")
+    event = _direct_event(
+        damage_dealer,
+        base_source=base_source,
+        multiplier=FixedMultiplier(Resolved(1.0)),
+    )
+    modifier = _modifier(
+        CalculationNode.DAMAGE_NORMAL_BONUS,
+        0.2,
+        effect_id="character:D_buff",
+    )
+    context = _context(
+        event,
+        snapshots=(
+            _snapshot(base_source, attack=500.0, crit_rate=0.0),
+            _snapshot(damage_dealer, attack=9000.0, crit_rate=0.0),
+        ),
+        target=_target(initial_defense=0.0),
+        modifiers=(modifier,),
+    )
+
+    result = DirectDamageCalculator().calculate(context)
+    breakdown = _breakdown(result)
+
+    assert event.metadata.damage_dealer == damage_dealer
+    assert event.base_settlement_data_source.character_id == base_source
+    assert modifier.effect_id == EffectId("character:D_buff")
+    assert breakdown[CalculationNode.CHARACTER_CURRENT_ATTACK] == 500.0
+    assert breakdown[CalculationNode.DAMAGE_NORMAL_BONUS_REGION] == 1.2
+    assert result.value == pytest.approx(600.0)
+
+
 def test_variant_element_reads_original_element_bonus_and_resistance() -> None:
     dealer = CharacterId("character:variant")
     event = _direct_event(

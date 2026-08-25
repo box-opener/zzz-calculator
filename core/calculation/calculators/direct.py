@@ -350,15 +350,23 @@ class DirectDamageCalculator:
             _node(CalculationNode.DAMAGE_SKILL_MULTIPLIER, skill_multiplier),
             _node(CalculationNode.DAMAGE_BASE_VALUE, base_damage),
         )
-        return CalculationResult.from_components(
+        return CalculationResult(
             value=final_damage,
-            components=(
-                crit,
-                normal_bonus,
-                special_independent,
-                defense,
-                resistance,
-                vulnerability,
+            breakdown=(
+                *base_breakdown,
+                *crit.breakdown,
+                *normal_bonus.breakdown,
+                *special_independent.breakdown,
+                *defense.breakdown,
+                *resistance.breakdown,
+                *vulnerability.breakdown,
             ),
-            breakdown=base_breakdown,
+            unresolved=(
+                *crit.unresolved,
+                *normal_bonus.unresolved,
+                *special_independent.unresolved,
+                *defense.unresolved,
+                *resistance.unresolved,
+                *vulnerability.unresolved,
+            ),
         )
