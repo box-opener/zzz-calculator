@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
 
@@ -54,8 +55,13 @@ class AnomalyContribution:
     occurred_at: BattleTime
 
     def __post_init__(self) -> None:
-        if self.actual_written_buildup <= 0:
-            raise ValueError("only non-zero actual written buildup is a contribution")
+        if (
+            not math.isfinite(self.actual_written_buildup)
+            or self.actual_written_buildup <= 0
+        ):
+            raise ValueError(
+                "actual written anomaly buildup must be a finite positive number"
+            )
 
 
 @dataclass(frozen=True, slots=True)

@@ -280,6 +280,23 @@ def test_anomaly_record_allows_multiple_contributions_from_one_identity() -> Non
     assert len(record.contributions) == 2
 
 
+@pytest.mark.parametrize(
+    "actual_written_buildup",
+    (float("nan"), float("inf"), float("-inf"), 0.0, -1.0),
+)
+def test_anomaly_contribution_rejects_non_finite_or_non_positive_buildup(
+    actual_written_buildup: float,
+) -> None:
+    with pytest.raises(ValueError, match="finite positive number"):
+        AnomalyContribution(
+            contributor=CharacterId("character:invalid-contribution"),
+            actual_written_buildup=actual_written_buildup,
+            anomaly_effect_strength=Resolved(1000.0),
+            impact_strength=Resolved(100.0),
+            occurred_at=1.0,
+        )
+
+
 def test_turbulence_separates_dealer_trigger_and_historical_value_source() -> None:
     wind_triggerer = CharacterId("character:wind")
     record_id = AnomalyRecordId("anomaly:non-wind")
