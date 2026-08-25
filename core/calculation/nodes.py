@@ -1,4 +1,4 @@
-"""Calculation-node vocabulary and resolved-context containers.
+"""Calculation-node metadata and resolved node-value containers.
 
 This module names nodes and their aggregation semantics. It intentionally does
 not implement any formula or collect Effects from a BattleState.
@@ -6,7 +6,7 @@ not implement any formula or collect Effects from a BattleState.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Mapping
@@ -14,8 +14,10 @@ from typing import TYPE_CHECKING, Mapping
 from core.types.calculation_node import CalculationNode
 
 if TYPE_CHECKING:
-    from core.types.common import BattleStateId, DamageEventId, EffectId, Resolvable
+    from core.types.common import EffectId, Resolvable
     from core.types.enums import EffectOperation, SnapshotRule
+
+
 class NodeKind(StrEnum):
     INPUT = "input"
     MODIFIER = "modifier"
@@ -205,12 +207,3 @@ class CalculationNodeValue:
     value: Resolvable[float]
     read_rule: SnapshotRule
     contributions: tuple[ModifierContribution, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class CalculationContext:
-    """Effect resolution output consumed by future pure calculators."""
-
-    damage_event_id: DamageEventId
-    battle_state_id: BattleStateId
-    nodes: Mapping[CalculationNode, CalculationNodeValue] = field(default_factory=dict)

@@ -1,6 +1,5 @@
 from core.calculation import (
     CALCULATION_NODE_DEFINITIONS,
-    CalculationContext,
     CalculationNode,
     CalculationNodeValue,
     ModifierAggregation,
@@ -9,9 +8,7 @@ from core.calculation import (
     NodeUnit,
 )
 from core.types import (
-    BattleStateId,
     CalculationNode as DomainCalculationNode,
-    DamageEventId,
     EffectId,
     EffectOperation,
     Resolved,
@@ -53,7 +50,7 @@ def test_formula_region_is_not_itself_a_buff_collection() -> None:
     assert definition.modifier_aggregation is None
 
 
-def test_calculation_context_contains_resolved_nodes_not_buff_lookup_logic() -> None:
+def test_calculation_node_value_preserves_modifier_contributions() -> None:
     contribution = ModifierContribution(
         effect_id=EffectId("effect:normal-damage"),
         operation=EffectOperation.ADD,
@@ -65,13 +62,5 @@ def test_calculation_context_contains_resolved_nodes_not_buff_lookup_logic() -> 
         read_rule=SnapshotRule.SETTLEMENT,
         contributions=(contribution,),
     )
-    context = CalculationContext(
-        damage_event_id=DamageEventId("damage:1"),
-        battle_state_id=BattleStateId("battle:1"),
-        nodes={CalculationNode.DAMAGE_NORMAL_BONUS: node_value},
-    )
-
-    assert context.nodes[CalculationNode.DAMAGE_NORMAL_BONUS].value == Resolved(0.75)
-    assert context.nodes[CalculationNode.DAMAGE_NORMAL_BONUS].contributions == (
-        contribution,
-    )
+    assert node_value.value == Resolved(0.75)
+    assert node_value.contributions == (contribution,)

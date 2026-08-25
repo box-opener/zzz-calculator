@@ -1,6 +1,6 @@
+from .base import DamageCalculator
 from .nodes import (
     CALCULATION_NODE_DEFINITIONS,
-    CalculationContext,
     CalculationNode,
     CalculationNodeDefinition,
     CalculationNodeValue,
@@ -9,15 +9,17 @@ from .nodes import (
     NodeKind,
     NodeUnit,
 )
+from .result import CalculationResult
 
 __all__ = [
     "CALCULATION_NODE_DEFINITIONS",
-    "CalculationContext",
+    "CalculationResult",
     "CalculationNode",
     "CalculationNodeDefinition",
     "CalculationNodeValue",
     "ModifierAggregation",
     "ModifierContribution",
+    "DamageCalculator",
     "NodeKind",
     "NodeUnit",
 ]
