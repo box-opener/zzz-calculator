@@ -1,9 +1,10 @@
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, fields
 
 import pytest
 
 from core.calculation import (
     BroadVulnerabilityRegionInput,
+    CalculationNodeValue,
     CalculationResult,
     CritRegionInput,
     DefenseRegionInput,
@@ -18,7 +19,13 @@ from core.calculation import (
     calculate_special_independent_region,
     defense_level_coefficient,
 )
-from core.types import CalculationNode, Resolved
+from core.types import (
+    CalculationNode,
+    Resolved,
+    SnapshotRule,
+    Unresolved,
+    UnresolvedReason,
+)
 
 
 def _breakdown(result: CalculationResult) -> dict[CalculationNode, float]:
@@ -160,3 +167,50 @@ def test_region_inputs_are_frozen() -> None:
 
     with pytest.raises(FrozenInstanceError):
         input.crit_rate = 1.0  # type: ignore[misc]
+
+
+def test_calculation_result_flattens_region_components() -> None:
+    defense = calculate_defense_region(
+        DefenseRegionInput(attacker_level=60, initial_defense=794.0)
+    )
+    crit = calculate_crit_region(CritRegionInput(crit_rate=0.5, crit_damage=1.0))
+    base_node = CalculationNodeValue(
+        node=CalculationNode.DAMAGE_BASE_VALUE,
+        value=Resolved(1000.0),
+        read_rule=SnapshotRule.SETTLEMENT,
+    )
+    unresolved = Unresolved(
+        reason=UnresolvedReason.MISSING_DATA,
+        notes="test-only unresolved trace",
+    )
+    component_with_unresolved = CalculationResult(
+        value=1.0,
+        breakdown=(),
+        unresolved=(unresolved,),
+    )
+
+    result = CalculationResult.from_components(
+        value=750.0,
+        components=(defense, crit, component_with_unresolved),
+        breakdown=(base_node,),
+    )
+
+    assert result.value == 750.0
+    assert result.breakdown == (base_node, *defense.breakdown, *crit.breakdown)
+    assert result.unresolved == (unresolved,)
+    assert all(not isinstance(item, CalculationResult) for item in result.breakdown)
+
+
+def test_defense_region_input_uses_one_canonical_naming_direction() -> None:
+    field_names = {field.name for field in fields(DefenseRegionInput)}
+
+    assert field_names == {
+        "attacker_level",
+        "initial_defense",
+        "defense_increase",
+        "defense_reduction",
+        "defense_ignore",
+        "penetration_rate",
+        "penetration_flat",
+    }
+    assert "ignore_defense" not in field_names
