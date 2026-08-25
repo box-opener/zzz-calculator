@@ -116,19 +116,22 @@ def _context() -> CalculationContext:
             CharacterSnapshot(
                 character_id=dealer,
                 level=60,
-                current_stats=_stats(attack=3000.0),
+                settlement_stats=_stats(attack=3000.0),
             ),
             CharacterSnapshot(
                 character_id=teammate,
                 level=60,
-                current_stats=_stats(attack=2000.0),
+                settlement_stats=_stats(attack=2000.0),
             ),
         ),
         target_snapshot=EnemySnapshot(
             enemy_id=enemy_id,
             level=70,
             initial_defense=Resolved(1000.0),
-            resistance={Element.FIRE: Resolved(0.2)},
+            damage_resistance={Element.FIRE: Resolved(0.2)},
+            anomaly_buildup_resistance={Element.FIRE: Resolved(0.1)},
+            daze_resistance=Resolved(0.0),
+            damage_reduction=Resolved(0.0),
         ),
         modifiers=(modifier,),
         history_records=(_history_record(dealer, enemy_id),),
@@ -153,12 +156,24 @@ def test_context_exposes_resolved_inputs_without_full_battle_state() -> None:
     assert not hasattr(context, "current_damage")
     assert not hasattr(context, "final_multiplier")
     assert not hasattr(context, "result")
+    assert not hasattr(context.character_snapshots[0], "current_stats")
+    assert context.character_snapshots[0].settlement_stats.attack == Resolved(3000.0)
     assert len(context.character_snapshots) == 2
     assert context.character_snapshots[0].character_id != (
         context.character_snapshots[1].character_id
     )
     assert context.modifiers[0].modifier_path is CalculationNode.DAMAGE_NORMAL_BONUS
     assert isinstance(context.history_records[0], AnomalyRecord)
+
+
+def test_enemy_snapshot_keeps_resistance_and_reduction_domains_separate() -> None:
+    target = _context().target_snapshot
+
+    assert not hasattr(target, "resistance")
+    assert target.damage_resistance[Element.FIRE] == Resolved(0.2)
+    assert target.anomaly_buildup_resistance[Element.FIRE] == Resolved(0.1)
+    assert target.daze_resistance == Resolved(0.0)
+    assert target.damage_reduction == Resolved(0.0)
 
 
 def test_calculation_result_keeps_breakdown_and_empty_unresolved() -> None:

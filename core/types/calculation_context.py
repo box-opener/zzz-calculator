@@ -24,7 +24,7 @@ from .enums import EffectOperation, Element, SnapshotRule
 class CharacterSnapshot:
     character_id: CharacterId
     level: int
-    current_stats: CharacterStats
+    settlement_stats: CharacterStats
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +32,10 @@ class EnemySnapshot:
     enemy_id: EnemyId
     level: int
     initial_defense: Resolvable[float]
-    resistance: Mapping[Element, Resolvable[Ratio]]
+    damage_resistance: Mapping[Element, Resolvable[Ratio]]
+    anomaly_buildup_resistance: Mapping[Element, Resolvable[Ratio]]
+    daze_resistance: Resolvable[Ratio]
+    damage_reduction: Resolvable[Ratio]
 
 
 @dataclass(frozen=True, slots=True)
