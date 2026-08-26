@@ -23,6 +23,7 @@ from core.application.characters import (
     CharacterSkillLevel,
 )
 from core.application.characters.ye_shunguang import (
+    YE_SHUNGUANG_REVIEWED_MAPPING,
     YeShunguangCompileConfig,
     YeShunguangRawRecord,
     compile_ye_shunguang,
@@ -85,7 +86,7 @@ def _definition(
         enemy_stun_vulnerability_bonus=enemy_stun_vulnerability_bonus,
         core_level=core_level,
     )
-    return compile_ye_shunguang(config)
+    return compile_ye_shunguang(config, _raw_fixture())
 
 
 def _raw_fixture() -> YeShunguangRawRecord:
@@ -216,11 +217,47 @@ def test_raw_fixture_is_loaded_separately_from_reviewed_semantic_mapping() -> No
         raw_record=raw,
     )
     assert len(definition.move_entries) == 28
-    with pytest.raises(ValueError, match="names must match"):
+    with pytest.raises(ValueError, match="character name"):
         compile_ye_shunguang(
             YeShunguangCompileConfig(mingxin_active=True),
             raw_record=replace(raw, name="不是叶瞬光"),
         )
+
+
+def test_raw_fixture_values_and_texts_drive_compilation() -> None:
+    raw = _raw_fixture()
+    fast = next(item for item in raw.moves if item.name == "普通攻击：快剑")
+    first_parameter = fast.parameters[0]
+    assert first_parameter.value_for_level(12) == pytest.approx(159.7)
+    assert fast.description
+    assert all(item.description for item in raw.mindscapes)
+    assert all(item.description for item in raw.core_levels)
+    assert not hasattr(YE_SHUNGUANG_REVIEWED_MAPPING, "core_damage_levels")
+    assert not hasattr(YE_SHUNGUANG_REVIEWED_MAPPING.moves[0], "original_text")
+    assert not hasattr(YE_SHUNGUANG_REVIEWED_MAPPING.moves[0].parameters[0], "levels")
+
+    changed_parameter = replace(
+        first_parameter,
+        values=((12, 999.0), (14, 999.0), (16, 999.0)),
+    )
+    changed_move = replace(
+        fast,
+        parameters=(changed_parameter, *fast.parameters[1:]),
+    )
+    changed_raw = replace(
+        raw,
+        moves=tuple(
+            changed_move if item.name == fast.name else item
+            for item in raw.moves
+        ),
+    )
+    definition = compile_ye_shunguang(
+        YeShunguangCompileConfig(mingxin_active=True),
+        changed_raw,
+    )
+    compiled_fast = _entry(definition, "basic-fast-1")
+    assert compiled_fast.multiplier_variants[0].multiplier.value.value == pytest.approx(9.99)  # type: ignore[union-attr]
+    assert compiled_fast.original_text == changed_move.description
 
 
 def test_definition_rejects_dangling_contract_references() -> None:
@@ -329,6 +366,18 @@ def test_dodge_entries_keep_independent_dodge_damage_tags() -> None:
     assert counter.skill_group is SkillGroup.DODGE
     assert counter.damage_tags == frozenset({DamageTag.DODGE_COUNTER})
     assert DamageTag.BASIC_ATTACK not in dash.damage_tags | counter.damage_tags
+
+
+def test_ex_special_entries_retain_the_special_attack_parent_tag() -> None:
+    definition = _definition()
+    for suffix in ("special-dingfengbo", "special-mingxin-guichen"):
+        entry = _entry(definition, suffix)
+        assert entry.damage_tags == frozenset(
+            {
+                DamageTag.SPECIAL_ATTACK,
+                DamageTag.EX_SPECIAL_ATTACK,
+            }
+        )
 
 
 def test_mutually_exclusive_variants_are_explicit_and_conditioned() -> None:
@@ -624,7 +673,8 @@ def test_core_level_and_entry_element_are_compiled_from_config() -> None:
             core_level=7,
             mingxin_active=True,
             entry_move_uses_linren=True,
-        )
+        ),
+        _raw_fixture(),
     )
     fast = _entry(definition, "basic-fast-1")
     assert fast.multiplier_variants[0].multiplier.value.value == pytest.approx(1.743)  # type: ignore[union-attr]

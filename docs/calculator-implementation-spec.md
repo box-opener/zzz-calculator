@@ -258,6 +258,8 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 原始角色记录与 reviewed semantic mapping 必须分层保存。原始记录只提供稳定的角色、招式、
 参数和文本字段；SkillGroup、DamageTag、倍率关系、变种属性和场景条件等解释后的语义，必须
 来自显式的人工审阅映射。第一版不得以正则或自然语言猜测替代该映射。
+角色编译器必须同时接收 raw record 与 reviewed mapping；不得仅凭 reviewed mapping 中的
+重复常量生成倍率或来源文本。
 
 `CalculationRuleItem` 只保存规则定义、资格和 Effect；本次计算是否启用的唯一来源仍是
 `CalculationScenario.enabled_rule_item_ids`。编译器可以为前端生成默认启用的 Scenario，

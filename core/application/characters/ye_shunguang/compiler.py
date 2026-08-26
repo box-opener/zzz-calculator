@@ -61,16 +61,16 @@ from ..definition import CharacterCalculationDefinition
 from ..templates import DirectDamageEventTemplate
 from .reviewed import (
     HAS_QINGMING_CONDITION_KEY,
-    YE_SHUNGUANG_REVIEWED_SOURCE,
+    YE_SHUNGUANG_REVIEWED_MAPPING,
     YeElementMode,
     YeMoveSpec,
-    YeShunguangReviewedSource,
+    YeShunguangReviewedMapping,
     WITHOUT_QINGMING_CONDITION_KEY,
     PERFECT_DODGE_CONDITION_KEY,
     YIN_NORMAL_CONDITION_KEY,
 )
 from .config import YeShunguangCompileConfig
-from .source import YeShunguangRawRecord
+from .source import YeRawMoveRecord, YeShunguangRawRecord
 
 
 YE_ID = CharacterId("character:1431")
@@ -180,17 +180,37 @@ def _condition(
 def _parameter_value_for_level(
     spec: YeMoveSpec,
     level: int,
+    raw_move: YeRawMoveRecord | None,
 ) -> tuple[tuple[MultiplierVariant, ...], tuple[CalculationDiagnostic, ...]]:
     variants: list[MultiplierVariant] = []
     diagnostics: list[CalculationDiagnostic] = []
     for parameter in spec.parameters:
-        value = parameter.value_for_level(level)
+        raw_parameter = (
+            next(
+                (
+                    item
+                    for item in raw_move.parameters
+                    if item.name == parameter.parameter_name
+                ),
+                None,
+            )
+            if raw_move is not None
+            else None
+        )
+        value = (
+            raw_parameter.value_for_level(level)
+            if raw_parameter is not None and raw_parameter.format == "%"
+            else None
+        )
+        missing_reason = (
+            f"missing source parameter {parameter.parameter_name}"
+            if raw_parameter is None
+            else f"missing {parameter.parameter_name} at skill level {level}"
+        )
         if value is None:
             multiplier: DamageMultiplier = Unresolved(
                 reason=UnresolvedReason.MISSING_DATA,
-                notes=(
-                    f"{spec.display_name} has no supplied value for skill level {level}"
-                ),
+                notes=f"{spec.display_name}: {missing_reason}",
                 original_text=parameter.parameter_name,
             )
             diagnostics.append(
@@ -200,7 +220,7 @@ def _parameter_value_for_level(
                     ),
                     kind=DiagnosticKind.MISSING_DATA,
                     message=(
-                        f"missing {parameter.parameter_name} at skill level {level}"
+                        f"{spec.display_name}: {missing_reason}"
                     ),
                     blocking=True,
                     original_text=parameter.parameter_name,
@@ -217,7 +237,11 @@ def _parameter_value_for_level(
                 variant_id=MultiplierVariantId(
                     f"variant:ye:1431:{spec.entry_key}:{parameter.variant_key}"
                 ),
-                label=parameter.label,
+                label=(
+                    raw_parameter.name
+                    if raw_parameter is not None
+                    else parameter.parameter_name
+                ),
                 parameter_name=parameter.parameter_name,
                 multiplier=multiplier,
                 condition_ids=condition_ids,
@@ -283,10 +307,21 @@ def _template_ids(entry_key: str) -> tuple[str, str]:
 def _build_move(
     spec: YeMoveSpec,
     config: YeShunguangCompileConfig,
-    source: YeShunguangReviewedSource,
+    raw_moves: dict[str, YeRawMoveRecord],
 ) -> tuple[MoveCalculationEntry, DirectDamageEventTemplate, tuple[CalculationDiagnostic, ...]]:
     level = config.skill_level_for(spec.skill_group) or 12
-    variants, diagnostics = _parameter_value_for_level(spec, level)
+    raw_move = raw_moves.get(spec.source_name)
+    variants, diagnostics = _parameter_value_for_level(spec, level, raw_move)
+    if raw_move is None:
+        diagnostics = diagnostics + (
+            CalculationDiagnostic(
+                diagnostic_id=DiagnosticId(f"data:{spec.entry_key}:source-move"),
+                kind=DiagnosticKind.MISSING_DATA,
+                message=f"missing source move: {spec.source_name}",
+                blocking=True,
+                original_text=spec.source_name,
+            ),
+        )
     element = _move_element(spec, config)
     template_id, semantic_id = _template_ids(spec.entry_key)
     ref = ApplicationDamageEventTemplateRef(
@@ -300,18 +335,18 @@ def _build_move(
     )
     typed_template = DirectDamageEventTemplate(
         ref=ref,
-        damage_dealer=source.character_id,
+        damage_dealer=config.character_id,
         element=element,
-        base_source=CurrentAttackValueSource(source.character_id),
-        crit_rule=StandardCritRule(source.character_id),
+        base_source=CurrentAttackValueSource(config.character_id),
+        crit_rule=StandardCritRule(config.character_id),
         move_id=spec.move_id,
     )
     entry = MoveCalculationEntry(
         entry_id=MoveEntryId(f"move-entry:ye:1431:{spec.entry_key}"),
-        character_id=source.character_id,
+        character_id=config.character_id,
         move_id=spec.move_id,
         display_name=spec.display_name,
-        original_text=spec.original_text,
+        original_text=(raw_move.description if raw_move is not None else spec.source_name),
         skill_group=spec.skill_group,
         damage_tags=spec.damage_tags,
         multiplier_relation=spec.multiplier_relation,
@@ -326,7 +361,7 @@ def _build_move(
 
 def _cinema_rule_items(
     config: YeShunguangCompileConfig,
-    source: YeShunguangReviewedSource,
+    raw_record: YeShunguangRawRecord,
     guichen_template_id,
     zhanwang_template_id,
 ) -> tuple[CalculationRuleItem, ...]:
@@ -335,10 +370,12 @@ def _cinema_rule_items(
         level: _rule_source(
             f"source:ye:1431:cinema-{level}",
             EffectSourceType.CINEMA,
-            f"{level}影",
-            text,
+            f"{level}影：{mindscape.name}",
+            mindscape.description,
         )
-        for level, text in source.cinema_texts
+        for level, mindscape in (
+            (item.level, item) for item in raw_record.mindscapes
+        )
     }
 
     source_c1 = cinema_sources[1]
@@ -359,7 +396,7 @@ def _cinema_rule_items(
     rule_items.append(
         CalculationRuleItem(
             rule_id=RuleItemId("rule:ye:1431:cinema1"),
-            owner=source.character_id,
+            owner=raw_record.character_id,
             source=source_c1,
             display_name="1影：梦中身",
             original_text=source_c1.raw_text or "",
@@ -392,7 +429,7 @@ def _cinema_rule_items(
     rule_items.append(
         CalculationRuleItem(
             rule_id=RuleItemId("rule:ye:1431:cinema2"),
-            owner=source.character_id,
+            owner=raw_record.character_id,
             source=source_c2,
             display_name="2影：光与影",
             original_text=source_c2.raw_text or "",
@@ -412,7 +449,7 @@ def _cinema_rule_items(
             rule=_effect_rule(
                 "effect:ye:1431:cinema6:guichen-extra",
                 source_c6,
-                owner=source.character_id,
+                owner=raw_record.character_id,
                 target=EffectTarget.SELF,
                 filters=(MoveIdFilter(MoveId("move:special-mingxin-guichen")),),
             ),
@@ -425,7 +462,7 @@ def _cinema_rule_items(
             rule=_effect_rule(
                 "effect:ye:1431:cinema6:zhanwang-extra",
                 source_c6,
-                owner=source.character_id,
+                owner=raw_record.character_id,
                 target=EffectTarget.SELF,
                 filters=(MoveIdFilter(MoveId("move:ultimate-zhanwangkaitian")),),
             ),
@@ -438,7 +475,7 @@ def _cinema_rule_items(
     rule_items.append(
         CalculationRuleItem(
             rule_id=c6_rule_id,
-            owner=source.character_id,
+            owner=raw_record.character_id,
             source=source_c6,
             display_name="6影：明灯愿",
             original_text=source_c6.raw_text or "",
@@ -455,13 +492,11 @@ def _cinema_rule_items(
 
 def compile_ye_shunguang(
     config: YeShunguangCompileConfig,
-    source: YeShunguangReviewedSource = YE_SHUNGUANG_REVIEWED_SOURCE,
-    raw_record: YeShunguangRawRecord | None = None,
+    raw_record: YeShunguangRawRecord,
+    reviewed_mapping: YeShunguangReviewedMapping = YE_SHUNGUANG_REVIEWED_MAPPING,
 ) -> CharacterCalculationDefinition:
-    if source.character_id != config.character_id:
-        raise ValueError("Ye source and compile config character IDs must match")
-    if raw_record is not None:
-        _validate_raw_record(raw_record, source)
+    _validate_raw_record(raw_record, config)
+    raw_moves = _index_raw_moves(raw_record)
 
     static_conditions = (
         _condition(
@@ -524,8 +559,8 @@ def compile_ye_shunguang(
     move_entries: list[MoveCalculationEntry] = []
     typed_templates: list[DirectDamageEventTemplate] = []
     diagnostics: list[CalculationDiagnostic] = []
-    for spec in source.moves:
-        entry, template, entry_diagnostics = _build_move(spec, config, source)
+    for spec in reviewed_mapping.moves:
+        entry, template, entry_diagnostics = _build_move(spec, config, raw_moves)
         move_entries.append(entry)
         typed_templates.append(template)
         diagnostics.extend(entry_diagnostics)
@@ -562,10 +597,10 @@ def compile_ye_shunguang(
         typed_templates.append(
             DirectDamageEventTemplate(
                 ref=ref,
-                damage_dealer=source.character_id,
+                damage_dealer=raw_record.character_id,
                 element=Element.LINREN,
-                base_source=CurrentAttackValueSource(source.character_id),
-                crit_rule=StandardCritRule(source.character_id),
+                base_source=CurrentAttackValueSource(raw_record.character_id),
+                crit_rule=StandardCritRule(raw_record.character_id),
                 move_id=None,
             )
         )
@@ -599,17 +634,19 @@ def compile_ye_shunguang(
     core_source = _rule_source(
         "source:ye:1431:core-passive",
         EffectSourceType.CORE_PASSIVE,
-        source.core_passive_name,
-        source.core_passive_text,
+        raw_record.core_levels[config.core_level - 1].name,
+        raw_record.core_levels[config.core_level - 1].description,
     )
-    core_damage, core_bonus = source.core_damage_levels[config.core_level - 1]
+    core_level = raw_record.core_levels[config.core_level - 1]
+    core_damage = core_level.crit_rate_bonus / 100.0
+    core_bonus = core_level.damage_bonus / 100.0
     rule_items: list[CalculationRuleItem] = [
         CalculationRuleItem(
             rule_id=RuleItemId("rule:ye:1431:hedao"),
-            owner=source.character_id,
+            owner=raw_record.character_id,
             source=core_source,
             display_name="合道",
-            original_text=source.core_passive_text,
+            original_text=core_level.description,
             eligibility=RuleEligibility.ELIGIBLE,
             effects=(
                 _modifier(
@@ -628,10 +665,10 @@ def compile_ye_shunguang(
         ),
         CalculationRuleItem(
             rule_id=RuleItemId("rule:ye:1431:veil"),
-            owner=source.character_id,
+            owner=raw_record.character_id,
             source=core_source,
             display_name="以太帷幕·决裁",
-            original_text=source.core_passive_text,
+            original_text=core_level.description,
             eligibility=RuleEligibility.ELIGIBLE,
             condition_ids=(MINGXIN_CONDITION_ID,),
             effects=(
@@ -643,10 +680,10 @@ def compile_ye_shunguang(
                         config.enemy_stun_vulnerability_bonus,
                         2.0 if config.cinema_level >= 4 else 1.10,
                     ),
-                    owner=source.character_id,
+                    owner=raw_record.character_id,
                     target=EffectTarget.ENEMY,
                     operation=EffectOperation.OVERRIDE,
-                    filters=(CharacterFilter(source.character_id),),
+                    filters=(CharacterFilter(raw_record.character_id),),
                 ),
             ),
         ),
@@ -654,7 +691,7 @@ def compile_ye_shunguang(
     rule_items.extend(
         _cinema_rule_items(
             config,
-            source,
+            raw_record,
             derived_refs["special-mingxin-guichen"].template.template_id,
             derived_refs["ultimate-zhanwangkaitian"].template.template_id,
         )
@@ -667,12 +704,12 @@ def compile_ye_shunguang(
             blocking=False,
             original_text=note,
         )
-        for note in source.data_quality_notes
+        for note in reviewed_mapping.data_quality_notes
     )
     return CharacterCalculationDefinition(
-        character_id=source.character_id,
+        character_id=raw_record.character_id,
         role=CharacterRole.ATTACK,
-        base_element=source.element,
+        base_element=_base_element(raw_record.element),
         source=core_source,
         move_entries=tuple(updated_entries),
         rule_items=tuple(rule_items),
@@ -685,23 +722,40 @@ def compile_ye_shunguang(
 
 def _validate_raw_record(
     raw_record: YeShunguangRawRecord,
-    reviewed_source: YeShunguangReviewedSource,
+    config: YeShunguangCompileConfig,
 ) -> None:
-    if raw_record.character_id != reviewed_source.character_id:
-        raise ValueError("raw record and reviewed source character IDs must match")
-    if raw_record.name != reviewed_source.name:
-        raise ValueError("raw record and reviewed source names must match")
+    if raw_record.character_id != config.character_id:
+        raise ValueError("raw record and compile config character IDs must match")
+    if raw_record.name != "叶瞬光":
+        raise ValueError("unexpected character name in raw record")
     if raw_record.code_name != "Ye Shunguang":
         raise ValueError("unexpected Ye Shunguang code name in raw record")
-    if raw_record.specialty != reviewed_source.role:
-        raise ValueError("raw record specialty does not match reviewed source")
+    if raw_record.specialty != "强攻":
+        raise ValueError("unexpected Ye Shunguang specialty in raw record")
     if raw_record.element != "物理":
         raise ValueError("unexpected Ye Shunguang element in raw record")
-    if raw_record.core_passive_name != reviewed_source.core_passive_name:
-        raise ValueError("raw record core passive does not match reviewed source")
-    if raw_record.extra_ability_name != reviewed_source.extra_ability_name:
-        raise ValueError("raw record extra ability does not match reviewed source")
-    if raw_record.cinema_names != reviewed_source.cinema_names:
-        raise ValueError("raw record cinema names do not match reviewed source")
-    if not raw_record.moves:
-        raise ValueError("raw record must contain at least one move")
+    if len(raw_record.core_levels) != 7:
+        raise ValueError("raw record must contain all seven core levels")
+    if raw_record.core_levels[0].name != "核心被动：照破无明":
+        raise ValueError("raw record core passive does not match Ye Shunguang")
+    if raw_record.extra_ability_name != "额外能力：溯影惊鸿":
+        raise ValueError("raw record extra ability does not match Ye Shunguang")
+    if tuple(item.level for item in raw_record.mindscapes) != (1, 2, 4, 6):
+        raise ValueError("raw record mindscape levels are incomplete")
+
+
+def _index_raw_moves(
+    raw_record: YeShunguangRawRecord,
+) -> dict[str, YeRawMoveRecord]:
+    indexed: dict[str, YeRawMoveRecord] = {}
+    for move in raw_record.moves:
+        if move.name in indexed:
+            raise ValueError(f"raw record contains duplicate move: {move.name}")
+        indexed[move.name] = move
+    return indexed
+
+
+def _base_element(raw_element: str) -> Element:
+    if raw_element != "物理":
+        raise ValueError(f"unsupported Ye Shunguang element: {raw_element}")
+    return Element.PHYSICAL

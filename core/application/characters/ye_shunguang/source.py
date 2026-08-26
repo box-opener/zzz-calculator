@@ -8,7 +8,7 @@ conditions live in :mod:`reviewed` and are never inferred here.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from collections.abc import Mapping
 
 from core.types import CharacterId
 
@@ -18,7 +18,33 @@ class YeRawMoveRecord:
     skill_section: str
     name: str
     description: str
-    parameter_names: tuple[str, ...] = ()
+    parameters: tuple["YeRawSkillParameter", ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class YeRawSkillParameter:
+    name: str
+    format: str
+    values: tuple[tuple[int, float], ...]
+
+    def value_for_level(self, level: int) -> float | None:
+        return dict(self.values).get(level)
+
+
+@dataclass(frozen=True, slots=True)
+class YeRawCoreLevel:
+    level: int
+    name: str
+    description: str
+    crit_rate_bonus: float
+    damage_bonus: float
+
+
+@dataclass(frozen=True, slots=True)
+class YeRawMindscape:
+    level: int
+    name: str
+    description: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,9 +55,10 @@ class YeShunguangRawRecord:
     specialty: str
     element: str
     moves: tuple[YeRawMoveRecord, ...]
-    core_passive_name: str
+    core_levels: tuple[YeRawCoreLevel, ...]
     extra_ability_name: str
-    cinema_names: tuple[str, ...]
+    extra_ability_description: str
+    mindscapes: tuple[YeRawMindscape, ...]
 
 
 def load_raw_record(data: Mapping[str, object]) -> YeShunguangRawRecord:
@@ -47,27 +74,29 @@ def load_raw_record(data: Mapping[str, object]) -> YeShunguangRawRecord:
         raw_moves = _sequence(skills.get(section), section)
         for raw_move in raw_moves:
             move = _mapping_value(raw_move, section)
-            parameters = _sequence(move.get("parameters", ()), "parameters")
+            parameters = tuple(
+                _raw_parameter(_mapping_value(item, section), section)
+                for item in _sequence(move.get("parameters", ()), "parameters")
+            )
             moves.append(
                 YeRawMoveRecord(
                     skill_section=section,
                     name=_string(move, "sub_skill_name", section),
                     description=_string(move, "sub_skill_desc", section),
-                    parameter_names=tuple(
-                        _string(_mapping_value(item, section), "param_name", section)
-                        for item in parameters
-                    ),
+                    parameters=parameters,
                 )
             )
 
     passive = _mapping(data, "passive")
+    core_levels = tuple(
+        _raw_core_level(_mapping(passive, f"level_{level}"), level)
+        for level in range(1, 8)
+    )
     level_one = _mapping(passive, "level_1")
-    core = _mapping(level_one, "core_passive")
     extra = _mapping(level_one, "extra_ability")
     mindscapes = _mapping(data, "mindscapes")
-    cinema_names = tuple(
-        _string(_mapping(mindscapes, f"cinema_{level}"), "name", "mindscapes")
-        for level in (1, 2, 4, 6)
+    raw_mindscapes = tuple(
+        _mapping(mindscapes, f"cinema_{level}") for level in (1, 2, 4, 6)
     )
     return YeShunguangRawRecord(
         character_id=character_id,
@@ -76,9 +105,52 @@ def load_raw_record(data: Mapping[str, object]) -> YeShunguangRawRecord:
         specialty=_string(data, "specialty", "character"),
         element=_string(data, "element", "character"),
         moves=tuple(moves),
-        core_passive_name=_string(core, "name", "core_passive"),
         extra_ability_name=_string(extra, "name", "extra_ability"),
-        cinema_names=cinema_names,
+        extra_ability_description=_string(extra, "desc", "extra_ability"),
+        core_levels=core_levels,
+        mindscapes=tuple(
+            YeRawMindscape(
+                level=level,
+                name=_string(raw, "name", "mindscapes"),
+                description=_string(raw, "desc", "mindscapes"),
+            )
+            for level, raw in zip((1, 2, 4, 6), raw_mindscapes)
+        ),
+    )
+
+
+def _raw_parameter(
+    data: Mapping[str, object],
+    section: str,
+) -> YeRawSkillParameter:
+    values = _mapping(data, "values")
+    parsed_values: list[tuple[int, float]] = []
+    for key, value in values.items():
+        if not isinstance(key, str) or not key.startswith("lv"):
+            raise ValueError(f"raw {section} parameter level must use lvN keys")
+        if not isinstance(value, (int, float)):
+            raise ValueError(f"raw {section} parameter values must be numeric")
+        parsed_values.append((int(key[2:]), float(value)))
+    return YeRawSkillParameter(
+        name=_string(data, "param_name", section),
+        format=_string(data, "format", section),
+        values=tuple(sorted(parsed_values)),
+    )
+
+
+def _raw_core_level(data: Mapping[str, object], level: int) -> YeRawCoreLevel:
+    core = _mapping(data, "core_passive")
+    values = _mapping(data, "calculation_values")
+    crit_rate = values.get("crit_rate_bonus")
+    damage = values.get("damage_bonus")
+    if not isinstance(crit_rate, (int, float)) or not isinstance(damage, (int, float)):
+        raise ValueError("raw core level calculation values must be numeric")
+    return YeRawCoreLevel(
+        level=level,
+        name=_string(core, "name", "core_passive"),
+        description=_string(core, "desc", "core_passive"),
+        crit_rate_bonus=float(crit_rate),
+        damage_bonus=float(damage),
     )
 
 
