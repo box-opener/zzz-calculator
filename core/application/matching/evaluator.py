@@ -52,14 +52,32 @@ def diagnostic(
     )
 
 
-def combine_all(
-    decisions: tuple[EffectMatchStatus, ...],
-) -> EffectMatchStatus:
-    if EffectMatchStatus.NOT_MATCHED in decisions:
-        return EffectMatchStatus.NOT_MATCHED
-    if EffectMatchStatus.BLOCKED in decisions:
-        return EffectMatchStatus.BLOCKED
-    return EffectMatchStatus.MATCHED
+MatchEvaluation = tuple[
+    EffectMatchStatus,
+    tuple[CalculationDiagnostic, ...],
+]
+
+
+def combine_conjunction(
+    evaluations: tuple[MatchEvaluation, ...],
+) -> MatchEvaluation:
+    statuses = tuple(item[0] for item in evaluations)
+    if EffectMatchStatus.NOT_MATCHED in statuses:
+        return EffectMatchStatus.NOT_MATCHED, _non_blocking_diagnostics(evaluations)
+    if EffectMatchStatus.BLOCKED in statuses:
+        return EffectMatchStatus.BLOCKED, _all_diagnostics(evaluations)
+    return EffectMatchStatus.MATCHED, _all_diagnostics(evaluations)
+
+
+def combine_disjunction(
+    evaluations: tuple[MatchEvaluation, ...],
+) -> MatchEvaluation:
+    statuses = tuple(item[0] for item in evaluations)
+    if EffectMatchStatus.MATCHED in statuses:
+        return EffectMatchStatus.MATCHED, _non_blocking_diagnostics(evaluations)
+    if EffectMatchStatus.BLOCKED in statuses:
+        return EffectMatchStatus.BLOCKED, _all_diagnostics(evaluations)
+    return EffectMatchStatus.NOT_MATCHED, _all_diagnostics(evaluations)
 
 
 def match_target(
@@ -221,22 +239,16 @@ def match_filters(
     filters: tuple[EffectFilter, ...],
     context: EffectMatchContext,
     effect_id: str,
-    target: EffectTarget,
 ) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
-    decisions: list[EffectMatchStatus] = []
-    diagnostics: list[CalculationDiagnostic] = []
-    for item in filters:
-        status, item_diagnostics = match_filter(item, context, effect_id, target)
-        decisions.append(status)
-        diagnostics.extend(item_diagnostics)
-    return combine_all(tuple(decisions)), tuple(diagnostics)
+    return combine_conjunction(
+        tuple(match_filter(item, context, effect_id) for item in filters)
+    )
 
 
 def match_filter(
     item: EffectFilter,
     context: EffectMatchContext,
     effect_id: str,
-    target: EffectTarget,
 ) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
     if isinstance(item, Unresolved):
         return (
@@ -253,14 +265,11 @@ def match_filter(
             ),
         )
     if isinstance(item, AnyFilter):
-        return _combine_any_nested(
-            tuple(
-                match_filter(child, context, effect_id, target)
-                for child in item.filters
-            )
+        return combine_disjunction(
+            tuple(match_filter(child, context, effect_id) for child in item.filters)
         )
     if isinstance(item, NotFilter):
-        status, diagnostics = match_filter(item.filter, context, effect_id, target)
+        status, diagnostics = match_filter(item.filter, context, effect_id)
         if status is EffectMatchStatus.MATCHED:
             return EffectMatchStatus.NOT_MATCHED, diagnostics
         if status is EffectMatchStatus.NOT_MATCHED:
@@ -281,26 +290,18 @@ def match_filter(
     if isinstance(item, EnemyStateFilter):
         return _bool_decision(item.state_id in context.target.states)
     if isinstance(item, CharacterFilter):
-        if target is EffectTarget.ENEMY:
-            return EffectMatchStatus.NOT_MATCHED, ()
         return _bool_decision(context.current_operator is item.character_id)
     if isinstance(item, CharacterRoleFilter):
-        if target is EffectTarget.ENEMY:
-            return EffectMatchStatus.NOT_MATCHED, ()
         profile = context.character(context.current_operator)
         if profile is None:
             return EffectMatchStatus.BLOCKED, ()
         return _bool_decision(profile.role is item.role)
     if isinstance(item, FieldPositionFilter):
-        if target is EffectTarget.ENEMY:
-            return EffectMatchStatus.NOT_MATCHED, ()
         profile = context.character(context.current_operator)
         if profile is None or profile.field_position is None:
             return EffectMatchStatus.BLOCKED, ()
         return _bool_decision(profile.field_position is item.position)
     if isinstance(item, OperationStateFilter):
-        if target is EffectTarget.ENEMY:
-            return EffectMatchStatus.NOT_MATCHED, ()
         profile = context.character(context.current_operator)
         if profile is None or profile.operation_state is None:
             return EffectMatchStatus.BLOCKED, ()
@@ -335,24 +336,28 @@ def _state_profiles(subject, owner, context: EffectMatchContext):
 
 
 def _combine_nested(decisions):
-    statuses = tuple(item[0] for item in decisions)
-    diagnostics = tuple(
-        diagnostic_item
-        for _, item_diagnostics in decisions
-        for diagnostic_item in item_diagnostics
-    )
-    return combine_all(statuses), diagnostics
+    return combine_conjunction(decisions)
 
 
 def _combine_any_nested(decisions):
-    statuses = tuple(item[0] for item in decisions)
-    diagnostics = tuple(
+    return combine_disjunction(decisions)
+
+
+def _all_diagnostics(
+    evaluations: tuple[MatchEvaluation, ...],
+) -> tuple[CalculationDiagnostic, ...]:
+    return tuple(
         diagnostic_item
-        for _, item_diagnostics in decisions
+        for _, item_diagnostics in evaluations
         for diagnostic_item in item_diagnostics
     )
-    if EffectMatchStatus.MATCHED in statuses:
-        return EffectMatchStatus.MATCHED, diagnostics
-    if EffectMatchStatus.BLOCKED in statuses:
-        return EffectMatchStatus.BLOCKED, diagnostics
-    return EffectMatchStatus.NOT_MATCHED, diagnostics
+
+
+def _non_blocking_diagnostics(
+    evaluations: tuple[MatchEvaluation, ...],
+) -> tuple[CalculationDiagnostic, ...]:
+    return tuple(
+        item
+        for item in _all_diagnostics(evaluations)
+        if not item.blocking
+    )

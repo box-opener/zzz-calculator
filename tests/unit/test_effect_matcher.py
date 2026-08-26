@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import fields, replace
 
 import pytest
 
@@ -16,6 +16,7 @@ from core.application import (
 )
 from core.application.matching import (
     CharacterMatchProfile,
+    DynamicIdentityResolver,
     EffectMatchContext,
     EffectMatchStatus,
     EffectMatcher,
@@ -23,27 +24,39 @@ from core.application.matching import (
 )
 from core.calculation import CalculationNode
 from core.types import (
+    ANOMALY_DAMAGE_KIND_BY_ELEMENT,
+    ANOMALY_STATE_KIND_BY_ELEMENT,
     AllCondition,
+    AnyCondition,
     AnyFilter,
     AlwaysCondition,
+    AnomalyContribution,
+    AnomalyRecord,
     AnomalyRecordId,
     AnomalyRecordValueSource,
     AttributeAnomalyDamageEvent,
     BattleEventKind,
     BattleStateId,
     CalculationContext,
+    CharacterFilter,
     CharacterId,
     CharacterRole,
+    CharacterRoleFilter,
     CharacterSnapshot,
     CharacterStats,
     CurrentAttackValueSource,
     DamageEventId,
     DamageEventMetadata,
+    DamageEvent,
+    DamageSubtype,
+    DamageSubtypeFilter,
     DamageTag,
     DamageTagFilter,
     DamageType,
     DamageTypeFilter,
     DirectDamageEvent,
+    DisorderDamageEvent,
+    DischargeDamageEvent,
     DynamicIdentity,
     DynamicIdentityCondition,
     DynamicIdentityFilter,
@@ -61,9 +74,11 @@ from core.types import (
     FieldPosition,
     FieldPositionFilter,
     FixedMultiplier,
+    LuminanceDamageEvent,
     MoveId,
     ModifierEffect,
     ModifierResult,
+    NoAnomalyCrit,
     NotFilter,
     NoCritRule,
     OperationState,
@@ -77,7 +92,10 @@ from core.types import (
     StateId,
     StatePresentCondition,
     StandardCritRule,
+    TurbulenceDamageEvent,
     Unresolved,
+    UnresolvedEffect,
+    UnresolvedReason,
 )
 
 
@@ -131,14 +149,44 @@ def _event(
     )
 
 
+def _record(
+    record_id: AnomalyRecordId,
+    triggerer: CharacterId,
+) -> AnomalyRecord:
+    contribution = AnomalyContribution(
+        contributor=triggerer,
+        actual_written_buildup=100.0,
+        anomaly_effect_strength=Resolved(1000.0),
+        impact_strength=Resolved(100.0),
+        occurred_at=1.0,
+    )
+    return AnomalyRecord(
+        record_id=record_id,
+        target_enemy=EnemyId("enemy:matcher"),
+        element=Element.PHYSICAL,
+        damage_kind=ANOMALY_DAMAGE_KIND_BY_ELEMENT[Element.PHYSICAL],
+        state_kind=ANOMALY_STATE_KIND_BY_ELEMENT[Element.PHYSICAL],
+        weighted_anomaly_effect_strength=Resolved(1000.0),
+        weighted_impact_strength=Resolved(100.0),
+        anomaly_damage_bonus_region=Resolved(1.0),
+        contributors=(triggerer,),
+        anomaly_triggerer=triggerer,
+        crit_capability=NoAnomalyCrit(),
+        triggered_at=1.0,
+        duration=Resolved(10.0),
+        contributions=(contribution,),
+    )
+
+
 def _context(
-    event: DirectDamageEvent,
+    event: DamageEvent,
     scenario: CalculationScenario,
     *,
     owner: CharacterId = CharacterId("character:owner"),
     owner_role: CharacterRole = CharacterRole.SUPPORT,
     enemy_states: frozenset[StateId] = frozenset(),
     owner_states: frozenset[StateId] = frozenset(),
+    history_records: tuple[AnomalyRecord, ...] = (),
 ) -> EffectMatchContext:
     operator = CharacterId("character:operator")
     target = EnemyId("enemy:matcher")
@@ -178,9 +226,9 @@ def _context(
                 daze_resistance=Resolved(0.0),
                 damage_reduction=Resolved(0.0),
             ),
+            history_records=history_records,
         ),
         scenario=scenario,
-        current_operator=operator,
         team=tuple(profiles),
         target=EnemyMatchProfile(target, enemy_states),
     )
@@ -436,7 +484,7 @@ def test_enemy_state_filter_and_or_not_filters() -> None:
     assert result.status is EffectMatchStatus.MATCHED
 
 
-def test_dynamic_identity_requires_history_when_identity_is_history_based() -> None:
+def test_attribute_anomaly_trigger_uses_event_but_contributors_require_history() -> None:
     actor = CharacterId("character:operator")
     event = AttributeAnomalyDamageEvent(
         metadata=DamageEventMetadata(
@@ -472,4 +520,372 @@ def test_dynamic_identity_requires_history_when_identity_is_history_based() -> N
         _rule(effect, scenario),
         context,
     )
+    assert result.status is EffectMatchStatus.MATCHED
+
+    contributor_effect = _effect(
+        "effect:history-contributors",
+        owner=actor,
+        target=EffectTarget.SELF,
+        condition=DynamicIdentityCondition(DynamicIdentity.ANOMALY_CONTRIBUTORS),
+    )
+    contributor_scenario = _scenario(enabled=("effect:history-contributors",))
+    contributor_context = replace(context, scenario=contributor_scenario)
+    contributor_result = EffectMatcher().match_rule_item(
+        _rule(contributor_effect, contributor_scenario),
+        contributor_context,
+    )
+    assert contributor_result.status is EffectMatchStatus.BLOCKED
+
+
+def test_current_operator_has_one_scenario_source_of_truth() -> None:
+    scenario = _scenario()
+    context = _context(_event(), scenario)
+
+    assert context.current_operator == scenario.current_operator
+    assert "current_operator" not in {
+        item.name for item in fields(EffectMatchContext)
+    }
+
+    mismatched = replace(
+        scenario,
+        current_operator=CharacterId("character:not-in-team"),
+    )
+    with pytest.raises(ValueError, match="current_operator"):
+        _context(_event(), mismatched)
+
+
+def test_enemy_target_keeps_character_side_filters_independent() -> None:
+    operator = CharacterId("character:operator")
+    effect = _effect(
+        "effect:enemy-character-filter",
+        target=EffectTarget.ENEMY,
+        filters=(
+            CharacterFilter(operator),
+            CharacterRoleFilter(CharacterRole.ATTACK),
+            FieldPositionFilter(FieldPosition.FRONT),
+            OperationStateFilter(OperationState.OPERATED),
+        ),
+    )
+    scenario = _scenario(enabled=("effect:enemy-character-filter",))
+    result = EffectMatcher().match_rule_item(
+        _rule(effect, scenario),
+        _context(_event(), scenario),
+    )
+
+    assert result.status is EffectMatchStatus.MATCHED
+
+
+def test_three_valued_short_circuit_discards_irrelevant_blocking_diagnostics() -> None:
+    operator = CharacterId("character:operator")
+    unresolved = Unresolved(
+        reason=UnresolvedReason.AMBIGUOUS_TEXT,
+        notes="unknown condition",
+        original_text="unknown",
+    )
+    false_and_unknown = _effect(
+        "effect:false-and-unknown",
+        owner=operator,
+        target=EffectTarget.SELF,
+        condition=AllCondition(
+            (
+                StatePresentCondition(
+                    EffectTarget.SELF,
+                    StateId("state:absent"),
+                ),
+                unresolved,
+            )
+        ),
+    )
+    false_scenario = _scenario(enabled=("effect:false-and-unknown",))
+    false_result = EffectMatcher().match_rule_item(
+        _rule(false_and_unknown, false_scenario),
+        _context(_event(), false_scenario, owner=operator),
+    )
+    assert false_result.status is EffectMatchStatus.NOT_MATCHED
+    assert not any(item.blocking for item in false_result.diagnostics)
+
+    true_or_unknown = _effect(
+        "effect:true-or-unknown",
+        condition=AnyCondition((AlwaysCondition(), unresolved)),
+    )
+    true_scenario = _scenario(enabled=("effect:true-or-unknown",))
+    true_result = EffectMatcher().match_rule_item(
+        _rule(true_or_unknown, true_scenario),
+        _context(_event(), true_scenario),
+    )
+    assert true_result.status is EffectMatchStatus.MATCHED
+    assert not any(item.blocking for item in true_result.diagnostics)
+
+    irrelevant_self = _effect(
+        "effect:irrelevant-self",
+        target=EffectTarget.SELF,
+        condition=unresolved,
+    )
+    irrelevant_scenario = _scenario(enabled=("effect:irrelevant-self",))
+    irrelevant_result = EffectMatcher().match_rule_item(
+        _rule(irrelevant_self, irrelevant_scenario),
+        _context(_event(), irrelevant_scenario),
+    )
+    assert irrelevant_result.status is EffectMatchStatus.NOT_MATCHED
+    assert not any(item.blocking for item in irrelevant_result.diagnostics)
+
+    false_rule_condition = ScenarioCondition(
+        condition_id=ScenarioConditionId("condition:false"),
+        label="false",
+        original_text="false",
+        resolution=ConditionResolution.STATIC,
+        value=False,
+    )
+    unknown_rule_condition = ScenarioCondition(
+        condition_id=ScenarioConditionId("condition:unknown"),
+        label="unknown",
+        original_text="unknown",
+        resolution=ConditionResolution.USER_SELECTED,
+        value=None,
+    )
+    rule_effect = _effect("effect:rule-short-circuit")
+    rule_scenario = _scenario(
+        enabled=("effect:rule-short-circuit",),
+        conditions=(false_rule_condition, unknown_rule_condition),
+    )
+    rule_result = EffectMatcher().match_rule_item(
+        _rule(
+            rule_effect,
+            rule_scenario,
+            eligibility=RuleEligibility.SCENARIO_REQUIRED,
+            condition_ids=(
+                false_rule_condition.condition_id,
+                unknown_rule_condition.condition_id,
+            ),
+        ),
+        _context(_event(), rule_scenario),
+    )
+    assert rule_result.status is EffectMatchStatus.NOT_MATCHED
+    assert not any(item.blocking for item in rule_result.diagnostics)
+
+
+def test_unresolved_effect_only_blocks_after_known_gates_match() -> None:
+    base_rule = EffectRule(
+        effect_id=EffectId("effect:unresolved-irrelevant"),
+        source=_source(),
+        owner=CharacterId("character:owner"),
+        target=EffectTarget.TEAM,
+        snapshot_rule=SnapshotRule.SETTLEMENT,
+        filters=(DamageTagFilter(DamageTag.BASIC_ATTACK),),
+    )
+    unresolved_effect = UnresolvedEffect(
+        rule=base_rule,
+        unresolved=Unresolved(
+            reason=UnresolvedReason.AMBIGUOUS_TEXT,
+            notes="unknown result",
+        ),
+    )
+    scenario = _scenario(enabled=("effect:unresolved-irrelevant",))
+    item = CalculationRuleItem(
+        rule_id=RuleItemId("rule:effect:unresolved-irrelevant"),
+        owner=base_rule.owner,
+        source=_source(),
+        display_name="unresolved irrelevant",
+        original_text="unresolved irrelevant",
+        eligibility=RuleEligibility.ELIGIBLE,
+        effects=(unresolved_effect,),
+    )
+    result = EffectMatcher().match_rule_item(
+        item,
+        _context(_event(), scenario),
+    )
+
+    assert result.status is EffectMatchStatus.NOT_MATCHED
+    assert not any(item.blocking for item in result.diagnostics)
+
+
+def test_one_rule_item_preserves_matched_not_matched_and_blocked_effects() -> None:
+    matched = _effect("effect:multi-matched")
+    not_matched = _effect(
+        "effect:multi-not-matched",
+        filters=(DamageTagFilter(DamageTag.BASIC_ATTACK),),
+    )
+    blocked = _effect(
+        "effect:multi-blocked",
+        condition=Unresolved(
+            reason=UnresolvedReason.MISSING_DATA,
+            notes="missing condition data",
+        ),
+    )
+    rule_id = RuleItemId("rule:multi")
+    scenario = CalculationScenario(
+        scenario_id="scenario:multi",
+        current_operator=CharacterId("character:operator"),
+        enabled_rule_item_ids=frozenset({rule_id}),
+    )
+    rule = CalculationRuleItem(
+        rule_id=rule_id,
+        owner=CharacterId("character:owner"),
+        source=_source(),
+        display_name="multi effect rule",
+        original_text="multi effect rule",
+        eligibility=RuleEligibility.ELIGIBLE,
+        effects=(matched, not_matched, blocked),
+    )
+    result = EffectMatcher().match_rule_item(
+        rule,
+        _context(_event(), scenario),
+    )
+
     assert result.status is EffectMatchStatus.BLOCKED
+    assert result.matched_effects == (matched,)
+    assert tuple(item.status for item in result.effects) == (
+        EffectMatchStatus.MATCHED,
+        EffectMatchStatus.NOT_MATCHED,
+        EffectMatchStatus.BLOCKED,
+    )
+
+
+def test_all_typed_trigger_identities_resolve_from_their_events() -> None:
+    actor = CharacterId("character:operator")
+    record_id = AnomalyRecordId("anomaly:identity")
+    record = _record(record_id, actor)
+    metadata = DamageEventMetadata(
+        event_id=DamageEventId("damage:identity"),
+        battle_state_id=BattleStateId("battle:matcher"),
+        damage_dealer=actor,
+        target_enemy=EnemyId("enemy:matcher"),
+        element=Element.PHYSICAL,
+        created_at=1.0,
+    )
+    events_and_identities = (
+        (
+            DisorderDamageEvent(
+                metadata,
+                actor,
+                AnomalyRecordValueSource(record_id),
+                record_id,
+                FixedMultiplier(Resolved(1.0)),
+                NoCritRule(),
+            ),
+            DynamicIdentity.DISORDER_TRIGGER,
+        ),
+        (
+            TurbulenceDamageEvent(
+                metadata,
+                actor,
+                AnomalyRecordValueSource(record_id),
+                record_id,
+                FixedMultiplier(Resolved(1.0)),
+                NoCritRule(),
+            ),
+            DynamicIdentity.WIND_ANOMALY_TRIGGER,
+        ),
+        (
+            LuminanceDamageEvent(
+                metadata,
+                actor,
+                AnomalyRecordValueSource(record_id),
+                record_id,
+                FixedMultiplier(Resolved(1.0)),
+                NoCritRule(),
+            ),
+            DynamicIdentity.LUMINANCE_TRIGGER,
+        ),
+        (
+            DischargeDamageEvent(
+                metadata,
+                actor,
+                AnomalyRecordValueSource(record_id),
+                record_id,
+                FixedMultiplier(Resolved(1.0)),
+                NoCritRule(),
+            ),
+            DynamicIdentity.DISCHARGE_TRIGGER,
+        ),
+    )
+    scenario = _scenario()
+
+    for event, identity in events_and_identities:
+        context = _context(
+            event,
+            scenario,
+            owner=actor,
+            owner_role=CharacterRole.ATTACK,
+            history_records=(record,),
+        )
+        resolution = DynamicIdentityResolver().resolve(identity, context)
+        assert resolution.identities == frozenset({actor})
+
+
+def test_anomaly_contributors_and_subtype_filter_positive_paths() -> None:
+    actor = CharacterId("character:operator")
+    record_id = AnomalyRecordId("anomaly:positive")
+    record = _record(record_id, actor)
+    event = AttributeAnomalyDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId("damage:attribute-positive"),
+            battle_state_id=BattleStateId("battle:matcher"),
+            damage_dealer=actor,
+            target_enemy=EnemyId("enemy:matcher"),
+            element=Element.PHYSICAL,
+            created_at=1.0,
+        ),
+        anomaly_triggerer=actor,
+        base_settlement_data_source=AnomalyRecordValueSource(record_id),
+        history_record_source=record_id,
+        multiplier=FixedMultiplier(Resolved(1.0)),
+        crit_rule=NoCritRule(),
+    )
+    effect = _effect(
+        "effect:contributors-positive",
+        owner=actor,
+        target=EffectTarget.SELF,
+        condition=DynamicIdentityCondition(DynamicIdentity.ANOMALY_CONTRIBUTORS),
+        filters=(DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),),
+    )
+    scenario = _scenario(enabled=("effect:contributors-positive",))
+    result = EffectMatcher().match_rule_item(
+        _rule(effect, scenario),
+        _context(
+            event,
+            scenario,
+            owner=actor,
+            owner_role=CharacterRole.ATTACK,
+            history_records=(record,),
+        ),
+    )
+
+    assert result.status is EffectMatchStatus.MATCHED
+
+
+def test_attribute_event_and_record_trigger_mismatch_is_blocking_data_quality() -> None:
+    actor = CharacterId("character:operator")
+    other = CharacterId("character:other")
+    record_id = AnomalyRecordId("anomaly:mismatch")
+    record = _record(record_id, other)
+    event = AttributeAnomalyDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId("damage:attribute-mismatch"),
+            battle_state_id=BattleStateId("battle:matcher"),
+            damage_dealer=actor,
+            target_enemy=EnemyId("enemy:matcher"),
+            element=Element.PHYSICAL,
+            created_at=1.0,
+        ),
+        anomaly_triggerer=actor,
+        base_settlement_data_source=AnomalyRecordValueSource(record_id),
+        history_record_source=record_id,
+        multiplier=FixedMultiplier(Resolved(1.0)),
+        crit_rule=NoCritRule(),
+    )
+    scenario = _scenario()
+    context = _context(
+        event,
+        scenario,
+        owner=other,
+        history_records=(record,),
+    )
+    resolution = DynamicIdentityResolver().resolve(
+        DynamicIdentity.ANOMALY_TRIGGER,
+        context,
+    )
+
+    assert resolution.identities is None
+    assert resolution.diagnostic is not None
+    assert resolution.diagnostic.blocking is True

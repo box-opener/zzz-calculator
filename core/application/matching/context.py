@@ -50,7 +50,6 @@ class EffectMatchContext:
     current_event: DamageEvent
     calculation_context: CalculationContext
     scenario: CalculationScenario
-    current_operator: CharacterId
     team: tuple[CharacterMatchProfile, ...]
     target: EnemyMatchProfile
 
@@ -72,8 +71,14 @@ class EffectMatchContext:
         character_ids = tuple(item.character_id for item in self.team)
         if len(set(character_ids)) != len(character_ids):
             raise ValueError("team character IDs must be unique")
-        if self.current_operator not in set(character_ids):
+        if self.scenario.current_operator not in set(character_ids):
             raise ValueError("current_operator must be a team member")
+
+    @property
+    def current_operator(self) -> CharacterId:
+        """The scenario is the single source of truth for the operator."""
+
+        return self.scenario.current_operator
 
     @property
     def history_records(self) -> tuple[AnomalyRecord, ...]:

@@ -40,6 +40,7 @@ from .matching import (
     EffectMatchStatus,
     EffectMatcher,
     EnemyMatchProfile,
+    HistoryRecordResolution,
     IdentityResolution,
     RuleItemMatchResult,
     ScenarioTriggerFactView,
@@ -82,4 +83,5 @@ __all__ = [
     "EffectMatcher",
     "EnemyMatchProfile",
     "IdentityResolution",
+    "HistoryRecordResolution",
 ]

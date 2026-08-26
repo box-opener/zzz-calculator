@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from core.types import Effect, EffectId, UnresolvedEffect
 
-from ..diagnostics import CalculationDiagnostic, DiagnosticKind
+from ..diagnostics import DiagnosticKind
 from ..rules import CalculationRuleItem, RuleEligibility
 from .context import EffectMatchContext
 from .evaluator import (
+    MatchEvaluation,
+    combine_conjunction,
     diagnostic,
     match_condition,
     match_filters,
@@ -61,10 +63,10 @@ class EffectMatcher:
         statuses = tuple(item.status for item in effect_results)
         if not statuses:
             status = EffectMatchStatus.NOT_MATCHED
-        elif EffectMatchStatus.MATCHED in statuses:
-            status = EffectMatchStatus.MATCHED
         elif EffectMatchStatus.BLOCKED in statuses:
             status = EffectMatchStatus.BLOCKED
+        elif EffectMatchStatus.MATCHED in statuses:
+            status = EffectMatchStatus.MATCHED
         else:
             status = EffectMatchStatus.NOT_MATCHED
         diagnostics = tuple(
@@ -95,6 +97,40 @@ class EffectMatcher:
         context: EffectMatchContext,
     ) -> EffectMatchResult:
         effect_id: EffectId = effect.rule.effect_id
+        gate_status, gate_diagnostics = combine_conjunction(
+            (
+                match_target(
+                    effect.rule.target,
+                    effect.rule.owner,
+                    context,
+                    str(effect_id),
+                ),
+                match_trigger(effect.rule, context, str(effect_id)),
+                match_condition(
+                    effect.rule.condition,
+                    context,
+                    effect.rule.owner,
+                    str(effect_id),
+                ),
+                match_filters(
+                    effect.rule.filters,
+                    context,
+                    str(effect_id),
+                ),
+            )
+        )
+        if gate_status is EffectMatchStatus.NOT_MATCHED:
+            return EffectMatchResult(
+                effect_id=effect_id,
+                status=gate_status,
+                diagnostics=gate_diagnostics,
+            )
+        if gate_status is EffectMatchStatus.BLOCKED:
+            return EffectMatchResult(
+                effect_id=effect_id,
+                status=gate_status,
+                diagnostics=gate_diagnostics,
+            )
         if isinstance(effect, UnresolvedEffect):
             return EffectMatchResult(
                 effect_id=effect_id,
@@ -110,39 +146,11 @@ class EffectMatcher:
                     ),
                 ),
             )
-
-        decisions = []
-        diagnostics: list[CalculationDiagnostic] = []
-        for status, item_diagnostics in (
-            match_target(effect.rule.target, effect.rule.owner, context, str(effect_id)),
-            match_trigger(effect.rule, context, str(effect_id)),
-            match_condition(
-                effect.rule.condition,
-                context,
-                effect.rule.owner,
-                str(effect_id),
-            ),
-            match_filters(
-                effect.rule.filters,
-                context,
-                str(effect_id),
-                effect.rule.target,
-            ),
-        ):
-            decisions.append(status)
-            diagnostics.extend(item_diagnostics)
-
-        if EffectMatchStatus.NOT_MATCHED in decisions:
-            status = EffectMatchStatus.NOT_MATCHED
-        elif EffectMatchStatus.BLOCKED in decisions:
-            status = EffectMatchStatus.BLOCKED
-        else:
-            status = EffectMatchStatus.MATCHED
         return EffectMatchResult(
             effect_id=effect_id,
-            status=status,
-            effect=effect if status is EffectMatchStatus.MATCHED else None,
-            diagnostics=tuple(diagnostics),
+            status=EffectMatchStatus.MATCHED,
+            effect=effect,
+            diagnostics=gate_diagnostics,
         )
 
     @staticmethod
@@ -156,40 +164,41 @@ class EffectMatcher:
             item.condition_id: item
             for item in context.scenario.conditions
         }
-        statuses = []
-        diagnostics = []
+        evaluations: list[MatchEvaluation] = []
         for condition_id in rule_item.condition_ids:
             condition = condition_map.get(condition_id)
             if condition is None:
-                statuses.append(EffectMatchStatus.BLOCKED)
-                diagnostics.append(
-                    diagnostic(
-                        str(rule_item.rule_id),
-                        f"missing-condition-{condition_id}",
-                        DiagnosticKind.MISSING_DATA,
-                        f"missing scenario condition: {condition_id}",
-                        blocking=True,
+                evaluations.append(
+                    (
+                        EffectMatchStatus.BLOCKED,
+                        (
+                            diagnostic(
+                                str(rule_item.rule_id),
+                                f"missing-condition-{condition_id}",
+                                DiagnosticKind.MISSING_DATA,
+                                f"missing scenario condition: {condition_id}",
+                                blocking=True,
+                            ),
+                        ),
                     )
                 )
             elif condition.value is None:
-                statuses.append(EffectMatchStatus.BLOCKED)
-                diagnostics.append(
-                    diagnostic(
-                        str(rule_item.rule_id),
-                        f"unresolved-condition-{condition_id}",
-                        DiagnosticKind.MISSING_DATA,
-                        f"scenario condition has no selected value: {condition_id}",
-                        blocking=True,
+                evaluations.append(
+                    (
+                        EffectMatchStatus.BLOCKED,
+                        (
+                            diagnostic(
+                                str(rule_item.rule_id),
+                                f"unresolved-condition-{condition_id}",
+                                DiagnosticKind.MISSING_DATA,
+                                f"scenario condition has no selected value: {condition_id}",
+                                blocking=True,
+                            ),
+                        ),
                     )
                 )
             elif condition.value:
-                statuses.append(EffectMatchStatus.MATCHED)
+                evaluations.append((EffectMatchStatus.MATCHED, ()))
             else:
-                statuses.append(EffectMatchStatus.NOT_MATCHED)
-        if EffectMatchStatus.NOT_MATCHED in statuses:
-            status = EffectMatchStatus.NOT_MATCHED
-        elif EffectMatchStatus.BLOCKED in statuses:
-            status = EffectMatchStatus.BLOCKED
-        else:
-            status = EffectMatchStatus.MATCHED
-        return status, tuple(diagnostics)
+                evaluations.append((EffectMatchStatus.NOT_MATCHED, ()))
+        return combine_conjunction(tuple(evaluations))

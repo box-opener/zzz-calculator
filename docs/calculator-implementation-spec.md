@@ -101,6 +101,10 @@ Effect 条件首先尝试由当前角色、小队、装备、影画和敌人配�
 
 Effect 存在 trigger 但场景没有对应 trigger fact 时，匹配结果为 BLOCKED；存在 trigger fact 但事件类型或招式不匹配时，匹配结果为 NOT_MATCHED。不能把缺少 trigger fact 当作 False。
 
+Effect 的 target 与 filters 是独立判断轴。`target=enemy` 只表示 Effect 作用于敌人，不会禁止 Character、CharacterRole、FieldPosition 或 OperationState Filter 检查当前计算角色。
+
+Effect 匹配采用 MATCHED / NOT_MATCHED / BLOCKED 三值逻辑。当 AND 已由 NOT_MATCHED 决定，或 OR 已由 MATCHED 决定时，其他不确定分支不得继续产生 blocking diagnostic。UnresolvedEffect 也必须先经过已知 target、trigger、condition 和 filters；若已知规则已使其与当前计算无关，则不阻塞本次计算。
+
 能由静态配置唯一确定的结构性条件不可由用户覆盖；无法由静态配置确定的场景条件由用户输入决定。
 
 用户关闭规则项只影响本次计算，不改变原始角色配置。
@@ -122,6 +126,8 @@ Effect 存在 trigger 但场景没有对应 trigger fact 时，匹配结果为 B
 DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改变本次计算所包含的 DamageEvent 数量。
 
 主页面始终只展示当前操作角色的面板、招式和主计算结果。切换当前操作角色后重新计算。
+
+当前操作角色的唯一真值来源为 `CalculationScenario.current_operator`。EffectMatchContext 等下游上下文不得再保存另一份可独立变化的 current_operator。
 
 为构造异常历史记录、比较 disorder_trigger、wind_anomaly_trigger 等派生场景时，计算器可以建立临时 CalculationContext，并在该临时上下文中将指定角色视为操作角色。
 

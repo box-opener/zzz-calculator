@@ -26,6 +26,12 @@ class IdentityResolution:
     diagnostic: CalculationDiagnostic | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class HistoryRecordResolution:
+    record: AnomalyRecord | None
+    diagnostic: CalculationDiagnostic | None = None
+
+
 class DynamicIdentityResolver:
     def resolve(
         self,
@@ -53,49 +59,51 @@ class DynamicIdentityResolver:
                 return IdentityResolution(frozenset({event.discharge_triggerer}))
             return IdentityResolution(frozenset())
 
-        record = self._record_for_event(event, context)
-        if record is None:
-            if self._event_has_history_source(event):
+        if (
+            identity is DynamicIdentity.ANOMALY_TRIGGER
+            and isinstance(event, AttributeAnomalyDamageEvent)
+        ):
+            history = self._record_for_event(event, context)
+            if history.diagnostic is not None and (
+                history.diagnostic.kind is DiagnosticKind.DATA_QUALITY
+            ):
+                return IdentityResolution(None, history.diagnostic)
+            if (
+                history.record is not None
+                and history.record.anomaly_triggerer != event.anomaly_triggerer
+            ):
                 return IdentityResolution(
                     identities=None,
-                    diagnostic=CalculationDiagnostic(
-                        diagnostic_id=DiagnosticId(
-                            f"missing-history-for-{identity.value}"
-                        ),
-                        kind=DiagnosticKind.MISSING_DATA,
-                        message=(
-                            f"cannot resolve {identity.value} without the event's "
-                            "AnomalyRecord"
-                        ),
-                        blocking=True,
+                    diagnostic=self._history_diagnostic(
+                        event,
+                        "anomaly triggerer differs between event and record",
+                        DiagnosticKind.DATA_QUALITY,
                     ),
+                )
+            return IdentityResolution(frozenset({event.anomaly_triggerer}))
+
+        history = self._record_for_event(event, context)
+        if history.record is None:
+            if history.diagnostic is not None:
+                return IdentityResolution(
+                    identities=None,
+                    diagnostic=history.diagnostic,
                 )
             return IdentityResolution(frozenset())
 
         if identity is DynamicIdentity.ANOMALY_TRIGGER:
-            return IdentityResolution(frozenset({record.anomaly_triggerer}))
+            return IdentityResolution(
+                frozenset({history.record.anomaly_triggerer})
+            )
         if identity is DynamicIdentity.ANOMALY_CONTRIBUTORS:
-            return IdentityResolution(frozenset(record.contributors))
+            return IdentityResolution(frozenset(history.record.contributors))
         return IdentityResolution(frozenset())
-
-    @staticmethod
-    def _event_has_history_source(event: DamageEvent) -> bool:
-        return isinstance(
-            event,
-            (
-                AttributeAnomalyDamageEvent,
-                DischargeDamageEvent,
-                TurbulenceDamageEvent,
-                LuminanceDamageEvent,
-                DisorderDamageEvent,
-            ),
-        )
 
     @staticmethod
     def _record_for_event(
         event: DamageEvent,
         context: EffectMatchContext,
-    ) -> AnomalyRecord | None:
+    ) -> HistoryRecordResolution:
         if isinstance(event, AttributeAnomalyDamageEvent):
             record_id: AnomalyRecordId = event.history_record_source
         elif isinstance(event, DischargeDamageEvent):
@@ -107,10 +115,62 @@ class DynamicIdentityResolver:
         elif isinstance(event, DisorderDamageEvent):
             record_id = event.history_record_source
         else:
-            return None
-        records = {}
-        for record in context.history_records:
-            if record.record_id in records:
-                return None
-            records[record.record_id] = record
-        return records.get(record_id)
+            return HistoryRecordResolution(None)
+        records = tuple(
+            record
+            for record in context.history_records
+            if record.record_id == record_id
+        )
+        if not records:
+            return HistoryRecordResolution(
+                None,
+                DynamicIdentityResolver._history_diagnostic(
+                    event,
+                    "required AnomalyRecord is missing",
+                    DiagnosticKind.MISSING_DATA,
+                ),
+            )
+        if len(records) > 1:
+            return HistoryRecordResolution(
+                None,
+                DynamicIdentityResolver._history_diagnostic(
+                    event,
+                    "duplicate AnomalyRecord identities",
+                    DiagnosticKind.DATA_QUALITY,
+                ),
+            )
+        record = records[0]
+        if record.target_enemy != event.metadata.target_enemy:
+            return HistoryRecordResolution(
+                None,
+                DynamicIdentityResolver._history_diagnostic(
+                    event,
+                    "AnomalyRecord target differs from event target",
+                    DiagnosticKind.DATA_QUALITY,
+                ),
+            )
+        if record.element != event.metadata.element:
+            return HistoryRecordResolution(
+                None,
+                DynamicIdentityResolver._history_diagnostic(
+                    event,
+                    "AnomalyRecord element differs from event element",
+                    DiagnosticKind.DATA_QUALITY,
+                ),
+            )
+        return HistoryRecordResolution(record)
+
+    @staticmethod
+    def _history_diagnostic(
+        event: DamageEvent,
+        message: str,
+        kind: DiagnosticKind,
+    ) -> CalculationDiagnostic:
+        return CalculationDiagnostic(
+            diagnostic_id=DiagnosticId(
+                f"history-{event.metadata.event_id}-{kind.value}"
+            ),
+            kind=kind,
+            message=message,
+            blocking=True,
+        )

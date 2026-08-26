@@ -6,7 +6,11 @@ from .context import (
     EnemyMatchProfile,
     ScenarioTriggerFactView,
 )
-from .identity import DynamicIdentityResolver, IdentityResolution
+from .identity import (
+    DynamicIdentityResolver,
+    HistoryRecordResolution,
+    IdentityResolution,
+)
 from .matcher import EffectMatcher
 from .result import EffectMatchResult, EffectMatchStatus, RuleItemMatchResult
 
@@ -19,6 +23,7 @@ __all__ = [
     "EffectMatcher",
     "EnemyMatchProfile",
     "IdentityResolution",
+    "HistoryRecordResolution",
     "RuleItemMatchResult",
     "ScenarioTriggerFactView",
 ]
