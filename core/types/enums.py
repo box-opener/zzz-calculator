@@ -1,4 +1,4 @@
-"""Closed vocabularies explicitly established by spec-v1."""
+"""Closed vocabularies explicitly established by the project specifications."""
 
 from enum import StrEnum
 
@@ -79,6 +79,7 @@ class DamageSubtype(StrEnum):
 class SkillGroup(StrEnum):
     BASIC_ATTACK = "basic-attack"
     SPECIAL_ATTACK = "special-attack"
+    DODGE = "dodge"
     ASSIST = "assist"
     CHAIN_ATTACK = "chain-attack"
     ULTIMATE = "ultimate"
@@ -88,6 +89,8 @@ class DamageTag(StrEnum):
     BASIC_ATTACK = "basic-attack-damage"
     SPECIAL_ATTACK = "special-attack-damage"
     EX_SPECIAL_ATTACK = "ex-special-attack-damage"
+    DASH_ATTACK = "dash-attack-damage"
+    DODGE_COUNTER = "dodge-counter-damage"
     ASSIST = "assist-damage"
     CHAIN_ATTACK = "chain-attack-damage"
     ULTIMATE = "ultimate-damage"
