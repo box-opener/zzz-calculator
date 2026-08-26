@@ -11,6 +11,7 @@ from core.types import (
     DamageSubtype,
     DamageTag,
     DamageType,
+    Element,
     EventTemplateId,
     MoveId,
     SkillGroup,
@@ -70,6 +71,7 @@ class DamageEventTemplateRef:
     damage_subtype: DamageSubtype | None = None
     skill_group: SkillGroup | None = None
     damage_tags: frozenset[DamageTag] = frozenset()
+    element: Element | None = None
     source_rule_item_id: RuleItemId | None = None
     event_kind: Literal[BattleEventKind.DAMAGE] = field(
         default=BattleEventKind.DAMAGE,

@@ -76,6 +76,7 @@ from core.types import (
     FixedMultiplier,
     LuminanceDamageEvent,
     MoveId,
+    MoveIdFilter,
     ModifierEffect,
     ModifierResult,
     NoAnomalyCrit,
@@ -320,6 +321,37 @@ def test_target_and_current_event_filters_are_separate() -> None:
         _context(event, _scenario(enabled=("effect:self",))),
     )
     assert self_result.status is EffectMatchStatus.NOT_MATCHED
+
+
+def test_move_id_filter_matches_semantic_move_identity_only() -> None:
+    event = _event()
+    matching = _effect(
+        "effect:move-id",
+        filters=(MoveIdFilter(MoveId("move:current")),),
+    )
+    non_matching = _effect(
+        "effect:other-move-id",
+        filters=(MoveIdFilter(MoveId("move:other")),),
+    )
+
+    assert (
+        EffectMatcher()
+        .match_rule_item(
+            _rule(matching, _scenario(enabled=("effect:move-id",))),
+            _context(event, _scenario(enabled=("effect:move-id",))),
+        )
+        .status
+        is EffectMatchStatus.MATCHED
+    )
+    assert (
+        EffectMatcher()
+        .match_rule_item(
+            _rule(non_matching, _scenario(enabled=("effect:other-move-id",))),
+            _context(event, _scenario(enabled=("effect:other-move-id",))),
+        )
+        .status
+        is EffectMatchStatus.NOT_MATCHED
+    )
 
 
 def test_trigger_fact_matches_trigger_event_not_settlement_event() -> None:

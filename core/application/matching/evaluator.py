@@ -19,6 +19,7 @@ from core.types import (
     ElementFilter,
     EnemyStateFilter,
     FieldPositionFilter,
+    MoveIdFilter,
     NotCondition,
     NotFilter,
     OperationStateFilter,
@@ -287,6 +288,8 @@ def match_filter(
         return _bool_decision(item.damage_tag in event.metadata.damage_tags)
     if isinstance(item, SkillGroupFilter):
         return _bool_decision(event.metadata.skill_group is item.skill_group)
+    if isinstance(item, MoveIdFilter):
+        return _bool_decision(event.metadata.move_id == item.move_id)
     if isinstance(item, EnemyStateFilter):
         return _bool_decision(item.state_id in context.target.states)
     if isinstance(item, CharacterFilter):

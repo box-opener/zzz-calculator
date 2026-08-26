@@ -245,6 +245,41 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 
 一个招式可以包含一个主 DamageEvent 和零个或多个由 EventCreation 创建的独立 DamageEvent。
 
+## 角色定义编译契约
+
+角色数据进入计算管线前，必须由受审的角色编译器输出
+`CharacterCalculationDefinition`。该对象是“角色原始数据 + Build 配置 + 已确认的
+静态语义场景”的场景化编译结果，不是可跨不同配置或敌人场景复用的永久角色对象。
+以下任一输入改变时，旧 Definition 失效并应重新编译：技能等级、核心技等级、影画、会改变
+事件语义的静态场景条件，以及编译期读取的敌人场景值（例如帷幕易伤输入）。
+
+`CalculationRuleItem` 只保存规则定义、资格和 Effect；本次计算是否启用的唯一来源仍是
+`CalculationScenario.enabled_rule_item_ids`。编译器可以为前端生成默认启用的 Scenario，
+但不得把 `enabled` 字段重新放回 RuleItem。
+
+编译期能够确定的角色语义条件必须输出为 `STATIC` `ScenarioCondition`，Scenario 不得覆盖；
+改变这类条件必须重新编译。需要用户在本次计算中选择的条件输出为 `USER_SELECTED`。
+单位倍率的次数只能引用 `ScenarioIntegerParameter`，不得引用布尔条件。
+
+已结构化支持但当前影画等级未解锁的 RuleItem 必须保留，并标记为
+`RuleEligibility.INELIGIBLE`；启用集合不得绕过该资格检查。改变帷幕易伤上限的影画属于
+编译规则变化，不额外伪造一个独立的伤害 Effect。
+
+`MoveId` 是可复用的招式语义身份，同一招式拆成多个阶段时可以由多个 MoveEntry 共用；
+`MoveEntryId`、`RuleItemId`、`EffectId`、`ScenarioConditionId`、`ScenarioParameterId`、
+`EventTemplateId` 和 `DamageEventSemanticId` 等稳定身份在其规定作用域内必须唯一。
+`MoveIdFilter` 属于普通 AtomicFilter，可与其他 Filter 通过 AND、OR、NOT 组合。
+
+主 DamageEvent 的倍率唯一来自其 `MoveCalculationEntry.multiplier_variants`；主事件模板不得
+重复保存倍率。派生 DamageEvent 的倍率唯一来自对应的
+`DerivedDamageEventTemplateRef`。EventCreation 产生的独立额外事件不得自动继承来源招式的
+`move_id`、SkillGroup 或伤害标签，除非规范明确要求继承；因此其模板可以使用
+`move_id=None`、空标签集合来避免被来源招式的规则再次匹配。
+
+编译器对基础属性与变种属性的范围匹配必须显式展开。例如物理伤害增幅作用于物理和凛刃时，
+输出 `AnyFilter(ElementFilter(PHYSICAL), ElementFilter(LINREN))`；Matcher 不得把精确的
+`ElementFilter` 偷换成隐式的原属性匹配。
+
 每个 DamageEvent 单独显示计算结果和乘区详情。若这些事件均属于同一次用户选择的招式结算，则同时显示“招式总伤害”，其值为该组中所有能够得到正式数值的 DamageEvent 结果之和。
 
 不同 DamageEvent 分别使用各自适用的暴击、增伤、抗性、防御等规则，不得先合并倍率再计算。
@@ -274,6 +309,11 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 当文本能够明确确认多个倍率对应同一招式在不同状态、输入方式或场景下的互斥版本时，应建立多个 `multiplier_variant`。
 
 每个 variant 对应一个合法场景条件；同一次计算只能选择其中一个，不得将倍率相加。
+
+本次计算选中的互斥 variant 唯一记录在
+`CalculationScenario.selected_multiplier_variant_ids`；Definition 和 RuleItem 不保存
+另一份选中状态。若对应条件或选中项无法唯一确定，保留未决状态，不得把多个 variant
+同时送入计算器。
 
 若无法由静态配置唯一决定具体 variant，则由用户选择。
 

@@ -116,6 +116,11 @@ class SkillGroupFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class MoveIdFilter:
+    move_id: MoveId
+
+
+@dataclass(frozen=True, slots=True)
 class CharacterFilter:
     character_id: CharacterId
 
@@ -151,6 +156,7 @@ AtomicFilter: TypeAlias = (
     | DamageSubtypeFilter
     | DamageTagFilter
     | SkillGroupFilter
+    | MoveIdFilter
     | CharacterFilter
     | CharacterRoleFilter
     | DynamicIdentityFilter

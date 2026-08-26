@@ -5,7 +5,12 @@ from enum import StrEnum
 
 from core.types import BattleEventKind, CharacterId, EffectId, MoveId
 
-from .ids import RuleItemId, ScenarioConditionId, ScenarioParameterId
+from .ids import (
+    MultiplierVariantId,
+    RuleItemId,
+    ScenarioConditionId,
+    ScenarioParameterId,
+)
 
 
 class ConditionResolution(StrEnum):
@@ -55,18 +60,23 @@ class ScenarioIntegerParameter:
     resolution: ParameterResolution
     value: int | None
     minimum: int
-    maximum: int
+    maximum: int | None
 
     def __post_init__(self) -> None:
         if not str(self.parameter_id):
             raise ValueError("parameter_id must not be empty")
         if not self.label.strip():
             raise ValueError("parameter label must not be empty")
-        if self.minimum < 0 or self.maximum < self.minimum:
-            raise ValueError("parameter bounds must be ordered and non-negative")
+        if self.minimum < 0:
+            raise ValueError("parameter minimum must be non-negative")
+        if self.maximum is not None and self.maximum < self.minimum:
+            raise ValueError("parameter bounds must be ordered")
         if self.resolution is ParameterResolution.STATIC and self.value is None:
             raise ValueError("static parameters must have a resolved value")
-        if self.value is not None and not self.minimum <= self.value <= self.maximum:
+        if self.value is not None and (
+            self.value < self.minimum
+            or (self.maximum is not None and self.value > self.maximum)
+        ):
             raise ValueError("parameter value must be within its legal bounds")
 
 
@@ -77,6 +87,7 @@ class CalculationScenario:
     conditions: tuple[ScenarioCondition, ...] = ()
     parameters: tuple[ScenarioIntegerParameter, ...] = ()
     trigger_facts: tuple[ScenarioTriggerFact, ...] = ()
+    selected_multiplier_variant_ids: frozenset[MultiplierVariantId] = frozenset()
     enabled_rule_item_ids: frozenset[RuleItemId] = frozenset()
 
     def __post_init__(self) -> None:

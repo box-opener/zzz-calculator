@@ -115,6 +115,7 @@ from .effect import (
     FieldPositionFilter,
     ModifierEffect,
     ModifierResult,
+    MoveIdFilter,
     NotCondition,
     NotFilter,
     OperationStateFilter,
