@@ -19,6 +19,7 @@ from ..ids import (
 )
 from ..moves import (
     DamageEventTemplateRef,
+    DerivedDamageEventTemplateRef,
     MoveCalculationEntry,
     MultiplierRelation,
 )
@@ -30,7 +31,6 @@ from ..scenario import (
     ScenarioIntegerParameter,
     ParameterResolution,
 )
-from .config import YeShunguangCompileConfig
 from .templates import DirectDamageEventTemplate
 
 
@@ -40,7 +40,6 @@ class CharacterCalculationDefinition:
     role: CharacterRole
     base_element: Element
     source: RuleSource
-    compile_config: YeShunguangCompileConfig
     move_entries: tuple[MoveCalculationEntry, ...]
     rule_items: tuple[CalculationRuleItem, ...]
     scenario_conditions: tuple[ScenarioCondition, ...]
@@ -49,8 +48,6 @@ class CharacterCalculationDefinition:
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.character_id != self.compile_config.character_id:
-            raise ValueError("definition character_id must match compile_config")
         self._assert_unique(
             (item.entry_id for item in self.move_entries),
             "MoveEntryId",
@@ -83,6 +80,13 @@ class CharacterCalculationDefinition:
             (item.ref.semantic_id for item in self.damage_event_templates),
             "DamageEventSemanticId",
         )
+        if any(
+            item.damage_dealer != self.character_id
+            for item in self.damage_event_templates
+        ):
+            raise ValueError(
+                "typed event template damage dealer must match definition character"
+            )
 
         template_map = {
             item.ref.template_id: item
@@ -92,14 +96,57 @@ class CharacterCalculationDefinition:
         condition_ids = {
             item.condition_id for item in self.scenario_conditions
         }
+        parameter_ids = {
+            item.parameter_id for item in self.scenario_parameters
+        }
+        for rule in self.rule_items:
+            self._assert_condition_references(rule.condition_ids, condition_ids)
+
+        event_creation_template_ids: set[EventTemplateId] = set()
+        for rule in self.rule_items:
+            for effect in rule.effects:
+                if not isinstance(effect, EventCreationEffect):
+                    continue
+                template_id = effect.result.event_template_id
+                if template_id is None:
+                    continue
+                if template_id not in template_map:
+                    raise ValueError(
+                        "event creation references an unknown event template"
+                    )
+                event_creation_template_ids.add(template_id)
+
+        derived_refs_by_template: dict[
+            EventTemplateId,
+            DerivedDamageEventTemplateRef,
+        ] = {}
         definition_event_ids: set[DamageEventSemanticId] = set()
         for entry in self.move_entries:
+            if entry.character_id != self.character_id:
+                raise ValueError("move entry character_id must match definition")
             self._assert_condition_references(entry.condition_ids, condition_ids)
+            if (
+                entry.multiplier_relation is MultiplierRelation.MUTUALLY_EXCLUSIVE_VARIANT
+                and any(
+                    not variant.condition_ids
+                    for variant in entry.multiplier_variants
+                )
+            ):
+                raise ValueError(
+                    "mutually exclusive variants require explicit scenario conditions"
+                )
             for variant in entry.multiplier_variants:
                 self._assert_condition_references(
                     variant.condition_ids,
                     condition_ids,
                 )
+                if (
+                    variant.repeat_count_parameter_id is not None
+                    and variant.repeat_count_parameter_id not in parameter_ids
+                ):
+                    raise ValueError(
+                        "multiplier variant references an unknown repeat-count parameter"
+                    )
             self._assert_template_ref(
                 entry.main_damage_event,
                 template_map,
@@ -115,18 +162,31 @@ class CharacterCalculationDefinition:
                     expect_move_id=False,
                 )
                 definition_event_ids.add(derived.template.semantic_id)
+                template_id = derived.template.template_id
+                if template_id in derived_refs_by_template:
+                    raise ValueError(
+                        "each derived event template must have one multiplier reference"
+                    )
+                derived_refs_by_template[template_id] = derived
                 source_rule_id = derived.template.source_rule_item_id
                 if source_rule_id is None:
                     raise ValueError("derived template requires a source rule item")
-                rule = rule_map.get(source_rule_id)
-                if rule is None:
+                source_rule = rule_map.get(source_rule_id)
+                if source_rule is None:
                     raise ValueError(
                         "derived template references an unknown source rule item"
                     )
-                if not self._rule_creates_template(rule, derived.template.template_id):
+                if not self._rule_creates_template(
+                    source_rule,
+                    derived.template.template_id,
+                ):
                     raise ValueError(
                         "source rule item does not create its derived template"
                     )
+        if event_creation_template_ids != set(derived_refs_by_template):
+            raise ValueError(
+                "event creation templates and derived template references must match"
+            )
         template_semantic_ids = {
             item.ref.semantic_id for item in self.damage_event_templates
         }
@@ -219,29 +279,30 @@ class CharacterCalculationDefinition:
                     "scenario cannot override a static compilation parameter"
                 )
 
-        variants = {
-            variant.variant_id
-            for entry in self.move_entries
-            for variant in entry.multiplier_variants
-        }
-        unknown_variants = set(scenario.selected_multiplier_variant_ids) - variants
-        if unknown_variants:
-            raise ValueError(
-                "scenario selects unknown multiplier variants: "
-                f"{sorted(map(str, unknown_variants))}"
-            )
         for entry in self.move_entries:
             if (
                 entry.multiplier_relation
                 is not MultiplierRelation.MUTUALLY_EXCLUSIVE_VARIANT
             ):
                 continue
-            selected = {
-                variant.variant_id
-                for variant in entry.multiplier_variants
-                if variant.variant_id in scenario.selected_multiplier_variant_ids
-            }
-            if len(selected) > 1:
+            matched = 0
+            unresolved = False
+            for variant in entry.multiplier_variants:
+                values = tuple(
+                    condition_map[condition_id].value
+                    for condition_id in variant.condition_ids
+                )
+                if any(value is False for value in values):
+                    continue
+                if any(value is None for value in values):
+                    unresolved = True
+                    continue
+                matched += 1
+            if matched > 1:
                 raise ValueError(
-                    "scenario cannot select multiple mutually exclusive variants"
+                    "scenario conditions select multiple mutually exclusive variants"
+                )
+            if matched == 0 and not unresolved:
+                raise ValueError(
+                    "scenario conditions select no mutually exclusive variant"
                 )

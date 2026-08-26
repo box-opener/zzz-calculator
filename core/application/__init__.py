@@ -1,6 +1,7 @@
 """Application contracts between parsed rules, scenarios, and calculators."""
 
 from .diagnostics import CalculationDiagnostic, DiagnosticKind
+from .element_scope import element_scope_filter
 from .ids import (
     DiagnosticId,
     DamageEventSemanticId,
@@ -84,4 +85,5 @@ __all__ = [
     "EnemyMatchProfile",
     "IdentityResolution",
     "HistoryRecordResolution",
+    "element_scope_filter",
 ]

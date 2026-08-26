@@ -1,0 +1,54 @@
+{
+  "id": "1431",
+  "name": "叶瞬光",
+  "code_name": "Ye Shunguang",
+  "specialty": "强攻",
+  "element": "物理",
+  "skills": {
+    "basic": [
+      {"sub_skill_name": "普通攻击：快剑", "sub_skill_desc": "点按普通攻击发动。", "parameters": []},
+      {"sub_skill_name": "普通攻击：流云剑意", "sub_skill_desc": "长按普通攻击发动。", "parameters": []},
+      {"sub_skill_name": "普通攻击：明心境·分水行", "sub_skill_desc": "在明心境状态下发动。", "parameters": []},
+      {"sub_skill_name": "普通攻击：明心境·扶摇势", "sub_skill_desc": "拥有青溟剑势时发动。", "parameters": []},
+      {"sub_skill_name": "普通攻击：明心境·斩流光 极", "sub_skill_desc": "在斩流光灭后发动。", "parameters": []},
+      {"sub_skill_name": "普通攻击：明心境·斩流光", "sub_skill_desc": "在空中状态下发动。", "parameters": []},
+      {"sub_skill_name": "普通攻击：明心境·斩流光 灭", "sub_skill_desc": "在斩流光后发动。", "parameters": []}
+    ],
+    "dodge": [
+      {"sub_skill_name": "冲刺攻击：如影疾行", "sub_skill_desc": "闪避时发动。", "parameters": []},
+      {"sub_skill_name": "闪避反击：燕袭", "sub_skill_desc": "触发极限闪避后发动。", "parameters": []}
+    ],
+    "special": [
+      {"sub_skill_name": "特殊技：引沧澜", "sub_skill_desc": "点按特殊技发动。", "parameters": []},
+      {"sub_skill_name": "强化特殊技：定风波", "sub_skill_desc": "能量足够时发动。", "parameters": []},
+      {"sub_skill_name": "特殊技：明心境·拂衣去", "sub_skill_desc": "在明心境下发动。", "parameters": []},
+      {"sub_skill_name": "强化特殊技：明心境·飞光", "sub_skill_desc": "拥有青溟剑势时发动。", "parameters": []},
+      {"sub_skill_name": "强化特殊技：明心境·归尘", "sub_skill_desc": "在明心境下发动。", "parameters": []}
+    ],
+    "chain": [
+      {"sub_skill_name": "连携技：斩邪祟", "sub_skill_desc": "触发连携技时发动。", "parameters": []},
+      {"sub_skill_name": "终结技：逐云惊霆", "sub_skill_desc": "喧响等级达到极时发动。", "parameters": []},
+      {"sub_skill_name": "连携技：明心境·掣惊雷", "sub_skill_desc": "在明心境下发动。", "parameters": []},
+      {"sub_skill_name": "终结技：斩妄开天", "sub_skill_desc": "在明心境下发动。", "parameters": []}
+    ],
+    "assist": [
+      {"sub_skill_name": "登场技：照影", "sub_skill_desc": "进入明心境并发动。", "parameters": []},
+      {"sub_skill_name": "快速支援：援守", "sub_skill_desc": "当前操作角色被击飞时发动。", "parameters": []},
+      {"sub_skill_name": "支援突击：止戈", "sub_skill_desc": "发动招架支援后发动。", "parameters": []},
+      {"sub_skill_name": "快速支援：明心境·策应", "sub_skill_desc": "在明心境下发动。", "parameters": []},
+      {"sub_skill_name": "支援突击：明心境·抱一", "sub_skill_desc": "在明心境下发动。", "parameters": []}
+    ]
+  },
+  "passive": {
+    "level_1": {
+      "core_passive": {"name": "核心被动：照破无明", "desc": "进入战场时获得合道。"},
+      "extra_ability": {"name": "额外能力：溯影惊鸿", "desc": "队伍条件满足时触发。"}
+    }
+  },
+  "mindscapes": {
+    "cinema_1": {"name": "梦中身", "desc": ""},
+    "cinema_2": {"name": "光与影", "desc": ""},
+    "cinema_4": {"name": "共黯尘", "desc": ""},
+    "cinema_6": {"name": "明灯愿", "desc": ""}
+  }
+}

@@ -57,18 +57,20 @@ from ...scenario import (
     ScenarioCondition,
     ScenarioIntegerParameter,
 )
-from ..config import YeShunguangCompileConfig
 from ..definition import CharacterCalculationDefinition
 from ..templates import DirectDamageEventTemplate
-from .source import (
+from .reviewed import (
     HAS_QINGMING_CONDITION_KEY,
-    PERFECT_DODGE_CONDITION_KEY,
-    WITHOUT_QINGMING_CONDITION_KEY,
-    YE_SHUNGUANG_SOURCE,
+    YE_SHUNGUANG_REVIEWED_SOURCE,
     YeElementMode,
     YeMoveSpec,
-    YeShunguangRawSource,
+    YeShunguangReviewedSource,
+    WITHOUT_QINGMING_CONDITION_KEY,
+    PERFECT_DODGE_CONDITION_KEY,
+    YIN_NORMAL_CONDITION_KEY,
 )
+from .config import YeShunguangCompileConfig
+from .source import YeShunguangRawRecord
 
 
 YE_ID = CharacterId("character:1431")
@@ -76,11 +78,18 @@ MINGXIN_CONDITION_ID = ScenarioConditionId("condition:ye:mingxin-active")
 ENTRY_LINREN_CONDITION_ID = ScenarioConditionId(
     "condition:ye:entry-move-uses-linren"
 )
-HAS_QINGMING_CONDITION_ID = ScenarioConditionId("condition:ye:has-qingming")
-WITHOUT_QINGMING_CONDITION_ID = ScenarioConditionId(
-    "condition:ye:without-qingming"
+MIE_WITH_QINGMING_CONDITION_ID = ScenarioConditionId(
+    "condition:ye:variant:mingxin-zhanliuguang-mie:with-qingming"
 )
-PERFECT_DODGE_CONDITION_ID = ScenarioConditionId("condition:ye:perfect-dodge")
+MIE_WITHOUT_QINGMING_CONDITION_ID = ScenarioConditionId(
+    "condition:ye:variant:mingxin-zhanliuguang-mie:without-qingming"
+)
+YIN_NORMAL_CONDITION_ID = ScenarioConditionId(
+    "condition:ye:variant:yin-canglan:normal"
+)
+YIN_PERFECT_DODGE_CONDITION_ID = ScenarioConditionId(
+    "condition:ye:variant:yin-canglan:perfect-dodge"
+)
 FLOWING_CLOUD_COUNT_PARAMETER_ID = ScenarioParameterId(
     "parameter:ye:flowing-cloud-sword-count"
 )
@@ -199,7 +208,10 @@ def _parameter_value_for_level(
             )
         else:
             multiplier = FixedMultiplier(Resolved(value / 100.0))
-        condition_ids = _parameter_conditions(parameter.condition_key)
+        condition_ids = _parameter_conditions(
+            spec.entry_key,
+            parameter.condition_key,
+        )
         variants.append(
             MultiplierVariant(
                 variant_id=MultiplierVariantId(
@@ -220,17 +232,27 @@ def _parameter_value_for_level(
 
 
 def _parameter_conditions(
+    entry_key: str,
     condition_key: str | None,
 ) -> tuple[ScenarioConditionId, ...]:
     if condition_key is None:
         return ()
     condition_ids = {
-        HAS_QINGMING_CONDITION_KEY: HAS_QINGMING_CONDITION_ID,
-        WITHOUT_QINGMING_CONDITION_KEY: WITHOUT_QINGMING_CONDITION_ID,
-        PERFECT_DODGE_CONDITION_KEY: PERFECT_DODGE_CONDITION_ID,
+        ("basic-mingxin-zhanliuguang-mie", HAS_QINGMING_CONDITION_KEY): (
+            MIE_WITH_QINGMING_CONDITION_ID,
+        ),
+        ("basic-mingxin-zhanliuguang-mie", WITHOUT_QINGMING_CONDITION_KEY): (
+            MIE_WITHOUT_QINGMING_CONDITION_ID,
+        ),
+        ("special-yin-canglan", YIN_NORMAL_CONDITION_KEY): (
+            YIN_NORMAL_CONDITION_ID,
+        ),
+        ("special-yin-canglan", PERFECT_DODGE_CONDITION_KEY): (
+            YIN_PERFECT_DODGE_CONDITION_ID,
+        ),
     }
     try:
-        return (condition_ids[condition_key],)
+        return condition_ids[(entry_key, condition_key)]
     except KeyError as error:
         raise ValueError(
             f"unsupported Ye Shunguang condition key: {condition_key}"
@@ -261,7 +283,7 @@ def _template_ids(entry_key: str) -> tuple[str, str]:
 def _build_move(
     spec: YeMoveSpec,
     config: YeShunguangCompileConfig,
-    source: YeShunguangRawSource,
+    source: YeShunguangReviewedSource,
 ) -> tuple[MoveCalculationEntry, DirectDamageEventTemplate, tuple[CalculationDiagnostic, ...]]:
     level = config.skill_level_for(spec.skill_group) or 12
     variants, diagnostics = _parameter_value_for_level(spec, level)
@@ -304,7 +326,7 @@ def _build_move(
 
 def _cinema_rule_items(
     config: YeShunguangCompileConfig,
-    source: YeShunguangRawSource,
+    source: YeShunguangReviewedSource,
     guichen_template_id,
     zhanwang_template_id,
 ) -> tuple[CalculationRuleItem, ...]:
@@ -433,10 +455,13 @@ def _cinema_rule_items(
 
 def compile_ye_shunguang(
     config: YeShunguangCompileConfig,
-    source: YeShunguangRawSource = YE_SHUNGUANG_SOURCE,
+    source: YeShunguangReviewedSource = YE_SHUNGUANG_REVIEWED_SOURCE,
+    raw_record: YeShunguangRawRecord | None = None,
 ) -> CharacterCalculationDefinition:
     if source.character_id != config.character_id:
         raise ValueError("Ye source and compile config character IDs must match")
+    if raw_record is not None:
+        _validate_raw_record(raw_record, source)
 
     static_conditions = (
         _condition(
@@ -456,22 +481,29 @@ def compile_ye_shunguang(
     )
     user_conditions = (
         _condition(
-            HAS_QINGMING_CONDITION_ID,
-            "拥有青溟剑势",
+            MIE_WITH_QINGMING_CONDITION_ID,
+            "明心境·斩流光灭：拥有青溟剑势",
             "有青溟剑势时的招式版本",
             None,
             static=False,
         ),
         _condition(
-            WITHOUT_QINGMING_CONDITION_ID,
-            "未拥有青溟剑势",
+            MIE_WITHOUT_QINGMING_CONDITION_ID,
+            "明心境·斩流光灭：未拥有青溟剑势",
             "无青溟剑势时的招式版本",
             None,
             static=False,
         ),
         _condition(
-            PERFECT_DODGE_CONDITION_ID,
-            "触发极限闪避",
+            YIN_NORMAL_CONDITION_ID,
+            "引沧澜：未触发极限闪避",
+            "未触发极限闪避时的招式版本",
+            None,
+            static=False,
+        ),
+        _condition(
+            YIN_PERFECT_DODGE_CONDITION_ID,
+            "引沧澜：触发极限闪避",
             "触发极限闪避时的招式版本",
             None,
             static=False,
@@ -642,7 +674,6 @@ def compile_ye_shunguang(
         role=CharacterRole.ATTACK,
         base_element=source.element,
         source=core_source,
-        compile_config=config,
         move_entries=tuple(updated_entries),
         rule_items=tuple(rule_items),
         scenario_conditions=static_conditions + user_conditions,
@@ -650,3 +681,27 @@ def compile_ye_shunguang(
         damage_event_templates=tuple(typed_templates),
         diagnostics=tuple(diagnostics),
     )
+
+
+def _validate_raw_record(
+    raw_record: YeShunguangRawRecord,
+    reviewed_source: YeShunguangReviewedSource,
+) -> None:
+    if raw_record.character_id != reviewed_source.character_id:
+        raise ValueError("raw record and reviewed source character IDs must match")
+    if raw_record.name != reviewed_source.name:
+        raise ValueError("raw record and reviewed source names must match")
+    if raw_record.code_name != "Ye Shunguang":
+        raise ValueError("unexpected Ye Shunguang code name in raw record")
+    if raw_record.specialty != reviewed_source.role:
+        raise ValueError("raw record specialty does not match reviewed source")
+    if raw_record.element != "物理":
+        raise ValueError("unexpected Ye Shunguang element in raw record")
+    if raw_record.core_passive_name != reviewed_source.core_passive_name:
+        raise ValueError("raw record core passive does not match reviewed source")
+    if raw_record.extra_ability_name != reviewed_source.extra_ability_name:
+        raise ValueError("raw record extra ability does not match reviewed source")
+    if raw_record.cinema_names != reviewed_source.cinema_names:
+        raise ValueError("raw record cinema names do not match reviewed source")
+    if not raw_record.moves:
+        raise ValueError("raw record must contain at least one move")

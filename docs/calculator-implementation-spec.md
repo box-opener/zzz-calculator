@@ -250,8 +250,14 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 角色数据进入计算管线前，必须由受审的角色编译器输出
 `CharacterCalculationDefinition`。该对象是“角色原始数据 + Build 配置 + 已确认的
 静态语义场景”的场景化编译结果，不是可跨不同配置或敌人场景复用的永久角色对象。
+通用 Definition 本身不得保存任何具体角色的 CompileConfig；具体编译器只应将配置影响后的
+结果写入通用字段，并由调用方保留原始编译输入。
 以下任一输入改变时，旧 Definition 失效并应重新编译：技能等级、核心技等级、影画、会改变
 事件语义的静态场景条件，以及编译期读取的敌人场景值（例如帷幕易伤输入）。
+
+原始角色记录与 reviewed semantic mapping 必须分层保存。原始记录只提供稳定的角色、招式、
+参数和文本字段；SkillGroup、DamageTag、倍率关系、变种属性和场景条件等解释后的语义，必须
+来自显式的人工审阅映射。第一版不得以正则或自然语言猜测替代该映射。
 
 `CalculationRuleItem` 只保存规则定义、资格和 Effect；本次计算是否启用的唯一来源仍是
 `CalculationScenario.enabled_rule_item_ids`。编译器可以为前端生成默认启用的 Scenario，
@@ -310,10 +316,8 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 
 每个 variant 对应一个合法场景条件；同一次计算只能选择其中一个，不得将倍率相加。
 
-本次计算选中的互斥 variant 唯一记录在
-`CalculationScenario.selected_multiplier_variant_ids`；Definition 和 RuleItem 不保存
-另一份选中状态。若对应条件或选中项无法唯一确定，保留未决状态，不得把多个 variant
-同时送入计算器。
+本次计算选中的互斥 variant 唯一由其场景条件决定；Definition 和 RuleItem 不保存另一份
+选中状态。若对应条件无法唯一确定，保留未决状态，不得把多个 variant 同时送入计算器。
 
 若无法由静态配置唯一决定具体 variant，则由用户选择。
 

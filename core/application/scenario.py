@@ -5,12 +5,7 @@ from enum import StrEnum
 
 from core.types import BattleEventKind, CharacterId, EffectId, MoveId
 
-from .ids import (
-    MultiplierVariantId,
-    RuleItemId,
-    ScenarioConditionId,
-    ScenarioParameterId,
-)
+from .ids import RuleItemId, ScenarioConditionId, ScenarioParameterId
 
 
 class ConditionResolution(StrEnum):
@@ -87,7 +82,6 @@ class CalculationScenario:
     conditions: tuple[ScenarioCondition, ...] = ()
     parameters: tuple[ScenarioIntegerParameter, ...] = ()
     trigger_facts: tuple[ScenarioTriggerFact, ...] = ()
-    selected_multiplier_variant_ids: frozenset[MultiplierVariantId] = frozenset()
     enabled_rule_item_ids: frozenset[RuleItemId] = frozenset()
 
     def __post_init__(self) -> None:
