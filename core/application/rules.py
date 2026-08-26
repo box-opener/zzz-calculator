@@ -7,6 +7,7 @@ from core.types import CharacterId, Effect, RuleSource
 
 from .diagnostics import CalculationDiagnostic
 from .ids import RuleItemId
+from .ids import ScenarioConditionId
 
 
 class RuleEligibility(StrEnum):
@@ -23,6 +24,7 @@ class CalculationRuleItem:
     display_name: str
     original_text: str
     eligibility: RuleEligibility
+    condition_ids: tuple[ScenarioConditionId, ...] = ()
     effects: tuple[Effect, ...] = ()
     stack_count: int | None = None
     stack_min: int | None = None
@@ -34,6 +36,16 @@ class CalculationRuleItem:
             raise ValueError("rule_id must not be empty")
         if not self.display_name.strip():
             raise ValueError("rule display_name must not be empty")
+        condition_ids = tuple(self.condition_ids)
+        if len(set(condition_ids)) != len(condition_ids):
+            raise ValueError("rule condition IDs must be unique")
+        if (
+            self.eligibility is RuleEligibility.SCENARIO_REQUIRED
+            and not condition_ids
+        ):
+            raise ValueError(
+                "scenario-required rules must reference at least one condition"
+            )
         stack_fields = (self.stack_count, self.stack_min, self.stack_max)
         if self.stack_count is None:
             if self.stack_min is not None or self.stack_max is not None:

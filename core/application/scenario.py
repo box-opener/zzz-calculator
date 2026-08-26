@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
-from core.types import CharacterId
+from core.types import BattleEventKind, CharacterId, EffectId, MoveId
 
 from .ids import RuleItemId, ScenarioConditionId, ScenarioParameterId
 
@@ -16,6 +16,18 @@ class ConditionResolution(StrEnum):
 class ParameterResolution(StrEnum):
     STATIC = "static"
     USER_SELECTED = "user-selected"
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioTriggerFact:
+    effect_id: EffectId
+    event_kind: BattleEventKind
+    move_id: MoveId | None = None
+    actor: CharacterId | None = None
+
+    def __post_init__(self) -> None:
+        if not str(self.effect_id):
+            raise ValueError("trigger fact effect_id must not be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +76,7 @@ class CalculationScenario:
     current_operator: CharacterId
     conditions: tuple[ScenarioCondition, ...] = ()
     parameters: tuple[ScenarioIntegerParameter, ...] = ()
+    trigger_facts: tuple[ScenarioTriggerFact, ...] = ()
     enabled_rule_item_ids: frozenset[RuleItemId] = frozenset()
 
     def __post_init__(self) -> None:
@@ -75,3 +88,6 @@ class CalculationScenario:
         parameter_ids = tuple(item.parameter_id for item in self.parameters)
         if len(set(parameter_ids)) != len(parameter_ids):
             raise ValueError("scenario parameter IDs must be unique")
+        trigger_effect_ids = tuple(item.effect_id for item in self.trigger_facts)
+        if len(set(trigger_effect_ids)) != len(trigger_effect_ids):
+            raise ValueError("scenario trigger facts must be unique per effect")

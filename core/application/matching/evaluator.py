@@ -1,0 +1,358 @@
+"""Pure target, trigger, condition, and filter predicates."""
+
+from __future__ import annotations
+
+from core.types import (
+    AllCondition,
+    AlwaysCondition,
+    AnyCondition,
+    AnyFilter,
+    CharacterFilter,
+    CharacterRoleFilter,
+    DamageSubtypeFilter,
+    DamageTagFilter,
+    DamageTypeFilter,
+    DynamicIdentityCondition,
+    DynamicIdentityFilter,
+    EffectFilter,
+    EffectTarget,
+    ElementFilter,
+    EnemyStateFilter,
+    FieldPositionFilter,
+    NotCondition,
+    NotFilter,
+    OperationStateFilter,
+    StatePresentCondition,
+    SkillGroupFilter,
+    Unresolved,
+)
+
+from ..diagnostics import CalculationDiagnostic, DiagnosticKind
+from ..ids import DiagnosticId
+from .context import EffectMatchContext
+from .identity import DynamicIdentityResolver
+from .result import EffectMatchStatus
+
+
+def diagnostic(
+    effect_id: str,
+    suffix: str,
+    kind: DiagnosticKind,
+    message: str,
+    *,
+    blocking: bool,
+    original_text: str | None = None,
+) -> CalculationDiagnostic:
+    return CalculationDiagnostic(
+        diagnostic_id=DiagnosticId(f"{effect_id}:{suffix}"),
+        kind=kind,
+        message=message,
+        blocking=blocking,
+        original_text=original_text,
+    )
+
+
+def combine_all(
+    decisions: tuple[EffectMatchStatus, ...],
+) -> EffectMatchStatus:
+    if EffectMatchStatus.NOT_MATCHED in decisions:
+        return EffectMatchStatus.NOT_MATCHED
+    if EffectMatchStatus.BLOCKED in decisions:
+        return EffectMatchStatus.BLOCKED
+    return EffectMatchStatus.MATCHED
+
+
+def match_target(
+    target: EffectTarget,
+    owner,
+    context: EffectMatchContext,
+    effect_id: str,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    if owner is not None and context.character(owner) is None:
+        return EffectMatchStatus.NOT_MATCHED, ()
+    if target is EffectTarget.SELF:
+        if owner is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    diagnostic(
+                        effect_id,
+                        "missing-owner",
+                        DiagnosticKind.MISSING_DATA,
+                        "self-targeted Effect has no owner",
+                        blocking=True,
+                    ),
+                ),
+            )
+        if owner != context.current_operator:
+            return EffectMatchStatus.NOT_MATCHED, ()
+    elif target is EffectTarget.TEAM:
+        if context.current_operator not in {
+            profile.character_id for profile in context.team
+        }:
+            return EffectMatchStatus.BLOCKED, ()
+    return EffectMatchStatus.MATCHED, ()
+
+
+def match_trigger(
+    effect_rule,
+    context: EffectMatchContext,
+    effect_id: str,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    selector = effect_rule.trigger
+    if selector is None:
+        return EffectMatchStatus.MATCHED, ()
+
+    facts = [
+        fact
+        for fact in context.trigger_facts
+        if str(fact.effect_id) == effect_id
+    ]
+    if not facts:
+        return (
+            EffectMatchStatus.BLOCKED,
+            (
+                diagnostic(
+                    effect_id,
+                    "missing-trigger-fact",
+                    DiagnosticKind.MISSING_DATA,
+                    "Effect trigger has no scenario trigger fact",
+                    blocking=True,
+                ),
+            ),
+        )
+    for fact in facts:
+        if fact.event_kind is selector.event_kind and (
+            selector.move_id is None or fact.move_id == selector.move_id
+        ):
+            return EffectMatchStatus.MATCHED, ()
+    return EffectMatchStatus.NOT_MATCHED, ()
+
+
+def match_condition(
+    condition,
+    context: EffectMatchContext,
+    owner,
+    effect_id: str,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    if condition is None or isinstance(condition, AlwaysCondition):
+        return EffectMatchStatus.MATCHED, ()
+    if isinstance(condition, Unresolved):
+        return (
+            EffectMatchStatus.BLOCKED,
+            (
+                diagnostic(
+                    effect_id,
+                    "unresolved-condition",
+                    DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                    condition.notes,
+                    blocking=True,
+                    original_text=condition.original_text,
+                ),
+            ),
+        )
+    if isinstance(condition, AllCondition):
+        return _combine_nested(
+            tuple(
+                match_condition(item, context, owner, effect_id)
+                for item in condition.conditions
+            )
+        )
+    if isinstance(condition, AnyCondition):
+        return _combine_any_nested(
+            tuple(
+                match_condition(item, context, owner, effect_id)
+                for item in condition.conditions
+            )
+        )
+    if isinstance(condition, NotCondition):
+        status, diagnostics = match_condition(
+            condition.condition,
+            context,
+            owner,
+            effect_id,
+        )
+        if status is EffectMatchStatus.MATCHED:
+            return EffectMatchStatus.NOT_MATCHED, diagnostics
+        if status is EffectMatchStatus.NOT_MATCHED:
+            return EffectMatchStatus.MATCHED, diagnostics
+        return status, diagnostics
+    if isinstance(condition, StatePresentCondition):
+        profiles = _state_profiles(condition.subject, owner, context)
+        if profiles is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    diagnostic(
+                        effect_id,
+                        "missing-state-subject",
+                        DiagnosticKind.MISSING_DATA,
+                        "cannot resolve StatePresentCondition subject",
+                        blocking=True,
+                    ),
+                ),
+            )
+        return (
+            EffectMatchStatus.MATCHED
+            if any(condition.state_id in profile.states for profile in profiles)
+            else EffectMatchStatus.NOT_MATCHED,
+            (),
+        )
+    if isinstance(condition, DynamicIdentityCondition):
+        if owner is None:
+            return EffectMatchStatus.NOT_MATCHED, ()
+        resolution = DynamicIdentityResolver().resolve(
+            condition.identity,
+            context,
+        )
+        if resolution.identities is None:
+            assert resolution.diagnostic is not None
+            return EffectMatchStatus.BLOCKED, (resolution.diagnostic,)
+        return (
+            EffectMatchStatus.MATCHED
+            if owner in resolution.identities
+            else EffectMatchStatus.NOT_MATCHED,
+            (),
+        )
+    raise TypeError(f"unsupported condition type: {type(condition).__name__}")
+
+
+def match_filters(
+    filters: tuple[EffectFilter, ...],
+    context: EffectMatchContext,
+    effect_id: str,
+    target: EffectTarget,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    decisions: list[EffectMatchStatus] = []
+    diagnostics: list[CalculationDiagnostic] = []
+    for item in filters:
+        status, item_diagnostics = match_filter(item, context, effect_id, target)
+        decisions.append(status)
+        diagnostics.extend(item_diagnostics)
+    return combine_all(tuple(decisions)), tuple(diagnostics)
+
+
+def match_filter(
+    item: EffectFilter,
+    context: EffectMatchContext,
+    effect_id: str,
+    target: EffectTarget,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    if isinstance(item, Unresolved):
+        return (
+            EffectMatchStatus.BLOCKED,
+            (
+                diagnostic(
+                    effect_id,
+                    "unresolved-filter",
+                    DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                    item.notes,
+                    blocking=True,
+                    original_text=item.original_text,
+                ),
+            ),
+        )
+    if isinstance(item, AnyFilter):
+        return _combine_any_nested(
+            tuple(
+                match_filter(child, context, effect_id, target)
+                for child in item.filters
+            )
+        )
+    if isinstance(item, NotFilter):
+        status, diagnostics = match_filter(item.filter, context, effect_id, target)
+        if status is EffectMatchStatus.MATCHED:
+            return EffectMatchStatus.NOT_MATCHED, diagnostics
+        if status is EffectMatchStatus.NOT_MATCHED:
+            return EffectMatchStatus.MATCHED, diagnostics
+        return status, diagnostics
+
+    event = context.current_event
+    if isinstance(item, ElementFilter):
+        return _bool_decision(event.metadata.element is item.element)
+    if isinstance(item, DamageTypeFilter):
+        return _bool_decision(event.damage_type is item.damage_type)
+    if isinstance(item, DamageSubtypeFilter):
+        return _bool_decision(event.damage_subtype is item.damage_subtype)
+    if isinstance(item, DamageTagFilter):
+        return _bool_decision(item.damage_tag in event.metadata.damage_tags)
+    if isinstance(item, SkillGroupFilter):
+        return _bool_decision(event.metadata.skill_group is item.skill_group)
+    if isinstance(item, EnemyStateFilter):
+        return _bool_decision(item.state_id in context.target.states)
+    if isinstance(item, CharacterFilter):
+        if target is EffectTarget.ENEMY:
+            return EffectMatchStatus.NOT_MATCHED, ()
+        return _bool_decision(context.current_operator is item.character_id)
+    if isinstance(item, CharacterRoleFilter):
+        if target is EffectTarget.ENEMY:
+            return EffectMatchStatus.NOT_MATCHED, ()
+        profile = context.character(context.current_operator)
+        if profile is None:
+            return EffectMatchStatus.BLOCKED, ()
+        return _bool_decision(profile.role is item.role)
+    if isinstance(item, FieldPositionFilter):
+        if target is EffectTarget.ENEMY:
+            return EffectMatchStatus.NOT_MATCHED, ()
+        profile = context.character(context.current_operator)
+        if profile is None or profile.field_position is None:
+            return EffectMatchStatus.BLOCKED, ()
+        return _bool_decision(profile.field_position is item.position)
+    if isinstance(item, OperationStateFilter):
+        if target is EffectTarget.ENEMY:
+            return EffectMatchStatus.NOT_MATCHED, ()
+        profile = context.character(context.current_operator)
+        if profile is None or profile.operation_state is None:
+            return EffectMatchStatus.BLOCKED, ()
+        return _bool_decision(profile.operation_state is item.operation_state)
+    if isinstance(item, DynamicIdentityFilter):
+        resolution = DynamicIdentityResolver().resolve(item.identity, context)
+        if resolution.identities is None:
+            assert resolution.diagnostic is not None
+            return EffectMatchStatus.BLOCKED, (resolution.diagnostic,)
+        return _bool_decision(context.current_operator in resolution.identities)
+    raise TypeError(f"unsupported filter type: {type(item).__name__}")
+
+
+def _bool_decision(value: bool) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    return (
+        EffectMatchStatus.MATCHED if value else EffectMatchStatus.NOT_MATCHED,
+        (),
+    )
+
+
+def _state_profiles(subject, owner, context: EffectMatchContext):
+    if subject is EffectTarget.ENEMY:
+        return (context.target,)
+    if subject is EffectTarget.TEAM:
+        return context.team
+    if subject is EffectTarget.SELF:
+        if owner is None:
+            return None
+        profile = context.character(owner)
+        return None if profile is None else (profile,)
+    raise TypeError(f"unsupported StatePresentCondition subject: {subject}")
+
+
+def _combine_nested(decisions):
+    statuses = tuple(item[0] for item in decisions)
+    diagnostics = tuple(
+        diagnostic_item
+        for _, item_diagnostics in decisions
+        for diagnostic_item in item_diagnostics
+    )
+    return combine_all(statuses), diagnostics
+
+
+def _combine_any_nested(decisions):
+    statuses = tuple(item[0] for item in decisions)
+    diagnostics = tuple(
+        diagnostic_item
+        for _, item_diagnostics in decisions
+        for diagnostic_item in item_diagnostics
+    )
+    if EffectMatchStatus.MATCHED in statuses:
+        return EffectMatchStatus.MATCHED, diagnostics
+    if EffectMatchStatus.BLOCKED in statuses:
+        return EffectMatchStatus.BLOCKED, diagnostics
+    return EffectMatchStatus.NOT_MATCHED, diagnostics

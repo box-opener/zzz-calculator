@@ -95,6 +95,12 @@ Effect 条件首先尝试由当前角色、小队、装备、影画和敌人配�
 
 计算规则项本身只保存规则定义、合法性和 Effect 结果。某次计算是否启用的唯一来源是 `CalculationScenario.enabled_rule_item_ids`；不得同时读取规则项自身的 enabled 字段作为第二个启用状态。
 
+`CalculationRuleItem.condition_ids` 控制整个规则项的场景成立条件；`EffectRule.condition` 只控制规则项内部的单个 Effect。二者不得互相替代。
+
+`EffectRule.trigger` 匹配的是 `CalculationScenario` 中按 `effect_id` 保存的 `ScenarioTriggerFact`，表示此前触发该 Effect 的事件；它不得与当前正在结算的 DamageEvent 直接比较。当前 DamageEvent 的属性、技能归属、伤害标签和伤害类型只由 `EffectRule.filters` 匹配。
+
+Effect 存在 trigger 但场景没有对应 trigger fact 时，匹配结果为 BLOCKED；存在 trigger fact 但事件类型或招式不匹配时，匹配结果为 NOT_MATCHED。不能把缺少 trigger fact 当作 False。
+
 能由静态配置唯一确定的结构性条件不可由用户覆盖；无法由静态配置确定的场景条件由用户输入决定。
 
 用户关闭规则项只影响本次计算，不改变原始角色配置。
