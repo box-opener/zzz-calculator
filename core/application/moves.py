@@ -1,7 +1,8 @@
 """Move entries and typed references to their damage-event templates."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Literal
 
 from core.types import (
     BattleEventKind,
@@ -22,6 +23,7 @@ from .ids import (
     MultiplierVariantId,
     RuleItemId,
     ScenarioConditionId,
+    ScenarioParameterId,
 )
 
 
@@ -41,7 +43,7 @@ class MultiplierVariant:
     multiplier: DamageMultiplier
     condition_ids: tuple[ScenarioConditionId, ...] = ()
     repeat_count: int | None = None
-    repeat_count_condition_id: ScenarioConditionId | None = None
+    repeat_count_parameter_id: ScenarioParameterId | None = None
 
     def __post_init__(self) -> None:
         if not str(self.variant_id):
@@ -53,9 +55,9 @@ class MultiplierVariant:
             raise ValueError("variant condition IDs must be unique")
         if self.repeat_count is not None and self.repeat_count < 0:
             raise ValueError("repeat_count must be non-negative")
-        if self.repeat_count_condition_id is not None and self.repeat_count is not None:
+        if self.repeat_count_parameter_id is not None and self.repeat_count is not None:
             raise ValueError(
-                "a repeat count cannot be both fixed and scenario-selected"
+                "a repeat count cannot be both fixed and parameter-selected"
             )
 
 
@@ -64,19 +66,31 @@ class DamageEventTemplateRef:
     template_id: EventTemplateId
     semantic_id: DamageEventSemanticId
     label: str
-    event_kind: BattleEventKind
-    damage_type: DamageType | None = None
+    damage_type: DamageType
     damage_subtype: DamageSubtype | None = None
     skill_group: SkillGroup | None = None
     damage_tags: frozenset[DamageTag] = frozenset()
-    multiplier: DamageMultiplier | None = None
     source_rule_item_id: RuleItemId | None = None
+    event_kind: Literal[BattleEventKind.DAMAGE] = field(
+        default=BattleEventKind.DAMAGE,
+        init=False,
+    )
 
     def __post_init__(self) -> None:
         if not str(self.template_id) or not str(self.semantic_id):
             raise ValueError("event template and semantic IDs must not be empty")
         if not self.label.strip():
             raise ValueError("event template label must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class DerivedDamageEventTemplateRef:
+    template: DamageEventTemplateRef
+    multiplier: DamageMultiplier
+
+    @property
+    def semantic_id(self) -> DamageEventSemanticId:
+        return self.template.semantic_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +105,7 @@ class MoveCalculationEntry:
     multiplier_relation: MultiplierRelation
     multiplier_variants: tuple[MultiplierVariant, ...]
     main_damage_event: DamageEventTemplateRef
-    derived_damage_events: tuple[DamageEventTemplateRef, ...] = ()
+    derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
     stage_index: int | None = None
     condition_ids: tuple[ScenarioConditionId, ...] = ()
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
@@ -119,7 +133,7 @@ class MoveCalculationEntry:
             variant = self.multiplier_variants[0]
             if (
                 variant.repeat_count is not None
-                or variant.repeat_count_condition_id is not None
+                or variant.repeat_count_parameter_id is not None
             ):
                 raise ValueError(
                     "complete and sequential entries cannot define repeat counts"
@@ -135,7 +149,7 @@ class MoveCalculationEntry:
             variant = self.multiplier_variants[0]
             if (
                 variant.repeat_count is None
-                and variant.repeat_count_condition_id is None
+                and variant.repeat_count_parameter_id is None
             ):
                 raise ValueError("unit-repeat entries require a repeat count")
         if self.multiplier_relation is MultiplierRelation.UNRESOLVED_RELATION:
@@ -149,12 +163,10 @@ class MoveCalculationEntry:
             raise ValueError("multiplier variant IDs must be unique within a move")
         event_ids = (
             self.main_damage_event.semantic_id,
-            *(item.semantic_id for item in self.derived_damage_events),
+            *(item.template.semantic_id for item in self.derived_damage_events),
         )
         if len(set(event_ids)) != len(event_ids):
             raise ValueError("damage event semantic IDs must be unique within a move")
-        if self.main_damage_event.event_kind is not BattleEventKind.DAMAGE:
-            raise ValueError("the main move event must be a damage event")
         if self.main_damage_event.skill_group is not self.skill_group:
             raise ValueError("main event skill_group must match its move entry")
         if self.main_damage_event.damage_tags != self.damage_tags:

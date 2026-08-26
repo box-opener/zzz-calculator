@@ -5,6 +5,7 @@ from typing import NewType
 
 RuleItemId = NewType("RuleItemId", str)
 ScenarioConditionId = NewType("ScenarioConditionId", str)
+ScenarioParameterId = NewType("ScenarioParameterId", str)
 MoveEntryId = NewType("MoveEntryId", str)
 MultiplierVariantId = NewType("MultiplierVariantId", str)
 DiagnosticId = NewType("DiagnosticId", str)

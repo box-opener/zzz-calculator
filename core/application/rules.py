@@ -23,7 +23,6 @@ class CalculationRuleItem:
     display_name: str
     original_text: str
     eligibility: RuleEligibility
-    enabled: bool
     effects: tuple[Effect, ...] = ()
     stack_count: int | None = None
     stack_min: int | None = None
@@ -35,9 +34,6 @@ class CalculationRuleItem:
             raise ValueError("rule_id must not be empty")
         if not self.display_name.strip():
             raise ValueError("rule display_name must not be empty")
-        if self.eligibility is RuleEligibility.INELIGIBLE and self.enabled:
-            raise ValueError("an ineligible rule cannot be enabled")
-
         stack_fields = (self.stack_count, self.stack_min, self.stack_max)
         if self.stack_count is None:
             if self.stack_min is not None or self.stack_max is not None:
@@ -52,9 +48,3 @@ class CalculationRuleItem:
 
         if self.stack_count is None and any(item is not None for item in stack_fields):
             raise ValueError("non-stacked rules cannot define stack metadata")
-
-    @property
-    def active_effects(self) -> tuple[Effect, ...]:
-        """All results disappear together when the rule item is disabled."""
-
-        return self.effects if self.enabled else ()

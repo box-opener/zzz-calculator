@@ -8,9 +8,11 @@ from .ids import (
     MultiplierVariantId,
     RuleItemId,
     ScenarioConditionId,
+    ScenarioParameterId,
 )
 from .moves import (
     DamageEventTemplateRef,
+    DerivedDamageEventTemplateRef,
     MoveCalculationEntry,
     MultiplierRelation,
     MultiplierVariant,
@@ -25,7 +27,9 @@ from .rules import CalculationRuleItem, RuleEligibility
 from .scenario import (
     CalculationScenario,
     ConditionResolution,
+    ParameterResolution,
     ScenarioCondition,
+    ScenarioIntegerParameter,
 )
 
 __all__ = [
@@ -36,6 +40,7 @@ __all__ = [
     "CritDisplayMode",
     "DamageEventCalculationOutput",
     "DamageEventTemplateRef",
+    "DerivedDamageEventTemplateRef",
     "DiagnosticId",
     "DiagnosticKind",
     "EventCalculationStatus",
@@ -50,4 +55,7 @@ __all__ = [
     "RuleItemId",
     "ScenarioCondition",
     "ScenarioConditionId",
+    "ScenarioIntegerParameter",
+    "ScenarioParameterId",
+    "ParameterResolution",
 ]

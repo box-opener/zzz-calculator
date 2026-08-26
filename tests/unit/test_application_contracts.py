@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError, replace
+from dataclasses import FrozenInstanceError
 
 import pytest
 
@@ -13,6 +13,7 @@ from core.application import (
     DamageEventCalculationOutput,
     DamageEventTemplateRef,
     DamageEventSemanticId,
+    DerivedDamageEventTemplateRef,
     DiagnosticId,
     DiagnosticKind,
     EventCalculationStatus,
@@ -26,6 +27,9 @@ from core.application import (
     RuleItemId,
     ScenarioCondition,
     ScenarioConditionId,
+    ScenarioIntegerParameter,
+    ScenarioParameterId,
+    ParameterResolution,
 )
 from core.calculation import CalculationResult
 from core.types import (
@@ -110,11 +114,21 @@ def _event_ref(
         template_id=EventTemplateId(f"template:{semantic_id}"),
         semantic_id=DamageEventSemanticId(semantic_id),
         label=label,
-        event_kind=BattleEventKind.DAMAGE,
         damage_type=DamageType.DIRECT,
         skill_group=group,
         damage_tags=frozenset() if tag is None else frozenset({tag}),
-        multiplier=FixedMultiplier(Resolved(1.0)),
+    )
+
+
+def _derived_event_ref(
+    semantic_id: str,
+    *,
+    label: str = "derived damage",
+    multiplier: float = 1.0,
+) -> DerivedDamageEventTemplateRef:
+    return DerivedDamageEventTemplateRef(
+        template=_event_ref(semantic_id, label=label),
+        multiplier=FixedMultiplier(Resolved(multiplier)),
     )
 
 
@@ -124,7 +138,7 @@ def _variant(
     multiplier: float = 1.0,
     condition_ids: tuple[ScenarioConditionId, ...] = (),
     repeat_count: int | None = None,
-    repeat_count_condition_id: ScenarioConditionId | None = None,
+    repeat_count_parameter_id: ScenarioParameterId | None = None,
 ) -> MultiplierVariant:
     return MultiplierVariant(
         variant_id=MultiplierVariantId(variant_id),
@@ -133,7 +147,7 @@ def _variant(
         multiplier=FixedMultiplier(Resolved(multiplier)),
         condition_ids=condition_ids,
         repeat_count=repeat_count,
-        repeat_count_condition_id=repeat_count_condition_id,
+        repeat_count_parameter_id=repeat_count_parameter_id,
     )
 
 
@@ -143,7 +157,7 @@ def _move(
     *,
     diagnostics: tuple[CalculationDiagnostic, ...] = (),
     stage_index: int | None = None,
-    derived: tuple[DamageEventTemplateRef, ...] = (),
+    derived: tuple[DerivedDamageEventTemplateRef, ...] = (),
 ) -> MoveCalculationEntry:
     return MoveCalculationEntry(
         entry_id=MoveEntryId("move-entry:test"),
@@ -201,6 +215,35 @@ def test_static_and_user_scenario_conditions_are_distinct() -> None:
         )
 
 
+def test_integer_scenario_parameter_supports_user_selected_repeat_count() -> None:
+    parameter = ScenarioIntegerParameter(
+        parameter_id=ScenarioParameterId("parameter:sword-count"),
+        label="剑气次数",
+        original_text="每道剑气",
+        resolution=ParameterResolution.USER_SELECTED,
+        value=5,
+        minimum=0,
+        maximum=8,
+    )
+    scenario = CalculationScenario(
+        scenario_id="scenario:repeat-count",
+        current_operator=CharacterId("character:test"),
+        parameters=(parameter,),
+    )
+
+    assert scenario.parameters[0].value == 5
+    with pytest.raises(ValueError, match="within its legal bounds"):
+        ScenarioIntegerParameter(
+            parameter_id=ScenarioParameterId("parameter:invalid"),
+            label="invalid",
+            original_text="invalid",
+            resolution=ParameterResolution.USER_SELECTED,
+            value=9,
+            minimum=0,
+            maximum=8,
+        )
+
+
 def test_rule_item_disables_all_results_together_and_validates_stacks() -> None:
     owner = CharacterId("character:owner")
     effect = _modifier_effect(owner)
@@ -211,27 +254,25 @@ def test_rule_item_disables_all_results_together_and_validates_stacks() -> None:
         display_name="Test rule",
         original_text="Test rule text",
         eligibility=RuleEligibility.ELIGIBLE,
-        enabled=True,
         effects=(effect,),
         stack_count=2,
         stack_min=0,
         stack_max=3,
     )
 
-    assert item.active_effects == (effect,)
-    disabled = replace(item, enabled=False)
-    assert disabled.active_effects == ()
-
-    with pytest.raises(ValueError, match="ineligible"):
-        CalculationRuleItem(
-            rule_id=RuleItemId("rule:invalid"),
-            owner=owner,
-            source=_source(),
-            display_name="Invalid rule",
-            original_text="Invalid rule text",
-            eligibility=RuleEligibility.INELIGIBLE,
-            enabled=True,
-        )
+    enabled_scenario = CalculationScenario(
+        scenario_id="scenario:enabled",
+        current_operator=owner,
+        enabled_rule_item_ids=frozenset({item.rule_id}),
+    )
+    disabled_scenario = CalculationScenario(
+        scenario_id="scenario:disabled",
+        current_operator=owner,
+    )
+    assert item.effects == (effect,)
+    assert item.rule_id in enabled_scenario.enabled_rule_item_ids
+    assert item.rule_id not in disabled_scenario.enabled_rule_item_ids
+    assert not hasattr(item, "enabled")
 
     with pytest.raises(ValueError, match="within its legal bounds"):
         CalculationRuleItem(
@@ -241,7 +282,6 @@ def test_rule_item_disables_all_results_together_and_validates_stacks() -> None:
             display_name="Invalid stack",
             original_text="Invalid stack text",
             eligibility=RuleEligibility.ELIGIBLE,
-            enabled=True,
             stack_count=4,
             stack_min=0,
             stack_max=3,
@@ -264,7 +304,12 @@ def test_multiplier_relations_preserve_stages_variants_and_unit_counts() -> None
     )
     repeat = _move(
         MultiplierRelation.UNIT_REPEAT,
-        (_variant("per-projectile", repeat_count=3),),
+        (
+            _variant(
+                "per-projectile",
+                repeat_count_parameter_id=ScenarioParameterId("parameter:count"),
+            ),
+        ),
     )
 
     assert (
@@ -274,7 +319,10 @@ def test_multiplier_relations_preserve_stages_variants_and_unit_counts() -> None
     assert complete.multiplier_variants[0].multiplier.value.value == 1.0
     assert stage.stage_index == 2
     assert len(variants.multiplier_variants) == 2
-    assert repeat.multiplier_variants[0].repeat_count == 3
+    assert (
+        repeat.multiplier_variants[0].repeat_count_parameter_id
+        == ScenarioParameterId("parameter:count")
+    )
 
 
 def test_unresolved_multiplier_relation_requires_blocking_diagnostic() -> None:
@@ -308,17 +356,35 @@ def test_move_event_semantic_ids_are_unique_and_derived_events_are_explicit() ->
     move = _move(
         MultiplierRelation.COMPLETE,
         (_variant("main"),),
-        derived=(_event_ref("event:derived", label="extra damage"),),
+        derived=(_derived_event_ref("event:derived", label="extra damage"),),
     )
 
     assert move.main_damage_event.event_kind is BattleEventKind.DAMAGE
-    assert move.derived_damage_events[0].label == "extra damage"
+    assert move.derived_damage_events[0].template.label == "extra damage"
+    assert move.derived_damage_events[0].multiplier is not None
 
     with pytest.raises(ValueError, match="semantic IDs"):
         _move(
             MultiplierRelation.COMPLETE,
             (_variant("duplicate"),),
-            derived=(_event_ref("event:main"),),
+            derived=(_derived_event_ref("event:main"),),
+        )
+
+
+def test_damage_event_template_ref_is_always_a_damage_event() -> None:
+    template = _event_ref("event:typed")
+
+    assert template.event_kind is BattleEventKind.DAMAGE
+    assert template.damage_type is DamageType.DIRECT
+    assert not hasattr(template, "multiplier")
+
+    with pytest.raises(TypeError):
+        DamageEventTemplateRef(
+            template_id=EventTemplateId("template:state"),
+            semantic_id=DamageEventSemanticId("event:state"),
+            label="invalid state template",
+            damage_type=DamageType.DIRECT,
+            event_kind=BattleEventKind.STATE_CHANGE,  # type: ignore[call-arg]
         )
 
 
