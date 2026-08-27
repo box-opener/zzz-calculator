@@ -28,6 +28,15 @@ class CharacterSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class InitialCharacterSnapshot:
+    """The immutable initial panel used by build-derived value sources."""
+
+    character_id: CharacterId
+    level: int
+    initial_stats: CharacterStats
+
+
+@dataclass(frozen=True, slots=True)
 class EnemySnapshot:
     enemy_id: EnemyId
     level: int

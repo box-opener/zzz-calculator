@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 from core.application import (
     CalculationRuleItem,
@@ -36,6 +39,7 @@ from core.types import (
     CharacterSnapshot,
     CharacterStats,
     DamageTag,
+    DamageTagFilter,
     EffectId,
     EffectOperation,
     EffectRule,
@@ -46,8 +50,12 @@ from core.types import (
     EnemySnapshot,
     DynamicIdentity,
     DynamicIdentityFilter,
+    EventCreationEffect,
+    EventSelector,
+    InitialCharacterSnapshot,
     ModifierEffect,
     ModifierResult,
+    PanelStatDerivedValue,
     Resolved,
     RuleSource,
     RuleSourceId,
@@ -80,20 +88,58 @@ def _stats(attack: float = 1000.0) -> CharacterStats:
     )
 
 
-def _ye_definition():
+def _ye_definition(*, cinema_level: int = 0):
     fixture = (
         Path(__file__).parents[1] / "fixtures" / "characters" / "ye_shunguang.json"
     )
     raw = load_raw_record(json.loads(fixture.read_text(encoding="utf-8")))
     return compile_ye_shunguang(
         YeShunguangCompileConfig(
-            cinema_level=0,
+            cinema_level=cinema_level,
             core_level=1,
             mingxin_active=True,
             entry_move_uses_linren=True,
             enemy_stun_vulnerability_bonus=1.5,
         ),
         raw,
+    )
+
+
+def _ye_request(definition, suffix: str) -> MoveCalculationRequest:
+    target = EnemyId(f"enemy:stage16:{suffix}")
+    move = next(
+        item
+        for item in definition.move_entries
+        if str(item.entry_id).endswith(suffix)
+    )
+    scenario = CalculationScenario(
+        scenario_id=f"scenario:stage16:{suffix}",
+        current_operator=definition.character_id,
+        conditions=tuple(definition.scenario_conditions),
+        parameters=tuple(definition.scenario_parameters),
+    )
+    return MoveCalculationRequest(
+        definition=definition,
+        move_entry_id=move.entry_id,
+        scenario=scenario,
+        battle_state_id=BattleStateId(f"battle:stage16:{suffix}"),
+        battle_time=0.0,
+        base_character_snapshots=(
+            CharacterSnapshot(definition.character_id, 60, _stats()),
+        ),
+        target_snapshot=EnemySnapshot(
+            enemy_id=target,
+            level=70,
+            initial_defense=Resolved(794.0),
+            damage_resistance={Element.PHYSICAL: Resolved(0.0)},
+            anomaly_buildup_resistance={},
+            daze_resistance=Resolved(0.0),
+            damage_reduction=Resolved(0.0),
+        ),
+        team_profiles=(
+            CharacterMatchProfile(definition.character_id, CharacterRole.ATTACK),
+        ),
+        target_profile=EnemyMatchProfile(target),
     )
 
 
@@ -130,6 +176,102 @@ def _support_definition(*, stacked: bool = False) -> CharacterCalculationDefinit
         role=CharacterRole.SUPPORT,
         base_element=Element.ETHER,
         source=_source("stage16 supporting definition"),
+        move_entries=(),
+        rule_items=(rule,),
+        scenario_conditions=(),
+        scenario_parameters=(),
+        damage_event_templates=(),
+    )
+
+
+def _event_lane_definition() -> CharacterCalculationDefinition:
+    owner = CharacterId("character:stage16-lane-support")
+    common_rule = dict(
+        source=_source("event lane source"),
+        owner=owner,
+        target=EffectTarget.TEAM,
+        snapshot_rule=SnapshotRule.SETTLEMENT,
+        filters=(DamageTagFilter(DamageTag.BASIC_ATTACK),),
+    )
+    stat_effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:lane:crit"),
+            **common_rule,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            operation=EffectOperation.ADD,
+            value=Resolved(0.8),
+        ),
+    )
+    multiplier_effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:lane:multiplier"),
+            **common_rule,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.DAMAGE_SKILL_MULTIPLIER,
+            operation=EffectOperation.MULTIPLY,
+            value=Resolved(2.0),
+        ),
+    )
+    rule = CalculationRuleItem(
+        rule_id=RuleItemId("rule:stage16:lane"),
+        owner=owner,
+        source=_source("event lane rule"),
+        display_name="Event lanes",
+        original_text="Event lanes",
+        eligibility=RuleEligibility.ELIGIBLE,
+        effects=(stat_effect, multiplier_effect),
+    )
+    return CharacterCalculationDefinition(
+        character_id=owner,
+        role=CharacterRole.SUPPORT,
+        base_element=Element.ETHER,
+        source=_source("stage16 event lane definition"),
+        move_entries=(),
+        rule_items=(rule,),
+        scenario_conditions=(),
+        scenario_parameters=(),
+        damage_event_templates=(),
+    )
+
+
+def _recipient_panel_definition() -> CharacterCalculationDefinition:
+    owner = CharacterId("character:stage16-recipient-support")
+    effect_id = EffectId("effect:stage16:recipient-panel")
+    effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=effect_id,
+            source=_source("recipient panel effect"),
+            owner=owner,
+            target=EffectTarget.TEAM,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+            trigger=EventSelector(BattleEventKind.SUPPORT_ENTRY),
+            filters=(
+                DynamicIdentityFilter(DynamicIdentity.SUPPORT_ENTRY_CHARACTER),
+            ),
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
+            operation=EffectOperation.ADD,
+            value=Resolved(100.0),
+        ),
+    )
+    rule = CalculationRuleItem(
+        rule_id=RuleItemId("rule:stage16:recipient-panel"),
+        owner=owner,
+        source=_source("recipient panel rule"),
+        display_name="Recipient panel",
+        original_text="Recipient panel",
+        eligibility=RuleEligibility.ELIGIBLE,
+        effects=(effect,),
+    )
+    return CharacterCalculationDefinition(
+        character_id=owner,
+        role=CharacterRole.SUPPORT,
+        base_element=Element.ETHER,
+        source=_source("stage16 recipient definition"),
         move_entries=(),
         rule_items=(rule,),
         scenario_conditions=(),
@@ -191,6 +333,78 @@ def test_stacked_add_modifier_keeps_rule_item_provenance_and_scales_value() -> N
 
     assert not application.diagnostics
     assert application.event_modifiers[0].value == Resolved(0.06)
+
+
+def test_panel_stat_derived_value_reads_initial_attack_and_applies_cap() -> None:
+    owner = CharacterId("character:operator")
+    effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:derived-panel"),
+            source=_source("derived panel effect"),
+            owner=owner,
+            target=EffectTarget.SELF,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
+            operation=EffectOperation.ADD,
+            value=PanelStatDerivedValue(
+                source_character_id=owner,
+                source_node=CalculationNode.CHARACTER_INITIAL_ATTACK,
+                coefficient=Resolved(0.22),
+                cap_max=Resolved(1200.0),
+            ),
+        ),
+    )
+    application = apply_matched_modifiers(
+        (CharacterSnapshot(owner, 60, _stats(1000.0)),),
+        (),
+        (MatchedEffectApplication(effect=effect),),
+        owner,
+        initial_character_snapshots=(
+            InitialCharacterSnapshot(owner, 60, _stats(6000.0)),
+        ),
+    )
+
+    assert not application.diagnostics
+    assert application.character_snapshots[0].settlement_stats.attack == Resolved(
+        2200.0
+    )
+
+
+def test_panel_stat_derived_value_does_not_fall_back_to_settlement_attack() -> None:
+    owner = CharacterId("character:operator")
+    effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:missing-derived-panel"),
+            source=_source("missing derived panel effect"),
+            owner=owner,
+            target=EffectTarget.SELF,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
+            operation=EffectOperation.ADD,
+            value=PanelStatDerivedValue(
+                source_character_id=owner,
+                source_node=CalculationNode.CHARACTER_INITIAL_ATTACK,
+                coefficient=Resolved(0.22),
+                cap_max=Resolved(1200.0),
+            ),
+        ),
+    )
+    application = apply_matched_modifiers(
+        (CharacterSnapshot(owner, 60, _stats(1000.0)),),
+        (),
+        (MatchedEffectApplication(effect=effect),),
+        owner,
+    )
+
+    assert application.diagnostics
+    assert application.diagnostics[0].kind.value == "missing-data"
+    assert application.character_snapshots[0].settlement_stats.attack == Resolved(
+        1000.0
+    )
 
 
 def test_request_applies_rules_from_supporting_definition() -> None:
@@ -257,6 +471,164 @@ def test_request_applies_rules_from_supporting_definition() -> None:
     assert any(
         item.modifier_path is CalculationNode.ENEMY_RESISTANCE_REDUCTION
         for item in trace.applied_modifiers
+    )
+
+
+def test_event_stat_and_multiplier_lanes_are_applied_before_calculator() -> None:
+    definition = _ye_definition()
+    support = _event_lane_definition()
+    target = EnemyId("enemy:stage16-lanes")
+    move = next(
+        item
+        for item in definition.move_entries
+        if str(item.entry_id).endswith("basic-fast-1")
+    )
+    rule_id = RuleItemId("rule:stage16:lane")
+    scenario = CalculationScenario(
+        scenario_id="scenario:stage16-lanes",
+        current_operator=definition.character_id,
+        conditions=tuple(definition.scenario_conditions),
+        parameters=tuple(definition.scenario_parameters),
+        enabled_rule_item_ids=frozenset({rule_id}),
+    )
+    request = MoveCalculationRequest(
+        definition=definition,
+        supporting_definitions=(support,),
+        move_entry_id=move.entry_id,
+        scenario=scenario,
+        battle_state_id=BattleStateId("battle:stage16-lanes"),
+        battle_time=0.0,
+        base_character_snapshots=(
+            CharacterSnapshot(definition.character_id, 60, _stats()),
+            CharacterSnapshot(support.character_id, 60, _stats(800.0)),
+        ),
+        target_snapshot=EnemySnapshot(
+            enemy_id=target,
+            level=70,
+            initial_defense=Resolved(794.0),
+            damage_resistance={Element.PHYSICAL: Resolved(0.0)},
+            anomaly_buildup_resistance={},
+            daze_resistance=Resolved(0.0),
+            damage_reduction=Resolved(0.0),
+        ),
+        team_profiles=(
+            CharacterMatchProfile(definition.character_id, CharacterRole.ATTACK),
+            CharacterMatchProfile(support.character_id, CharacterRole.SUPPORT),
+        ),
+        target_profile=EnemyMatchProfile(target),
+    )
+
+    from core.application.execution import calculate_move
+
+    execution = calculate_move(request)
+    event = execution.output.events[0]
+    trace = execution.event_traces[0]
+    assert event.status.value == "calculated"
+    assert len(trace.event_stat_modifiers) == 1
+    assert trace.event_stat_modifiers[0].recipient == definition.character_id
+    assert len(trace.event_multiplier_modifiers) == 1
+    skill_multiplier = next(
+        item.value.value
+        for item in event.result.breakdown  # type: ignore[union-attr]
+        if item.node is CalculationNode.DAMAGE_SKILL_MULTIPLIER
+    )
+    base_multiplier = move.multiplier_variants[0].multiplier.value.value
+    assert skill_multiplier == pytest.approx(base_multiplier * 2.0)
+    assert execution.resolved_character_snapshots[0].settlement_stats.crit_rate == Resolved(
+        0.5
+    )
+
+
+def test_support_entry_panel_effect_targets_only_the_declared_recipient() -> None:
+    definition = _ye_definition()
+    support = _recipient_panel_definition()
+    rule_id = RuleItemId("rule:stage16:recipient-panel")
+    request = _ye_request(definition, "basic-fast-1")
+    scenario = replace(
+        request.scenario,
+        enabled_rule_item_ids=frozenset({rule_id}),
+        trigger_facts=(
+            ScenarioTriggerFact(
+                effect_id=EffectId("effect:stage16:recipient-panel"),
+                event_kind=BattleEventKind.SUPPORT_ENTRY,
+                actor=definition.character_id,
+            ),
+        ),
+    )
+    request = replace(
+        request,
+        scenario=scenario,
+        supporting_definitions=(support,),
+        base_character_snapshots=(
+            *request.base_character_snapshots,
+            CharacterSnapshot(support.character_id, 60, _stats(800.0)),
+        ),
+        team_profiles=(
+            *request.team_profiles,
+            CharacterMatchProfile(support.character_id, CharacterRole.SUPPORT),
+        ),
+    )
+
+    from core.application.execution import calculate_move
+
+    matched = calculate_move(request)
+    assert matched.resolved_character_snapshots[0].settlement_stats.attack == Resolved(
+        1100.0
+    )
+
+    third = CharacterId("character:stage16-third")
+    third_request = replace(
+        request,
+        scenario=replace(request.scenario, current_operator=third),
+        base_character_snapshots=(
+            *request.base_character_snapshots,
+            CharacterSnapshot(third, 60, _stats(700.0)),
+        ),
+        team_profiles=(
+            *request.team_profiles,
+            CharacterMatchProfile(third, CharacterRole.ATTACK),
+        ),
+    )
+    not_recipient = calculate_move(third_request)
+    third_snapshot = next(
+        item
+        for item in not_recipient.resolved_character_snapshots
+        if item.character_id == third
+    )
+    assert third_snapshot.settlement_stats.attack == Resolved(700.0)
+
+
+def test_non_unit_stacked_event_creation_is_blocked() -> None:
+    definition = _ye_definition(cinema_level=6)
+    c6_id = RuleItemId("rule:ye:1431:cinema6")
+    c6 = next(item for item in definition.rule_items if item.rule_id == c6_id)
+    assert any(isinstance(effect, EventCreationEffect) for effect in c6.effects)
+    stacked_c6 = replace(c6, stack_count=2, stack_min=0, stack_max=2)
+    stacked_definition = replace(
+        definition,
+        rule_items=tuple(
+            stacked_c6 if item.rule_id == c6_id else item
+            for item in definition.rule_items
+        ),
+    )
+    request = _ye_request(stacked_definition, "special-mingxin-guichen")
+    request = replace(
+        request,
+        scenario=replace(
+            request.scenario,
+            enabled_rule_item_ids=frozenset({c6_id}),
+            rule_stack_counts=(ScenarioRuleStack(c6_id, 2),),
+        ),
+    )
+
+    from core.application.execution import calculate_move
+
+    execution = calculate_move(request)
+    assert len(execution.output.events) == 1
+    assert execution.output.complete is False
+    assert any(
+        "stacked EventCreation effects are unsupported" in item.message
+        for item in execution.output.diagnostics
     )
 
 

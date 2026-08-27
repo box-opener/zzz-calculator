@@ -307,6 +307,17 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 然后才构造 `CalculationContext` 调用具体 Calculator。Calculator 不得自行读取 Definition、
 Scenario、Character、Enemy 或 Buff 数据。
 
+一次应用请求可以包含一个主 `CharacterCalculationDefinition` 和零个或多个
+`supporting_definitions`。主 Definition 是当前 `MoveEntry` 的唯一来源；支援 Definition
+只提供本次场景可用的 RuleItem、Effect 和派生事件模板。请求内的 RuleItem、Effect、事件模板
+和 DamageEvent 语义身份必须在所有 Definition 合并后的作用域内唯一。
+
+角色初始面板与结算面板是不同的数据层。需要从初始面板派生 Effect 数值时，应用请求必须
+提供独立的初始角色快照，不得从已经包含 Panel Effect 的 settlement snapshot 反推。第一版
+只支持受限的 `PanelStatDerivedValue`：读取指定角色的
+`CHARACTER_INITIAL_ATTACK`，乘固定系数后应用可选上限。无法提供初始快照时必须产生
+`MISSING_DATA`，不得回退到 settlement attack。
+
 请求中的 `base_calculation_modifiers` 表示调用方已经确定的基础结算环境，不属于任何
 `CalculationRuleItem`。例如敌人基础失衡易伤 `+150%` 应以
 `ENEMY_STUN_VULNERABILITY + ADD 1.50` 传入。基础 Modifier 必须已经使用 `ADD`，且不得
@@ -334,9 +345,23 @@ settlement snapshot。该正式快照应保存在 Application 输出中。非暴
 只允许在调用 Calculator 前对暴击率建立临时快照，不得重新匹配 Effect，也不得把展示快照
 当作正式局内面板。
 
-Stage-015 的 Panel Effect 只有在 `trigger is None`、`condition` 为空或为
-`AlwaysCondition`、且 `filters` 为空时才视为事件无关；其他 Panel Effect 暂时阻塞，不得
-伪装成全局 settlement panel。
+基础 Panel Effect 只有在 `trigger is None`、`condition` 为空或为 `AlwaysCondition`、且
+`filters` 为空时才视为全局、事件无关的 Panel Effect。
+
+应用层可以额外识别一种明确的 recipient Panel Effect：`target=TEAM`，触发事实为
+`SUPPORT_ENTRY`，并且 Filter 仅用于匹配 `SUPPORT_ENTRY_CHARACTER`。该 Effect 只写入
+当前场景声明的入场角色；不得因为 `target=TEAM` 让其他队友获得该面板效果。其他带有
+招式、属性、伤害类型或伤害标签 Filter 的 Panel Effect 不得伪装成全局 settlement panel。
+
+事件专属面板属性必须进入独立的 event-stat lane，不得污染正式 settlement snapshot。第一版
+只支持 `CHARACTER_CURRENT_CRIT_RATE + ADD`，其 recipient 从当前 DamageEvent 的
+`StandardCritRule.stat_owner` 得到。事件倍率修正进入独立的 event-multiplier lane；第一版
+只支持 `DAMAGE_SKILL_MULTIPLIER + MULTIPLY`，在调用 Calculator 前作用于事件副本。
+这两个 lane 都必须写入对应的 DamageEvent execution trace。
+
+叠层规则的默认层数保存在 RuleItem，场景可以通过 `ScenarioRuleStack` 覆盖合法层数。
+第一版只定义 `ADD Modifier × stack_count`；叠层的非 `ADD` Modifier，以及层数不为1的
+EventCreation、StateChange 或其他非 Modifier Effect，必须阻塞，不得静默执行一次。
 
 每个 DamageEvent 都必须拥有独立的执行 trace，至少记录该事件的 RuleItem 匹配结果和应用
 到该事件的 Modifier。不得把主事件与派生事件的匹配结果摊平成没有事件归属的列表。

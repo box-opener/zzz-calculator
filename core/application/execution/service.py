@@ -7,9 +7,12 @@ from dataclasses import replace
 from core.types import (
     BattleEventKind,
     CalculationContext,
+    CalculationNode,
     CharacterSnapshot,
     DamageEvent,
     DirectDamageEvent,
+    EffectOperation,
+    FixedMultiplier,
     EventCreationEffect,
     EventTemplateId,
     Resolved,
@@ -35,6 +38,7 @@ from ..output import (
 )
 from .contracts import (
     DamageEventExecutionTrace,
+    EventStatModifier,
     InstantiatedDamageEvent,
     MoveCalculationExecution,
     MoveCalculationRequest,
@@ -123,6 +127,8 @@ class DirectMoveApplicationService:
             request.base_calculation_modifiers,
             matched_effects,
             request.scenario.current_operator,
+            initial_character_snapshots=request.initial_character_snapshots,
+            event=main_event.event,
         )
 
         event_outputs: list[DamageEventCalculationOutput] = []
@@ -168,6 +174,16 @@ class DirectMoveApplicationService:
                 rule_items,
                 request.scenario,
             ):
+                if effect_application.stack_count != 1:
+                    move_diagnostics.append(
+                        _diagnostic(
+                            str(effect_application.effect.rule.effect_id),
+                            "stack-event-creation",
+                            DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                            "stacked EventCreation effects are unsupported",
+                        )
+                    )
+                    continue
                 created = self._create_derived_event(
                     request,
                     effect_application.effect,
@@ -195,6 +211,8 @@ class DirectMoveApplicationService:
                         request.scenario,
                     ),
                     request.scenario.current_operator,
+                    initial_character_snapshots=request.initial_character_snapshots,
+                    event=child.event,
                     apply_panel=False,
                     applied_panel_effect_ids=panel_application.applied_panel_effect_ids,
                 )
@@ -240,13 +258,24 @@ class DirectMoveApplicationService:
         CalculatorExecutionResult,
         tuple[CalculationDiagnostic, ...],
     ]:
-        diagnostics = tuple(event_diagnostics)
+        diagnostics_list = list(event_diagnostics)
+        calculation_event = _apply_event_multiplier_modifiers(
+            instantiated.event,
+            application.event_multiplier_modifiers,
+            diagnostics_list,
+        )
+        event_stat_snapshots = _apply_event_stat_modifiers(
+            application.character_snapshots,
+            application.event_stat_modifiers,
+            diagnostics_list,
+        )
+        diagnostics = tuple(diagnostics_list)
         if any(item.blocking for item in diagnostics):
             output = DamageEventCalculationOutput(
                 semantic_id=instantiated.semantic_id,
                 label=instantiated.label,
-                damage_type=instantiated.event.damage_type,
-                damage_subtype=instantiated.event.damage_subtype,
+                damage_type=calculation_event.damage_type,
+                damage_subtype=calculation_event.damage_subtype,
                 status=EventCalculationStatus.BLOCKED,
                 diagnostics=diagnostics,
                 repeat_count=instantiated.repeat_count,
@@ -258,25 +287,25 @@ class DirectMoveApplicationService:
             )
 
         display_snapshots = _display_snapshots(
-            application.character_snapshots,
-            instantiated.event,
+            event_stat_snapshots,
+            calculation_event,
             request.crit_display_mode,
         )
         context = CalculationContext(
-            event=instantiated.event,
+            event=calculation_event,
             battle_state_id=request.battle_state_id,
             character_snapshots=display_snapshots,
             target_snapshot=request.target_snapshot,
             modifiers=application.event_modifiers,
             history_records=request.history_records,
         )
-        calculation = self._router.calculate(instantiated.event, context)
+        calculation = self._router.calculate(calculation_event, context)
         all_diagnostics = diagnostics + calculation.diagnostics
         output = DamageEventCalculationOutput(
             semantic_id=instantiated.semantic_id,
             label=instantiated.label,
-            damage_type=instantiated.event.damage_type,
-            damage_subtype=instantiated.event.damage_subtype,
+            damage_type=calculation_event.damage_type,
+            damage_subtype=calculation_event.damage_subtype,
             status=calculation.status,
             result=calculation.result,
             diagnostics=all_diagnostics,
@@ -429,7 +458,6 @@ def _matched_event_creations(
         application
         for application in _matched_effects(matches, rule_items, scenario)
         if isinstance(application.effect, EventCreationEffect)
-        and application.stack_count > 0
     )
 
 
@@ -506,6 +534,146 @@ def _display_snapshots(
             )
         )
     return tuple(updated)
+
+
+def _apply_event_stat_modifiers(
+    snapshots: tuple[CharacterSnapshot, ...],
+    modifiers: tuple[EventStatModifier, ...],
+    diagnostics: list[CalculationDiagnostic],
+) -> tuple[CharacterSnapshot, ...]:
+    """Apply event-only stat edits without changing formal settlement snapshots."""
+
+    if not modifiers:
+        return snapshots
+    index = {item.character_id: item for item in snapshots}
+    for modifier in modifiers:
+        target = index.get(modifier.recipient)
+        if target is None:
+            diagnostics.append(
+                _diagnostic(
+                    str(modifier.effect_id),
+                    "event-stat-recipient",
+                    DiagnosticKind.MISSING_DATA,
+                    "event stat modifier recipient has no character snapshot",
+                )
+            )
+            continue
+        if modifier.modifier_path is not CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
+            diagnostics.append(
+                _diagnostic(
+                    str(modifier.effect_id),
+                    "event-stat-node",
+                    DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                    "Stage-016 only applies event-level current crit-rate modifiers",
+                )
+            )
+            continue
+        if modifier.operation is not EffectOperation.ADD:
+            diagnostics.append(
+                _diagnostic(
+                    str(modifier.effect_id),
+                    "event-stat-operation",
+                    DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                    "event-level current crit-rate modifiers support ADD only",
+                )
+            )
+            continue
+        current = target.settlement_stats.crit_rate
+        if not isinstance(current, Resolved) or not isinstance(
+            modifier.value, Resolved
+        ):
+            diagnostics.append(
+                _diagnostic(
+                    str(modifier.effect_id),
+                    "event-stat-value",
+                    DiagnosticKind.MISSING_DATA,
+                    "event-level crit-rate modifier value is unresolved",
+                )
+            )
+            continue
+        index[modifier.recipient] = replace(
+            target,
+            settlement_stats=replace(
+                target.settlement_stats,
+                crit_rate=Resolved(current.value + modifier.value.value),
+            ),
+        )
+    return tuple(index[item.character_id] for item in snapshots)
+
+
+def _apply_event_multiplier_modifiers(
+    event: DamageEvent,
+    modifiers,
+    diagnostics: list[CalculationDiagnostic],
+) -> DamageEvent:
+    """Apply supported event multiplier operations to a calculation-only copy."""
+
+    if not modifiers:
+        return event
+    if not isinstance(event, DirectDamageEvent):
+        diagnostics.append(
+            _diagnostic(
+                "event-multiplier",
+                "event-kind",
+                DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                "event multiplier modifiers require a direct damage event",
+            )
+        )
+        return event
+    if not isinstance(event.multiplier, FixedMultiplier):
+        diagnostics.append(
+            _diagnostic(
+                str(event.metadata.event_id),
+                "event-multiplier-base",
+                DiagnosticKind.MISSING_DATA,
+                "event multiplier modifiers require a fixed base multiplier",
+            )
+        )
+        return event
+    if not isinstance(event.multiplier.value, Resolved):
+        diagnostics.append(
+            _diagnostic(
+                str(event.metadata.event_id),
+                "event-multiplier-base",
+                DiagnosticKind.MISSING_DATA,
+                "base event multiplier is unresolved",
+            )
+        )
+        return event
+    value = event.multiplier.value.value
+    for modifier in modifiers:
+        if modifier.modifier_path is not CalculationNode.DAMAGE_SKILL_MULTIPLIER:
+            diagnostics.append(
+                _diagnostic(
+                    str(modifier.effect_id),
+                    "event-multiplier-node",
+                    DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                    "unsupported event multiplier calculation node",
+                )
+            )
+            continue
+        if modifier.operation is not EffectOperation.MULTIPLY:
+            diagnostics.append(
+                _diagnostic(
+                    str(modifier.effect_id),
+                    "event-multiplier-operation",
+                    DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                    "event skill multipliers support MULTIPLY only",
+                )
+            )
+            continue
+        if not isinstance(modifier.value, Resolved):
+            diagnostics.append(
+                _diagnostic(
+                    str(modifier.effect_id),
+                    "event-multiplier-value",
+                    DiagnosticKind.MISSING_DATA,
+                    "event skill multiplier value is unresolved",
+                )
+            )
+            continue
+        value *= modifier.value.value
+    return replace(event, multiplier=FixedMultiplier(Resolved(value)))
 
 
 def _execution_without_events(

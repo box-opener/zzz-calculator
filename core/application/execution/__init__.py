@@ -2,6 +2,7 @@
 
 from .contracts import (
     DamageEventExecutionTrace,
+    EventStatModifier,
     InstantiatedDamageEvent,
     MoveCalculationExecution,
     MoveCalculationRequest,
@@ -22,6 +23,7 @@ from .service import DirectMoveApplicationService, calculate_move
 
 __all__ = [
     "DamageEventExecutionTrace",
+    "EventStatModifier",
     "CalculationRouter",
     "CalculatorExecutionResult",
     "DirectMoveApplicationService",

@@ -6,21 +6,31 @@ from dataclasses import dataclass, replace
 
 from core.types import (
     AlwaysCondition,
+    BattleEventKind,
     CalculationNode,
     CharacterId,
     CharacterSnapshot,
+    DirectDamageEvent,
+    DynamicIdentity,
+    DynamicIdentityFilter,
     EffectId,
     EffectOperation,
+    EventCreationEffect,
     Modifier,
     ModifierEffect,
     Effect,
+    EffectTarget,
+    InitialCharacterSnapshot,
+    PanelStatDerivedValue,
     Resolved,
+    StandardCritRule,
     Unresolved,
 )
 
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId
 from ..ids import RuleItemId
+from .contracts import EventStatModifier
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +94,8 @@ def apply_matched_modifiers(
     matched_effects: tuple[object, ...],
     current_operator: CharacterId,
     *,
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = (),
+    event: object | None = None,
     apply_panel: bool = True,
     applied_panel_effect_ids: frozenset[EffectId] = frozenset(),
 ) -> ModifierApplicationResult:
@@ -118,6 +130,8 @@ def apply_matched_modifiers(
 
     panel_effects: list[tuple[ModifierEffect, int]] = []
     rule_modifiers: list[Modifier] = []
+    event_stat_modifiers: list[EventStatModifier] = []
+    event_multiplier_modifiers: list[Modifier] = []
     for application in matched_effects:
         if isinstance(application, MatchedEffectApplication):
             effect = application.effect
@@ -126,20 +140,65 @@ def apply_matched_modifiers(
             effect = application
             stack_count = 1
         if not isinstance(effect, ModifierEffect):
-            continue
-        if effect.result.modifier_path in _PANEL_NODES and apply_panel:
-            panel_effects.append((effect, stack_count))
-            continue
-        if effect.result.modifier_path in _PANEL_NODES:
-            if effect.rule.effect_id not in applied_panel_effect_ids:
+            if stack_count != 1 and not isinstance(effect, EventCreationEffect):
                 diagnostics.append(
                     _diagnostic(
                         str(effect.rule.effect_id),
-                        "derived-panel",
-                        DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                        "a panel Effect matched a derived event but was not applied globally",
+                        "stack-effect",
+                        DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                        "stacked non-Modifier effects are unsupported",
                     )
                 )
+            continue
+        effect = _resolve_effect_value(
+            effect,
+            initial_character_snapshots,
+            diagnostics,
+        )
+        if effect is None:
+            continue
+        if effect.result.modifier_path in _PANEL_NODES and apply_panel:
+            if _is_recipient_panel_effect(effect):
+                panel_effects.append((effect, stack_count))
+                continue
+            event_stat = _event_stat_modifier(
+                effect,
+                event,
+                stack_count,
+                diagnostics,
+            )
+            if event_stat is not None:
+                event_stat_modifiers.append(event_stat)
+            continue
+        if effect.result.modifier_path in _PANEL_NODES:
+            if _is_recipient_panel_effect(effect):
+                if effect.rule.effect_id not in applied_panel_effect_ids:
+                    diagnostics.append(
+                        _diagnostic(
+                            str(effect.rule.effect_id),
+                            "derived-panel",
+                            DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                            "a panel Effect matched a derived event but was not applied globally",
+                        )
+                    )
+                continue
+            event_stat = _event_stat_modifier(
+                effect,
+                event,
+                stack_count,
+                diagnostics,
+            )
+            if event_stat is not None:
+                event_stat_modifiers.append(event_stat)
+            continue
+        if effect.result.modifier_path is CalculationNode.DAMAGE_SKILL_MULTIPLIER:
+            event_multiplier = _event_multiplier_modifier(
+                effect,
+                diagnostics,
+                stack_count,
+            )
+            if event_multiplier is not None:
+                event_multiplier_modifiers.append(event_multiplier)
             continue
         event_modifier = _event_modifier(effect, diagnostics, stack_count)
         if event_modifier is not None:
@@ -159,8 +218,205 @@ def apply_matched_modifiers(
     return ModifierApplicationResult(
         character_snapshots=snapshots,
         event_modifiers=event_modifiers,
+        event_stat_modifiers=tuple(event_stat_modifiers),
+        event_multiplier_modifiers=tuple(event_multiplier_modifiers),
         applied_panel_effect_ids=applied_panel_ids,
         diagnostics=tuple(diagnostics),
+    )
+
+
+def _resolve_effect_value(
+    effect: ModifierEffect,
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...],
+    diagnostics: list[CalculationDiagnostic],
+) -> ModifierEffect | None:
+    value = effect.result.value
+    if not isinstance(value, PanelStatDerivedValue):
+        return effect
+
+    source = next(
+        (
+            item
+            for item in initial_character_snapshots
+            if item.character_id == value.source_character_id
+        ),
+        None,
+    )
+    if source is None:
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "derived-value-source",
+                DiagnosticKind.MISSING_DATA,
+                "derived panel value is missing its initial character snapshot",
+            )
+        )
+        return None
+
+    source_attack = source.initial_stats.attack
+    coefficient = value.coefficient
+    cap_max = value.cap_max
+    if not isinstance(source_attack, Resolved):
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "derived-value-attack",
+                DiagnosticKind.MISSING_DATA,
+                "initial attack is unresolved for a derived panel value",
+            )
+        )
+        return None
+    if not isinstance(coefficient, Resolved):
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "derived-value-coefficient",
+                DiagnosticKind.MISSING_DATA,
+                coefficient.notes,
+            )
+        )
+        return None
+    result = source_attack.value * coefficient.value
+    if cap_max is not None:
+        if not isinstance(cap_max, Resolved):
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "derived-value-cap",
+                    DiagnosticKind.MISSING_DATA,
+                    cap_max.notes,
+                )
+            )
+            return None
+        result = min(result, cap_max.value)
+    return replace(
+        effect,
+        result=replace(effect.result, value=Resolved(result)),
+    )
+
+
+def _is_recipient_panel_effect(effect: ModifierEffect) -> bool:
+    rule = effect.rule
+    if rule.trigger is None and (
+        rule.condition is None or isinstance(rule.condition, AlwaysCondition)
+    ) and not rule.filters:
+        return True
+    return (
+        rule.target is EffectTarget.TEAM
+        and rule.trigger is not None
+        and rule.trigger.event_kind is BattleEventKind.SUPPORT_ENTRY
+        and rule.trigger.move_id is None
+        and (rule.condition is None or isinstance(rule.condition, AlwaysCondition))
+        and bool(rule.filters)
+        and all(
+            isinstance(item, DynamicIdentityFilter)
+            and item.identity is DynamicIdentity.SUPPORT_ENTRY_CHARACTER
+            for item in rule.filters
+        )
+    )
+
+
+def _event_stat_modifier(
+    effect: ModifierEffect,
+    event: object | None,
+    stack_count: int,
+    diagnostics: list[CalculationDiagnostic],
+) -> EventStatModifier | None:
+    if not isinstance(event, DirectDamageEvent) or not isinstance(
+        event.crit_rule, StandardCritRule
+    ):
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "event-stat-recipient",
+                DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                "event stat modifiers require a standard-crit damage event",
+            )
+        )
+        return None
+    if effect.result.modifier_path is not CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "event-stat-node",
+                DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                "Stage-016 only supports event-level current crit-rate modifiers",
+            )
+        )
+        return None
+    if effect.result.operation is not EffectOperation.ADD:
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "event-stat-operation",
+                DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                "event-level crit-rate modifiers support ADD only",
+            )
+        )
+        return None
+    value = effect.result.value
+    if not isinstance(value, Resolved):
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "event-stat-value",
+                DiagnosticKind.MISSING_DATA,
+                value.notes,
+            )
+        )
+        return None
+    return EventStatModifier(
+        effect_id=effect.rule.effect_id,
+        recipient=event.crit_rule.stat_owner,
+        modifier_path=effect.result.modifier_path,
+        operation=effect.result.operation,
+        value=Resolved(value.value * stack_count),
+        snapshot_rule=effect.rule.snapshot_rule,
+    )
+
+
+def _event_multiplier_modifier(
+    effect: ModifierEffect,
+    diagnostics: list[CalculationDiagnostic],
+    stack_count: int,
+) -> Modifier | None:
+    if effect.result.operation is not EffectOperation.MULTIPLY:
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "event-multiplier-operation",
+                DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                "event skill multipliers support MULTIPLY only",
+            )
+        )
+        return None
+    if stack_count != 1:
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "stack-operation",
+                DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                "stacked non-ADD modifier operation has no defined semantics",
+            )
+        )
+        return None
+    value = effect.result.value
+    if not isinstance(value, Resolved):
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "event-multiplier-value",
+                DiagnosticKind.MISSING_DATA,
+                value.notes,
+            )
+        )
+        return None
+    return Modifier(
+        effect_id=effect.rule.effect_id,
+        modifier_path=effect.result.modifier_path,
+        operation=effect.result.operation,
+        value=value,
+        snapshot_rule=effect.rule.snapshot_rule,
     )
 
 
@@ -225,35 +481,13 @@ def _apply_panel_effects(
     updated_stats = target.settlement_stats
     applied_effect_ids: set[EffectId] = set()
     for effect, stack_count in effects:
-        if effect.rule.trigger is not None:
+        if not _is_recipient_panel_effect(effect):
             diagnostics.append(
                 _diagnostic(
                     str(effect.rule.effect_id),
-                    "event-triggered-panel",
+                    "panel-recipient",
                     DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                    "event-triggered panel Effects are not supported in this stage",
-                )
-            )
-            continue
-        if effect.rule.condition is not None and not isinstance(
-            effect.rule.condition, AlwaysCondition
-        ):
-            diagnostics.append(
-                _diagnostic(
-                    str(effect.rule.effect_id),
-                    "conditional-panel",
-                    DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                    "conditional panel Effects are not supported in this stage",
-                )
-            )
-            continue
-        if effect.rule.filters:
-            diagnostics.append(
-                _diagnostic(
-                    str(effect.rule.effect_id),
-                    "event-dependent-panel",
-                    DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                    "event-dependent panel Effects are not supported in this stage",
+                    "panel Effect does not have a supported recipient scope",
                 )
             )
             continue
@@ -293,6 +527,23 @@ def _apply_panel_effects(
             updated_stats = replace(
                 updated_stats,
                 crit_rate=Resolved(current.value + value.value * stack_count),
+            )
+            applied_effect_ids.add(effect.rule.effect_id)
+        elif effect.result.modifier_path is CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS:
+            current = updated_stats.attack
+            if isinstance(current, Unresolved):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "panel-base-value",
+                        DiagnosticKind.MISSING_DATA,
+                        "current attack is unresolved",
+                    )
+                )
+                continue
+            updated_stats = replace(
+                updated_stats,
+                attack=Resolved(current.value + value.value * stack_count),
             )
             applied_effect_ids.add(effect.rule.effect_id)
         else:

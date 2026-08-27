@@ -12,6 +12,7 @@ from .common import (
     EventTemplateId,
     MoveId,
     Resolvable,
+    Resolved,
     StateId,
     Unresolved,
 )
@@ -196,10 +197,39 @@ class EffectRule:
 
 
 @dataclass(frozen=True, slots=True)
+class PanelStatDerivedValue:
+    """A deliberately small value source for build-time panel-derived Effects."""
+
+    source_character_id: CharacterId
+    source_node: CalculationNode
+    coefficient: Resolvable[float]
+    cap_max: Resolvable[float] | None = None
+    kind: Literal["panel-stat-derived"] = field(
+        default="panel-stat-derived",
+        init=False,
+    )
+
+    def __post_init__(self) -> None:
+        if not str(self.source_character_id):
+            raise ValueError("derived panel value source character is required")
+        if self.source_node is not CalculationNode.CHARACTER_INITIAL_ATTACK:
+            raise ValueError(
+                "Stage-016 only supports CHARACTER_INITIAL_ATTACK derived values"
+            )
+        if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
+            raise ValueError("derived panel value coefficient must be non-negative")
+        if isinstance(self.cap_max, Resolved) and self.cap_max.value < 0:
+            raise ValueError("derived panel value cap must be non-negative")
+
+
+ModifierValue: TypeAlias = Resolvable[float] | PanelStatDerivedValue
+
+
+@dataclass(frozen=True, slots=True)
 class ModifierResult:
     modifier_path: CalculationNode
     operation: EffectOperation
-    value: Resolvable[float]
+    value: ModifierValue
 
 
 @dataclass(frozen=True, slots=True)

@@ -8,12 +8,18 @@ from core.types import (
     AnomalyRecord,
     BattleStateId,
     BattleTime,
+    CharacterId,
     CharacterSnapshot,
+    CalculationNode,
     DamageEvent,
     EffectId,
+    EffectOperation,
     EnemySnapshot,
     EventTemplateId,
+    InitialCharacterSnapshot,
     Modifier,
+    Resolvable,
+    SnapshotRule,
 )
 
 from ..characters.definition import CharacterCalculationDefinition
@@ -43,6 +49,7 @@ class MoveCalculationRequest:
     team_profiles: tuple[CharacterMatchProfile, ...]
     target_profile: EnemyMatchProfile
     supporting_definitions: tuple[CharacterCalculationDefinition, ...] = ()
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = ()
     base_calculation_modifiers: tuple[Modifier, ...] = ()
     history_records: tuple[AnomalyRecord, ...] = ()
     crit_display_mode: CritDisplayMode = CritDisplayMode.EXPECTED
@@ -66,6 +73,15 @@ class MoveCalculationRequest:
         )
         if len(set(snapshot_ids)) != len(snapshot_ids):
             raise ValueError("base character snapshot IDs must be unique")
+        initial_snapshot_ids = tuple(
+            item.character_id for item in self.initial_character_snapshots
+        )
+        if len(set(initial_snapshot_ids)) != len(initial_snapshot_ids):
+            raise ValueError("initial character snapshot IDs must be unique")
+        if not set(initial_snapshot_ids).issubset(set(snapshot_ids)):
+            raise ValueError(
+                "initial character snapshots must correspond to base snapshots"
+            )
         profile_ids = tuple(item.character_id for item in self.team_profiles)
         if len(set(profile_ids)) != len(profile_ids):
             raise ValueError("team profile IDs must be unique")
@@ -145,11 +161,36 @@ class InstantiatedDamageEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class EventStatModifier:
+    """A per-event stat adjustment with an explicit stat recipient."""
+
+    effect_id: EffectId
+    recipient: CharacterId
+    modifier_path: CalculationNode
+    operation: EffectOperation
+    value: Resolvable[float]
+    snapshot_rule: SnapshotRule
+
+    def __post_init__(self) -> None:
+        if not str(self.effect_id) or not str(self.recipient):
+            raise ValueError("event stat modifier identities are required")
+
+    def as_modifier(self) -> Modifier:
+        return Modifier(
+            effect_id=self.effect_id,
+            modifier_path=self.modifier_path,
+            operation=self.operation,
+            value=self.value,
+            snapshot_rule=self.snapshot_rule,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class DamageEventExecutionTrace:
     semantic_id: DamageEventSemanticId
     rule_matches: tuple[RuleItemMatchResult, ...]
     applied_modifiers: tuple[Modifier, ...] = ()
-    event_stat_modifiers: tuple[Modifier, ...] = ()
+    event_stat_modifiers: tuple[EventStatModifier, ...] = ()
     event_multiplier_modifiers: tuple[Modifier, ...] = ()
     created_by_effect_id: EffectId | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
