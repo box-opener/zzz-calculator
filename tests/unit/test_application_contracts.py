@@ -43,7 +43,6 @@ from core.types import (
     EffectRule,
     EffectSourceType,
     EffectTarget,
-    Element,
     EventTemplateId,
     FixedMultiplier,
     MoveId,
@@ -312,17 +311,14 @@ def test_multiplier_relations_preserve_stages_variants_and_unit_counts() -> None
         ),
     )
 
-    assert (
-        isinstance(complete.multiplier_variants[0].multiplier, FixedMultiplier)
-    )
+    assert isinstance(complete.multiplier_variants[0].multiplier, FixedMultiplier)
     assert isinstance(complete.multiplier_variants[0].multiplier.value, Resolved)
     assert complete.multiplier_variants[0].multiplier.value.value == 1.0
     assert stage.stage_index == 2
     assert len(variants.multiplier_variants) == 2
-    assert (
-        repeat.multiplier_variants[0].repeat_count_parameter_id
-        == ScenarioParameterId("parameter:count")
-    )
+    assert repeat.multiplier_variants[
+        0
+    ].repeat_count_parameter_id == ScenarioParameterId("parameter:count")
 
 
 def test_unresolved_multiplier_relation_requires_blocking_diagnostic() -> None:
@@ -396,12 +392,13 @@ def test_move_output_distinguishes_complete_and_known_partial_totals() -> None:
         damage_subtype=None,
         status=EventCalculationStatus.CALCULATED,
         result=CalculationResult(value=100.0, breakdown=()),
+        repeat_count=3,
     )
     complete = MoveCalculationOutput(
         move_entry_id=MoveEntryId("move-entry:test"),
         crit_display_mode=CritDisplayMode.EXPECTED,
         events=(complete_event,),
-        known_total=100.0,
+        known_total=300.0,
         complete=True,
     )
     incomplete_event = DamageEventCalculationOutput(
@@ -422,15 +419,16 @@ def test_move_output_distinguishes_complete_and_known_partial_totals() -> None:
         move_entry_id=MoveEntryId("move-entry:test"),
         crit_display_mode=CritDisplayMode.EXPECTED,
         events=(complete_event, incomplete_event),
-        known_total=100.0,
+        known_total=300.0,
         complete=False,
         diagnostics=(_diagnostic("diagnostic:partial", blocking=True),),
     )
 
     assert complete.complete is True
-    assert complete.known_total == 100.0
+    assert complete.known_total == 300.0
+    assert complete_event.known_value == 300.0
     assert partial.complete is False
-    assert partial.known_total == 100.0
+    assert partial.known_total == 300.0
     assert partial.events[1].status is EventCalculationStatus.UNSUPPORTED_CALCULATOR
 
 

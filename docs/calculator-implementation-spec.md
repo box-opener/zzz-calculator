@@ -300,6 +300,47 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 
 不得使用角色面板普通暴击率或暴击伤害替代异常事件自己的暴击规则。
 
+## 应用执行层
+
+`CharacterCalculationDefinition`、`CalculationScenario` 和基础快照进入计算器前，必须经过
+应用执行层。执行层负责选择 Move、解析倍率、匹配 Effect、形成结算快照、创建派生事件，
+然后才构造 `CalculationContext` 调用具体 Calculator。Calculator 不得自行读取 Definition、
+Scenario、Character、Enemy 或 Buff 数据。
+
+请求中的 `base_calculation_modifiers` 表示调用方已经确定的基础结算环境，不属于任何
+`CalculationRuleItem`。例如敌人基础失衡易伤 `+150%` 应以
+`ENEMY_STUN_VULNERABILITY + ADD 1.50` 传入。基础 Modifier 必须已经使用 `ADD`，且不得
+包含角色面板节点。
+
+应用层负责解释 Modifier operation。没有 `OVERRIDE` 时，同一节点的基础 ADD 与规则 ADD
+共同汇总；存在唯一 `OVERRIDE` 时，该值替代同一节点的基础值，并以规范化 ADD 传给
+Calculator。多个 OVERRIDE，或 OVERRIDE 与规则 ADD 的先后关系未被规范明确时，必须阻塞，
+不得根据数组顺序猜测。
+
+Application 层的事件身份和来源信息不得写入领域 `DamageEventMetadata`。应使用薄的
+`InstantiatedDamageEvent` wrapper 保存 `template_id`、`semantic_id`、展示名称、来源规则项、
+创建 Effect 和 `repeat_count`，Calculator 只读取 wrapper 中的领域事件。
+
+`UNIT_REPEAT` 的 Calculator 结果始终是一个等价单位的结果，`breakdown` 也只解释该单位。
+重复次数保留在 Application 输出的 `repeat_count`，事件的展示值为
+`result.value × repeat_count`；不得把次数伪装成原始技能倍率或篡改单位 breakdown。
+
+派生事件必须放入 Application 事件队列，并在创建后重新经过 EffectMatcher。循环检测只检查
+当前 EventCreation ancestry 中是否再次进入同一模板或语义边；不得用全局 semantic ID 集合
+静默去重。不同分支再次创建同一 semantic event 时，应产生阻塞性契约诊断。
+
+Panel Modifier 的执行顺序固定为：基础角色快照 → 正式、事件无关的 Panel Effect →
+settlement snapshot。该正式快照应保存在 Application 输出中。非暴击、期望暴击、全暴击
+只允许在调用 Calculator 前对暴击率建立临时快照，不得重新匹配 Effect，也不得把展示快照
+当作正式局内面板。
+
+每个 DamageEvent 都必须拥有独立的执行 trace，至少记录该事件的 RuleItem 匹配结果和应用
+到该事件的 Modifier。不得把主事件与派生事件的匹配结果摊平成没有事件归属的列表。
+
+输出状态必须区分：Calculator 返回 `MISSING_DATA` 为 `DATA_INSUFFICIENT`；场景或应用语义
+阻塞为 `BLOCKED`；没有对应 Calculator 为 `UNSUPPORTED_CALCULATOR`。至少一个事件成功时，
+`known_total` 为所有成功事件展示值之和；没有任何成功事件时为 `None`，不得返回假零。
+
 当一个招式包含多个 DamageEvent 时，“不暴击 / 期望 / 全暴击”的招式总伤害分别对所有 StandardCritRule 事件应用对应展示模式后求和。NoCritRule 以及其他不采用普通暴击模式的事件，在三个总伤害场景中均使用其自身正式结算结果。不得为了生成总伤害而修改这些事件自身的 CritRule。
 
 ## 多倍率参数处理

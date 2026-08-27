@@ -2,6 +2,22 @@
 
 from .diagnostics import CalculationDiagnostic, DiagnosticKind
 from .element_scope import element_scope_filter
+from .execution import (
+    CalculationRouter,
+    CalculatorExecutionResult,
+    DamageEventExecutionTrace,
+    DirectMoveApplicationService,
+    InstantiatedDamageEvent,
+    ModifierApplicationResult,
+    MoveCalculationExecution,
+    MoveCalculationRequest,
+    MoveMultiplierResolution,
+    MultiplierResolutionStatus,
+    apply_matched_modifiers,
+    calculate_move,
+    instantiate_direct_damage_event,
+    resolve_move_multiplier,
+)
 from .ids import (
     DiagnosticId,
     DamageEventSemanticId,
@@ -85,5 +101,19 @@ __all__ = [
     "EnemyMatchProfile",
     "IdentityResolution",
     "HistoryRecordResolution",
+    "DamageEventExecutionTrace",
+    "CalculationRouter",
+    "CalculatorExecutionResult",
+    "DirectMoveApplicationService",
+    "InstantiatedDamageEvent",
+    "ModifierApplicationResult",
+    "MoveCalculationExecution",
+    "MoveCalculationRequest",
+    "MoveMultiplierResolution",
+    "MultiplierResolutionStatus",
+    "apply_matched_modifiers",
+    "calculate_move",
+    "instantiate_direct_damage_event",
+    "resolve_move_multiplier",
     "element_scope_filter",
 ]

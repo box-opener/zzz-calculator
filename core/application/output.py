@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+import math
 
 from core.calculation import CalculationResult
 from core.types import DamageSubtype, DamageType
@@ -25,6 +26,8 @@ class EventCalculationStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class DamageEventCalculationOutput:
+    """One event's unit calculation plus application-level repeat metadata."""
+
     semantic_id: DamageEventSemanticId
     label: str
     damage_type: DamageType
@@ -32,10 +35,13 @@ class DamageEventCalculationOutput:
     status: EventCalculationStatus
     result: CalculationResult | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
+    repeat_count: int = 1
 
     def __post_init__(self) -> None:
         if not str(self.semantic_id) or not self.label.strip():
             raise ValueError("damage event output identity and label are required")
+        if self.repeat_count < 0:
+            raise ValueError("repeat_count must be non-negative")
         if self.status is EventCalculationStatus.CALCULATED:
             if self.result is None or self.result.value is None:
                 raise ValueError("calculated events require a numeric result")
@@ -43,6 +49,14 @@ class DamageEventCalculationOutput:
             raise ValueError(
                 "non-calculated events cannot carry a formal numeric result"
             )
+
+    @property
+    def known_value(self) -> float | None:
+        """Return the application-level value including an equivalent repeat count."""
+
+        if self.result is None or self.result.value is None:
+            return None
+        return self.result.value * self.repeat_count
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +72,21 @@ class MoveCalculationOutput:
         event_ids = tuple(item.semantic_id for item in self.events)
         if len(set(event_ids)) != len(event_ids):
             raise ValueError("move output event semantic IDs must be unique")
+        known_values = tuple(
+            item.known_value for item in self.events if item.known_value is not None
+        )
+        if self.known_total is None and known_values:
+            raise ValueError("known events require a known_total")
+        if self.known_total is not None:
+            if not known_values:
+                raise ValueError("known_total requires at least one known event")
+            if not math.isclose(
+                self.known_total,
+                sum(known_values),
+                rel_tol=1e-12,
+                abs_tol=1e-12,
+            ):
+                raise ValueError("known_total must equal the known event values")
         if self.complete:
             if self.known_total is None:
                 raise ValueError("complete output requires a known_total")
