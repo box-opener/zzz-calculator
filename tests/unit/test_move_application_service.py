@@ -27,20 +27,25 @@ from core.application.execution.event_factory import instantiate_direct_damage_e
 from core.application.execution.modifiers import apply_matched_modifiers
 from core.application.execution.service import DirectMoveApplicationService
 from core.application.output import EventCalculationStatus
-from core.calculation import CalculationNode
+from core.calculation import CalculationNode, CalculationResult
+from core.calculation.nodes import CalculationNodeValue
 from core.types import (
     BattleStateId,
+    BattleEventKind,
     CharacterRole,
     CharacterSnapshot,
     CharacterStats,
     EffectId,
     EffectOperation,
+    EventSelector,
     Element,
     EnemyId,
     EnemySnapshot,
     EventCreationEffect,
     ModifierEffect,
     Modifier,
+    MoveId,
+    MoveIdFilter,
     OperationState,
     Resolved,
     SnapshotRule,
@@ -351,6 +356,88 @@ def test_event_dependent_panel_modifier_is_blocked_in_stage_fifteen() -> None:
     assert application.diagnostics[0].kind.value == "unsupported-calculator"
 
 
+@pytest.mark.parametrize(
+    "rule_change",
+    (
+        {"trigger": EventSelector(BattleEventKind.DAMAGE)},
+        {
+            "condition": Unresolved(
+                reason=UnresolvedReason.AMBIGUOUS_TEXT,
+                notes="panel condition is unresolved",
+            )
+        },
+        {"filters": (MoveIdFilter(MoveId("move:test")),)},
+    ),
+)
+def test_panel_effect_requires_no_trigger_condition_or_filters(rule_change) -> None:
+    definition = _definition()
+    veil = next(
+        item
+        for item in definition.rule_items
+        if item.rule_id == RuleItemId("rule:ye:1431:veil")
+    )
+    assert isinstance(veil.effects[0], ModifierEffect)
+    effect = replace(
+        veil.effects[0],
+        rule=replace(veil.effects[0].rule, **rule_change),
+        result=replace(
+            veil.effects[0].result,
+            modifier_path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+        ),
+    )
+    application = apply_matched_modifiers(
+        (CharacterSnapshot(definition.character_id, 60, _stats()),),
+        (),
+        (effect,),
+        definition.character_id,
+    )
+    assert any(item.blocking for item in application.diagnostics)
+
+
+@pytest.mark.parametrize(
+    "conflicting_operation",
+    (
+        EffectOperation.ADD,
+        EffectOperation.MULTIPLY,
+        EffectOperation.SET,
+        EffectOperation.CAP,
+    ),
+)
+def test_override_conflicts_with_any_other_rule_operation(
+    conflicting_operation,
+) -> None:
+    definition = _definition()
+    veil = next(
+        item
+        for item in definition.rule_items
+        if item.rule_id == RuleItemId("rule:ye:1431:veil")
+    )
+    assert isinstance(veil.effects[0], ModifierEffect)
+    override = veil.effects[0]
+    conflicting = replace(
+        override,
+        rule=replace(
+            override.rule,
+            effect_id=EffectId(f"effect:test:conflict:{conflicting_operation.value}"),
+        ),
+        result=replace(
+            override.result,
+            operation=conflicting_operation,
+            value=Resolved(0.2),
+        ),
+    )
+    application = apply_matched_modifiers(
+        (CharacterSnapshot(definition.character_id, 60, _stats()),),
+        (_stun_modifier(1.5),),
+        (override, conflicting),
+        definition.character_id,
+    )
+    assert any(
+        item.kind.value == "ambiguous-semantics" and item.blocking
+        for item in application.diagnostics
+    )
+
+
 def test_derived_event_wrapper_keeps_application_identity_outside_domain_event() -> (
     None
 ):
@@ -477,6 +564,107 @@ def test_cinema_six_creates_per_event_traces_and_does_not_recurse() -> None:
     assert (
         execution.output.events[1].semantic_id != execution.output.events[0].semantic_id
     )
+
+
+def test_ineligible_cinema_six_cannot_be_forced_by_scenario_enablement() -> None:
+    definition = _definition(cinema_level=0)
+    execution = calculate_move(
+        _request(
+            definition,
+            "special-mingxin-guichen",
+            enabled=("rule:ye:1431:cinema6",),
+        )
+    )
+    assert len(execution.output.events) == 1
+    c6_match = next(
+        item
+        for item in execution.event_traces[0].rule_matches
+        if item.rule_id == RuleItemId("rule:ye:1431:cinema6")
+    )
+    assert c6_match.status is EffectMatchStatus.NOT_MATCHED
+
+
+def test_cinema_six_zhanwang_creates_exactly_one_extra_event() -> None:
+    definition = _definition(cinema_level=6)
+    execution = calculate_move(
+        _request(
+            definition,
+            "ultimate-zhanwangkaitian",
+            enabled=("rule:ye:1431:cinema6",),
+        )
+    )
+    assert len(execution.output.events) == 2
+    extra = execution.output.events[1]
+    skill_multiplier = next(
+        item.value.value
+        for item in _breakdown(extra)
+        if item.node is CalculationNode.DAMAGE_SKILL_MULTIPLIER
+    )
+    assert skill_multiplier == pytest.approx(15.0)
+    assert execution.event_traces[1].created_by_effect_id == EffectId(
+        "effect:ye:1431:cinema6:zhanwang-extra"
+    )
+
+
+def test_normal_move_does_not_create_cinema_six_events() -> None:
+    definition = _definition(cinema_level=6)
+    execution = calculate_move(
+        _request(
+            definition,
+            "basic-fast-1",
+            enabled=("rule:ye:1431:cinema6",),
+        )
+    )
+    assert len(execution.output.events) == 1
+    assert execution.output.known_total == pytest.approx(
+        _known_value(execution.output.events[0])
+    )
+
+
+def test_disabling_hedao_removes_both_its_panel_and_event_modifier_effects() -> None:
+    definition = _definition()
+    enabled = calculate_move(
+        _request(
+            definition,
+            "basic-fast-1",
+            enabled=("rule:ye:1431:hedao",),
+        )
+    )
+    disabled = calculate_move(_request(definition, "basic-fast-1"))
+
+    assert _known_value(disabled.output.events[0]) < _known_value(
+        enabled.output.events[0]
+    )
+    assert disabled.resolved_character_snapshots[
+        0
+    ].settlement_stats.crit_rate == Resolved(0.5)
+    disabled_bonus = next(
+        item.value.value
+        for item in _breakdown(disabled.output.events[0])
+        if item.node is CalculationNode.DAMAGE_NORMAL_BONUS
+    )
+    enabled_bonus = next(
+        item.value.value
+        for item in _breakdown(enabled.output.events[0])
+        if item.node is CalculationNode.DAMAGE_NORMAL_BONUS
+    )
+    assert disabled_bonus == pytest.approx(0.0)
+    assert enabled_bonus == pytest.approx(0.1)
+
+
+def test_calculation_breakdowns_are_flat_node_values() -> None:
+    execution = calculate_move(
+        _request(
+            _definition(cinema_level=6),
+            "special-mingxin-guichen",
+            enabled=("rule:ye:1431:hedao", "rule:ye:1431:cinema6"),
+        )
+    )
+    for event in execution.output.events:
+        assert all(isinstance(item, CalculationNodeValue) for item in _breakdown(event))
+        assert all(
+            not isinstance(item, CalculationResult) for item in _breakdown(event)
+        )
 
 
 def test_crit_display_mode_uses_temporary_snapshot_only() -> None:

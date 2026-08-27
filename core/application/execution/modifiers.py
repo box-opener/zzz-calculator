@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from core.types import (
+    AlwaysCondition,
     CalculationNode,
     CharacterId,
     CharacterSnapshot,
@@ -188,6 +189,28 @@ def _apply_panel_effects(
     updated_stats = target.settlement_stats
     applied_effect_ids: set[EffectId] = set()
     for effect in effects:
+        if effect.rule.trigger is not None:
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "event-triggered-panel",
+                    DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                    "event-triggered panel Effects are not supported in this stage",
+                )
+            )
+            continue
+        if effect.rule.condition is not None and not isinstance(
+            effect.rule.condition, AlwaysCondition
+        ):
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "conditional-panel",
+                    DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                    "conditional panel Effects are not supported in this stage",
+                )
+            )
+            continue
         if effect.rule.filters:
             diagnostics.append(
                 _diagnostic(
@@ -281,18 +304,19 @@ def _normalize_event_modifiers(
             )
             continue
         if overrides:
-            rule_adds = [
+            rule_conflicts = [
                 item
                 for item in rule_modifiers
-                if item.modifier_path == path and item.operation is EffectOperation.ADD
+                if item.modifier_path == path
+                and item.operation is not EffectOperation.OVERRIDE
             ]
-            if rule_adds:
+            if rule_conflicts:
                 diagnostics.append(
                     _diagnostic(
                         path.value,
-                        "override-add-conflict",
+                        "override-operation-conflict",
                         DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                        "an OVERRIDE and rule ADD have no defined order",
+                        "an OVERRIDE and another rule operation have no defined order",
                     )
                 )
                 continue

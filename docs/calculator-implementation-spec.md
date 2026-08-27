@@ -314,8 +314,8 @@ Scenario、Character、Enemy 或 Buff 数据。
 
 应用层负责解释 Modifier operation。没有 `OVERRIDE` 时，同一节点的基础 ADD 与规则 ADD
 共同汇总；存在唯一 `OVERRIDE` 时，该值替代同一节点的基础值，并以规范化 ADD 传给
-Calculator。多个 OVERRIDE，或 OVERRIDE 与规则 ADD 的先后关系未被规范明确时，必须阻塞，
-不得根据数组顺序猜测。
+Calculator。多个 OVERRIDE，或 OVERRIDE 与任何其他规则 operation 的先后关系未被规范明确
+时，必须阻塞，不得根据数组顺序猜测。
 
 Application 层的事件身份和来源信息不得写入领域 `DamageEventMetadata`。应使用薄的
 `InstantiatedDamageEvent` wrapper 保存 `template_id`、`semantic_id`、展示名称、来源规则项、
@@ -333,6 +333,10 @@ Panel Modifier 的执行顺序固定为：基础角色快照 → 正式、事件
 settlement snapshot。该正式快照应保存在 Application 输出中。非暴击、期望暴击、全暴击
 只允许在调用 Calculator 前对暴击率建立临时快照，不得重新匹配 Effect，也不得把展示快照
 当作正式局内面板。
+
+Stage-015 的 Panel Effect 只有在 `trigger is None`、`condition` 为空或为
+`AlwaysCondition`、且 `filters` 为空时才视为事件无关；其他 Panel Effect 暂时阻塞，不得
+伪装成全局 settlement panel。
 
 每个 DamageEvent 都必须拥有独立的执行 trace，至少记录该事件的 RuleItem 匹配结果和应用
 到该事件的 Modifier。不得把主事件与派生事件的匹配结果摊平成没有事件归属的列表。
