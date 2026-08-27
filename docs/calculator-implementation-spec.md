@@ -284,6 +284,10 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 `move_id`、SkillGroup 或伤害标签，除非规范明确要求继承；因此其模板可以使用
 `move_id=None`、空标签集合来避免被来源招式的规则再次匹配。
 
+如果原始文本明确说明独立事件本身属于某个已确认的招式语义，reviewed compiler 可以显式
+赋予对应的 `move_id`、SkillGroup 或标签；这必须是人工确认的事件身份，不得由 EventCreation
+来源自动推断。
+
 编译器对基础属性与变种属性的范围匹配必须显式展开。例如物理伤害增幅作用于物理和凛刃时，
 输出 `AnyFilter(ElementFilter(PHYSICAL), ElementFilter(LINREN))`；Matcher 不得把精确的
 `ElementFilter` 偷换成隐式的原属性匹配。

@@ -1,0 +1,194 @@
+{
+  "id": "1311",
+  "name": "耀嘉音",
+  "code_name": "Astra",
+  "rarity": "S",
+  "specialty": "支援",
+  "element": "以太",
+  "stats": {
+    "hp": 8609.21,
+    "atk": 715.77,
+    "def": 600.59,
+    "impact": 83,
+    "crit_rate": 5.0,
+    "crit_dmg": 50.0,
+    "pen_rate": 0.0,
+    "anomaly_proficiency": 92,
+    "anomaly_mastery": 93,
+    "sp_recovery": 1.56,
+    "rp_recovery": 0.0
+  },
+  "skills": {
+    "basic": [
+      {
+        "sub_skill_name": "普通攻击：《随想曲》",
+        "sub_skill_desc": "点按 <IconMap:Icon_Normal> 发动：\n向前方进行至多三段的攻击，造成<color=#FE437E>以太伤害</color>；\n第三段攻击期间，可长按 <IconMap:Icon_Normal> 进行蓄力，持续聚集敌人，提升攻击范围，释放更加强力的攻击；\n其他招式发动后，可长按 <IconMap:Icon_Normal> 直接发动第三段攻击。",
+        "parameters": [
+          {"param_name": "一段伤害倍率", "format": "%", "values": {"lv12": 87.8, "lv14": 95.8, "lv16": 103.8}},
+          {"param_name": "二段伤害倍率", "format": "%", "values": {"lv12": 118.5, "lv14": 129.3, "lv16": 140.1}},
+          {"param_name": "三段最小伤害倍率", "format": "%", "values": {"lv12": 241.9, "lv14": 263.9, "lv16": 285.9}},
+          {"param_name": "三段最大伤害倍率", "format": "%", "values": {"lv12": 542.4, "lv14": 591.8, "lv16": 641.2}},
+          {"param_name": "一段失衡倍率", "format": "%", "values": {"lv12": 62.2, "lv14": 66.0, "lv16": 69.8}},
+          {"param_name": "二段失衡倍率", "format": "%", "values": {"lv12": 85.0, "lv14": 90.2, "lv16": 95.4}},
+          {"param_name": "三段最小失衡倍率", "format": "%", "values": {"lv12": 173.1, "lv14": 183.7, "lv16": 194.3}},
+          {"param_name": "三段最大失衡倍率", "format": "%", "values": {"lv12": 329.4, "lv14": 349.4, "lv16": 369.4}}
+        ]
+      },
+      {
+        "sub_skill_name": "普通攻击：间奏",
+        "sub_skill_desc": "<color=#FFFFFF>[咏叹华彩]</color>状态下，点按 <IconMap:Icon_Normal> 发动：\n向前方释放<color=#FFFFFF>[震音]</color>进行攻击，造成<color=#FE437E>以太伤害</color>；\n招式命中敌人时，将触发<color=#FFFFFF>[快速支援]</color>。",
+        "parameters": [
+          {"param_name": "一段伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "二段伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "三段伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "四段伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "五段伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "一段失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}},
+          {"param_name": "二段失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}},
+          {"param_name": "三段失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}},
+          {"param_name": "四段失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}},
+          {"param_name": "五段失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}}
+        ]
+      },
+      {
+        "sub_skill_name": "普通攻击：副歌",
+        "sub_skill_desc": "<color=#FFFFFF>[咏叹华彩]</color>状态下，触发<color=#FFFFFF>[极限闪避]</color>后，点按 <IconMap:Icon_Normal> 发动：\n对前方敌人发动多道<color=#FFFFFF>[震音]</color>进行攻击，造成大量<color=#FE437E>以太伤害</color>；\n招式命中敌人时，将触发<color=#FFFFFF>[快速支援]</color>；\n招式发动期间拥有无敌效果。",
+        "parameters": [
+          {"param_name": "伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}}
+        ]
+      },
+      {
+        "sub_skill_name": "普通攻击：终曲",
+        "sub_skill_desc": "<color=#FFFFFF>[咏叹华彩]</color>状态下，长按 <IconMap:Icon_Normal> 发动：\n向前方释放<color=#FFFFFF>[震音]</color>进行攻击，造成<color=#FE437E>以太伤害</color>，并退出<color=#FFFFFF>[咏叹华彩]</color>状态；\n招式发动时，会对自身施加<color=#FFFFFF>[核心被动：《如歌的行板》]</color>中的增益效果；\n能量足够时，会消耗能量追加释放1道<color=#FFFFFF>[震音]</color>和3枚<color=#FFFFFF>[音簇]</color>进行攻击，该次<color=#FFFFFF>[震音]</color>会被视为<color=#FFFFFF>[强化特殊技]</color>。",
+        "parameters": [
+          {"param_name": "伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}}
+        ]
+      }
+    ],
+    "dodge": [
+      {
+        "sub_skill_name": "冲刺攻击：《蚀月奏》",
+        "sub_skill_desc": "闪避时，点按 <IconMap:Icon_Normal> 发动：\n向前方进行攻击，造成<color=#FE437E>以太伤害</color>；\n发动时若拖曳{LAYOUT_CONSOLECONTROLLER#操作杆}{LAYOUT_FALLBACK#摇杆}，可以向对应方向位移。",
+        "parameters": [
+          {"param_name": "伤害倍率", "format": "%", "values": {"lv12": 162.1, "lv14": 176.9, "lv16": 191.7}},
+          {"param_name": "失衡倍率", "format": "%", "values": {"lv12": 61.3, "lv14": 65.1, "lv16": 68.9}}
+        ]
+      },
+      {
+        "sub_skill_name": "闪避反击：《折伞华尔兹》",
+        "sub_skill_desc": "触发<color=#FFFFFF>[极限闪避]</color>后，点按 <IconMap:Icon_Normal> 发动：\n向前方敌人发动攻击，造成<color=#FE437E>以太伤害</color>；\n招式发动期间拥有无敌效果。",
+        "parameters": [
+          {"param_name": "伤害倍率", "format": "%", "values": {"lv12": 220.0, "lv14": 240.0, "lv16": 260.0}},
+          {"param_name": "失衡倍率", "format": "%", "values": {"lv12": 145.2, "lv14": 154.0, "lv16": 162.8}}
+        ]
+      }
+    ],
+    "special": [
+      {
+        "sub_skill_name": "特殊技：《风铃与旧约》",
+        "sub_skill_desc": "点按 <IconMap:Icon_Special>  发动：\n快速位移，随后释放<color=#FFFFFF>[震音]</color>造成<color=#FE437E>以太伤害</color>，并进入<color=#FFFFFF>[咏叹华彩]</color>状态；\n发动时若拖曳{LAYOUT_CONSOLECONTROLLER#操作杆}{LAYOUT_FALLBACK#摇杆}，可以向对应方向位移；\n发动时可长按 <IconMap:Icon_Special> 进行蓄力，持续聚集敌人，并根据蓄力时长追加释放1~4道<color=#FFFFFF>[震音]</color>；\n招式命中敌人时，将触发<color=#FFFFFF>[快速支援]</color>；\n快速位移期间拥有无敌效果。",
+        "parameters": [
+          {"param_name": "最小伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "最大伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "最小失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}},
+          {"param_name": "最大失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}}
+        ]
+      },
+      {
+        "sub_skill_name": "和弦",
+        "sub_skill_desc": "每拥有25点能量，耀嘉音将拥有1点<color=#FFFFFF>[和弦]</color>；\n<color=#FFFFFF>[咏叹华彩]</color>状态下，耀嘉音拥有<color=#FFFFFF>[和弦]</color>时，能够在以下情况中触发<color=#FFFFFF>[快速支援]</color>：\n· 操作中的角色攻击命中敌人时，3秒内最多触发一次；\n· 操作中的角色重击命中敌人时，1秒内最多触发一次；\n队伍中其他角色通过<color=#FFFFFF>[快速支援]</color>、<color=#FFFFFF>[连携技]</color>、<color=#FFFFFF>[招架支援]</color>或<color=#FFFFFF>[回避支援]</color>入场时，耀嘉音将消耗25点能量，并追加释放1道<color=#FFFFFF>[震音]</color>进行攻击，该次<color=#FFFFFF>[震音]</color>会被视为<color=#FFFFFF>[强化特殊技]</color>；\n触发<color=#FFFFFF>[快速支援]</color>后，短时间内点按 <IconMap:Icon_Switch> 切换角色，将触发<color=#FFFFFF>[精准支援]</color>，耀嘉音会额外追加释放3枚<color=#FFFFFF>[音簇]</color>进行攻击，队伍中其他角色通过<color=#FFFFFF>[连携技]</color>、<color=#FFFFFF>[招架支援]</color>或<color=#FFFFFF>[回避支援]</color>入场时，将直接触发<color=#FFFFFF>[精准支援]</color>。",
+        "parameters": [
+          {"param_name": "追加震音伤害倍率", "format": "%", "values": {"lv12": 92.2, "lv14": 100.6, "lv16": 109.0}},
+          {"param_name": "追加音簇伤害倍率", "format": "%", "values": {"lv12": 48.2, "lv14": 52.6, "lv16": 57.0}}
+        ]
+      }
+    ],
+    "chain": [
+      {
+        "sub_skill_name": "连携技：《微醺协奏》",
+        "sub_skill_desc": "触发<color=#FFFFFF>[连携技]</color>时，选择对应角色发动：\n用歌声引导能量轰击，造成大量<color=#FE437E>以太伤害</color>；\n招式发动期间拥有无敌效果；\n招式命中敌人时，将触发<color=#FFFFFF>[快速支援]</color>；\n招式发动后，耀嘉音将进入<color=#FFFFFF>[咏叹华彩]</color>状态。",
+        "parameters": [
+          {"param_name": "伤害倍率", "format": "%", "values": {"lv12": 1343.9, "lv14": 1466.1, "lv16": 1588.3}},
+          {"param_name": "失衡倍率", "format": "%", "values": {"lv12": 349.5, "lv14": 370.7, "lv16": 391.9}}
+        ]
+      },
+      {
+        "sub_skill_name": "终结技：《幻想式奏鸣》",
+        "sub_skill_desc": "喧响等级达到<color=#FFFFFF>[极]</color>时，点按 <IconMap:Icon_UltimateReady> 发动：\n用歌声引导能量轰击，造成大量<color=#FE437E>以太伤害</color>，并为全队角色回复<color=#2BAD00>{CAL:-50+AvatarSkillLevel(3)*250,1,2}</color>点生命值；\n招式发动期间拥有无敌效果；\n招式命中敌人时，将触发<color=#FFFFFF>[快速支援]</color>；\n招式发动后，耀嘉音将进入<color=#FFFFFF>[咏叹华彩]</color>状态；\n招式发动后，下两次发动的<color=#FFFFFF>[快速支援]</color>，将被替换为<color=#FFFFFF>[连携技]</color>；\n次数耗尽前，全队角色<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>命中敌人时，将触发<color=#FFFFFF>[快速支援]</color>。",
+        "parameters": [
+          {"param_name": "伤害倍率", "format": "%", "values": {"lv12": 3920.0, "lv14": 4276.4, "lv16": 4632.8}},
+          {"param_name": "失衡倍率", "format": "%", "values": {"lv12": 358.2, "lv14": 380.0, "lv16": 401.8}}
+        ]
+      }
+    ],
+    "assist": [
+      {
+        "sub_skill_name": "快速支援：《一川烟火》",
+        "sub_skill_desc": "当前操作中的角色被击飞时，点按 <IconMap:Icon_Switch> 发动：\n向前方敌人发动攻击，造成<color=#FE437E>以太伤害</color>；\n招式发动期间拥有无敌效果。",
+        "parameters": [
+          {"param_name": "伤害倍率", "format": "%", "values": {"lv12": 110.0, "lv14": 120.0, "lv16": 130.0}},
+          {"param_name": "失衡倍率", "format": "%", "values": {"lv12": 72.6, "lv14": 77.0, "lv16": 81.4}}
+        ]
+      },
+      {
+        "sub_skill_name": "支援突击：《三生初见》",
+        "sub_skill_desc": "发动<color=#FFFFFF>[回避支援]</color>后，点按 <IconMap:Icon_Normal> 发动：\n向前方发出能量光束，造成<color=#FE437E>以太伤害</color>；\n招式发动期间拥有无敌效果。",
+        "parameters": [
+          {"param_name": "伤害倍率", "format": "%", "values": {"lv12": 609.3, "lv14": 664.7, "lv16": 720.1}},
+          {"param_name": "失衡倍率", "format": "%", "values": {"lv12": 391.9, "lv14": 415.7, "lv16": 439.5}}
+        ]
+      }
+    ]
+  },
+  "passive": {
+    "level_1": {
+      "core_passive": {
+        "name": "核心被动：《如歌的行板》",
+        "desc": "<color=#FFFFFF>[咏叹华彩]</color>状态下，队伍中其他角色通过<color=#FFFFFF>[快速支援]</color>、<color=#FFFFFF>[连携技]</color>、<color=#FFFFFF>[招架支援]</color>或<color=#FFFFFF>[回避支援]</color>入场，耀嘉音消耗能量追加释放<color=#FFFFFF>[震音]</color>进行攻击时，耀嘉音和入场角色的攻击力提升，提升效果等同于耀嘉音初始攻击力的<color=#2BAD00>22%</color>，最高不超过1200点，持续20秒，重复触发时延长持续时间，最多不超过30秒。"
+      },
+      "calculation_values": {"attack_bonus_percent": 22.0, "attack_bonus_cap": 1200.0},
+      "extra_ability": {
+        "name": "额外能力：《月华乱舞》",
+        "desc": "队伍中存在<color=#FFFFFF>[强攻]</color>、<color=#FFFFFF>[异常]</color>或<color=#FFFFFF>[命破]</color>角色时触发：\n消耗能量发动<color=#FFFFFF>[精准支援]</color>或<color=#FFFFFF>[普通攻击：终曲]</color>时，耀嘉音将额外追加释放1道<color=#FFFFFF>[震音]</color>和3枚<color=#FFFFFF>[音簇]</color>进行攻击。"
+      }
+    },
+    "level_2": {
+      "core_passive": {"name": "核心被动：《如歌的行板》", "desc": "[咏叹华彩]状态下，队伍中其他角色通过[快速支援]、[连携技]、[招架支援]或[回避支援]入场，耀嘉音消耗能量追加释放[震音]进行攻击时，耀嘉音和入场角色的攻击力提升，提升效果等同于耀嘉音初始攻击力的24%，最高不超过1200点，持续20秒，重复触发时延长持续时间，最多不超过30秒。"},
+      "calculation_values": {"attack_bonus_percent": 24.0, "attack_bonus_cap": 1200.0},
+      "extra_ability": {"name": "额外能力：《月华乱舞》", "desc": "队伍中存在[强攻]、[异常]或[命破]角色时触发：消耗能量发动[精准支援]或[普通攻击：终曲]时，耀嘉音将额外追加释放1道[震音]和3枚[音簇]进行攻击。"}
+    },
+    "level_3": {
+      "core_passive": {"name": "核心被动：《如歌的行板》", "desc": "[咏叹华彩]状态下，队伍中其他角色通过[快速支援]、[连携技]、[招架支援]或[回避支援]入场，耀嘉音消耗能量追加释放[震音]进行攻击时，耀嘉音和入场角色的攻击力提升，提升效果等同于耀嘉音初始攻击力的26%，最高不超过1200点，持续20秒，重复触发时延长持续时间，最多不超过30秒。"},
+      "calculation_values": {"attack_bonus_percent": 26.0, "attack_bonus_cap": 1200.0},
+      "extra_ability": {"name": "额外能力：《月华乱舞》", "desc": "队伍中存在[强攻]、[异常]或[命破]角色时触发：消耗能量发动[精准支援]或[普通攻击：终曲]时，耀嘉音将额外追加释放1道[震音]和3枚[音簇]进行攻击。"}
+    },
+    "level_4": {
+      "core_passive": {"name": "核心被动：《如歌的行板》", "desc": "[咏叹华彩]状态下，队伍中其他角色通过[快速支援]、[连携技]、[招架支援]或[回避支援]入场，耀嘉音消耗能量追加释放[震音]进行攻击时，耀嘉音和入场角色的攻击力提升，提升效果等同于耀嘉音初始攻击力的28%，最高不超过1200点，持续20秒，重复触发时延长持续时间，最多不超过30秒。"},
+      "calculation_values": {"attack_bonus_percent": 28.0, "attack_bonus_cap": 1200.0},
+      "extra_ability": {"name": "额外能力：《月华乱舞》", "desc": "队伍中存在[强攻]、[异常]或[命破]角色时触发：消耗能量发动[精准支援]或[普通攻击：终曲]时，耀嘉音将额外追加释放1道[震音]和3枚[音簇]进行攻击。"}
+    },
+    "level_5": {
+      "core_passive": {"name": "核心被动：《如歌的行板》", "desc": "[咏叹华彩]状态下，队伍中其他角色通过[快速支援]、[连携技]、[招架支援]或[回避支援]入场，耀嘉音消耗能量追加释放[震音]进行攻击时，耀嘉音和入场角色的攻击力提升，提升效果等同于耀嘉音初始攻击力的30%，最高不超过1200点，持续20秒，重复触发时延长持续时间，最多不超过30秒。"},
+      "calculation_values": {"attack_bonus_percent": 30.0, "attack_bonus_cap": 1200.0},
+      "extra_ability": {"name": "额外能力：《月华乱舞》", "desc": "队伍中存在[强攻]、[异常]或[命破]角色时触发：消耗能量发动[精准支援]或[普通攻击：终曲]时，耀嘉音将额外追加释放1道[震音]和3枚[音簇]进行攻击。"}
+    },
+    "level_6": {
+      "core_passive": {"name": "核心被动：《如歌的行板》", "desc": "[咏叹华彩]状态下，队伍中其他角色通过[快速支援]、[连携技]、[招架支援]或[回避支援]入场，耀嘉音消耗能量追加释放[震音]进行攻击时，耀嘉音和入场角色的攻击力提升，提升效果等同于耀嘉音初始攻击力的32%，最高不超过1200点，持续20秒，重复触发时延长持续时间，最多不超过30秒。"},
+      "calculation_values": {"attack_bonus_percent": 32.0, "attack_bonus_cap": 1200.0},
+      "extra_ability": {"name": "额外能力：《月华乱舞》", "desc": "队伍中存在[强攻]、[异常]或[命破]角色时触发：消耗能量发动[精准支援]或[普通攻击：终曲]时，耀嘉音将额外追加释放1道[震音]和3枚[音簇]进行攻击。"}
+    },
+    "level_7": {
+      "core_passive": {"name": "核心被动：《如歌的行板》", "desc": "[咏叹华彩]状态下，队伍中其他角色通过[快速支援]、[连携技]、[招架支援]或[回避支援]入场，耀嘉音消耗能量追加释放[震音]进行攻击时，耀嘉音和入场角色的攻击力提升，提升效果等同于耀嘉音初始攻击力的35%，最高不超过1200点，持续20秒，重复触发时延长持续时间，最多不超过30秒。"},
+      "calculation_values": {"attack_bonus_percent": 35.0, "attack_bonus_cap": 1200.0},
+      "extra_ability": {"name": "额外能力：《月华乱舞》", "desc": "队伍中存在[强攻]、[异常]或[命破]角色时触发：消耗能量发动[精准支援]或[普通攻击：终曲]时，耀嘉音将额外追加释放1道[震音]和3枚[音簇]进行攻击。"}
+    }
+  },
+  "mindscapes": {
+    "cinema_1": {"name": "十二平均律", "desc": "耀嘉音攻击命中敌人时，目标的全属性伤害抗性降低6%，最多叠加3层，持续30秒。", "calculation_values": {"resistance_reduction": 6.0, "max_stacks": 3.0}},
+    "cinema_2": {"name": "贪心艺术", "desc": "核心被动中的攻击力提升效果额外提升19%，上限额外提升400点；[咏叹华彩]状态下，队伍中其他角色通过支援或连携入场时，耀嘉音额外追加释放1道[震音]和3枚[音簇]进行攻击。", "calculation_values": {"core_coefficient_add": 19.0, "attack_cap_add": 400.0}},
+    "cinema_4": {"name": "《后颈的碎发》", "desc": "[咏叹华彩]状态下，队伍中其他角色通过[快速支援]入场时，根据自身特性获得增益：强攻角色下一次[快速支援]重击命中时，额外造成等同于耀嘉音300%攻击力的伤害。", "calculation_values": {"attack_extra_damage_percent": 300.0}},
+    "cinema_6": {"name": "我们即是世界", "desc": "在[咏叹华彩]状态下释放和追加释放的[震音]和[音簇]的伤害倍率提升至原本的200%，暴击率提升80%；触发[精准支援]时，耀嘉音会自动追加发动蓄力完成后的[普通攻击：《随想曲》]第三段攻击，并使该招式的暴击率提升80%。", "calculation_values": {"damage_multiplier_factor": 2.0, "crit_rate_bonus": 80.0}}
+  }
+}

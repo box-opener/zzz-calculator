@@ -128,6 +128,7 @@ class CharacterCalculationDefinition:
                 template_map,
                 None,
                 expect_move_id=False,
+                allow_explicit_move_id=True,
             )
             definition_event_ids.add(derived.template.semantic_id)
             template_id = derived.template.template_id
@@ -179,6 +180,7 @@ class CharacterCalculationDefinition:
                     template_map,
                     entry.move_id,
                     expect_move_id=False,
+                    allow_explicit_move_id=False,
                 )
                 definition_event_ids.add(derived.template.semantic_id)
                 template_id = derived.template.template_id
@@ -225,6 +227,7 @@ class CharacterCalculationDefinition:
         move_id: MoveId | None,
         *,
         expect_move_id: bool,
+        allow_explicit_move_id: bool = False,
     ) -> None:
         typed = templates.get(ref.template_id)
         if typed is None:
@@ -233,7 +236,11 @@ class CharacterCalculationDefinition:
             raise ValueError("typed template ref does not match registered template ref")
         if expect_move_id and typed.move_id != move_id:
             raise ValueError("main template move_id must match MoveEntry move_id")
-        if not expect_move_id and typed.move_id is not None:
+        if (
+            not expect_move_id
+            and not allow_explicit_move_id
+            and typed.move_id is not None
+        ):
             raise ValueError("derived template move_id must be None")
 
     @classmethod
