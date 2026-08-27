@@ -1,0 +1,110 @@
+"""Views for a compiled character definition and its scenario controls."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .diagnostics import DiagnosticView
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioConditionView:
+    condition_id: str
+    label: str
+    resolution: str
+    value: bool | None
+    editable: bool
+    original_text: str
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioParameterView:
+    parameter_id: str
+    label: str
+    resolution: str
+    value: int | None
+    minimum: int
+    maximum: int | None
+    original_text: str
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioTriggerInputView:
+    input_id: str
+    label: str
+    actor_options: tuple[str, ...]
+    required: bool
+    selected_actor: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RuleStackView:
+    default: int | None
+    minimum: int | None
+    maximum: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class RuleItemView:
+    rule_id: str
+    label: str
+    source_label: str
+    source_type: str
+    eligibility: str
+    availability: str
+    enabled_by_default: bool
+    toggleable: bool
+    stack: RuleStackView
+    condition_ids: tuple[str, ...]
+    diagnostics: tuple[DiagnosticView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MoveVariantView:
+    variant_id: str
+    label: str
+    parameter_name: str
+    multiplier: float | None
+    condition_ids: tuple[str, ...]
+    repeat_count: int | None
+    repeat_count_parameter_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MoveView:
+    entry_id: str
+    move_id: str
+    label: str
+    skill_group: str | None
+    damage_tags: tuple[str, ...]
+    multiplier_relation: str
+    variants: tuple[MoveVariantView, ...]
+    condition_ids: tuple[str, ...]
+    diagnostics: tuple[DiagnosticView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CharacterEditorView:
+    schema_version: str
+    character_id: str
+    display_name: str
+    role: str
+    base_element: str
+    moves: tuple[MoveView, ...]
+    rule_items: tuple[RuleItemView, ...]
+    scenario_conditions: tuple[ScenarioConditionView, ...]
+    scenario_parameters: tuple[ScenarioParameterView, ...]
+    scenario_trigger_inputs: tuple[ScenarioTriggerInputView, ...]
+    diagnostics: tuple[DiagnosticView, ...]
+
+
+__all__ = [
+    "CharacterEditorView",
+    "MoveVariantView",
+    "MoveView",
+    "RuleItemView",
+    "RuleStackView",
+    "ScenarioConditionView",
+    "ScenarioParameterView",
+    "ScenarioTriggerInputView",
+]

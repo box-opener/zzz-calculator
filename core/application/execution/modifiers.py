@@ -33,7 +33,7 @@ from ..ids import RuleItemId
 from ..matching import EffectMatchStatus
 from ..rules import CalculationRuleItem, RuleEligibility
 from ..scenario import CalculationScenario
-from .contracts import EventStatModifier
+from .contracts import EventStatModifier, PanelModifierExecutionTrace
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +88,7 @@ class ModifierApplicationResult:
     event_stat_modifiers: tuple[EventStatModifier, ...] = ()
     event_multiplier_modifiers: tuple[Modifier, ...] = ()
     applied_panel_effect_ids: frozenset[EffectId] = frozenset()
+    panel_traces: tuple[PanelModifierExecutionTrace, ...] = ()
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 
 
@@ -207,11 +208,16 @@ def apply_matched_modifiers(
         if event_modifier is not None:
             rule_modifiers.append(event_modifier)
 
-    snapshots, applied_panel_ids = _apply_panel_effects(
+    snapshots, applied_panel_ids, panel_traces = _apply_panel_effects(
         snapshots,
         panel_effects,
         current_operator,
         diagnostics,
+        rule_item_id_by_effect={
+            application.effect.rule.effect_id: application.rule_item_id
+            for application in matched_effects
+            if isinstance(application, MatchedEffectApplication)
+        },
     )
     event_modifiers = _normalize_event_modifiers(
         base_calculation_modifiers,
@@ -224,6 +230,7 @@ def apply_matched_modifiers(
         event_stat_modifiers=tuple(event_stat_modifiers),
         event_multiplier_modifiers=tuple(event_multiplier_modifiers),
         applied_panel_effect_ids=applied_panel_ids,
+        panel_traces=panel_traces,
         diagnostics=tuple(diagnostics),
     )
 
@@ -245,6 +252,7 @@ def apply_global_panel_effects(
     diagnostics: list[CalculationDiagnostic] = []
     snapshots = tuple(base_character_snapshots)
     applied_ids: set[EffectId] = set()
+    traces: list[PanelModifierExecutionTrace] = []
     for rule in rule_items:
         if rule.rule_id not in scenario.enabled_rule_item_ids:
             continue
@@ -283,19 +291,22 @@ def apply_global_panel_effects(
             )
             if recipient is None:
                 continue
-            updated, effect_ids = _apply_panel_effects(
+            updated, effect_ids, panel_traces = _apply_panel_effects(
                 snapshots,
                 [(effect, stack_count)],
                 recipient,
                 diagnostics,
+                rule_item_id_by_effect={effect.rule.effect_id: rule.rule_id},
             )
             snapshots = updated
             applied_ids.update(effect_ids)
+            traces.extend(panel_traces)
 
     return ModifierApplicationResult(
         character_snapshots=snapshots,
         event_modifiers=(),
         applied_panel_effect_ids=frozenset(applied_ids),
+        panel_traces=tuple(traces),
         diagnostics=tuple(diagnostics),
     )
 
@@ -682,7 +693,13 @@ def _apply_panel_effects(
     effects: list[tuple[ModifierEffect, int]],
     recipient: CharacterId,
     diagnostics: list[CalculationDiagnostic],
-) -> tuple[tuple[CharacterSnapshot, ...], frozenset[EffectId]]:
+    *,
+    rule_item_id_by_effect: dict[EffectId, RuleItemId | None] | None = None,
+) -> tuple[
+    tuple[CharacterSnapshot, ...],
+    frozenset[EffectId],
+    tuple[PanelModifierExecutionTrace, ...],
+]:
     index = {item.character_id: item for item in snapshots}
     target = index.get(recipient)
     if target is None and effects:
@@ -694,12 +711,13 @@ def _apply_panel_effects(
                 "matched panel Effect has no snapshot for its recipient",
             )
         )
-        return snapshots, frozenset()
+        return snapshots, frozenset(), ()
     if target is None:
-        return snapshots, frozenset()
+        return snapshots, frozenset(), ()
 
     updated_stats = target.settlement_stats
     applied_effect_ids: set[EffectId] = set()
+    traces: list[PanelModifierExecutionTrace] = []
     for effect, stack_count in effects:
         if not _is_recipient_panel_effect(effect):
             diagnostics.append(
@@ -749,6 +767,18 @@ def _apply_panel_effects(
                 crit_rate=Resolved(current.value + value.value * stack_count),
             )
             applied_effect_ids.add(effect.rule.effect_id)
+            traces.append(
+                PanelModifierExecutionTrace(
+                    recipient_character_id=recipient,
+                    owner_character_id=effect.rule.owner,
+                    rule_item_id=(rule_item_id_by_effect or {}).get(effect.rule.effect_id),
+                    effect_id=effect.rule.effect_id,
+                    modifier_path=effect.result.modifier_path,
+                    operation=effect.result.operation,
+                    resolved_value=value.value * stack_count,
+                    stack_count=stack_count,
+                )
+            )
         elif effect.result.modifier_path is CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS:
             current = updated_stats.attack
             if isinstance(current, Unresolved):
@@ -766,6 +796,18 @@ def _apply_panel_effects(
                 attack=Resolved(current.value + value.value * stack_count),
             )
             applied_effect_ids.add(effect.rule.effect_id)
+            traces.append(
+                PanelModifierExecutionTrace(
+                    recipient_character_id=recipient,
+                    owner_character_id=effect.rule.owner,
+                    rule_item_id=(rule_item_id_by_effect or {}).get(effect.rule.effect_id),
+                    effect_id=effect.rule.effect_id,
+                    modifier_path=effect.result.modifier_path,
+                    operation=effect.result.operation,
+                    resolved_value=value.value * stack_count,
+                    stack_count=stack_count,
+                )
+            )
         else:
             diagnostics.append(
                 _diagnostic(
@@ -783,6 +825,7 @@ def _apply_panel_effects(
     return (
         tuple(index[item.character_id] for item in snapshots),
         frozenset(applied_effect_ids),
+        tuple(traces),
     )
 
 

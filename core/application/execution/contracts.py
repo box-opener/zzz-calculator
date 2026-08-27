@@ -186,6 +186,28 @@ class EventStatModifier:
 
 
 @dataclass(frozen=True, slots=True)
+class PanelModifierExecutionTrace:
+    """Provenance for a panel modifier applied to a concrete recipient."""
+
+    recipient_character_id: CharacterId
+    owner_character_id: CharacterId | None
+    rule_item_id: RuleItemId | None
+    effect_id: EffectId
+    modifier_path: CalculationNode
+    operation: EffectOperation
+    resolved_value: float
+    stack_count: int = 1
+
+    def __post_init__(self) -> None:
+        if not str(self.recipient_character_id):
+            raise ValueError("panel trace recipient is required")
+        if not str(self.effect_id):
+            raise ValueError("panel trace effect is required")
+        if self.stack_count < 0:
+            raise ValueError("panel trace stack_count must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
 class DamageEventExecutionTrace:
     semantic_id: DamageEventSemanticId
     rule_matches: tuple[RuleItemMatchResult, ...]
@@ -201,6 +223,7 @@ class MoveCalculationExecution:
     output: MoveCalculationOutput
     resolved_character_snapshots: tuple[CharacterSnapshot, ...]
     event_traces: tuple[DamageEventExecutionTrace, ...]
+    panel_traces: tuple[PanelModifierExecutionTrace, ...] = ()
 
     def __post_init__(self) -> None:
         output_ids = tuple(item.semantic_id for item in self.output.events)

@@ -15,6 +15,9 @@ test = ["pytest>=8.3,<9"]
 [tool.setuptools.packages.find]
 include = ["core*"]
 
+[tool.setuptools.package-data]
+"core.data.characters" = ["*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]
 addopts = "-q"

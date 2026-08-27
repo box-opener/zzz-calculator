@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-import json
-from pathlib import Path
 
 import pytest
 
@@ -29,6 +27,7 @@ from core.application.characters.ye_shunguang import (
     compile_ye_shunguang,
     load_raw_record,
 )
+from core.data.loader import load_character_record
 from core.types import (
     AnyFilter,
     BattleStateId,
@@ -90,8 +89,7 @@ def _definition(
 
 
 def _raw_fixture() -> YeShunguangRawRecord:
-    fixture = Path(__file__).parents[1] / "fixtures" / "characters" / "ye_shunguang.json"
-    return load_raw_record(json.loads(fixture.read_text(encoding="utf-8")))
+    return load_raw_record(load_character_record("character:1431"))
 
 
 def _event_for_entry(

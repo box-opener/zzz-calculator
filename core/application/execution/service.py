@@ -265,6 +265,7 @@ class DirectMoveApplicationService:
             output=output,
             resolved_character_snapshots=panel_application.character_snapshots,
             event_traces=tuple(traces),
+            panel_traces=panel_application.panel_traces,
         )
 
     def _calculate_event(
@@ -514,6 +515,7 @@ def _merge_modifier_applications(
             global_panel.applied_panel_effect_ids
             | event_application.applied_panel_effect_ids
         ),
+        panel_traces=global_panel.panel_traces + event_application.panel_traces,
         diagnostics=global_panel.diagnostics + event_application.diagnostics,
     )
 
@@ -740,6 +742,7 @@ def _execution_without_events(
         output=output,
         resolved_character_snapshots=request.base_character_snapshots,
         event_traces=(),
+        panel_traces=(),
     )
 
 

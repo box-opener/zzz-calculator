@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
@@ -26,6 +24,7 @@ from core.application.characters.ye_shunguang import (
     compile_ye_shunguang,
     load_raw_record,
 )
+from core.data.loader import load_character_record
 from core.application.execution import (
     MatchedEffectApplication,
     apply_matched_modifiers,
@@ -99,10 +98,7 @@ def _stats(attack: float = 1000.0) -> CharacterStats:
 
 
 def _ye_definition(*, cinema_level: int = 0):
-    fixture = (
-        Path(__file__).parents[1] / "fixtures" / "characters" / "ye_shunguang.json"
-    )
-    raw = load_raw_record(json.loads(fixture.read_text(encoding="utf-8")))
+    raw = load_raw_record(load_character_record("character:1431"))
     return compile_ye_shunguang(
         YeShunguangCompileConfig(
             cinema_level=cinema_level,

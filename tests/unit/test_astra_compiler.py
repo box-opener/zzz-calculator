@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
@@ -35,6 +33,7 @@ from core.application.characters.ye_shunguang import (
     compile_ye_shunguang,
     load_raw_record as load_ye_raw_record,
 )
+from core.data.loader import load_character_record
 from core.application.execution import (
     MoveCalculationRequest,
     calculate_move,
@@ -68,12 +67,8 @@ from core.types import (
 )
 
 
-ASTRA_FIXTURE = Path(__file__).parents[1] / "fixtures" / "characters" / "astra.json"
-YE_FIXTURE = Path(__file__).parents[1] / "fixtures" / "characters" / "ye_shunguang.json"
-
-
 def _raw():
-    return load_raw_record(json.loads(ASTRA_FIXTURE.read_text(encoding="utf-8")))
+    return load_raw_record(load_character_record("character:1311"))
 
 
 def _definition(
@@ -492,7 +487,7 @@ def test_cinema_one_resistance_reduction_uses_selected_stack_count() -> None:
 
 def test_cinema_four_creates_astra_identity_extra_for_attack_assist() -> None:
     astra = _definition(cinema_level=4)
-    ye_raw = load_ye_raw_record(json.loads(YE_FIXTURE.read_text(encoding="utf-8")))
+    ye_raw = load_ye_raw_record(load_character_record("character:1431"))
     ye = compile_ye_shunguang(
         YeShunguangCompileConfig(
             mingxin_active=True,
@@ -760,7 +755,7 @@ def test_cinema_six_event_lanes_and_precise_support_identity() -> None:
 
 def test_astra_supporting_definition_changes_ye_settlement() -> None:
     astra = _definition(cinema_level=6, additional_ability_eligible=True)
-    ye_raw = load_ye_raw_record(json.loads(YE_FIXTURE.read_text(encoding="utf-8")))
+    ye_raw = load_ye_raw_record(load_character_record("character:1431"))
     ye = compile_ye_shunguang(
         YeShunguangCompileConfig(
             mingxin_active=True,
