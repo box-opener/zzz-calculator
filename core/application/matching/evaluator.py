@@ -9,6 +9,7 @@ from core.types import (
     AnyFilter,
     CharacterFilter,
     CharacterRoleFilter,
+    CreatedByEffectFilter,
     DamageSubtypeFilter,
     DamageTagFilter,
     DamageTypeFilter,
@@ -122,11 +123,7 @@ def match_trigger(
     if selector is None:
         return EffectMatchStatus.MATCHED, ()
 
-    facts = [
-        fact
-        for fact in context.trigger_facts
-        if str(fact.effect_id) == effect_id
-    ]
+    facts = [fact for fact in context.trigger_facts if str(fact.effect_id) == effect_id]
     if not facts:
         return (
             EffectMatchStatus.BLOCKED,
@@ -212,9 +209,11 @@ def match_condition(
                 ),
             )
         return (
-            EffectMatchStatus.MATCHED
-            if any(condition.state_id in profile.states for profile in profiles)
-            else EffectMatchStatus.NOT_MATCHED,
+            (
+                EffectMatchStatus.MATCHED
+                if any(condition.state_id in profile.states for profile in profiles)
+                else EffectMatchStatus.NOT_MATCHED
+            ),
             (),
         )
     if isinstance(condition, DynamicIdentityCondition):
@@ -229,9 +228,11 @@ def match_condition(
             assert resolution.diagnostic is not None
             return EffectMatchStatus.BLOCKED, (resolution.diagnostic,)
         return (
-            EffectMatchStatus.MATCHED
-            if owner in resolution.identities
-            else EffectMatchStatus.NOT_MATCHED,
+            (
+                EffectMatchStatus.MATCHED
+                if owner in resolution.identities
+                else EffectMatchStatus.NOT_MATCHED
+            ),
             (),
         )
     raise TypeError(f"unsupported condition type: {type(condition).__name__}")
@@ -320,10 +321,14 @@ def match_filter(
             assert resolution.diagnostic is not None
             return EffectMatchStatus.BLOCKED, (resolution.diagnostic,)
         return _bool_decision(context.current_operator in resolution.identities)
+    if isinstance(item, CreatedByEffectFilter):
+        return _bool_decision(context.created_by_effect_id == item.effect_id)
     raise TypeError(f"unsupported filter type: {type(item).__name__}")
 
 
-def _bool_decision(value: bool) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+def _bool_decision(
+    value: bool,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
     return (
         EffectMatchStatus.MATCHED if value else EffectMatchStatus.NOT_MATCHED,
         (),
@@ -364,8 +369,4 @@ def _all_diagnostics(
 def _non_blocking_diagnostics(
     evaluations: tuple[MatchEvaluation, ...],
 ) -> tuple[CalculationDiagnostic, ...]:
-    return tuple(
-        item
-        for item in _all_diagnostics(evaluations)
-        if not item.blocking
-    )
+    return tuple(item for item in _all_diagnostics(evaluations) if not item.blocking)

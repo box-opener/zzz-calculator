@@ -137,6 +137,13 @@ class DynamicIdentityFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class CreatedByEffectFilter:
+    """Match application provenance carried by an instantiated event wrapper."""
+
+    effect_id: EffectId
+
+
+@dataclass(frozen=True, slots=True)
 class EnemyStateFilter:
     state_id: StateId
 
@@ -161,6 +168,7 @@ AtomicFilter: TypeAlias = (
     | CharacterFilter
     | CharacterRoleFilter
     | DynamicIdentityFilter
+    | CreatedByEffectFilter
     | EnemyStateFilter
     | FieldPositionFilter
     | OperationStateFilter
@@ -274,4 +282,6 @@ class UnresolvedEffect:
     result_kind: Literal["unresolved"] = field(default="unresolved", init=False)
 
 
-Effect: TypeAlias = ModifierEffect | StateChangeEffect | EventCreationEffect | UnresolvedEffect
+Effect: TypeAlias = (
+    ModifierEffect | StateChangeEffect | EventCreationEffect | UnresolvedEffect
+)

@@ -52,14 +52,12 @@ class EffectMatchContext:
     scenario: CalculationScenario
     team: tuple[CharacterMatchProfile, ...]
     target: EnemyMatchProfile
+    created_by_effect_id: EffectId | None = None
 
     def __post_init__(self) -> None:
         if self.calculation_context.event != self.current_event:
             raise ValueError("calculation context must contain current_event")
-        if (
-            self.calculation_context.target_snapshot.enemy_id
-            != self.target.enemy_id
-        ):
+        if self.calculation_context.target_snapshot.enemy_id != self.target.enemy_id:
             raise ValueError("calculation context target must match target profile")
         if (
             self.calculation_context.battle_state_id

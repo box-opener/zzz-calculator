@@ -18,11 +18,12 @@ from core.application import (
 from core.application.characters.astra import (
     ARIA_ACTIVE_CONDITION_ID,
     ASTRA_ID,
-    CINEMA6_RHAPSODY_MOVE_ID,
+    CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID,
     ASTRA_REVIEWED_MAPPING,
     ENERGY_AVAILABLE_CONDITION_ID,
     RHAPSODY_STAGE3_FULL_CONDITION_ID,
     RHAPSODY_STAGE3_MIN_CONDITION_ID,
+    RHAPSODY_MOVE_ID,
     WIND_CHIME_COUNT_PARAMETER_ID,
     AstraCompileConfig,
     compile_astra,
@@ -34,12 +35,22 @@ from core.application.characters.ye_shunguang import (
     compile_ye_shunguang,
     load_raw_record as load_ye_raw_record,
 )
-from core.application.execution import MoveCalculationRequest, calculate_move
+from core.application.execution import (
+    MoveCalculationRequest,
+    calculate_move,
+    instantiate_direct_damage_event,
+)
+from core.application.matching import (
+    EffectMatchContext,
+    EffectMatchStatus,
+    EffectMatcher,
+)
 from core.application.output import EventCalculationStatus
 from core.calculation import CalculationNode
 from core.types import (
     BattleEventKind,
     BattleStateId,
+    CalculationContext,
     CharacterId,
     CharacterRole,
     CharacterSnapshot,
@@ -110,6 +121,7 @@ def _scenario(
     enabled: tuple[str, ...] = (),
     aria: bool | None = True,
     energy: bool | None = True,
+    core_attack_buff_active: bool | None = True,
     rhapsody_full: bool | None = False,
     wind_count: int | None = 1,
     current_operator: CharacterId | None = None,
@@ -118,6 +130,7 @@ def _scenario(
 ) -> CalculationScenario:
     values = {
         ARIA_ACTIVE_CONDITION_ID: aria,
+        CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID: core_attack_buff_active,
         ENERGY_AVAILABLE_CONDITION_ID: energy,
         RHAPSODY_STAGE3_MIN_CONDITION_ID: (
             not rhapsody_full if rhapsody_full is not None else None
@@ -360,6 +373,26 @@ def test_core_and_cinema_values_are_compiled_without_fixed_build_attack() -> Non
     assert not hasattr(base_effect.result.value, "resolved_value")
 
 
+def test_core_attack_buff_requires_its_explicit_active_condition() -> None:
+    definition = _definition()
+    rule_id = RuleItemId("rule:astra:1311:core-passive-self")
+    execution = calculate_move(
+        _request(
+            definition,
+            "basic-rhapsody-1",
+            scenario=_scenario(
+                definition,
+                enabled=(str(rule_id),),
+                core_attack_buff_active=False,
+            ),
+        )
+    )
+
+    snapshot = execution.resolved_character_snapshots[0]
+    assert snapshot.settlement_stats.attack == Resolved(1000.0)
+    assert execution.output.complete is True
+
+
 def test_unlocked_cinema_items_remain_ineligible_and_registry_is_closed() -> None:
     definition = _definition(cinema_level=0)
     rules = {item.rule_id: item for item in definition.rule_items}
@@ -393,7 +426,7 @@ def test_unlocked_cinema_items_remain_ineligible_and_registry_is_closed() -> Non
         typed_independent[
             DamageEventSemanticId("event:astra:1311:cinema6-rhapsody")
         ].move_id
-        == CINEMA6_RHAPSODY_MOVE_ID
+        == RHAPSODY_MOVE_ID
     )
     assert all(
         item.template.source_rule_item_id in rules
@@ -577,6 +610,38 @@ def test_cinema_two_creates_one_tremolo_and_three_clusters_on_support_entry() ->
     assert sorted(item.repeat_count for item in execution.output.events) == [1, 1, 3]
 
 
+def test_cinema_two_does_not_require_the_energy_condition() -> None:
+    definition = _definition(cinema_level=2)
+    enabled = ("rule:astra:1311:cinema2",)
+    scenario = _scenario(
+        definition,
+        enabled=enabled,
+        energy=False,
+        trigger_facts=(
+            ScenarioTriggerFact(
+                effect_id=EffectId("effect:astra:1311:cinema2-entry-tremolo"),
+                event_kind=BattleEventKind.SUPPORT_ENTRY,
+                actor=ASTRA_ID,
+            ),
+            ScenarioTriggerFact(
+                effect_id=EffectId("effect:astra:1311:cinema2-entry-cluster"),
+                event_kind=BattleEventKind.SUPPORT_ENTRY,
+                actor=ASTRA_ID,
+            ),
+        ),
+    )
+    execution = calculate_move(
+        _request(
+            definition,
+            "assist-quick-fireworks",
+            enabled=enabled,
+            scenario=scenario,
+        )
+    )
+
+    assert len(execution.output.events) == 3
+
+
 def test_cinema_six_precise_support_creates_crit_boosted_rhapsody_event() -> None:
     definition = _definition(cinema_level=6)
     enabled = ("rule:astra:1311:cinema6",)
@@ -604,6 +669,73 @@ def test_cinema_six_precise_support_creates_crit_boosted_rhapsody_event() -> Non
     child_trace = execution.event_traces[1]
     assert len(child_trace.event_stat_modifiers) == 1
     assert child_trace.event_stat_modifiers[0].recipient == ASTRA_ID
+
+
+def test_cinema_six_requires_astra_as_damage_dealer_for_tremolo_lanes() -> None:
+    definition = _definition(cinema_level=6)
+    entry = _entry(definition, "basic-interlude-1")
+    template = next(
+        item
+        for item in definition.damage_event_templates
+        if item.ref == entry.main_damage_event
+    )
+    other = CharacterId("character:other-tremolo-dealer")
+    original = instantiate_direct_damage_event(
+        template,
+        entry.multiplier_variants[0].multiplier,
+        battle_state_id=BattleStateId("battle:astra-other-tremolo"),
+        target_enemy=EnemyId("enemy:astra-other-tremolo"),
+        created_at=0.0,
+    ).event
+    event = replace(
+        original,
+        metadata=replace(
+            original.metadata,
+            damage_dealer=other,
+            damage_tags=frozenset({DamageTag.TREMOLO}),
+        ),
+    )
+    scenario = _scenario(
+        definition,
+        enabled=("rule:astra:1311:cinema6",),
+        current_operator=other,
+    )
+    target = event.metadata.target_enemy
+    context = EffectMatchContext(
+        current_event=event,
+        calculation_context=CalculationContext(
+            event=event,
+            battle_state_id=event.metadata.battle_state_id,
+            character_snapshots=(
+                CharacterSnapshot(ASTRA_ID, 60, _stats()),
+                CharacterSnapshot(other, 60, _stats()),
+            ),
+            target_snapshot=EnemySnapshot(
+                enemy_id=target,
+                level=70,
+                initial_defense=Resolved(794.0),
+                damage_resistance={Element.ETHER: Resolved(0.0)},
+                anomaly_buildup_resistance={},
+                daze_resistance=Resolved(0.0),
+                damage_reduction=Resolved(0.0),
+            ),
+        ),
+        scenario=scenario,
+        team=(
+            CharacterMatchProfile(ASTRA_ID, CharacterRole.SUPPORT),
+            CharacterMatchProfile(other, CharacterRole.SUPPORT),
+        ),
+        target=EnemyMatchProfile(target),
+    )
+    c6_rule = next(
+        item
+        for item in definition.rule_items
+        if item.rule_id == RuleItemId("rule:astra:1311:cinema6")
+    )
+
+    result = EffectMatcher().match_rule_item(c6_rule, context)
+    assert result.status is EffectMatchStatus.NOT_MATCHED
+    assert result.matched_effects == ()
 
 
 def test_cinema_six_event_lanes_and_precise_support_identity() -> None:
@@ -648,6 +780,7 @@ def test_astra_supporting_definition_changes_ye_settlement() -> None:
                     condition.condition_id
                     in {
                         ARIA_ACTIVE_CONDITION_ID,
+                        CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID,
                         ENERGY_AVAILABLE_CONDITION_ID,
                         RHAPSODY_STAGE3_MIN_CONDITION_ID,
                     }

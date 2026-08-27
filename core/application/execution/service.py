@@ -11,6 +11,7 @@ from core.types import (
     CharacterSnapshot,
     DamageEvent,
     DirectDamageEvent,
+    EffectId,
     EffectOperation,
     FixedMultiplier,
     EventCreationEffect,
@@ -198,6 +199,8 @@ class DirectMoveApplicationService:
                         )
                     )
                     continue
+                if not isinstance(effect_application.effect, EventCreationEffect):
+                    continue
                 created = self._create_derived_event(
                     request,
                     effect_application.effect,
@@ -214,8 +217,11 @@ class DirectMoveApplicationService:
                     child.event,
                     application.character_snapshots,
                     request.base_calculation_modifiers,
+                    created_by_effect_id=child.created_by_effect_id,
                 )
-                child_matches = self._matcher.match_rule_items(rule_items, child_context)
+                child_matches = self._matcher.match_rule_items(
+                    rule_items, child_context
+                )
                 child_application = apply_matched_modifiers(
                     application.character_snapshots,
                     request.base_calculation_modifiers,
@@ -530,6 +536,8 @@ def _match_context(
     event: DamageEvent,
     snapshots: tuple[CharacterSnapshot, ...],
     modifiers,
+    *,
+    created_by_effect_id: EffectId | None = None,
 ) -> EffectMatchContext:
     context = CalculationContext(
         event=event,
@@ -545,6 +553,7 @@ def _match_context(
         scenario=request.scenario,
         team=request.team_profiles,
         target=request.target_profile,
+        created_by_effect_id=created_by_effect_id,
     )
 
 

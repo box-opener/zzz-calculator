@@ -99,6 +99,7 @@ from .effect import (
     AnyFilter,
     CharacterFilter,
     CharacterRoleFilter,
+    CreatedByEffectFilter,
     Condition,
     DamageSubtypeFilter,
     DamageTagFilter,

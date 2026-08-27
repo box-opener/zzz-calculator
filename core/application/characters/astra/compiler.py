@@ -5,6 +5,7 @@ from __future__ import annotations
 from core.types import (
     AnyFilter,
     BattleEventKind,
+    CreatedByEffectFilter,
     CharacterId,
     CharacterRoleFilter,
     CharacterRole,
@@ -15,6 +16,7 @@ from core.types import (
     DamageTagFilter,
     DamageType,
     DynamicIdentity,
+    DynamicIdentityCondition,
     DynamicIdentityFilter,
     EffectId,
     EffectOperation,
@@ -72,6 +74,7 @@ from .config import AstraCompileConfig
 from .reviewed import (
     ARIA_ACTIVE_CONDITION_KEY,
     ASTRA_REVIEWED_MAPPING,
+    CORE_ATTACK_BUFF_ACTIVE_CONDITION_KEY,
     ENERGY_AVAILABLE_CONDITION_KEY,
     RHAPSODY_STAGE3_FULL_CONDITION_KEY,
     RHAPSODY_STAGE3_MIN_CONDITION_KEY,
@@ -83,6 +86,9 @@ from .source import AstraRawMoveRecord, AstraRawRecord
 
 ASTRA_ID = CharacterId("character:1311")
 ARIA_ACTIVE_CONDITION_ID = ScenarioConditionId("condition:astra:aria-active")
+CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID = ScenarioConditionId(
+    "condition:astra:core-attack-buff-active"
+)
 ENERGY_AVAILABLE_CONDITION_ID = ScenarioConditionId(
     "condition:astra:energy-derived-active"
 )
@@ -97,7 +103,8 @@ WIND_CHIME_COUNT_PARAMETER_ID = ScenarioParameterId(
 )
 
 FINALE_MOVE_ID = MoveId("move:astra:finale")
-CINEMA6_RHAPSODY_MOVE_ID = MoveId("move:astra:cinema6-rhapsody")
+RHAPSODY_MOVE_ID = MoveId("move:astra:rhapsody")
+CINEMA6_RHAPSODY_EFFECT_ID = EffectId("effect:astra:1311:cinema6:rhapsody")
 
 
 def _rule_source(
@@ -131,6 +138,8 @@ def _condition(
 def _condition_ids(condition_key: str | None) -> tuple[ScenarioConditionId, ...]:
     if condition_key == ARIA_ACTIVE_CONDITION_KEY:
         return (ARIA_ACTIVE_CONDITION_ID,)
+    if condition_key == CORE_ATTACK_BUFF_ACTIVE_CONDITION_KEY:
+        return (CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID,)
     if condition_key == ENERGY_AVAILABLE_CONDITION_KEY:
         return (ENERGY_AVAILABLE_CONDITION_ID,)
     if condition_key == RHAPSODY_STAGE3_MIN_CONDITION_KEY:
@@ -346,6 +355,7 @@ def _effect_rule(
     owner: CharacterId | None,
     target: EffectTarget,
     trigger: EventSelector | None = None,
+    condition=None,
     filters=(),
 ) -> EffectRule:
     return EffectRule(
@@ -355,6 +365,7 @@ def _effect_rule(
         target=target,
         snapshot_rule=SnapshotRule.SETTLEMENT,
         trigger=trigger,
+        condition=condition,
         filters=filters,
     )
 
@@ -369,6 +380,7 @@ def _modifier(
     target: EffectTarget = EffectTarget.SELF,
     operation: EffectOperation = EffectOperation.ADD,
     trigger: EventSelector | None = None,
+    condition=None,
     filters=(),
 ) -> ModifierEffect:
     return ModifierEffect(
@@ -378,6 +390,7 @@ def _modifier(
             owner=owner,
             target=target,
             trigger=trigger,
+            condition=condition,
             filters=filters,
         ),
         result=ModifierResult(
@@ -471,6 +484,11 @@ def compile_astra(
             ARIA_ACTIVE_CONDITION_ID,
             "当前处于咏叹华彩",
             "咏叹华彩状态",
+        ),
+        _condition(
+            CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID,
+            "当前场景中如歌的行板攻击力增益已生效",
+            "核心被动攻击力增益当前生效",
         ),
         _condition(
             ENERGY_AVAILABLE_CONDITION_ID,
@@ -602,7 +620,7 @@ def compile_astra(
         display_name="核心被动：《如歌的行板》（耀嘉音自身）",
         original_text=level.description,
         eligibility=RuleEligibility.ELIGIBLE,
-        condition_ids=(ARIA_ACTIVE_CONDITION_ID, ENERGY_AVAILABLE_CONDITION_ID),
+        condition_ids=(CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID,),
         effects=(
             _modifier(
                 "effect:astra:1311:core-self-attack",
@@ -620,7 +638,7 @@ def compile_astra(
         display_name="核心被动：《如歌的行板》（入场角色）",
         original_text=level.description,
         eligibility=RuleEligibility.ELIGIBLE,
-        condition_ids=(ARIA_ACTIVE_CONDITION_ID, ENERGY_AVAILABLE_CONDITION_ID),
+        condition_ids=(CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID,),
         effects=(
             _modifier(
                 "effect:astra:1311:core-entry-attack",
@@ -798,9 +816,7 @@ def compile_astra(
             repeat_count=repeat_count,
             skill_group=skill_group,
             damage_tags=tags,
-            move_id=(
-                CINEMA6_RHAPSODY_MOVE_ID if event_key == "cinema6-rhapsody" else None
-            ),
+            move_id=RHAPSODY_MOVE_ID if event_key == "cinema6-rhapsody" else None,
         )
         derived_refs[event_key] = derived
         templates.append(typed)
@@ -935,7 +951,7 @@ def compile_astra(
                 if config.cinema_level >= 2
                 else RuleEligibility.INELIGIBLE
             ),
-            condition_ids=energy_conditions,
+            condition_ids=(ARIA_ACTIVE_CONDITION_ID,),
             effects=(
                 _event_creation(
                     "effect:astra:1311:cinema2-entry-tremolo",
@@ -993,7 +1009,10 @@ def compile_astra(
             )
         ),
     )
-    cinema6_rhapsody_filter = (MoveIdFilter(CINEMA6_RHAPSODY_MOVE_ID),)
+    cinema6_rhapsody_filter = (
+        MoveIdFilter(RHAPSODY_MOVE_ID),
+        CreatedByEffectFilter(CINEMA6_RHAPSODY_EFFECT_ID),
+    )
     rule_items.append(
         CalculationRuleItem(
             rule_id=RuleItemId("rule:astra:1311:cinema6"),
@@ -1015,6 +1034,7 @@ def compile_astra(
                     Resolved(cinema6_multiplier_factor),
                     target=EffectTarget.TEAM,
                     operation=EffectOperation.MULTIPLY,
+                    condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
                     filters=tremolo_cluster_filter,
                 ),
                 _modifier(
@@ -1023,6 +1043,7 @@ def compile_astra(
                     CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
                     Resolved(cinema6_crit_rate_bonus),
                     target=EffectTarget.TEAM,
+                    condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
                     filters=tremolo_cluster_filter,
                 ),
                 _modifier(
@@ -1031,10 +1052,11 @@ def compile_astra(
                     CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
                     Resolved(cinema6_crit_rate_bonus),
                     target=EffectTarget.TEAM,
+                    condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
                     filters=cinema6_rhapsody_filter,
                 ),
                 _event_creation(
-                    "effect:astra:1311:cinema6:rhapsody",
+                    str(CINEMA6_RHAPSODY_EFFECT_ID),
                     c6_source,
                     derived_refs["cinema6-rhapsody"].template.template_id,
                     trigger=EventSelector(BattleEventKind.SUPPORT_ENTRY),
@@ -1092,7 +1114,8 @@ def _validate_raw_record(
 __all__ = [
     "ASTRA_ID",
     "ARIA_ACTIVE_CONDITION_ID",
-    "CINEMA6_RHAPSODY_MOVE_ID",
+    "CINEMA6_RHAPSODY_EFFECT_ID",
+    "RHAPSODY_MOVE_ID",
     "ENERGY_AVAILABLE_CONDITION_ID",
     "RHAPSODY_STAGE3_FULL_CONDITION_ID",
     "RHAPSODY_STAGE3_MIN_CONDITION_ID",

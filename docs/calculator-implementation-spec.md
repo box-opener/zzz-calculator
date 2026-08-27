@@ -99,6 +99,11 @@ Effect 条件首先尝试由当前角色、小队、装备、影画和敌人配�
 
 `EffectRule.trigger` 匹配的是 `CalculationScenario` 中按 `effect_id` 保存的 `ScenarioTriggerFact`，表示此前触发该 Effect 的事件；它不得与当前正在结算的 DamageEvent 直接比较。当前 DamageEvent 的属性、技能归属、伤害标签和伤害类型只由 `EffectRule.filters` 匹配。
 
+若规则需要限定某个独立派生事件的创建来源，可以使用显式的
+`CreatedByEffectFilter`。该 Filter 只读取 Application 层从
+`InstantiatedDamageEvent.created_by_effect_id` 传入的来源身份，不得通过伪造 `MoveId` 或由
+调用方另传任意 provenance 字典替代。
+
 Effect 存在 trigger 但场景没有对应 trigger fact 时，匹配结果为 BLOCKED；存在 trigger fact 但事件类型或招式不匹配时，匹配结果为 NOT_MATCHED。不能把缺少 trigger fact 当作 False。
 
 Effect 的 target 与 filters 是独立判断轴。`target=enemy` 只表示 Effect 作用于敌人，不会禁止 Character、CharacterRole、FieldPosition 或 OperationState Filter 检查当前计算角色。
