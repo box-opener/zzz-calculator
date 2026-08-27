@@ -33,7 +33,7 @@ _CATALOG = (
         rarity="S",
         element="ether",
         specialty="support",
-        image_path="/asset/character/IconRole36.webp",
+        image_path="/characters/IconRole36.webp",
         image_object_position="50% 20%",
     ),
     CharacterCatalogItem(
@@ -42,7 +42,7 @@ _CATALOG = (
         rarity="S",
         element="physical",
         specialty="attack",
-        image_path="/asset/character/IconRole55.webp",
+        image_path="/characters/IconRole55.webp",
         image_object_position="50% 18%",
     ),
 )

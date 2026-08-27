@@ -16,7 +16,8 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1311",
         "character:1431",
     }
-    assert all(item["image_path"].startswith("/asset/character/") for item in payload)
+    assert all(item["image_path"].startswith("/characters/") for item in payload)
+    assert client.get("/characters/IconRole36.webp").status_code == 200
 
 
 def test_definition_preview_returns_versioned_editor_view() -> None:

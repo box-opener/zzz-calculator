@@ -42,10 +42,7 @@ app = FastAPI(
 )
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_ASSET_ROOT = _PROJECT_ROOT / "asset"
 _FRONTEND_DIST = _PROJECT_ROOT / "frontend" / "dist"
-if _ASSET_ROOT.is_dir():
-    app.mount("/asset", StaticFiles(directory=_ASSET_ROOT), name="assets")
 
 
 @app.get("/api/v1/characters")

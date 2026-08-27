@@ -13,6 +13,6 @@ npm install
 npm run dev
 ```
 
-Vite proxies `/api` and `/asset` to the local FastAPI server. In a built
-deployment FastAPI serves `frontend/dist` and the existing static assets from
-the same origin.
+Vite proxies `/api` to the local FastAPI server. Character images are owned by
+the new frontend under `frontend/public/characters`. In a built deployment
+FastAPI serves `frontend/dist` from the same origin.
