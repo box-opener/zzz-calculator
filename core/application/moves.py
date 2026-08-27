@@ -89,6 +89,11 @@ class DamageEventTemplateRef:
 class DerivedDamageEventTemplateRef:
     template: DamageEventTemplateRef
     multiplier: DamageMultiplier
+    repeat_count: int = 1
+
+    def __post_init__(self) -> None:
+        if self.repeat_count < 0:
+            raise ValueError("derived event repeat_count must be non-negative")
 
     @property
     def semantic_id(self) -> DamageEventSemanticId:

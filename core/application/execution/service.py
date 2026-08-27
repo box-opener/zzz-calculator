@@ -40,7 +40,11 @@ from .contracts import (
     MoveCalculationRequest,
 )
 from .event_factory import instantiate_direct_damage_event
-from .modifiers import ModifierApplicationResult, apply_matched_modifiers
+from .modifiers import (
+    MatchedEffectApplication,
+    ModifierApplicationResult,
+    apply_matched_modifiers,
+)
 from .multiplier import (
     MultiplierResolutionStatus,
     resolve_move_multiplier,
@@ -78,8 +82,11 @@ class DirectMoveApplicationService:
             )
         assert multiplier.multiplier is not None
 
+        definitions = _all_definitions(request)
+        rule_items = _all_rule_items(definitions)
+
         main_template = _find_template(
-            request.definition,
+            definitions,
             entry.main_damage_event.template_id,
         )
         if main_template is None:
@@ -105,11 +112,12 @@ class DirectMoveApplicationService:
             request.base_character_snapshots,
             request.base_calculation_modifiers,
         )
-        main_matches = self._matcher.match_rule_items(
-            request.definition.rule_items,
-            main_context,
+        main_matches = self._matcher.match_rule_items(rule_items, main_context)
+        matched_effects = _matched_effects(
+            main_matches,
+            rule_items,
+            request.scenario,
         )
-        matched_effects = _matched_effects(main_matches)
         panel_application = apply_matched_modifiers(
             request.base_character_snapshots,
             request.base_calculation_modifiers,
@@ -147,16 +155,22 @@ class DirectMoveApplicationService:
                     semantic_id=instantiated.semantic_id,
                     rule_matches=matches,
                     applied_modifiers=application.event_modifiers,
+                    event_stat_modifiers=application.event_stat_modifiers,
+                    event_multiplier_modifiers=application.event_multiplier_modifiers,
                     created_by_effect_id=instantiated.created_by_effect_id,
                     diagnostics=calculation[2],
                 )
             )
             move_diagnostics.extend(calculation[2])
 
-            for effect in _matched_event_creations(matches):
+            for effect_application in _matched_event_creations(
+                matches,
+                rule_items,
+                request.scenario,
+            ):
                 created = self._create_derived_event(
                     request,
-                    effect,
+                    effect_application.effect,
                     ancestry,
                     seen_semantics,
                 )
@@ -171,14 +185,15 @@ class DirectMoveApplicationService:
                     application.character_snapshots,
                     request.base_calculation_modifiers,
                 )
-                child_matches = self._matcher.match_rule_items(
-                    request.definition.rule_items,
-                    child_context,
-                )
+                child_matches = self._matcher.match_rule_items(rule_items, child_context)
                 child_application = apply_matched_modifiers(
                     application.character_snapshots,
                     request.base_calculation_modifiers,
-                    _matched_effects(child_matches),
+                    _matched_effects(
+                        child_matches,
+                        rule_items,
+                        request.scenario,
+                    ),
                     request.scenario.current_operator,
                     apply_panel=False,
                     applied_panel_effect_ids=panel_application.applied_panel_effect_ids,
@@ -306,7 +321,8 @@ class DirectMoveApplicationService:
                 DiagnosticKind.AMBIGUOUS_SEMANTICS,
                 "EventCreation re-entered a template in its ancestry",
             )
-        derived_ref = _find_derived_ref(request.definition, template_id)
+        definitions = _all_definitions(request)
+        derived_ref = _find_derived_ref(definitions, template_id)
         if derived_ref is None:
             return _diagnostic(
                 str(template_id),
@@ -314,7 +330,7 @@ class DirectMoveApplicationService:
                 DiagnosticKind.MISSING_DATA,
                 "EventCreation template has no DerivedDamageEventTemplateRef",
             )
-        template = _find_template(request.definition, template_id)
+        template = _find_template(definitions, template_id)
         if template is None:
             return _diagnostic(
                 str(template_id),
@@ -337,6 +353,7 @@ class DirectMoveApplicationService:
             created_at=request.battle_time,
             source_rule_item_id=template.ref.source_rule_item_id,
             created_by_effect_id=effect.rule.effect_id,
+            repeat_count=derived_ref.repeat_count,
         )
         return child, (*ancestry, template_id)
 
@@ -356,12 +373,13 @@ def _find_entry(
 
 
 def _find_template(
-    definition: CharacterCalculationDefinition,
+    definitions: tuple[CharacterCalculationDefinition, ...],
     template_id: EventTemplateId,
 ) -> DirectDamageEventTemplate | None:
     return next(
         (
             item
+            for definition in definitions
             for item in definition.damage_event_templates
             if item.ref.template_id == template_id
         ),
@@ -370,12 +388,13 @@ def _find_template(
 
 
 def _find_derived_ref(
-    definition: CharacterCalculationDefinition,
+    definitions: tuple[CharacterCalculationDefinition, ...],
     template_id: EventTemplateId,
 ) -> DerivedDamageEventTemplateRef | None:
     return next(
         (
             item
+            for definition in definitions
             for entry in definition.move_entries
             for item in entry.derived_damage_events
             if item.template.template_id == template_id
@@ -386,18 +405,51 @@ def _find_derived_ref(
 
 def _matched_effects(
     matches: tuple[RuleItemMatchResult, ...],
-) -> tuple[object, ...]:
-    return tuple(effect for item in matches for effect in item.matched_effects)
+    rule_items: tuple,
+    scenario,
+) -> tuple[MatchedEffectApplication, ...]:
+    rules = {item.rule_id: item for item in rule_items}
+    return tuple(
+        MatchedEffectApplication(
+            effect=effect,
+            rule_item_id=item.rule_id,
+            stack_count=_resolved_stack_count(rules[item.rule_id], scenario),
+        )
+        for item in matches
+        for effect in item.matched_effects
+    )
 
 
 def _matched_event_creations(
     matches: tuple[RuleItemMatchResult, ...],
-) -> tuple[EventCreationEffect, ...]:
+    rule_items: tuple,
+    scenario,
+) -> tuple[MatchedEffectApplication, ...]:
     return tuple(
-        effect
-        for effect in _matched_effects(matches)
-        if isinstance(effect, EventCreationEffect)
+        application
+        for application in _matched_effects(matches, rule_items, scenario)
+        if isinstance(application.effect, EventCreationEffect)
+        and application.stack_count > 0
     )
+
+
+def _all_definitions(
+    request: MoveCalculationRequest,
+) -> tuple[CharacterCalculationDefinition, ...]:
+    return (request.definition, *request.supporting_definitions)
+
+
+def _all_rule_items(
+    definitions: tuple[CharacterCalculationDefinition, ...],
+) -> tuple:
+    return tuple(rule for definition in definitions for rule in definition.rule_items)
+
+
+def _resolved_stack_count(rule_item, scenario) -> int:
+    if rule_item.stack_count is None:
+        return 1
+    selected = scenario.selected_stack(rule_item.rule_id)
+    return rule_item.stack_count if selected is None else selected
 
 
 def _match_diagnostics(

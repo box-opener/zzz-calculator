@@ -7,7 +7,11 @@ from .contracts import (
     MoveCalculationRequest,
 )
 from .event_factory import instantiate_direct_damage_event
-from .modifiers import ModifierApplicationResult, apply_matched_modifiers
+from .modifiers import (
+    MatchedEffectApplication,
+    ModifierApplicationResult,
+    apply_matched_modifiers,
+)
 from .multiplier import (
     MultiplierResolutionStatus,
     MoveMultiplierResolution,
@@ -25,6 +29,7 @@ __all__ = [
     "MoveMultiplierResolution",
     "InstantiatedDamageEvent",
     "ModifierApplicationResult",
+    "MatchedEffectApplication",
     "MoveCalculationExecution",
     "MoveCalculationRequest",
     "apply_matched_modifiers",

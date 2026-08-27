@@ -95,6 +95,8 @@ class DamageTag(StrEnum):
     CHAIN_ATTACK = "chain-attack-damage"
     ULTIMATE = "ultimate-damage"
     FOLLOW_UP_ATTACK = "follow-up-attack-damage"
+    TREMOLO = "tremolo-damage"
+    CLUSTER = "cluster-damage"
 
 
 class DynamicIdentity(StrEnum):
@@ -105,6 +107,7 @@ class DynamicIdentity(StrEnum):
     WIND_ANOMALY_TRIGGER = "wind-anomaly-trigger"
     LUMINANCE_TRIGGER = "luminance-trigger"
     DISCHARGE_TRIGGER = "discharge-trigger"
+    SUPPORT_ENTRY_CHARACTER = "support-entry-character"
 
 
 class EffectTarget(StrEnum):
@@ -172,6 +175,7 @@ class BattleEventKind(StrEnum):
     RESOURCE_CHANGE = "resource-change"
     STATE_CHANGE = "state-change"
     FINISHER = "finisher"
+    SUPPORT_ENTRY = "support-entry"
 
 
 class EffectOperation(StrEnum):

@@ -8,6 +8,7 @@ from .execution import (
     DamageEventExecutionTrace,
     DirectMoveApplicationService,
     InstantiatedDamageEvent,
+    MatchedEffectApplication,
     ModifierApplicationResult,
     MoveCalculationExecution,
     MoveCalculationRequest,
@@ -47,6 +48,7 @@ from .scenario import (
     ParameterResolution,
     ScenarioCondition,
     ScenarioIntegerParameter,
+    ScenarioRuleStack,
     ScenarioTriggerFact,
 )
 from .matching import (
@@ -90,6 +92,7 @@ __all__ = [
     "ScenarioCondition",
     "ScenarioConditionId",
     "ScenarioIntegerParameter",
+    "ScenarioRuleStack",
     "ScenarioParameterId",
     "ParameterResolution",
     "ScenarioTriggerFact",
@@ -106,6 +109,7 @@ __all__ = [
     "CalculatorExecutionResult",
     "DirectMoveApplicationService",
     "InstantiatedDamageEvent",
+    "MatchedEffectApplication",
     "ModifierApplicationResult",
     "MoveCalculationExecution",
     "MoveCalculationRequest",

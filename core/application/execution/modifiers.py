@@ -13,12 +13,27 @@ from core.types import (
     EffectOperation,
     Modifier,
     ModifierEffect,
+    Effect,
     Resolved,
     Unresolved,
 )
 
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId
+from ..ids import RuleItemId
+
+
+@dataclass(frozen=True, slots=True)
+class MatchedEffectApplication:
+    """A matched Effect together with its owning RuleItem's stack count."""
+
+    effect: Effect
+    rule_item_id: RuleItemId | None = None
+    stack_count: int = 1
+
+    def __post_init__(self) -> None:
+        if self.stack_count < 0:
+            raise ValueError("matched Effect stack_count must be non-negative")
 
 
 _PANEL_NODES = frozenset(
@@ -57,6 +72,8 @@ _PANEL_NODES = frozenset(
 class ModifierApplicationResult:
     character_snapshots: tuple[CharacterSnapshot, ...]
     event_modifiers: tuple[Modifier, ...]
+    event_stat_modifiers: tuple[Modifier, ...] = ()
+    event_multiplier_modifiers: tuple[Modifier, ...] = ()
     applied_panel_effect_ids: frozenset[EffectId] = frozenset()
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 
@@ -99,13 +116,19 @@ def apply_matched_modifiers(
                 )
             )
 
-    panel_effects: list[ModifierEffect] = []
+    panel_effects: list[tuple[ModifierEffect, int]] = []
     rule_modifiers: list[Modifier] = []
-    for effect in matched_effects:
+    for application in matched_effects:
+        if isinstance(application, MatchedEffectApplication):
+            effect = application.effect
+            stack_count = application.stack_count
+        else:
+            effect = application
+            stack_count = 1
         if not isinstance(effect, ModifierEffect):
             continue
         if effect.result.modifier_path in _PANEL_NODES and apply_panel:
-            panel_effects.append(effect)
+            panel_effects.append((effect, stack_count))
             continue
         if effect.result.modifier_path in _PANEL_NODES:
             if effect.rule.effect_id not in applied_panel_effect_ids:
@@ -118,7 +141,7 @@ def apply_matched_modifiers(
                     )
                 )
             continue
-        event_modifier = _event_modifier(effect, diagnostics)
+        event_modifier = _event_modifier(effect, diagnostics, stack_count)
         if event_modifier is not None:
             rule_modifiers.append(event_modifier)
 
@@ -144,6 +167,7 @@ def apply_matched_modifiers(
 def _event_modifier(
     effect: ModifierEffect,
     diagnostics: list[CalculationDiagnostic],
+    stack_count: int = 1,
 ) -> Modifier | None:
     value = effect.result.value
     if isinstance(value, Unresolved):
@@ -156,6 +180,18 @@ def _event_modifier(
             )
         )
         return None
+    if stack_count != 1 and effect.result.operation is not EffectOperation.ADD:
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "stack-operation",
+                DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                "stacked non-ADD modifier operation has no defined semantics",
+            )
+        )
+        return None
+    if stack_count != 1 and isinstance(value, Resolved):
+        value = Resolved(value.value * stack_count)
     return Modifier(
         effect_id=effect.rule.effect_id,
         modifier_path=effect.result.modifier_path,
@@ -167,7 +203,7 @@ def _event_modifier(
 
 def _apply_panel_effects(
     snapshots: tuple[CharacterSnapshot, ...],
-    effects: list[ModifierEffect],
+    effects: list[tuple[ModifierEffect, int]],
     current_operator: CharacterId,
     diagnostics: list[CalculationDiagnostic],
 ) -> tuple[tuple[CharacterSnapshot, ...], frozenset[EffectId]]:
@@ -188,7 +224,7 @@ def _apply_panel_effects(
 
     updated_stats = target.settlement_stats
     applied_effect_ids: set[EffectId] = set()
-    for effect in effects:
+    for effect, stack_count in effects:
         if effect.rule.trigger is not None:
             diagnostics.append(
                 _diagnostic(
@@ -256,7 +292,7 @@ def _apply_panel_effects(
                 continue
             updated_stats = replace(
                 updated_stats,
-                crit_rate=Resolved(current.value + value.value),
+                crit_rate=Resolved(current.value + value.value * stack_count),
             )
             applied_effect_ids.add(effect.rule.effect_id)
         else:

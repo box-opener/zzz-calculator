@@ -42,12 +42,23 @@ class MoveCalculationRequest:
     target_snapshot: EnemySnapshot
     team_profiles: tuple[CharacterMatchProfile, ...]
     target_profile: EnemyMatchProfile
+    supporting_definitions: tuple[CharacterCalculationDefinition, ...] = ()
     base_calculation_modifiers: tuple[Modifier, ...] = ()
     history_records: tuple[AnomalyRecord, ...] = ()
     crit_display_mode: CritDisplayMode = CritDisplayMode.EXPECTED
 
     def __post_init__(self) -> None:
         self.definition.validate_scenario(self.scenario)
+        definitions = (self.definition, *self.supporting_definitions)
+        definition_character_ids = tuple(
+            item.character_id for item in definitions
+        )
+        if len(set(definition_character_ids)) != len(definition_character_ids):
+            raise ValueError(
+                "primary and supporting definitions must have unique character IDs"
+            )
+        for definition in self.supporting_definitions:
+            definition.validate_scenario(self.scenario)
         if self.target_snapshot.enemy_id != self.target_profile.enemy_id:
             raise ValueError("target snapshot and target profile must match")
         snapshot_ids = tuple(
@@ -60,6 +71,58 @@ class MoveCalculationRequest:
             raise ValueError("team profile IDs must be unique")
         if self.scenario.current_operator not in set(profile_ids):
             raise ValueError("scenario current_operator must be a team member")
+
+        rule_items = tuple(
+            rule
+            for definition in definitions
+            for rule in definition.rule_items
+        )
+        rule_ids = tuple(item.rule_id for item in rule_items)
+        if len(set(rule_ids)) != len(rule_ids):
+            raise ValueError(
+                "primary and supporting definitions must have unique RuleItem IDs"
+            )
+        rule_map = {item.rule_id: item for item in rule_items}
+        for selection in self.scenario.rule_stack_counts:
+            rule = rule_map.get(selection.rule_item_id)
+            if rule is None:
+                raise ValueError(
+                    "scenario stack selection references an unknown RuleItem"
+                )
+            if rule.stack_count is None:
+                raise ValueError(
+                    "scenario stack selection references a non-stacked RuleItem"
+                )
+            if rule.stack_min is not None and selection.value < rule.stack_min:
+                raise ValueError("scenario stack selection is below the rule minimum")
+            if rule.stack_max is not None and selection.value > rule.stack_max:
+                raise ValueError("scenario stack selection exceeds the rule maximum")
+
+        effects = tuple(
+            effect
+            for rule in rule_items
+            for effect in rule.effects
+        )
+        effect_ids = tuple(effect.rule.effect_id for effect in effects)
+        if len(set(effect_ids)) != len(effect_ids):
+            raise ValueError(
+                "primary and supporting definitions must have unique Effect IDs"
+            )
+        templates = tuple(
+            template
+            for definition in definitions
+            for template in definition.damage_event_templates
+        )
+        template_ids = tuple(item.ref.template_id for item in templates)
+        if len(set(template_ids)) != len(template_ids):
+            raise ValueError(
+                "primary and supporting definitions must have unique EventTemplate IDs"
+            )
+        semantic_ids = tuple(item.ref.semantic_id for item in templates)
+        if len(set(semantic_ids)) != len(semantic_ids):
+            raise ValueError(
+                "primary and supporting definitions must have unique DamageEventSemantic IDs"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +149,8 @@ class DamageEventExecutionTrace:
     semantic_id: DamageEventSemanticId
     rule_matches: tuple[RuleItemMatchResult, ...]
     applied_modifiers: tuple[Modifier, ...] = ()
+    event_stat_modifiers: tuple[Modifier, ...] = ()
+    event_multiplier_modifiers: tuple[Modifier, ...] = ()
     created_by_effect_id: EffectId | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 

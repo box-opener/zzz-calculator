@@ -223,6 +223,7 @@ def match_condition(
         resolution = DynamicIdentityResolver().resolve(
             condition.identity,
             context,
+            effect_id,
         )
         if resolution.identities is None:
             assert resolution.diagnostic is not None
@@ -310,7 +311,11 @@ def match_filter(
             return EffectMatchStatus.BLOCKED, ()
         return _bool_decision(profile.operation_state is item.operation_state)
     if isinstance(item, DynamicIdentityFilter):
-        resolution = DynamicIdentityResolver().resolve(item.identity, context)
+        resolution = DynamicIdentityResolver().resolve(
+            item.identity,
+            context,
+            effect_id,
+        )
         if resolution.identities is None:
             assert resolution.diagnostic is not None
             return EffectMatchStatus.BLOCKED, (resolution.diagnostic,)

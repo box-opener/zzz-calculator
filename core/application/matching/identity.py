@@ -11,6 +11,7 @@ from core.types import (
     DisorderDamageEvent,
     DischargeDamageEvent,
     DynamicIdentity,
+    BattleEventKind,
     LuminanceDamageEvent,
     TurbulenceDamageEvent,
 )
@@ -37,6 +38,7 @@ class DynamicIdentityResolver:
         self,
         identity: DynamicIdentity,
         context: EffectMatchContext,
+        effect_id: str | None = None,
     ) -> IdentityResolution:
         event = context.current_event
         if identity is DynamicIdentity.DAMAGE_DEALER:
@@ -58,6 +60,46 @@ class DynamicIdentityResolver:
             if isinstance(event, DischargeDamageEvent):
                 return IdentityResolution(frozenset({event.discharge_triggerer}))
             return IdentityResolution(frozenset())
+
+        if identity is DynamicIdentity.SUPPORT_ENTRY_CHARACTER:
+            facts = tuple(
+                fact
+                for fact in context.trigger_facts
+                if (effect_id is None or str(fact.effect_id) == effect_id)
+                and fact.event_kind is BattleEventKind.SUPPORT_ENTRY
+                and fact.actor is not None
+            )
+            if not facts:
+                return IdentityResolution(
+                    identities=None,
+                    diagnostic=CalculationDiagnostic(
+                        diagnostic_id=DiagnosticId(
+                            f"support-entry:{effect_id or 'unknown'}"
+                        ),
+                        kind=DiagnosticKind.MISSING_DATA,
+                        message=(
+                            "support-entry character identity requires a matching "
+                            "scenario trigger fact"
+                        ),
+                        blocking=True,
+                    ),
+                )
+            actors = frozenset(fact.actor for fact in facts if fact.actor is not None)
+            if len(actors) != 1:
+                return IdentityResolution(
+                    identities=None,
+                    diagnostic=CalculationDiagnostic(
+                        diagnostic_id=DiagnosticId(
+                            f"support-entry:{effect_id or 'unknown'}:ambiguous"
+                        ),
+                        kind=DiagnosticKind.DATA_QUALITY,
+                        message=(
+                            "support-entry identity has multiple scenario actors"
+                        ),
+                        blocking=True,
+                    ),
+                )
+            return IdentityResolution(actors)
 
         if (
             identity is DynamicIdentity.ANOMALY_TRIGGER

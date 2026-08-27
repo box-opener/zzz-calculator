@@ -31,6 +31,25 @@ class ScenarioTriggerFact:
 
 
 @dataclass(frozen=True, slots=True)
+class ScenarioRuleStack:
+    """The stack count selected for one calculation-rule item in a scenario.
+
+    ``CalculationRuleItem.stack_count`` remains the compiled default.  This
+    value is the optional per-calculation selection and is resolved by the
+    application layer after the rule item has been matched.
+    """
+
+    rule_item_id: RuleItemId
+    value: int
+
+    def __post_init__(self) -> None:
+        if not str(self.rule_item_id):
+            raise ValueError("scenario stack rule_item_id must not be empty")
+        if self.value < 0:
+            raise ValueError("scenario stack value must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
 class ScenarioCondition:
     condition_id: ScenarioConditionId
     label: str
@@ -83,6 +102,7 @@ class CalculationScenario:
     parameters: tuple[ScenarioIntegerParameter, ...] = ()
     trigger_facts: tuple[ScenarioTriggerFact, ...] = ()
     enabled_rule_item_ids: frozenset[RuleItemId] = frozenset()
+    rule_stack_counts: tuple[ScenarioRuleStack, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.scenario_id.strip():
@@ -96,3 +116,21 @@ class CalculationScenario:
         trigger_effect_ids = tuple(item.effect_id for item in self.trigger_facts)
         if len(set(trigger_effect_ids)) != len(trigger_effect_ids):
             raise ValueError("scenario trigger facts must be unique per effect")
+        stack_rule_ids = tuple(
+            item.rule_item_id for item in self.rule_stack_counts
+        )
+        if len(set(stack_rule_ids)) != len(stack_rule_ids):
+            raise ValueError("scenario rule stack selections must be unique")
+
+    def selected_stack(self, rule_item_id: RuleItemId) -> int | None:
+        """Return the explicit stack selection, if this scenario has one."""
+
+        selected = next(
+            (
+                item.value
+                for item in self.rule_stack_counts
+                if item.rule_item_id == rule_item_id
+            ),
+            None,
+        )
+        return selected
