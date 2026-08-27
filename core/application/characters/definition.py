@@ -45,6 +45,7 @@ class CharacterCalculationDefinition:
     scenario_conditions: tuple[ScenarioCondition, ...]
     scenario_parameters: tuple[ScenarioIntegerParameter, ...]
     damage_event_templates: tuple[DirectDamageEventTemplate, ...]
+    independent_derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 
     def __post_init__(self) -> None:
@@ -121,6 +122,24 @@ class CharacterCalculationDefinition:
             DerivedDamageEventTemplateRef,
         ] = {}
         definition_event_ids: set[DamageEventSemanticId] = set()
+        for derived in self.independent_derived_damage_events:
+            self._assert_template_ref(
+                derived.template,
+                template_map,
+                None,
+                expect_move_id=False,
+            )
+            definition_event_ids.add(derived.template.semantic_id)
+            template_id = derived.template.template_id
+            if template_id in derived_refs_by_template:
+                raise ValueError(
+                    "each derived event template must have one multiplier reference"
+                )
+            derived_refs_by_template[template_id] = derived
+            self._assert_derived_source_rule(
+                derived,
+                rule_map,
+            )
         for entry in self.move_entries:
             if entry.character_id != self.character_id:
                 raise ValueError("move entry character_id must match definition")
@@ -168,21 +187,7 @@ class CharacterCalculationDefinition:
                         "each derived event template must have one multiplier reference"
                     )
                 derived_refs_by_template[template_id] = derived
-                source_rule_id = derived.template.source_rule_item_id
-                if source_rule_id is None:
-                    raise ValueError("derived template requires a source rule item")
-                source_rule = rule_map.get(source_rule_id)
-                if source_rule is None:
-                    raise ValueError(
-                        "derived template references an unknown source rule item"
-                    )
-                if not self._rule_creates_template(
-                    source_rule,
-                    derived.template.template_id,
-                ):
-                    raise ValueError(
-                        "source rule item does not create its derived template"
-                    )
+                self._assert_derived_source_rule(derived, rule_map)
         if event_creation_template_ids != set(derived_refs_by_template):
             raise ValueError(
                 "event creation templates and derived template references must match"
@@ -192,7 +197,7 @@ class CharacterCalculationDefinition:
         }
         if definition_event_ids != template_semantic_ids:
             raise ValueError(
-                "all typed event templates must be referenced by a move entry"
+                "all typed event templates must be referenced by a move entry or derived registry"
             )
 
     @staticmethod
@@ -217,7 +222,7 @@ class CharacterCalculationDefinition:
     def _assert_template_ref(
         ref: DamageEventTemplateRef,
         templates: dict[EventTemplateId, DirectDamageEventTemplate],
-        move_id: MoveId,
+        move_id: MoveId | None,
         *,
         expect_move_id: bool,
     ) -> None:
@@ -225,11 +230,29 @@ class CharacterCalculationDefinition:
         if typed is None:
             raise ValueError(f"missing typed event template: {ref.template_id}")
         if typed.ref != ref:
-            raise ValueError("typed template ref does not match MoveEntry ref")
+            raise ValueError("typed template ref does not match registered template ref")
         if expect_move_id and typed.move_id != move_id:
             raise ValueError("main template move_id must match MoveEntry move_id")
         if not expect_move_id and typed.move_id is not None:
             raise ValueError("derived template move_id must be None")
+
+    @classmethod
+    def _assert_derived_source_rule(
+        cls,
+        derived: DerivedDamageEventTemplateRef,
+        rule_map: dict,
+    ) -> None:
+        source_rule_id = derived.template.source_rule_item_id
+        if source_rule_id is None:
+            raise ValueError("derived template requires a source rule item")
+        source_rule = rule_map.get(source_rule_id)
+        if source_rule is None:
+            raise ValueError("derived template references an unknown source rule item")
+        if not cls._rule_creates_template(
+            source_rule,
+            derived.template.template_id,
+        ):
+            raise ValueError("source rule item does not create its derived template")
 
     @staticmethod
     def _rule_creates_template(

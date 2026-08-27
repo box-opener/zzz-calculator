@@ -11,6 +11,7 @@ from .event_factory import instantiate_direct_damage_event
 from .modifiers import (
     MatchedEffectApplication,
     ModifierApplicationResult,
+    apply_global_panel_effects,
     apply_matched_modifiers,
 )
 from .multiplier import (
@@ -35,6 +36,7 @@ __all__ = [
     "MoveCalculationExecution",
     "MoveCalculationRequest",
     "apply_matched_modifiers",
+    "apply_global_panel_effects",
     "calculate_move",
     "instantiate_direct_damage_event",
     "resolve_move_multiplier",

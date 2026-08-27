@@ -10,6 +10,9 @@ from core.application import (
     CalculationRuleItem,
     CalculationScenario,
     CharacterMatchProfile,
+    DamageEventSemanticId,
+    DamageEventTemplateRef,
+    DerivedDamageEventTemplateRef,
     EnemyMatchProfile,
     MoveCalculationRequest,
     RuleEligibility,
@@ -40,6 +43,7 @@ from core.types import (
     CharacterStats,
     DamageTag,
     DamageTagFilter,
+    DamageType,
     EffectId,
     EffectOperation,
     EffectRule,
@@ -48,10 +52,14 @@ from core.types import (
     Element,
     EnemyId,
     EnemySnapshot,
+    EventTemplateId,
     DynamicIdentity,
     DynamicIdentityFilter,
     EventCreationEffect,
+    EventCreationResult,
     EventSelector,
+    FixedMultiplier,
+    CurrentAttackValueSource,
     InitialCharacterSnapshot,
     ModifierEffect,
     ModifierResult,
@@ -60,7 +68,9 @@ from core.types import (
     RuleSource,
     RuleSourceId,
     SnapshotRule,
+    StandardCritRule,
 )
+from core.application.characters.templates import DirectDamageEventTemplate
 
 
 def _source(label: str = "stage 16 test") -> RuleSource:
@@ -280,10 +290,191 @@ def _recipient_panel_definition() -> CharacterCalculationDefinition:
     )
 
 
+def _self_panel_definition() -> CharacterCalculationDefinition:
+    owner = CharacterId("character:stage16-self-panel-support")
+    rule_id = RuleItemId("rule:stage16:self-panel")
+    effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:self-panel"),
+            source=_source("self panel effect"),
+            owner=owner,
+            target=EffectTarget.SELF,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
+            operation=EffectOperation.ADD,
+            value=PanelStatDerivedValue(
+                source_character_id=owner,
+                source_node=CalculationNode.CHARACTER_INITIAL_ATTACK,
+                coefficient=Resolved(0.22),
+                cap_max=Resolved(1200.0),
+            ),
+        ),
+    )
+    rule = CalculationRuleItem(
+        rule_id=rule_id,
+        owner=owner,
+        source=_source("self panel rule"),
+        display_name="Self panel",
+        original_text="Self panel",
+        eligibility=RuleEligibility.ELIGIBLE,
+        effects=(effect,),
+    )
+    return CharacterCalculationDefinition(
+        character_id=owner,
+        role=CharacterRole.SUPPORT,
+        base_element=Element.ETHER,
+        source=_source("stage16 self panel definition"),
+        move_entries=(),
+        rule_items=(rule,),
+        scenario_conditions=(),
+        scenario_parameters=(),
+        damage_event_templates=(),
+    )
+
+
+def _independent_event_definition() -> CharacterCalculationDefinition:
+    owner = CharacterId("character:stage16-independent-support")
+    rule_id = RuleItemId("rule:stage16:independent-event")
+    effect_id = EffectId("effect:stage16:independent-event")
+    template_id = EventTemplateId("template:stage16:independent-event")
+    semantic_id = DamageEventSemanticId("event:stage16:independent-event")
+    template_ref = DamageEventTemplateRef(
+        template_id=template_id,
+        semantic_id=semantic_id,
+        label="Independent event",
+        damage_type=DamageType.DIRECT,
+        skill_group=None,
+        damage_tags=frozenset(),
+        element=Element.ETHER,
+        source_rule_item_id=rule_id,
+    )
+    typed_template = DirectDamageEventTemplate(
+        ref=template_ref,
+        damage_dealer=owner,
+        element=Element.ETHER,
+        base_source=CurrentAttackValueSource(owner),
+        crit_rule=StandardCritRule(owner),
+        move_id=None,
+    )
+    effect = EventCreationEffect(
+        rule=EffectRule(
+            effect_id=effect_id,
+            source=_source("independent event effect"),
+            owner=owner,
+            target=EffectTarget.TEAM,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+            filters=(DamageTagFilter(DamageTag.BASIC_ATTACK),),
+        ),
+        result=EventCreationResult(
+            event_kind=BattleEventKind.DAMAGE,
+            event_template_id=template_id,
+        ),
+    )
+    rule = CalculationRuleItem(
+        rule_id=rule_id,
+        owner=owner,
+        source=_source("independent event rule"),
+        display_name="Independent event",
+        original_text="Independent event",
+        eligibility=RuleEligibility.ELIGIBLE,
+        effects=(effect,),
+    )
+    return CharacterCalculationDefinition(
+        character_id=owner,
+        role=CharacterRole.SUPPORT,
+        base_element=Element.ETHER,
+        source=_source("stage16 independent event definition"),
+        move_entries=(),
+        rule_items=(rule,),
+        scenario_conditions=(),
+        scenario_parameters=(),
+        damage_event_templates=(typed_template,),
+        independent_derived_damage_events=(
+            DerivedDamageEventTemplateRef(
+                template=template_ref,
+                multiplier=FixedMultiplier(Resolved(0.5)),
+                repeat_count=3,
+            ),
+        ),
+    )
+
+
 def test_stage16_vocabulary_has_support_and_mechanism_tags() -> None:
     assert BattleEventKind.SUPPORT_ENTRY.value == "support-entry"
     assert DamageTag.TREMOLO.value == "tremolo-damage"
     assert DamageTag.CLUSTER.value == "cluster-damage"
+
+
+def test_global_panel_prepass_applies_support_self_effect_to_support_snapshot() -> None:
+    definition = _ye_definition()
+    support = _self_panel_definition()
+    request = _ye_request(definition, "basic-fast-1")
+    request = replace(
+        request,
+        supporting_definitions=(support,),
+        scenario=replace(
+            request.scenario,
+            enabled_rule_item_ids=frozenset(
+                {RuleItemId("rule:stage16:self-panel")}
+            ),
+        ),
+        base_character_snapshots=(
+            *request.base_character_snapshots,
+            CharacterSnapshot(support.character_id, 60, _stats(800.0)),
+        ),
+        initial_character_snapshots=(
+            InitialCharacterSnapshot(support.character_id, 60, _stats(6000.0)),
+        ),
+        team_profiles=(
+            *request.team_profiles,
+            CharacterMatchProfile(support.character_id, CharacterRole.SUPPORT),
+        ),
+    )
+
+    from core.application.execution import calculate_move
+
+    execution = calculate_move(request)
+    support_snapshot = next(
+        item
+        for item in execution.resolved_character_snapshots
+        if item.character_id == support.character_id
+    )
+    assert support_snapshot.settlement_stats.attack == Resolved(2000.0)
+
+
+def test_definition_level_independent_derived_event_can_be_created_without_move() -> None:
+    definition = _ye_definition()
+    support = _independent_event_definition()
+    request = _ye_request(definition, "basic-fast-1")
+    rule_id = RuleItemId("rule:stage16:independent-event")
+    request = replace(
+        request,
+        supporting_definitions=(support,),
+        scenario=replace(
+            request.scenario,
+            enabled_rule_item_ids=frozenset({rule_id}),
+        ),
+        base_character_snapshots=(
+            *request.base_character_snapshots,
+            CharacterSnapshot(support.character_id, 60, _stats(800.0)),
+        ),
+        team_profiles=(
+            *request.team_profiles,
+            CharacterMatchProfile(support.character_id, CharacterRole.SUPPORT),
+        ),
+    )
+
+    from core.application.execution import calculate_move
+
+    execution = calculate_move(request)
+    assert len(execution.output.events) == 2
+    derived = execution.output.events[1]
+    assert derived.repeat_count == 3
+    assert execution.event_traces[1].created_by_effect_id == EffectId(
+        "effect:stage16:independent-event"
+    )
 
 
 def test_scenario_rule_stack_is_immutable_and_selected_by_rule_id() -> None:

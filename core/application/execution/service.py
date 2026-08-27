@@ -47,6 +47,7 @@ from .event_factory import instantiate_direct_damage_event
 from .modifiers import (
     MatchedEffectApplication,
     ModifierApplicationResult,
+    apply_global_panel_effects,
     apply_matched_modifiers,
 )
 from .multiplier import (
@@ -110,10 +111,17 @@ class DirectMoveApplicationService:
             created_at=request.battle_time,
             repeat_count=multiplier.repeat_count,
         )
+        global_panel_application = apply_global_panel_effects(
+            request.base_character_snapshots,
+            request.initial_character_snapshots,
+            rule_items,
+            request.scenario,
+            frozenset(profile.character_id for profile in request.team_profiles),
+        )
         main_context = _match_context(
             request,
             main_event.event,
-            request.base_character_snapshots,
+            global_panel_application.character_snapshots,
             request.base_calculation_modifiers,
         )
         main_matches = self._matcher.match_rule_items(rule_items, main_context)
@@ -123,12 +131,18 @@ class DirectMoveApplicationService:
             request.scenario,
         )
         panel_application = apply_matched_modifiers(
-            request.base_character_snapshots,
+            global_panel_application.character_snapshots,
             request.base_calculation_modifiers,
             matched_effects,
             request.scenario.current_operator,
             initial_character_snapshots=request.initial_character_snapshots,
             event=main_event.event,
+            apply_panel=False,
+            applied_panel_effect_ids=global_panel_application.applied_panel_effect_ids,
+        )
+        panel_application = _merge_modifier_applications(
+            global_panel_application,
+            panel_application,
         )
 
         event_outputs: list[DamageEventCalculationOutput] = []
@@ -424,6 +438,14 @@ def _find_derived_ref(
         (
             item
             for definition in definitions
+            for item in definition.independent_derived_damage_events
+            if item.template.template_id == template_id
+        ),
+        None,
+    ) or next(
+        (
+            item
+            for definition in definitions
             for entry in definition.move_entries
             for item in entry.derived_damage_events
             if item.template.template_id == template_id
@@ -471,6 +493,23 @@ def _all_rule_items(
     definitions: tuple[CharacterCalculationDefinition, ...],
 ) -> tuple:
     return tuple(rule for definition in definitions for rule in definition.rule_items)
+
+
+def _merge_modifier_applications(
+    global_panel: ModifierApplicationResult,
+    event_application: ModifierApplicationResult,
+) -> ModifierApplicationResult:
+    return ModifierApplicationResult(
+        character_snapshots=event_application.character_snapshots,
+        event_modifiers=event_application.event_modifiers,
+        event_stat_modifiers=event_application.event_stat_modifiers,
+        event_multiplier_modifiers=event_application.event_multiplier_modifiers,
+        applied_panel_effect_ids=(
+            global_panel.applied_panel_effect_ids
+            | event_application.applied_panel_effect_ids
+        ),
+        diagnostics=global_panel.diagnostics + event_application.diagnostics,
+    )
 
 
 def _resolved_stack_count(rule_item, scenario) -> int:

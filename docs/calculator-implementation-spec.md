@@ -312,6 +312,12 @@ Scenario、Character、Enemy 或 Buff 数据。
 只提供本次场景可用的 RuleItem、Effect 和派生事件模板。请求内的 RuleItem、Effect、事件模板
 和 DamageEvent 语义身份必须在所有 Definition 合并后的作用域内唯一。
 
+派生伤害模板有两种合法归属：招式自身的
+`MoveCalculationEntry.derived_damage_events`，以及 Definition 级的
+`independent_derived_damage_events`。后者用于由支援入场、队伍条件或其他不属于某个本角色
+MoveEntry 的 RuleItem 创建的独立事件。两种归属中的模板和倍率均只能注册一次；不得为了满足
+MoveEntry 结构伪造不存在的来源招式。
+
 角色初始面板与结算面板是不同的数据层。需要从初始面板派生 Effect 数值时，应用请求必须
 提供独立的初始角色快照，不得从已经包含 Panel Effect 的 settlement snapshot 反推。第一版
 只支持受限的 `PanelStatDerivedValue`：读取指定角色的
@@ -347,6 +353,11 @@ settlement snapshot。该正式快照应保存在 Application 输出中。非暴
 
 基础 Panel Effect 只有在 `trigger is None`、`condition` 为空或为 `AlwaysCondition`、且
 `filters` 为空时才视为全局、事件无关的 Panel Effect。
+
+应用层在当前 DamageEvent 匹配前执行一次全局 Panel pre-pass。事件无关的 `target=SELF`
+Panel Effect 写入其 `Effect.owner` 的角色快照，即使该角色不是当前操作角色；它仍必须通过
+RuleItem 的启用、资格、场景条件和叠层校验。这样支援角色的自身面板变化可以影响其随后创建的
+派生事件，同时不会把自身事件增伤误当成全局面板。
 
 应用层可以额外识别一种明确的 recipient Panel Effect：`target=TEAM`，触发事实为
 `SUPPORT_ENTRY`，并且 Filter 仅用于匹配 `SUPPORT_ENTRY_CHARACTER`。该 Effect 只写入
