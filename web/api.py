@@ -1,8 +1,8 @@
 """Small same-origin API for the presentation contract.
 
-This module deliberately stops at preview in Stage-017-2.  Calculation request
-assembly is completed in Stage-017-3; returning an explicit diagnostic here is
-safer than exposing a partial second implementation.
+This module exposes the thin transport boundary. Calculation request assembly
+lives in ``calculation_adapter`` so HTTP parsing never becomes a second rules
+engine.
 """
 
 from __future__ import annotations
@@ -42,10 +42,7 @@ app = FastAPI(
 )
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_ASSET_ROOT = _PROJECT_ROOT / "asset"
 _FRONTEND_DIST = _PROJECT_ROOT / "frontend" / "dist"
-if _ASSET_ROOT.is_dir():
-    app.mount("/asset", StaticFiles(directory=_ASSET_ROOT), name="assets")
 
 
 @app.get("/api/v1/characters")
@@ -92,21 +89,26 @@ def preview_definition(payload: dict[str, Any] = Body(default={})) -> JSONRespon
 
 
 @app.post("/api/v1/moves/calculate")
-def calculate_move(_: dict[str, Any] = Body(default={})) -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content={
-            "schema_version": "presentation-v1",
-            "diagnostics": [
-                {
-                    "diagnostic_id": "api:calculate:stage-017-3",
-                    "kind": "unsupported-calculator",
-                    "message": "Move calculation request assembly is enabled in Stage-017-3",
-                    "blocking": True,
-                }
-            ],
-        },
-    )
+def calculate_move(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    try:
+        from .calculation_adapter import calculate_payload
+
+        return JSONResponse(content=calculate_payload(payload))
+    except (TypeError, ValueError, KeyError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "schema_version": "presentation-v1",
+                "diagnostics": [
+                    {
+                        "diagnostic_id": "api:calculate:invalid-request",
+                        "kind": "missing-data",
+                        "message": str(exc),
+                        "blocking": True,
+                    }
+                ],
+            },
+        )
 
 
 @app.get("/api/health")

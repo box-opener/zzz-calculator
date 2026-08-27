@@ -18,11 +18,18 @@ class CharacterBuildInput:
             raise ValueError("character build character_id is required")
         if not 1 <= self.level <= 60:
             raise ValueError("character build level must be between 1 and 60")
-        if any(
-            not isinstance(value, (int, float)) or not math.isfinite(float(value))
-            for value in self.out_of_combat_stats.values()
-        ):
-            raise ValueError("character build stats must be finite numbers")
+        for key, value in self.out_of_combat_stats.items():
+            if key == "element_damage_bonus":
+                if not isinstance(value, Mapping):
+                    raise ValueError("element_damage_bonus must be an object")
+                values = value.values()
+            else:
+                values = (value,)
+            if any(
+                not isinstance(item, (int, float)) or not math.isfinite(float(item))
+                for item in values
+            ):
+                raise ValueError("character build stats must be finite numbers")
 
 
 @dataclass(frozen=True, slots=True)
