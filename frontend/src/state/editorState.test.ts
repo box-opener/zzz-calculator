@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reconcileEditorState } from "./editorState";
+import { reconcileEditorState, resolveAuthoritativeConditionContext } from "./editorState";
 
 const previous = {
   conditionValues: { active: true },
@@ -47,5 +47,24 @@ describe("reconcileEditorState", () => {
       triggers: [{ input_id: "entry", actor_options: ["character:ye"], selected_actor: null }],
     }, ["character:ye"]);
     expect(next.triggerActors).toEqual({});
+  });
+});
+
+describe("resolveAuthoritativeConditionContext", () => {
+  it("uses the latest character value for static conditions", () => {
+    expect(resolveAuthoritativeConditionContext(
+      { mingxin: false, selected: true },
+      [
+        { condition_id: "mingxin", value: true, editable: false },
+        { condition_id: "selected", value: false, editable: true },
+      ],
+    )).toEqual({ mingxin: true, selected: true });
+  });
+
+  it("preserves user values and leaves equipment-only values intact", () => {
+    expect(resolveAuthoritativeConditionContext(
+      { selected: true, "wengine:active": true },
+      [{ condition_id: "selected", value: false, editable: true }],
+    )).toEqual({ selected: true, "wengine:active": true });
   });
 });

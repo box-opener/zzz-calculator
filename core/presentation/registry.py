@@ -17,10 +17,9 @@ from core.application.characters.ye_shunguang import (
     compile_ye_shunguang,
     load_raw_record as load_ye_raw_record,
 )
-from core.application.characters.ye_shunguang.compiler import MINGXIN_CONDITION_ID
 from core.application.characters.config import CharacterSkillLevel
 from core.types import CharacterId, CharacterRole, Element, SkillGroup
-from core.application.scenario import CalculationScenario, ConditionResolution, ScenarioCondition
+from core.application.scenario import CalculationScenario
 from core.application.equipment import compile_wengine, load_wengine_raw_record
 from core.types import WEngineBuildInput, WEngineId
 
@@ -421,6 +420,7 @@ def build_registered_wengine_editor_view(
     *,
     level: int = 60,
     refinement: int = 1,
+    condition_context: Mapping[str, bool | None] | None = None,
     condition_values: Mapping[str, bool | None] | None = None,
 ):
     """Build an editor view for a concrete W-Engine/owner instance."""
@@ -432,12 +432,20 @@ def build_registered_wengine_editor_view(
         raise ValueError("equipped W-Engine owner must be in team_character_ids")
     if len(set(team_ids)) != len(team_ids):
         raise ValueError("team_character_ids must be unique")
-    if condition_values is None:
+    if condition_context is not None and condition_values is not None:
+        if dict(condition_context) != dict(condition_values):
+            raise ValueError("condition_context and condition_values disagree")
+    supplied_context = (
+        condition_context
+        if condition_context is not None
+        else condition_values
+    )
+    if supplied_context is None:
         raw_values: Mapping[str, bool | None] = {}
-    elif not isinstance(condition_values, Mapping):
+    elif not isinstance(supplied_context, Mapping):
         raise ValueError("condition_values must be an object")
     else:
-        raw_values = condition_values
+        raw_values = supplied_context
     resolution = compile_wengine(
         WEngineBuildInput(
             WEngineId(str(wengine_id)),
@@ -453,7 +461,10 @@ def build_registered_wengine_editor_view(
         for condition_id, value in raw_values.items()
         if str(condition_id) in {str(item) for item in known_conditions}
     }
-    if any(value is not None and not isinstance(value, bool) for value in selected_values.values()):
+    if any(
+        value is not None and not isinstance(value, bool)
+        for value in raw_values.values()
+    ):
         raise ValueError("W-Engine scenario conditions must be boolean or null")
     conditions = tuple(
         condition
@@ -469,30 +480,13 @@ def build_registered_wengine_editor_view(
         current_operator=owner,
         conditions=conditions,
     )
-    external_conditions = []
-    if any(
-        MINGXIN_CONDITION_ID in rule.condition_ids
-        for rule in resolution.rule_items
-    ):
-        mingxin_value = raw_values.get(str(MINGXIN_CONDITION_ID))
-        if mingxin_value is not None and not isinstance(mingxin_value, bool):
-            raise ValueError("Mingxin scenario condition must be boolean or null")
-        external_conditions.append(
-            ScenarioCondition(
-                condition_id=MINGXIN_CONDITION_ID,
-                label="当前处于明心境",
-                original_text="叶瞬光进入明心境时开启以太帷幕",
-                resolution=ConditionResolution.USER_SELECTED,
-                value=mingxin_value,
-            )
-        )
     from .assembler import build_wengine_editor_view
 
     return build_wengine_editor_view(
         resolution,
         scenario=scenario,
         team_character_ids=team_ids,
-        condition_context=tuple(external_conditions),
+        condition_context=raw_values,
     )
 
 

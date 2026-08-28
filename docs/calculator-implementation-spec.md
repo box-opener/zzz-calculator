@@ -451,6 +451,8 @@ ID。音擎规则与角色规则共同进入同一个场景规则编辑器和
 `CalculationScenario.enabled_rule_item_ids`，前端不得因为装备存在而强制启用其效果。
 同一型号音擎装备到不同角色时，其实例级场景条件也必须保持独立，不能共享另一名装备者
 的触发状态。
+音擎编辑器预览接收的是角色编辑器本轮返回的已解析 `condition_context`；角色产生的
+STATIC 条件不得由音擎预览重复声明为 USER_SELECTED 条件。
 音擎来源的规则匹配/Modifier 追踪必须保留 `source_type=weapon`，以便与角色事件级
 加成和正式局内面板来源区分。
 

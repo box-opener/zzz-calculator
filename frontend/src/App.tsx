@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { teamReducer } from "./state/teamReducer";
-import { reconcileEditorState, type EditorState } from "./state/editorState";
+import {
+  reconcileEditorState,
+  resolveAuthoritativeConditionContext,
+  type EditorState,
+} from "./state/editorState";
 
 type Character = {
   character_id: string;
@@ -213,12 +217,21 @@ function App() {
     setLoading(true);
     try {
       const nextTeam = [nextPrimary, ...(nextSupport ? [nextSupport] : [])];
-      const [main, support, ...nextWengineViews] = await Promise.all([
+      const [main, support] = await Promise.all([
         jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextPrimary, team_character_ids: [nextPrimary, ...(nextSupport ? [nextSupport] : [])], condition_values: conditionSource, compile_config: configSource[nextPrimary] ?? {} }) }),
         nextSupport
           ? jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextSupport, team_character_ids: [nextPrimary, nextSupport], condition_values: conditionSource, compile_config: configSource[nextSupport] ?? {} }) })
           : Promise.resolve(null),
-        ...nextTeam.map((owner) => {
+      ]);
+      const authoritativeConditionContext = resolveAuthoritativeConditionContext(
+        conditionSource,
+        [
+          ...main.scenario_conditions,
+          ...(support?.scenario_conditions ?? []),
+        ],
+      );
+      const nextWengineViews = await Promise.all(
+        nextTeam.map((owner) => {
           const selection = wengineSource[owner];
           if (!selection?.id || (buildModesSource[owner] ?? "manual-panel") !== "equipment-build") {
             return Promise.resolve(null);
@@ -231,11 +244,11 @@ function App() {
               team_character_ids: nextTeam,
               level: selection.level,
               refinement: selection.refinement,
-              condition_values: conditionSource,
+              condition_context: authoritativeConditionContext,
             }),
           });
         }),
-      ]);
+      );
       setPrimaryView(main);
       setSupportView(support);
       setWengineViews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextWengineViews[index] ?? null])));
@@ -256,7 +269,7 @@ function App() {
       setConfigs(nextConfigs);
       const reconciled = reconcileEditorState(
         {
-          conditionValues,
+          conditionValues: authoritativeConditionContext,
           parameterValues,
           enabledRules,
           disabledRules,

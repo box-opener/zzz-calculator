@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
 
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.execution.contracts import MoveCalculationExecution
@@ -11,7 +10,7 @@ from core.application.equipment.wengine import WEngineBuildResolution
 from core.application.ids import DamageEventSemanticId
 from core.application.output import CritDisplayMode
 from core.application.rules import CalculationRuleItem, RuleEligibility
-from core.application.scenario import CalculationScenario, ScenarioCondition
+from core.application.scenario import CalculationScenario
 from core.types import (
     BattleEventKind,
     CharacterId,
@@ -54,7 +53,7 @@ def build_wengine_editor_view(
     resolution: WEngineBuildResolution,
     scenario: CalculationScenario | None = None,
     team_character_ids: Sequence[CharacterId] = (),
-    condition_context: Sequence[ScenarioCondition] = (),
+    condition_context: Mapping[str, bool | None] | None = None,
 ) -> WEngineEditorView:
     """Expose one owner-qualified W-Engine instance to the editor.
 
@@ -72,14 +71,7 @@ def build_wengine_editor_view(
         selected_conditions.get(item.condition_id, item)
         for item in resolution.scenario_conditions
     )
-    rule_scenario = (
-        replace(
-            scenario,
-            conditions=(*scenario.conditions, *condition_context),
-        )
-        if scenario is not None and condition_context
-        else scenario
-    )
+    resolved_context = dict(condition_context or {})
     return WEngineEditorView(
         schema_version=SCHEMA_VERSION,
         wengine_id=str(resolution.raw.wengine_id),
@@ -90,8 +82,9 @@ def build_wengine_editor_view(
         rule_items=tuple(
             _rule_view(
                 rule,
-                rule_scenario,
-                (*resolution.scenario_conditions, *condition_context),
+                scenario,
+                resolution.scenario_conditions,
+                condition_values=resolved_context,
             )
             for rule in resolution.rule_items
         ),
@@ -407,17 +400,20 @@ def _rule_view(
     rule: CalculationRuleItem,
     scenario: CalculationScenario | None,
     definition_conditions,
+    *,
+    condition_values: Mapping[str, bool | None] | None = None,
 ) -> RuleItemView:
     values = {
-        item.condition_id: item.value
+        str(item.condition_id): item.value
         for item in (scenario.conditions if scenario else definition_conditions)
     }
+    values.update({str(key): value for key, value in (condition_values or {}).items()})
     availability = "available"
     if rule.eligibility is RuleEligibility.INELIGIBLE:
         availability = "unavailable"
-    elif any(values.get(condition) is False for condition in rule.condition_ids):
+    elif any(values.get(str(condition)) is False for condition in rule.condition_ids):
         availability = "unavailable"
-    elif any(values.get(condition) is None for condition in rule.condition_ids):
+    elif any(values.get(str(condition)) is None for condition in rule.condition_ids):
         availability = "blocked"
     elif any(item.blocking for item in rule.diagnostics):
         availability = "blocked"

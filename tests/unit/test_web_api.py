@@ -114,6 +114,36 @@ def test_wengine_preview_exposes_owner_qualified_rules_for_the_editor() -> None:
     assert payload["scenario_conditions"][0]["editable"] is True
 
 
+def test_wengine_preview_uses_resolved_external_static_condition_context() -> None:
+    def preview(value: bool):
+        return client.post(
+            "/api/v1/wengines/preview",
+            json={
+                "wengine_id": "wengine:14143",
+                "equipped_character_id": "character:1431",
+                "team_character_ids": ["character:1431"],
+                "condition_context": {
+                    "condition:ye:mingxin-active": value,
+                },
+            },
+        ).json()
+
+    active = preview(True)
+    inactive = preview(False)
+    active_veil = next(
+        item for item in active["rule_items"] if item["rule_id"].endswith(":veil")
+    )
+    inactive_veil = next(
+        item for item in inactive["rule_items"] if item["rule_id"].endswith(":veil")
+    )
+    assert active_veil["availability"] == "available"
+    assert inactive_veil["availability"] == "unavailable"
+    assert all(
+        item["condition_id"] != "condition:ye:mingxin-active"
+        for item in active["scenario_conditions"]
+    )
+
+
 def test_definition_preview_returns_versioned_editor_view() -> None:
     response = client.post(
         "/api/v1/definitions/preview",

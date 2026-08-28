@@ -13,6 +13,24 @@ type ConditionView = {
   editable: boolean;
 };
 
+/**
+ * Merge the current user selections with the conditions returned by the
+ * authoritative character editor previews.  Static conditions always come
+ * from the latest character response; user-selected values are preserved.
+ */
+export function resolveAuthoritativeConditionContext(
+  previous: Record<string, boolean | null>,
+  characterConditions: ConditionView[],
+): Record<string, boolean | null> {
+  const resolved = { ...previous };
+  for (const condition of characterConditions) {
+    if (!condition.editable || !(condition.condition_id in resolved)) {
+      resolved[condition.condition_id] = condition.value;
+    }
+  }
+  return resolved;
+}
+
 type ParameterView = {
   parameter_id: string;
   value: number | null;

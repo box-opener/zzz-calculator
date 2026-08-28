@@ -61,16 +61,25 @@ def preview_wengine(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
         team_values = payload.get("team_character_ids", [equipped_character_id])
         if not isinstance(team_values, (list, tuple)):
             raise ValueError("team_character_ids must be an array")
-        condition_values = payload.get("condition_values", {})
-        if not isinstance(condition_values, dict):
-            raise ValueError("condition_values must be an object")
+        if (
+            "condition_context" in payload
+            and "condition_values" in payload
+            and payload["condition_context"] != payload["condition_values"]
+        ):
+            raise ValueError("condition_context and condition_values disagree")
+        condition_context = payload.get(
+            "condition_context",
+            payload.get("condition_values", {}),
+        )
+        if not isinstance(condition_context, dict):
+            raise ValueError("condition_context must be an object")
         view = build_registered_wengine_editor_view(
             wengine_id,
             equipped_character_id,
             tuple(CharacterId(str(item)) for item in team_values),
             level=int(payload.get("level", 60)),
             refinement=int(payload.get("refinement", 1)),
-            condition_values=condition_values,
+            condition_context=condition_context,
         )
         return JSONResponse(to_jsonable(view))
     except (TypeError, ValueError, KeyError) as exc:
