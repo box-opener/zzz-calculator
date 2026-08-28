@@ -70,6 +70,14 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     )
     if not team_ids or len(set(team_ids)) != len(team_ids):
         raise ValueError("team_character_ids must be a non-empty unique array")
+    expected_team_ids = (primary.character_id, *tuple(
+        CharacterId(str(item))
+        for item in payload.get("supporting_character_ids", ())
+    ))
+    if team_ids != expected_team_ids:
+        raise ValueError(
+            "team_character_ids must exactly equal primary plus supporting character IDs"
+        )
     for character_id in team_ids:
         registration_for(character_id)
     definition_ids = {definition.character_id for definition in definitions}
@@ -173,6 +181,13 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
         raise ValueError("primary_character_id is required")
     supporting_ids = tuple(str(item) for item in payload.get("supporting_character_ids", ()))
     team_ids = (primary_id, *supporting_ids)
+    supplied_team_ids = payload.get("team_character_ids")
+    if not isinstance(supplied_team_ids, (list, tuple)):
+        raise ValueError("team_character_ids is required")
+    if tuple(str(item) for item in supplied_team_ids) != team_ids:
+        raise ValueError(
+            "team_character_ids must exactly equal primary plus supporting character IDs"
+        )
     raw_builds = payload.get("character_builds")
     if not isinstance(raw_builds, Mapping):
         raise ValueError("character_builds must be an object keyed by character ID")
@@ -259,6 +274,10 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
     )
     if len(selected_inputs) != len(selected):
         raise ValueError("selected trigger input must be an object")
+    if any(item.actor_id is None or not item.actor_id.strip() for item in selected_inputs):
+        raise ValueError(
+            "an unspecified trigger must be omitted instead of sending an empty actor"
+        )
     selected_conditions = payload.get("condition_values", {})
     selected_parameters = payload.get("parameter_values", {})
     if not isinstance(selected_conditions, Mapping) or not isinstance(selected_parameters, Mapping):

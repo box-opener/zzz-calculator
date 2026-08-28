@@ -256,3 +256,28 @@ def test_skill_level_and_integer_parameter_inputs_reach_compiler_and_scenario() 
         and abs(item["value"] - 2.558) < 1e-9
         for item in event["modes"]["expected"]["calculation_breakdown"]
     )
+
+
+def test_team_ids_must_match_compiled_primary_and_supporting_definitions() -> None:
+    payload = _valid_calculation_payload()
+    payload["supporting_character_ids"] = ["character:1311"]
+    payload["compile_configs"]["character:1311"] = {
+        "core_level": 1,
+        "cinema_level": 0,
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 400
+    assert "exactly equal" in response.json()["diagnostics"][0]["message"]
+
+
+def test_unspecified_trigger_is_omitted_not_encoded_as_empty_actor() -> None:
+    payload = _valid_calculation_payload()
+    payload["selected_trigger_inputs"] = [
+        {
+            "input_id": "scenario-trigger:effect:test:actor",
+            "actor_id": "",
+        }
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 400
+    assert "unspecified trigger" in response.json()["diagnostics"][0]["message"]

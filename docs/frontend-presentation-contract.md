@@ -34,6 +34,11 @@ the scenario operator. The browser does not submit an independent operator
 identity. Character and enemy calculation inputs are explicit; API requests do
 not silently substitute demonstration defaults for missing formal values.
 
+Refreshing a Definition after a compile-config change reconciles existing user
+choices by stable ID. Valid condition values, parameter values, rule enable/
+disable choices, trigger actors, and stack counts are retained; newly exposed
+controls use server defaults; removed or out-of-bounds choices are pruned.
+
 ## Output ownership
 
 Presentation output is versioned as `presentation-v1`. Three crit-display

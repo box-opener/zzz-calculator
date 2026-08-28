@@ -36,6 +36,7 @@ from core.presentation import (
     compile_registered_definition,
     config_fields_for,
 )
+from core.presentation.calculation import panel_snapshot_view
 from core.presentation.serialization import to_jsonable
 from core.types import (
     CharacterId,
@@ -235,3 +236,6 @@ def test_panel_application_emits_recipient_provenance() -> None:
     assert len(result.panel_traces) == 1
     assert result.panel_traces[0].recipient_character_id == owner
     assert result.panel_traces[0].resolved_value == 120.0
+    assert panel_snapshot_view(result.character_snapshots[0]).stats["element_damage_bonus"] == {
+        "physical": 0.0,
+    }

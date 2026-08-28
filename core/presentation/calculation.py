@@ -68,7 +68,7 @@ class EventTraceView:
 class PanelSnapshotView:
     character_id: str
     level: int
-    stats: dict[str, float | None]
+    stats: dict[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,11 +247,25 @@ def panel_snapshot_view(snapshot: CharacterSnapshot) -> PanelSnapshotView:
         "penetration_rate": stats.penetration_rate,
         "penetration_flat": stats.penetration_flat,
         "energy_regen": stats.energy_regen,
+        "element_damage_bonus": {
+            element.value: value
+            for element, value in stats.element_damage_bonus.items()
+        },
     }
     return PanelSnapshotView(
         character_id=str(snapshot.character_id),
         level=snapshot.level,
-        stats={key: _resolvable_view(value)[0] for key, value in values.items()},
+        stats={
+            key: (
+                {
+                    element: _resolvable_view(item)[0]
+                    for element, item in value.items()
+                }
+                if isinstance(value, dict)
+                else _resolvable_view(value)[0]
+            )
+            for key, value in values.items()
+        },
     )
 
 
