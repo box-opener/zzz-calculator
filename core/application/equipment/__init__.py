@@ -12,7 +12,7 @@ from .wengine_reviewed import (
     WENGINE_REVIEWED_MAPPINGS,
     reviewed_mapping_for,
 )
-from .wengine import YE_MINGXIN_CONDITION_ID
+from .wengine import ASTRA_DAMAGE_BUFF_CONDITION_ID, YE_MINGXIN_CONDITION_ID, astra_damage_buff_condition_id_for
 
 __all__ = [
     "WEngineBuildResolution",
@@ -23,5 +23,7 @@ __all__ = [
     "WEngineReviewedMapping",
     "WENGINE_REVIEWED_MAPPINGS",
     "reviewed_mapping_for",
+    "ASTRA_DAMAGE_BUFF_CONDITION_ID",
+    "astra_damage_buff_condition_id_for",
     "YE_MINGXIN_CONDITION_ID",
 ]

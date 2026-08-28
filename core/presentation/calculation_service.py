@@ -203,11 +203,38 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             for effect in rule.effects
         }
     )
+    source_types = {
+        str(rule.rule_id): rule.source.source_type.value
+        for definition in definitions
+        for rule in definition.rule_items
+    }
+    source_types.update(
+        {
+            str(rule.rule_id): rule.source.source_type.value
+            for rule in additional_rule_items
+        }
+    )
+    source_types.update(
+        {
+            str(effect.rule.effect_id): effect.rule.source.source_type.value
+            for definition in definitions
+            for rule in definition.rule_items
+            for effect in rule.effects
+        }
+    )
+    source_types.update(
+        {
+            str(effect.rule.effect_id): effect.rule.source.source_type.value
+            for rule in additional_rule_items
+            for effect in rule.effects
+        }
+    )
     return to_jsonable(
         build_move_calculation_view(
             executions,
             source_labels,
             build_provenance=build_provenance,
+            source_types=source_types,
         )
     )
 
@@ -391,15 +418,19 @@ def _build_records(
         registration = registration_for(character_id)
         if build.build_mode is BuildMode.MANUAL_PANEL:
             stats = _character_stats(build.out_of_combat_stats, character_id)
+            resolved_build = assemble_build(
+                CharacterBuildDefinition(
+                    character_id=character_id,
+                    level=build.level,
+                    mode=BuildMode.MANUAL_PANEL,
+                    manual_panel_stats=stats,
+                )
+            )
             records.append(
                 _BuiltCharacterRecord(
-                    snapshot=CharacterSnapshot(character_id, build.level, stats),
-                    initial_snapshot=InitialCharacterSnapshot(
-                        character_id,
-                        build.level,
-                        stats,
-                    ),
-                    provenance=(),
+                    snapshot=resolved_build.character_snapshot,
+                    initial_snapshot=resolved_build.initial_snapshot,
+                    provenance=resolved_build.provenance,
                 )
             )
             continue

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.execution.contracts import MoveCalculationExecution
+from core.application.equipment.wengine import WEngineBuildResolution
 from core.application.ids import DamageEventSemanticId
 from core.application.output import CritDisplayMode
 from core.application.rules import CalculationRuleItem, RuleEligibility
-from core.application.scenario import CalculationScenario
+from core.application.scenario import CalculationScenario, ScenarioCondition
 from core.types import (
     BattleEventKind,
     CharacterId,
@@ -40,11 +42,72 @@ from .character_editor import (
     ScenarioConditionView,
     ScenarioParameterView,
     ScenarioTriggerInputView,
+    WEngineEditorView,
 )
 from .diagnostics import DiagnosticView, diagnostic_view
 
 
 SCHEMA_VERSION = "presentation-v1"
+
+
+def build_wengine_editor_view(
+    resolution: WEngineBuildResolution,
+    scenario: CalculationScenario | None = None,
+    team_character_ids: Sequence[CharacterId] = (),
+    condition_context: Sequence[ScenarioCondition] = (),
+) -> WEngineEditorView:
+    """Expose one owner-qualified W-Engine instance to the editor.
+
+    The catalog intentionally contains only model metadata.  This view is
+    assembled after an owner, refinement, and level are known, so every rule
+    and condition ID belongs to the concrete equipment instance.
+    """
+
+    selected_conditions = (
+        {item.condition_id: item for item in scenario.conditions}
+        if scenario
+        else {}
+    )
+    scenario_conditions = tuple(
+        selected_conditions.get(item.condition_id, item)
+        for item in resolution.scenario_conditions
+    )
+    rule_scenario = (
+        replace(
+            scenario,
+            conditions=(*scenario.conditions, *condition_context),
+        )
+        if scenario is not None and condition_context
+        else scenario
+    )
+    return WEngineEditorView(
+        schema_version=SCHEMA_VERSION,
+        wengine_id=str(resolution.raw.wengine_id),
+        equipped_character_id=str(resolution.build_input.equipped_character_id),
+        display_name=resolution.raw.name,
+        rarity=resolution.raw.rarity,
+        specialty=resolution.raw.specialty.value,
+        rule_items=tuple(
+            _rule_view(
+                rule,
+                rule_scenario,
+                (*resolution.scenario_conditions, *condition_context),
+            )
+            for rule in resolution.rule_items
+        ),
+        scenario_conditions=tuple(
+            ScenarioConditionView(
+                condition_id=str(item.condition_id),
+                label=item.label,
+                resolution=item.resolution.value,
+                value=item.value,
+                editable=item.resolution.value == "user-selected",
+                original_text=item.original_text,
+            )
+            for item in scenario_conditions
+        ),
+        diagnostics=tuple(diagnostic_view(item) for item in resolution.diagnostics),
+    )
 
 
 def build_character_editor_view(
@@ -132,6 +195,8 @@ def build_move_calculation_view(
     executions: Mapping[CritDisplayMode, MoveCalculationExecution],
     source_labels: Mapping[str, str] | None = None,
     build_provenance=(),
+    *,
+    source_types: Mapping[str, str] | None = None,
 ) -> CalculationView:
     """Align three application executions by semantic event ID."""
 
@@ -201,6 +266,7 @@ def build_move_calculation_view(
                     if trace.semantic_id == semantic_id
                     ),
                     source_labels=dict(source_labels or {}),
+                    source_types=dict(source_types or {}),
                 )
             for mode in required_modes
         )
@@ -253,6 +319,7 @@ def build_move_calculation_view(
             operation=item.operation.value,
             resolved_value=item.resolved_value,
             stack_count=item.stack_count,
+            source_type=(source_types or {}).get(str(item.effect_id)),
         )
         for item in expected.panel_traces
     )

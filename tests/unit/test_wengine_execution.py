@@ -24,6 +24,9 @@ from core.application.equipment.wengine import (
     YE_VEIL_ACTIVE_CONDITION_ID,
 )
 from core.application.execution import calculate_move
+from core.application.matching import EffectMatchContext, EffectMatcher
+from core.application.execution.event_factory import instantiate_direct_damage_event
+from core.application.matching import EffectMatchStatus
 from core.data.loader import load_character_record
 from core.types import (
     BattleStateId,
@@ -35,9 +38,11 @@ from core.types import (
     Element,
     EnemyId,
     EnemySnapshot,
+    FixedMultiplier,
     InitialCharacterSnapshot,
     Resolved,
     WEngineBuildInput,
+    CalculationContext,
 )
 
 
@@ -170,6 +175,56 @@ def test_ye_signature_resistance_ignore_matches_physical_and_linren() -> None:
     assert resistance.value == Resolved(0.20)
 
 
+def test_ye_signature_resistance_ignore_requires_equipped_damage_dealer() -> None:
+    definition = _ye_definition()
+    weapon = compile_wengine(
+        WEngineBuildInput(WENGINE_YE_ID, YE_ID),
+        equipped_character_role=CharacterRole.ATTACK,
+    )
+    request = _request(
+        definition,
+        additional_rule_items=(weapon.rule_items[0],),
+        additional_scenario_conditions=weapon.scenario_conditions,
+        team_snapshots=(
+            CharacterSnapshot(YE_ID, 60, _stats()),
+            CharacterSnapshot(ASTRA_ID, 60, _stats(800.0)),
+        ),
+    )
+    template = next(
+        item for item in definition.damage_event_templates
+        if item.ref.template_id == request.definition.move_entries[0].main_damage_event.template_id
+    )
+    instantiated = instantiate_direct_damage_event(
+        template,
+        FixedMultiplier(Resolved(1.0)),
+        battle_state_id=request.battle_state_id,
+        target_enemy=request.target_snapshot.enemy_id,
+        created_at=request.battle_time,
+    )
+    teammate_event = replace(
+        instantiated.event,
+        metadata=replace(instantiated.event.metadata, damage_dealer=ASTRA_ID),
+    )
+    context = CalculationContext(
+        event=teammate_event,
+        battle_state_id=request.battle_state_id,
+        character_snapshots=request.base_character_snapshots,
+        target_snapshot=request.target_snapshot,
+    )
+    match = EffectMatcher().match_rule_item(
+        weapon.rule_items[0],
+        EffectMatchContext(
+            current_event=teammate_event,
+            calculation_context=context,
+            scenario=request.scenario,
+            team=request.team_profiles,
+            target=request.target_profile,
+        ),
+    )
+
+    assert match.status is EffectMatchStatus.NOT_MATCHED
+
+
 def test_ye_signature_veil_adds_damage_and_crit_damage_only_when_selected() -> None:
     definition = _ye_definition()
     weapon = compile_wengine(
@@ -190,9 +245,12 @@ def test_ye_signature_veil_adds_damage_and_crit_damage_only_when_selected() -> N
     assert {
         item.modifier_path for item in trace.applied_modifiers
     } == {CalculationNode.DAMAGE_NORMAL_BONUS}
-    assert {
-        item.modifier_path for item in trace.event_stat_modifiers
-    } == {CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE}
+    assert trace.event_stat_modifiers == ()
+    assert any(
+        item.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE
+        and item.resolved_value == 0.25
+        for item in execution.panel_traces
+    )
     crit_damage = execution.output.events[0].result.breakdown
     assert any(
         item.node is CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE

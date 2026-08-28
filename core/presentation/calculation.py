@@ -34,6 +34,7 @@ class ModifierView:
     value: float | None
     unresolved: str | None = None
     recipient_character_id: str | None = None
+    source_type: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ class EffectMatchView:
     source_label: str | None
     status: str
     diagnostics: tuple[DiagnosticView, ...]
+    source_type: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +53,7 @@ class RuleMatchView:
     status: str
     effects: tuple[EffectMatchView, ...]
     diagnostics: tuple[DiagnosticView, ...]
+    source_type: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +85,7 @@ class PanelTraceView:
     operation: str
     resolved_value: float
     stack_count: int
+    source_type: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +160,7 @@ def modifier_view(
     *,
     recipient_character_id: str | None = None,
     source_labels: dict[str, str] | None = None,
+    source_types: dict[str, str] | None = None,
 ) -> ModifierView:
     numeric, unresolved = _resolvable_view(modifier.value)
     return ModifierView(
@@ -166,12 +171,14 @@ def modifier_view(
         value=numeric,
         unresolved=unresolved,
         recipient_character_id=recipient_character_id,
+        source_type=(source_types or {}).get(str(modifier.effect_id)),
     )
 
 
 def event_trace_view(
     trace: DamageEventExecutionTrace,
     source_labels: dict[str, str] | None = None,
+    source_types: dict[str, str] | None = None,
 ) -> EventTraceView:
     return EventTraceView(
         semantic_id=str(trace.semantic_id),
@@ -196,6 +203,7 @@ def event_trace_view(
                             )
                             for item in effect.diagnostics
                         ),
+                        source_type=(source_types or {}).get(str(effect.effect_id)),
                     )
                     for effect in match.effects
                 ),
@@ -210,11 +218,16 @@ def event_trace_view(
                     )
                     for item in match.diagnostics
                 ),
+                source_type=(source_types or {}).get(str(match.rule_id)),
             )
             for match in trace.rule_matches
         ),
         applied_modifiers=tuple(
-            modifier_view(item, source_labels=source_labels)
+            modifier_view(
+                item,
+                source_labels=source_labels,
+                source_types=source_types,
+            )
             for item in trace.applied_modifiers
         ),
         event_stat_modifiers=tuple(
@@ -222,11 +235,16 @@ def event_trace_view(
                 item.as_modifier(),
                 recipient_character_id=str(item.recipient),
                 source_labels=source_labels,
+                source_types=source_types,
             )
             for item in trace.event_stat_modifiers
         ),
         event_multiplier_modifiers=tuple(
-            modifier_view(item, source_labels=source_labels)
+            modifier_view(
+                item,
+                source_labels=source_labels,
+                source_types=source_types,
+            )
             for item in trace.event_multiplier_modifiers
         ),
         created_by_effect_id=(

@@ -34,9 +34,6 @@ class WEngineCatalogItem:
     specialty: str
     icon_key: str
     signature_character_id: str | None = None
-    rule_item_ids: tuple[str, ...] = ()
-    scenario_condition_ids: tuple[str, ...] = ()
-    stack_rule_item_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.wengine_id.strip() or not self.display_name.strip():
@@ -53,12 +50,10 @@ def supported_character_catalog() -> tuple[CharacterCatalogItem, ...]:
 
 def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:
     from core.application.equipment import (
-        compile_wengine,
         load_wengine_raw_record,
         signature_wengine_id_for,
     )
     from core.application.equipment.wengine import ASTRA_ID, YE_ID
-    from core.types import WEngineBuildInput
 
     signature_characters = {
         signature_wengine_id_for(ASTRA_ID): ASTRA_ID,
@@ -68,13 +63,6 @@ def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:
     for wengine_id in ("wengine:14131", "wengine:14143"):
         raw = load_wengine_raw_record(wengine_id)
         signature_character_id = signature_characters[wengine_id]
-        resolution = compile_wengine(
-            WEngineBuildInput(
-                raw.wengine_id,
-                signature_character_id,
-            ),
-            equipped_character_role=raw.specialty,
-        )
         items.append(
             WEngineCatalogItem(
                 wengine_id=wengine_id,
@@ -83,16 +71,6 @@ def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:
                 specialty=raw.specialty.value,
                 icon_key=raw.icon,
                 signature_character_id=str(signature_character_id),
-                rule_item_ids=tuple(str(item.rule_id) for item in resolution.rule_items),
-                scenario_condition_ids=tuple(
-                    str(item.condition_id)
-                    for item in resolution.scenario_conditions
-                ),
-                stack_rule_item_ids=tuple(
-                    str(item.rule_id)
-                    for item in resolution.rule_items
-                    if item.stack_count is not None
-                ),
             )
         )
     return tuple(items)

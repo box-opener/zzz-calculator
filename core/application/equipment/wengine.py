@@ -44,7 +44,7 @@ from .wengine_reviewed import reviewed_mapping_for
 
 
 ASTRA_DAMAGE_BUFF_CONDITION_ID = ScenarioConditionId(
-    "condition:wengine:14131:damage-buff-active"
+    "condition:wengine:14131:owner:1311:damage-buff-active"
 )
 YE_MINGXIN_CONDITION_ID = ScenarioConditionId(
     "condition:ye:mingxin-active"
@@ -193,6 +193,14 @@ def signature_wengine_id_for(character_id: CharacterId) -> WEngineId:
         ) from exc
 
 
+def astra_damage_buff_condition_id_for(owner: CharacterId) -> ScenarioConditionId:
+    """Return the condition identity for one equipped Elegant Vanity instance."""
+
+    return ScenarioConditionId(
+        f"condition:wengine:14131:owner:{_owner_token(owner)}:damage-buff-active"
+    )
+
+
 def _static_contributions(
     raw: WEngineRawRecord,
     build_input: WEngineBuildInput,
@@ -204,7 +212,10 @@ def _static_contributions(
     )
     contributions = [
         BuildStatContribution(
-            contribution_id=f"{raw.wengine_id}:base-attack",
+            contribution_id=(
+                f"{raw.wengine_id}:owner:{_owner_token(build_input.equipped_character_id)}"
+                ":base-attack"
+            ),
             source=source,
             stat=CharacterStat.ATTACK,
             layer=BuildContributionLayer.WHITE_VALUE,
@@ -214,7 +225,10 @@ def _static_contributions(
     stat, layer = _advanced_stat(raw)
     contributions.append(
         BuildStatContribution(
-            contribution_id=f"{raw.wengine_id}:advanced-stat",
+            contribution_id=(
+                f"{raw.wengine_id}:owner:{_owner_token(build_input.equipped_character_id)}"
+                ":advanced-stat"
+            ),
             source=source,
             stat=stat,
             layer=layer,
@@ -249,9 +263,19 @@ def _reviewed_rules(
     if effect_family == "ye-cloudcleave-radiance":
         return _ye_rules(raw, build_input, talent, source, eligibility), ()
     if effect_family == "astra-elegant-vanity":
-        return _astra_rules(raw, build_input, talent, source, eligibility), (
+        condition_id = astra_damage_buff_condition_id_for(
+            build_input.equipped_character_id
+        )
+        return _astra_rules(
+            raw,
+            build_input,
+            talent,
+            source,
+            eligibility,
+            condition_id,
+        ), (
             ScenarioCondition(
-                condition_id=ASTRA_DAMAGE_BUFF_CONDITION_ID,
+                condition_id=condition_id,
                 label="玲珑妆匣增伤已触发",
                 original_text="装备者消耗25点或以上能量时",
                 resolution=ConditionResolution.USER_SELECTED,
@@ -278,11 +302,14 @@ def _ye_rules(
     )
     resistance_effect = ModifierEffect(
         rule=_effect_rule(
-            effect_id=f"effect:{raw.wengine_id}:resistance-ignore",
+            effect_id=_instance_effect_id(
+                raw.wengine_id, owner, "resistance-ignore"
+            ),
             source=source,
             owner=owner,
             target=EffectTarget.SELF,
             filters=(physical_scope,),
+            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
         ),
         result=ModifierResult(
             modifier_path=CalculationNode.DAMAGE_RESISTANCE_IGNORE,
@@ -292,7 +319,7 @@ def _ye_rules(
     )
     veil_damage_effect = ModifierEffect(
         rule=_effect_rule(
-            effect_id=f"effect:{raw.wengine_id}:veil-damage",
+            effect_id=_instance_effect_id(raw.wengine_id, owner, "veil-damage"),
             source=source,
             owner=owner,
             target=EffectTarget.SELF,
@@ -306,11 +333,12 @@ def _ye_rules(
     )
     veil_crit_effect = ModifierEffect(
         rule=_effect_rule(
-            effect_id=f"effect:{raw.wengine_id}:veil-crit-damage",
+            effect_id=_instance_effect_id(
+                raw.wengine_id, owner, "veil-crit-damage"
+            ),
             source=source,
             owner=owner,
             target=EffectTarget.SELF,
-            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
         ),
         result=ModifierResult(
             modifier_path=CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
@@ -321,7 +349,7 @@ def _ye_rules(
     # The veil condition reuses Ye's existing MINGXIN scenario condition.  It
     # is deliberately not a second W-Engine-specific state value.
     veil_rule = CalculationRuleItem(
-        rule_id=RuleItemId(f"rule:{raw.wengine_id}:veil"),
+        rule_id=RuleItemId(_instance_rule_id(raw.wengine_id, owner, "veil")),
         owner=owner,
         source=source,
         display_name=f"{raw.name}·以太帷幕效果",
@@ -331,7 +359,9 @@ def _ye_rules(
         effects=(veil_damage_effect, veil_crit_effect),
     )
     resistance_rule = CalculationRuleItem(
-        rule_id=RuleItemId(f"rule:{raw.wengine_id}:resistance-ignore"),
+        rule_id=RuleItemId(
+            _instance_rule_id(raw.wengine_id, owner, "resistance-ignore")
+        ),
         owner=owner,
         source=source,
         display_name=f"{raw.name}·物理抗性无视",
@@ -348,10 +378,15 @@ def _astra_rules(
     talent: WEngineRawTalent,
     source: RuleSource,
     eligibility: RuleEligibility,
+    condition_id: ScenarioConditionId,
 ) -> tuple[CalculationRuleItem, ...]:
     effect = ModifierEffect(
         rule=_effect_rule(
-            effect_id=f"effect:{raw.wengine_id}:team-damage",
+            effect_id=_instance_effect_id(
+                raw.wengine_id,
+                build_input.equipped_character_id,
+                "team-damage",
+            ),
             source=source,
             owner=build_input.equipped_character_id,
             target=EffectTarget.TEAM,
@@ -364,13 +399,19 @@ def _astra_rules(
     )
     return (
         CalculationRuleItem(
-            rule_id=RuleItemId(f"rule:{raw.wengine_id}:team-damage"),
+            rule_id=RuleItemId(
+                _instance_rule_id(
+                    raw.wengine_id,
+                    build_input.equipped_character_id,
+                    "team-damage",
+                )
+            ),
             owner=build_input.equipped_character_id,
             source=source,
             display_name=f"{raw.name}·全队增伤",
             original_text=talent.text,
             eligibility=eligibility,
-            condition_ids=(ASTRA_DAMAGE_BUFF_CONDITION_ID,),
+            condition_ids=(condition_id,),
             effects=(effect,),
             stack_count=int(talent.numeric_values["max_stacks"]),
             stack_min=0,
@@ -397,6 +438,28 @@ def _effect_rule(
         condition=condition,
         filters=filters,
     )
+
+
+def _owner_token(owner: CharacterId) -> str:
+    """Return a stable compact owner token for instantiated equipment IDs."""
+
+    return str(owner).rsplit(":", 1)[-1]
+
+
+def _instance_rule_id(
+    wengine_id: WEngineId,
+    owner: CharacterId,
+    suffix: str,
+) -> str:
+    return f"rule:{wengine_id}:owner:{_owner_token(owner)}:{suffix}"
+
+
+def _instance_effect_id(
+    wengine_id: WEngineId,
+    owner: CharacterId,
+    suffix: str,
+) -> str:
+    return f"effect:{wengine_id}:owner:{_owner_token(owner)}:{suffix}"
 
 
 def _role(value: str) -> CharacterRole:
@@ -426,6 +489,7 @@ def _diagnostic(
 
 __all__ = [
     "ASTRA_DAMAGE_BUFF_CONDITION_ID",
+    "astra_damage_buff_condition_id_for",
     "ASTRA_ID",
     "SIGNATURE_WENGINE_BY_CHARACTER",
     "WENGINE_ASTRA_ID",

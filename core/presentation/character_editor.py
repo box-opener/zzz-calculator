@@ -112,6 +112,27 @@ class CharacterEditorView:
     diagnostics: tuple[DiagnosticView, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class WEngineEditorView:
+    """Editor contract for one equipped W-Engine instance.
+
+    Rule and condition IDs are instance IDs produced for the equipped owner;
+    they must never be stored on the model-level catalog item.
+    """
+
+    schema_version: str
+    wengine_id: str
+    equipped_character_id: str
+    display_name: str
+    rarity: str
+    specialty: str
+    rule_items: tuple[RuleItemView, ...]
+    scenario_conditions: tuple[ScenarioConditionView, ...]
+    scenario_parameters: tuple[ScenarioParameterView, ...] = ()
+    scenario_trigger_inputs: tuple[ScenarioTriggerInputView, ...] = ()
+    diagnostics: tuple[DiagnosticView, ...] = ()
+
+
 __all__ = [
     "CharacterEditorView",
     "CompileConfigFieldView",
@@ -122,4 +143,5 @@ __all__ = [
     "ScenarioConditionView",
     "ScenarioParameterView",
     "ScenarioTriggerInputView",
+    "WEngineEditorView",
 ]

@@ -807,21 +807,44 @@ def _apply_panel_effects(
                 )
             )
             continue
-        if effect.result.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
-            current = updated_stats.crit_rate
+        if effect.result.modifier_path in {
+            CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+        }:
+            is_crit_rate = (
+                effect.result.modifier_path
+                is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
+            )
+            current = updated_stats.crit_rate if is_crit_rate else updated_stats.crit_damage
             if isinstance(current, Unresolved):
                 diagnostics.append(
                     _diagnostic(
                         str(effect.rule.effect_id),
                         "panel-base-value",
                         DiagnosticKind.MISSING_DATA,
-                        "current crit rate is unresolved",
+                        (
+                            "current crit rate is unresolved"
+                            if is_crit_rate
+                            else "current crit damage is unresolved"
+                        ),
                     )
                 )
                 continue
             updated_stats = replace(
                 updated_stats,
-                crit_rate=Resolved(current.value + value.value * stack_count),
+                **(
+                    {
+                        "crit_rate": Resolved(
+                            current.value + value.value * stack_count
+                        )
+                    }
+                    if is_crit_rate
+                    else {
+                        "crit_damage": Resolved(
+                            current.value + value.value * stack_count
+                        )
+                    }
+                ),
             )
             applied_effect_ids.add(effect.rule.effect_id)
             traces.append(

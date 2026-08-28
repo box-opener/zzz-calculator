@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from core.presentation import (
     build_registered_editor_view,
+    build_registered_wengine_editor_view,
     supported_character_catalog,
     supported_wengine_catalog,
 )
@@ -42,6 +43,51 @@ def list_characters() -> list[dict[str, Any]]:
 @app.get("/api/v1/wengines")
 def list_wengines() -> list[dict[str, Any]]:
     return [to_jsonable(item) for item in supported_wengine_catalog()]
+
+
+@app.post("/api/v1/wengines/preview")
+def preview_wengine(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    """Return rules for one equipped W-Engine instance.
+
+    The catalog endpoint only exposes model metadata.  This endpoint is the
+    owner-aware editor contract used by the UI and by calculation requests.
+    """
+
+    try:
+        wengine_id = str(payload.get("wengine_id", ""))
+        equipped_character_id = str(payload.get("equipped_character_id", ""))
+        if not wengine_id or not equipped_character_id:
+            raise ValueError("wengine_id and equipped_character_id are required")
+        team_values = payload.get("team_character_ids", [equipped_character_id])
+        if not isinstance(team_values, (list, tuple)):
+            raise ValueError("team_character_ids must be an array")
+        condition_values = payload.get("condition_values", {})
+        if not isinstance(condition_values, dict):
+            raise ValueError("condition_values must be an object")
+        view = build_registered_wengine_editor_view(
+            wengine_id,
+            equipped_character_id,
+            tuple(CharacterId(str(item)) for item in team_values),
+            level=int(payload.get("level", 60)),
+            refinement=int(payload.get("refinement", 1)),
+            condition_values=condition_values,
+        )
+        return JSONResponse(to_jsonable(view))
+    except (TypeError, ValueError, KeyError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "schema_version": "presentation-v1",
+                "diagnostics": [
+                    {
+                        "diagnostic_id": "api:wengine-preview:invalid-request",
+                        "kind": "missing-data",
+                        "message": str(exc),
+                        "blocking": True,
+                    }
+                ],
+            },
+        )
 
 
 @app.post("/api/v1/definitions/preview")

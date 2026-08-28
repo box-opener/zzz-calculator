@@ -19,9 +19,6 @@ type WEngine = {
   specialty: string;
   icon_key: string;
   signature_character_id: string | null;
-  rule_item_ids: string[];
-  scenario_condition_ids: string[];
-  stack_rule_item_ids: string[];
 };
 
 type Condition = {
@@ -57,6 +54,7 @@ type Rule = {
   rule_id: string;
   label: string;
   source_label: string;
+  source_type?: string;
   availability: string;
   enabled_by_default: boolean;
   toggleable: boolean;
@@ -89,6 +87,25 @@ type EditorView = {
   }[];
 };
 
+type WEngineEditorView = {
+  schema_version: string;
+  wengine_id: string;
+  equipped_character_id: string;
+  display_name: string;
+  rarity: string;
+  specialty: string;
+  rule_items: Rule[];
+  scenario_conditions: Condition[];
+  scenario_parameters: Parameter[];
+  scenario_trigger_inputs: {
+    input_id: string;
+    label: string;
+    actor_options: string[];
+    selected_actor: string | null;
+  }[];
+  diagnostics: { message: string; blocking: boolean }[];
+};
+
 type CalculationView = {
   move_entry_id: string;
   events: {
@@ -96,12 +113,12 @@ type CalculationView = {
     label: string;
     repeat_count: number;
     modes: Record<string, { value: number | null; known_value: number | null; status: string; diagnostics: { message: string }[]; calculation_breakdown: { node: string; value: number | null; read_rule: string }[] }>;
-    common_application_trace: { created_by_effect_id: string | null; rule_matches: { rule_id: string; source_label: string | null; status: string; effects: { effect_id: string; source_label: string | null; status: string }[] }[]; applied_modifiers: { effect_id: string; source_label: string | null; modifier_path: string; value: number | null }[]; event_stat_modifiers: { effect_id: string; source_label: string | null; modifier_path: string; value: number | null }[]; event_multiplier_modifiers: { effect_id: string; source_label: string | null; modifier_path: string; value: number | null }[] } | null;
+    common_application_trace: { created_by_effect_id: string | null; rule_matches: { rule_id: string; source_label: string | null; source_type?: string | null; status: string; effects: { effect_id: string; source_label: string | null; source_type?: string | null; status: string }[] }[]; applied_modifiers: { effect_id: string; source_label: string | null; source_type?: string | null; modifier_path: string; value: number | null }[]; event_stat_modifiers: { effect_id: string; source_label: string | null; source_type?: string | null; modifier_path: string; value: number | null }[]; event_multiplier_modifiers: { effect_id: string; source_label: string | null; source_type?: string | null; modifier_path: string; value: number | null }[] } | null;
   }[];
   totals: Record<string, { value: number | null; complete: boolean; diagnostics: { message: string }[] }>;
   diagnostics: { message: string; blocking: boolean }[];
   resolved_character_snapshots: { character_id: string; stats: Record<string, number | null | Record<string, number | null>> }[];
-  panel_traces: { recipient_character_id: string; effect_id: string; source_label: string | null; resolved_value: number; modifier_path: string }[];
+  panel_traces: { recipient_character_id: string; effect_id: string; source_label: string | null; source_type: string | null; resolved_value: number; modifier_path: string }[];
   build_provenance: { character_id: string; contribution_id: string; source_id: string; source_type: string; source_label: string; stat: string; layer: string; value: number | null; element: string | null; unresolved: string | null }[];
 };
 
@@ -125,6 +142,7 @@ function App() {
   const [{ primaryId, supportId }, dispatchTeam] = useReducer(teamReducer, { primaryId: YE_ID, supportId: ASTRA_ID });
   const [primaryView, setPrimaryView] = useState<EditorView | null>(null);
   const [supportView, setSupportView] = useState<EditorView | null>(null);
+  const [wengineViews, setWengineViews] = useState<Record<string, WEngineEditorView | null>>({});
   const [moveEntryId, setMoveEntryId] = useState("");
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
@@ -140,8 +158,6 @@ function App() {
   const [characterLevels, setCharacterLevels] = useState<Record<string, number>>({ [YE_ID]: 60, [ASTRA_ID]: 60 });
   const [buildModes, setBuildModes] = useState<Record<string, "manual-panel" | "equipment-build">>({ [YE_ID]: "manual-panel", [ASTRA_ID]: "manual-panel" });
   const [wengineSelections, setWengineSelections] = useState<Record<string, { id: string; level: number; refinement: number }>>({});
-  const [wengineConditions, setWengineConditions] = useState<Record<string, boolean>>({});
-  const [wengineStackCounts, setWengineStackCounts] = useState<Record<string, number>>({});
   const [enemyLevel, setEnemyLevel] = useState(60);
   const [enemyDamageReduction, setEnemyDamageReduction] = useState(0);
   const [enemyIsStunned, setEnemyIsStunned] = useState(false);
@@ -155,27 +171,74 @@ function App() {
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
 
   const teamIds = useMemo(() => [primaryId, ...(supportId ? [supportId] : [])], [primaryId, supportId]);
-  const allRules = useMemo(() => [...(primaryView?.rule_items ?? []), ...(supportView?.rule_items ?? [])], [primaryView, supportView]);
-  const allConditions = useMemo(() => [...(primaryView?.scenario_conditions ?? []), ...(supportView?.scenario_conditions ?? [])], [primaryView, supportView]);
-  const allParameters = useMemo(() => [...(primaryView?.scenario_parameters ?? []), ...(supportView?.scenario_parameters ?? [])], [primaryView, supportView]);
-  const allTriggers = useMemo(() => [...(primaryView?.scenario_trigger_inputs ?? []), ...(supportView?.scenario_trigger_inputs ?? [])], [primaryView, supportView]);
+  const activeWengineViews = useMemo(
+    () => teamIds.map((id) => wengineViews[id]).filter((view): view is WEngineEditorView => Boolean(view)),
+    [teamIds, wengineViews],
+  );
+  const allRules = useMemo(() => [
+    ...(primaryView?.rule_items ?? []),
+    ...(supportView?.rule_items ?? []),
+    ...activeWengineViews.flatMap((view) => view.rule_items),
+  ], [primaryView, supportView, activeWengineViews]);
+  const allConditions = useMemo(() => [
+    ...(primaryView?.scenario_conditions ?? []),
+    ...(supportView?.scenario_conditions ?? []),
+    ...activeWengineViews.flatMap((view) => view.scenario_conditions),
+  ], [primaryView, supportView, activeWengineViews]);
+  const allParameters = useMemo(() => [
+    ...(primaryView?.scenario_parameters ?? []),
+    ...(supportView?.scenario_parameters ?? []),
+    ...activeWengineViews.flatMap((view) => view.scenario_parameters),
+  ], [primaryView, supportView, activeWengineViews]);
+  const allTriggers = useMemo(() => [
+    ...(primaryView?.scenario_trigger_inputs ?? []),
+    ...(supportView?.scenario_trigger_inputs ?? []),
+    ...activeWengineViews.flatMap((view) => view.scenario_trigger_inputs),
+  ], [primaryView, supportView, activeWengineViews]);
   const allConfigFields = useMemo(() => [
     ...(primaryView?.compile_config_fields ?? []).map((field) => ({ owner: primaryId, field })),
     ...(supportView?.compile_config_fields ?? []).map((field) => ({ owner: supportId, field })),
   ], [primaryId, supportId, primaryView, supportView]);
   const selectedMove = primaryView?.moves.find((move) => move.entry_id === moveEntryId);
 
-  const loadEditors = async (nextPrimary = primaryId, nextSupport = supportId, configSource = configs, conditionSource = conditionValues, stateOverride: Partial<EditorState> = {}) => {
+  const loadEditors = async (
+    nextPrimary = primaryId,
+    nextSupport = supportId,
+    configSource = configs,
+    conditionSource = conditionValues,
+    stateOverride: Partial<EditorState> = {},
+    wengineSource = wengineSelections,
+    buildModesSource = buildModes,
+  ) => {
     setLoading(true);
     try {
-      const [main, support] = await Promise.all([
+      const nextTeam = [nextPrimary, ...(nextSupport ? [nextSupport] : [])];
+      const [main, support, ...nextWengineViews] = await Promise.all([
         jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextPrimary, team_character_ids: [nextPrimary, ...(nextSupport ? [nextSupport] : [])], condition_values: conditionSource, compile_config: configSource[nextPrimary] ?? {} }) }),
         nextSupport
           ? jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextSupport, team_character_ids: [nextPrimary, nextSupport], condition_values: conditionSource, compile_config: configSource[nextSupport] ?? {} }) })
           : Promise.resolve(null),
+        ...nextTeam.map((owner) => {
+          const selection = wengineSource[owner];
+          if (!selection?.id || (buildModesSource[owner] ?? "manual-panel") !== "equipment-build") {
+            return Promise.resolve(null);
+          }
+          return jsonRequest<WEngineEditorView>("/api/v1/wengines/preview", {
+            method: "POST",
+            body: JSON.stringify({
+              wengine_id: selection.id,
+              equipped_character_id: owner,
+              team_character_ids: nextTeam,
+              level: selection.level,
+              refinement: selection.refinement,
+              condition_values: conditionSource,
+            }),
+          });
+        }),
       ]);
       setPrimaryView(main);
       setSupportView(support);
+      setWengineViews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextWengineViews[index] ?? null])));
       setMoveEntryId((current) => main.moves.some((move) => move.entry_id === current) ? current : (main.moves[0]?.entry_id || ""));
       const nextConfigs = { ...configSource };
       ([{ owner: nextPrimary, fields: main.compile_config_fields }, ...(support ? [{ owner: nextSupport, fields: support.compile_config_fields }] : [])]).forEach(({ owner, fields }) => {
@@ -201,13 +264,29 @@ function App() {
           stacks,
           ...stateOverride,
         },
-        {
-          conditions: [...main.scenario_conditions, ...(support?.scenario_conditions ?? [])],
-          parameters: [...main.scenario_parameters, ...(support?.scenario_parameters ?? [])],
-          rules: [...main.rule_items, ...(support?.rule_items ?? [])],
-          triggers: [...main.scenario_trigger_inputs, ...(support?.scenario_trigger_inputs ?? [])],
-        },
-        [nextPrimary, ...(nextSupport ? [nextSupport] : [])],
+          {
+            conditions: [
+              ...main.scenario_conditions,
+              ...(support?.scenario_conditions ?? []),
+              ...nextWengineViews.flatMap((view) => view?.scenario_conditions ?? []),
+            ],
+            parameters: [
+              ...main.scenario_parameters,
+              ...(support?.scenario_parameters ?? []),
+              ...nextWengineViews.flatMap((view) => view?.scenario_parameters ?? []),
+            ],
+            rules: [
+              ...main.rule_items,
+              ...(support?.rule_items ?? []),
+              ...nextWengineViews.flatMap((view) => view?.rule_items ?? []),
+            ],
+            triggers: [
+              ...main.scenario_trigger_inputs,
+              ...(support?.scenario_trigger_inputs ?? []),
+              ...nextWengineViews.flatMap((view) => view?.scenario_trigger_inputs ?? []),
+            ],
+          },
+        nextTeam,
       );
       setConditionValues(reconciled.conditionValues);
       setParameterValues(reconciled.parameterValues);
@@ -230,8 +309,15 @@ function App() {
       .then(([loadedCharacters, loadedWengines]) => {
         setCharacters(loadedCharacters);
         setWengines(loadedWengines);
+        const nextSelections = loadedWengines.reduce<Record<string, { id: string; level: number; refinement: number }>>((current, item) => {
+          const owner = item.signature_character_id;
+          if (owner && !current[owner]) {
+            current[owner] = { id: item.wengine_id, level: 60, refinement: 1 };
+          }
+          return current;
+        }, {});
         setWengineSelections((current) => {
-          const next = { ...current };
+          const next = { ...nextSelections, ...current };
           loadedWengines.forEach((item) => {
             if (item.signature_character_id && !next[item.signature_character_id]) {
               next[item.signature_character_id] = { id: item.wengine_id, level: 60, refinement: 1 };
@@ -239,7 +325,7 @@ function App() {
           });
           return next;
         });
-        return loadEditors();
+        return loadEditors(primaryId, supportId, configs, conditionValues, {}, nextSelections);
       })
       .catch((error: Error) => setDiagnostics([error.message]));
     // The catalog is the only initial network request; editor loading follows it.
@@ -249,7 +335,7 @@ function App() {
   const updateConfig = (characterId: string, key: string, value: unknown) => {
     const nextConfigs = { ...configs, [characterId]: { ...configs[characterId], [key]: value } };
     setConfigs(nextConfigs);
-    void loadEditors(primaryId, supportId, nextConfigs);
+    void loadEditors(primaryId, supportId, nextConfigs, conditionValues, {}, wengineSelections);
   };
 
   const updateBuildStat = (characterId: string, key: "attack" | "crit_rate" | "crit_damage" | "penetration_rate" | "penetration_flat", value: number) => {
@@ -265,7 +351,7 @@ function App() {
       const group = field.field_id.slice("skill_level:".length);
       const nextConfigs = { ...configs, [owner]: { ...configs[owner], skill_levels: { ...((configs[owner]?.skill_levels as Record<string, number> | undefined) ?? {}), [group]: Number(value) } } };
       setConfigs(nextConfigs);
-      void loadEditors(primaryId, supportId, nextConfigs);
+      void loadEditors(primaryId, supportId, nextConfigs, conditionValues, {}, wengineSelections);
       return;
     }
     updateConfig(owner, field.field_id, value);
@@ -276,7 +362,22 @@ function App() {
     const next = { ...conditionValues };
     selectedMove.variants.forEach((variant, index) => variant.condition_ids.forEach((conditionId) => { next[conditionId] = index === variantIndex; }));
     setConditionValues(next);
-    void loadEditors(primaryId, supportId, configs, next, { conditionValues: next });
+    void loadEditors(primaryId, supportId, configs, next, { conditionValues: next }, wengineSelections);
+  };
+
+  const updateWengineSelection = (
+    owner: string,
+    selection: { id: string; level: number; refinement: number },
+  ) => {
+    const nextSelections = { ...wengineSelections, [owner]: selection };
+    setWengineSelections(nextSelections);
+    void loadEditors(primaryId, supportId, configs, conditionValues, {}, nextSelections);
+  };
+
+  const updateBuildMode = (owner: string, mode: "manual-panel" | "equipment-build") => {
+    const nextModes = { ...buildModes, [owner]: mode };
+    setBuildModes(nextModes);
+    void loadEditors(primaryId, supportId, configs, conditionValues, {}, wengineSelections, nextModes);
   };
 
   const buildPayloads = () => Object.fromEntries(teamIds.map((id) => {
@@ -298,24 +399,6 @@ function App() {
     setCalculating(true);
     setDiagnostics([]);
     try {
-      const selectedWengineRuleIds = teamIds.flatMap((id) => {
-        const selection = wengineSelections[id];
-        if (buildModes[id] !== "equipment-build" || !selection?.id) return [];
-        return wengines.find((item) => item.wengine_id === selection.id)?.rule_item_ids ?? [];
-      });
-      const selectedWengineStacks = Object.fromEntries(
-        selectedWengineRuleIds
-          .filter((ruleId) => Number.isInteger(wengineStackCounts[ruleId]))
-          .map((ruleId) => [ruleId, wengineStackCounts[ruleId]]),
-      );
-      const selectedWengineConditionValues = Object.fromEntries(
-        teamIds.flatMap((id) => {
-          if (buildModes[id] !== "equipment-build") return [];
-          const wengineId = wengineSelections[id]?.id;
-          const catalog = wengines.find((item) => item.wengine_id === wengineId);
-          return catalog?.scenario_condition_ids.map((conditionId) => [conditionId, wengineConditions[conditionId] ?? false]) ?? [];
-        }),
-      );
       const result = await jsonRequest<CalculationView>("/api/v1/moves/calculate", {
         method: "POST",
         body: JSON.stringify({
@@ -324,16 +407,17 @@ function App() {
           team_character_ids: teamIds,
           move_entry_id: moveEntryId,
           compile_configs: configs,
-          condition_values: {
-            ...Object.fromEntries(allConditions.filter((condition) => condition.editable).map((condition) => [condition.condition_id, conditionValues[condition.condition_id] ?? null])),
-            ...selectedWengineConditionValues,
-          },
+          condition_values: Object.fromEntries(
+            allConditions
+              .filter((condition) => condition.editable)
+              .map((condition) => [condition.condition_id, conditionValues[condition.condition_id] ?? null]),
+          ),
           parameter_values: parameterValues,
           character_builds: buildPayloads(),
           enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: { physical: enemyPhysicalResistance, ether: enemyEtherResistance }, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
-          enabled_rule_item_ids: [...new Set([...enabledRules, ...selectedWengineRuleIds])],
+          enabled_rule_item_ids: [...enabledRules],
           selected_trigger_inputs: Object.entries(triggerActors).filter(([, actor_id]) => actor_id).map(([input_id, actor_id]) => ({ input_id, actor_id })),
-          rule_stack_counts: { ...stacks, ...selectedWengineStacks },
+          rule_stack_counts: stacks,
         }),
       });
       setCalculation(result);
@@ -380,8 +464,7 @@ function App() {
 
         <section className="glass-card build-panel">
           <div className="section-heading"><div><p className="eyebrow">BUILD INPUT</p><h2>局外面板</h2></div><span className="muted">每个角色独立</span></div>
-          <div className="build-character-fields">{teamIds.map((id) => <div className="build-character" key={id}><strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong><div className="form-grid three-columns"><label>面板模式<select value={buildModes[id] ?? "manual-panel"} onChange={(event) => setBuildModes((current) => ({ ...current, [id]: event.target.value as "manual-panel" | "equipment-build" }))}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label><label>等级<input type="number" min="1" max="60" value={characterLevels[id] ?? 60} onChange={(event) => setCharacterLevels((current) => ({ ...current, [id]: Number(event.target.value) }))} /></label><label>攻击力<input type="number" value={buildStats[id]?.attack ?? 1000} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label><label>暴击率<input type="number" step="0.01" value={buildStats[id]?.crit_rate ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label><label>暴击伤害<input type="number" step="0.01" value={buildStats[id]?.crit_damage ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label><label>穿透率<input type="number" step="0.01" value={buildStats[id]?.penetration_rate ?? 0} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label><label>穿透值<input type="number" value={buildStats[id]?.penetration_flat ?? 0} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label><label>物理伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.physical ?? 0} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label><label>以太伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.ether ?? 0} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label></div>{(buildModes[id] ?? "manual-panel") === "equipment-build" && <div className="form-grid three-columns"><label>音擎<select value={wengineSelections[id]?.id ?? ""} onChange={(event) => setWengineSelections((current) => ({ ...current, [id]: { ...(current[id] ?? { level: 60, refinement: 1 }), id: event.target.value } }))}><option value="">无</option>{wengines.filter((item) => item.specialty === characters.find((character) => character.character_id === id)?.specialty).map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label><label>音擎等级<input type="number" min="60" max="60" value={wengineSelections[id]?.level ?? 60} readOnly /></label><label>精炼<input type="number" min="1" max="5" value={wengineSelections[id]?.refinement ?? 1} onChange={(event) => setWengineSelections((current) => ({ ...current, [id]: { ...(current[id] ?? { id: "", level: 60 }), refinement: Number(event.target.value) } }))} /></label>{wengineSelections[id]?.id === "wengine:14143" && <span className="muted">帷幕效果随叶瞬光明心境场景</span>}{wengineSelections[id]?.id === "wengine:14131" && <label className="check-field">玲珑妆匣增伤已触发<input type="checkbox" checked={wengineConditions["condition:wengine:14131:damage-buff-active"] ?? false} onChange={(event) => setWengineConditions((current) => ({ ...current, "condition:wengine:14131:damage-buff-active": event.target.checked }))} /></label>}</div>}</div>)}</div>
-          <div className="form-grid three-columns">{teamIds.filter((id) => buildModes[id] === "equipment-build" && wengineSelections[id]?.id === "wengine:14131").map((id) => <label key={`wengine-stack-${id}`}>玲珑妆匣增伤层数<input type="number" min="0" max="2" value={wengineStackCounts["rule:wengine:14131:team-damage"] ?? 2} onChange={(event) => setWengineStackCounts((current) => ({ ...current, "rule:wengine:14131:team-damage": Number(event.target.value) }))} /></label>)}</div>
+          <div className="build-character-fields">{teamIds.map((id) => <div className="build-character" key={id}><strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong><div className="form-grid three-columns"><label>面板模式<select value={buildModes[id] ?? "manual-panel"} onChange={(event) => updateBuildMode(id, event.target.value as "manual-panel" | "equipment-build")}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label><label>等级<input type="number" min="1" max="60" value={characterLevels[id] ?? 60} onChange={(event) => setCharacterLevels((current) => ({ ...current, [id]: Number(event.target.value) }))} /></label><label>攻击力<input type="number" value={buildStats[id]?.attack ?? 1000} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label><label>暴击率<input type="number" step="0.01" value={buildStats[id]?.crit_rate ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label><label>暴击伤害<input type="number" step="0.01" value={buildStats[id]?.crit_damage ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label><label>穿透率<input type="number" step="0.01" value={buildStats[id]?.penetration_rate ?? 0} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label><label>穿透值<input type="number" value={buildStats[id]?.penetration_flat ?? 0} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label><label>物理伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.physical ?? 0} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label><label>以太伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.ether ?? 0} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label></div>{(buildModes[id] ?? "manual-panel") === "equipment-build" && <div className="form-grid three-columns"><label>音擎<select value={wengineSelections[id]?.id ?? ""} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { level: 60, refinement: 1 }), id: event.target.value })}><option value="">无</option>{wengines.filter((item) => item.specialty === characters.find((character) => character.character_id === id)?.specialty).map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label><label>音擎等级<input type="number" min="60" max="60" value={wengineSelections[id]?.level ?? 60} readOnly /></label><label>精炼<input type="number" min="1" max="5" value={wengineSelections[id]?.refinement ?? 1} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: Number(event.target.value) })} /></label></div>}</div>)}</div>
           {calculation && calculation.build_provenance.length > 0 && <div className="trace-list"><p className="eyebrow">BUILD PROVENANCE</p>{calculation.build_provenance.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.character_id}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.source_label} · {trace.stat} · {trace.layer}</small></div>)}</div>}
           <div className="section-heading compact"><div><p className="eyebrow">TARGET</p><h2>敌人</h2></div></div>
           <div className="form-grid three-columns"><label>等级<input type="number" min="1" max="80" value={enemyLevel} onChange={(event) => setEnemyLevel(Number(event.target.value))} /></label><label>防御力<input type="number" value={enemyDefense} onChange={(event) => setEnemyDefense(Number(event.target.value))} /></label><label>物理抗性<input type="number" step="0.01" value={enemyPhysicalResistance} onChange={(event) => setEnemyPhysicalResistance(Number(event.target.value))} /></label><label>以太抗性<input type="number" step="0.01" value={enemyEtherResistance} onChange={(event) => setEnemyEtherResistance(Number(event.target.value))} /></label><label>失衡易伤<input type="number" step="0.01" value={stunVulnerability} onChange={(event) => setStunVulnerability(Number(event.target.value))} /></label><label>减易伤<input type="number" step="0.01" value={enemyDamageReduction} onChange={(event) => setEnemyDamageReduction(Number(event.target.value))} /></label><label className="check-field">当前处于失衡<input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label></div>

@@ -17,9 +17,12 @@ from core.application.characters.ye_shunguang import (
     compile_ye_shunguang,
     load_raw_record as load_ye_raw_record,
 )
+from core.application.characters.ye_shunguang.compiler import MINGXIN_CONDITION_ID
 from core.application.characters.config import CharacterSkillLevel
 from core.types import CharacterId, CharacterRole, Element, SkillGroup
-from core.application.scenario import CalculationScenario
+from core.application.scenario import CalculationScenario, ConditionResolution, ScenarioCondition
+from core.application.equipment import compile_wengine, load_wengine_raw_record
+from core.types import WEngineBuildInput, WEngineId
 
 from core.data.loader import load_character_record
 
@@ -411,11 +414,94 @@ def build_registered_editor_view(
     )
 
 
+def build_registered_wengine_editor_view(
+    wengine_id: str,
+    equipped_character_id: str | CharacterId,
+    team_character_ids: Sequence[str | CharacterId] = (),
+    *,
+    level: int = 60,
+    refinement: int = 1,
+    condition_values: Mapping[str, bool | None] | None = None,
+):
+    """Build an editor view for a concrete W-Engine/owner instance."""
+
+    owner = CharacterId(str(equipped_character_id))
+    registration = registration_for(owner)
+    team_ids = tuple(CharacterId(str(item)) for item in team_character_ids) or (owner,)
+    if owner not in team_ids:
+        raise ValueError("equipped W-Engine owner must be in team_character_ids")
+    if len(set(team_ids)) != len(team_ids):
+        raise ValueError("team_character_ids must be unique")
+    if condition_values is None:
+        raw_values: Mapping[str, bool | None] = {}
+    elif not isinstance(condition_values, Mapping):
+        raise ValueError("condition_values must be an object")
+    else:
+        raw_values = condition_values
+    resolution = compile_wengine(
+        WEngineBuildInput(
+            WEngineId(str(wengine_id)),
+            owner,
+            level=level,
+            refinement=refinement,
+        ),
+        equipped_character_role=registration.role,
+    )
+    known_conditions = {item.condition_id for item in resolution.scenario_conditions}
+    selected_values = {
+        str(condition_id): value
+        for condition_id, value in raw_values.items()
+        if str(condition_id) in {str(item) for item in known_conditions}
+    }
+    if any(value is not None and not isinstance(value, bool) for value in selected_values.values()):
+        raise ValueError("W-Engine scenario conditions must be boolean or null")
+    conditions = tuple(
+        condition
+        if condition.resolution.value == "static"
+        else replace(
+            condition,
+            value=selected_values.get(str(condition.condition_id), condition.value),
+        )
+        for condition in resolution.scenario_conditions
+    )
+    scenario = CalculationScenario(
+        scenario_id="wengine-preview",
+        current_operator=owner,
+        conditions=conditions,
+    )
+    external_conditions = []
+    if any(
+        MINGXIN_CONDITION_ID in rule.condition_ids
+        for rule in resolution.rule_items
+    ):
+        mingxin_value = raw_values.get(str(MINGXIN_CONDITION_ID))
+        if mingxin_value is not None and not isinstance(mingxin_value, bool):
+            raise ValueError("Mingxin scenario condition must be boolean or null")
+        external_conditions.append(
+            ScenarioCondition(
+                condition_id=MINGXIN_CONDITION_ID,
+                label="当前处于明心境",
+                original_text="叶瞬光进入明心境时开启以太帷幕",
+                resolution=ConditionResolution.USER_SELECTED,
+                value=mingxin_value,
+            )
+        )
+    from .assembler import build_wengine_editor_view
+
+    return build_wengine_editor_view(
+        resolution,
+        scenario=scenario,
+        team_character_ids=team_ids,
+        condition_context=tuple(external_conditions),
+    )
+
+
 __all__ = [
     "CharacterPresentationRegistration",
     "compile_registered_definition",
     "config_fields_for",
     "build_registered_editor_view",
+    "build_registered_wengine_editor_view",
     "registration_for",
     "supported_character_registrations",
 ]

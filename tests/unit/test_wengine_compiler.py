@@ -132,6 +132,36 @@ def test_refinement_changes_only_reviewed_passive_values_not_static_identity() -
     assert astra_r1.rule_items[0].rule_id == astra_r5.rule_items[0].rule_id
 
 
+def test_equipment_instance_ids_include_the_equipped_owner() -> None:
+    first = compile_wengine(
+        WEngineBuildInput(WENGINE_ASTRA_ID, CharacterId("character:1311")),
+        equipped_character_role=CharacterRole.SUPPORT,
+    )
+    second = compile_wengine(
+        WEngineBuildInput(WENGINE_ASTRA_ID, CharacterId("character:1431")),
+        equipped_character_role=CharacterRole.ATTACK,
+    )
+
+    assert {
+        item.rule_id for item in first.rule_items
+    }.isdisjoint({item.rule_id for item in second.rule_items})
+    assert {
+        effect.rule.effect_id
+        for item in first.rule_items
+        for effect in item.effects
+    }.isdisjoint(
+        {
+            effect.rule.effect_id
+            for item in second.rule_items
+            for effect in item.effects
+        }
+    )
+    assert {
+        item.contribution_id for item in first.contributions
+    }.isdisjoint({item.contribution_id for item in second.contributions})
+    assert first.scenario_conditions[0].condition_id != second.scenario_conditions[0].condition_id
+
+
 def test_ye_signature_compiles_physical_resistance_ignore_and_veil_rules() -> None:
     result = compile_wengine(
         WEngineBuildInput(WENGINE_YE_ID, CharacterId("character:1431")),

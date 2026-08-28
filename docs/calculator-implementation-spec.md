@@ -445,6 +445,14 @@ Stage18-2 的音擎 vertical slice 只开放已审核的叶瞬光与耀嘉音专
 静态值作为当前数据切片；非60级输入必须产生明确诊断，不能回退到满级值。音擎的
 基础攻击和高级属性进入 Build Assembly，音擎特效则通过附加的 RuleItem/Scenario
 Condition 集合进入现有 Matcher 与 Execution。专武映射必须使用显式的角色 ID 映射。
+音擎目录只保存型号、名称、图标和职业等模型元数据；装备到具体角色后，必须由实例级
+编辑器输出 owner-qualified 的 RuleItem/Effect 身份，不能在目录中预先保存一套全局规则
+ID。音擎规则与角色规则共同进入同一个场景规则编辑器和
+`CalculationScenario.enabled_rule_item_ids`，前端不得因为装备存在而强制启用其效果。
+同一型号音擎装备到不同角色时，其实例级场景条件也必须保持独立，不能共享另一名装备者
+的触发状态。
+音擎来源的规则匹配/Modifier 追踪必须保留 `source_type=weapon`，以便与角色事件级
+加成和正式局内面板来源区分。
 
 ## 多倍率参数处理
 
