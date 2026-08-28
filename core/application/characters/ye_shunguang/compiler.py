@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from core.types import (
-    CharacterFilter,
     CharacterId,
     CharacterRole,
     CalculationNode,
     CurrentAttackValueSource,
     DamageMultiplier,
     DamageType,
+    DynamicIdentity,
+    DynamicIdentityCondition,
     EffectId,
     EffectOperation,
     EffectRule,
@@ -139,6 +140,7 @@ def _modifier(
     target: EffectTarget = EffectTarget.SELF,
     operation: EffectOperation = EffectOperation.ADD,
     filters=(),
+    condition=None,
 ) -> ModifierEffect:
     return ModifierEffect(
         rule=_effect_rule(
@@ -147,6 +149,7 @@ def _modifier(
             owner=owner,
             target=target,
             filters=filters,
+            condition=condition,
         ),
         result=ModifierResult(
             modifier_path=path,
@@ -675,15 +678,12 @@ def compile_ye_shunguang(
                 _modifier(
                     "effect:ye:1431:veil:vulnerability",
                     core_source,
-                    CalculationNode.ENEMY_STUN_VULNERABILITY,
-                    min(
-                        config.enemy_stun_vulnerability_bonus,
-                        2.0 if config.cinema_level >= 4 else 1.10,
-                    ),
+                    CalculationNode.DAMAGE_VEIL_VULNERABILITY_CAP,
+                    2.0 if config.cinema_level >= 4 else 1.10,
                     owner=raw_record.character_id,
                     target=EffectTarget.ENEMY,
-                    operation=EffectOperation.OVERRIDE,
-                    filters=(CharacterFilter(raw_record.character_id),),
+                    operation=EffectOperation.SET,
+                    condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
                 ),
             ),
         ),

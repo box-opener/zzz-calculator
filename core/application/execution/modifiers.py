@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from core.types import (
     AlwaysCondition,
@@ -24,7 +24,10 @@ from core.types import (
     PanelStatDerivedValue,
     Resolved,
     StandardCritRule,
+    StandardVulnerabilityPolicy,
     Unresolved,
+    VeilVulnerabilityPolicy,
+    VulnerabilitySettlementPolicy,
 )
 
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -87,6 +90,9 @@ class ModifierApplicationResult:
     event_modifiers: tuple[Modifier, ...]
     event_stat_modifiers: tuple[EventStatModifier, ...] = ()
     event_multiplier_modifiers: tuple[Modifier, ...] = ()
+    vulnerability_policy: VulnerabilitySettlementPolicy = field(
+        default_factory=StandardVulnerabilityPolicy
+    )
     applied_panel_effect_ids: frozenset[EffectId] = frozenset()
     panel_traces: tuple[PanelModifierExecutionTrace, ...] = ()
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
@@ -136,6 +142,8 @@ def apply_matched_modifiers(
     rule_modifiers: list[Modifier] = []
     event_stat_modifiers: list[EventStatModifier] = []
     event_multiplier_modifiers: list[Modifier] = []
+    vulnerability_policy: VulnerabilitySettlementPolicy = StandardVulnerabilityPolicy()
+    vulnerability_policy_effect_seen = False
     for application in matched_effects:
         if isinstance(application, MatchedEffectApplication):
             effect = application.effect
@@ -204,6 +212,51 @@ def apply_matched_modifiers(
             if event_multiplier is not None:
                 event_multiplier_modifiers.append(event_multiplier)
             continue
+        if effect.result.modifier_path is CalculationNode.DAMAGE_VEIL_VULNERABILITY_CAP:
+            if vulnerability_policy_effect_seen:
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "multiple-vulnerability-policies",
+                        DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                        "multiple vulnerability settlement policies are not defined",
+                    )
+                )
+                continue
+            vulnerability_policy_effect_seen = True
+            if effect.result.operation is not EffectOperation.SET:
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "vulnerability-policy-operation",
+                        DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                        "veil vulnerability policy requires SET",
+                    )
+                )
+                continue
+            value = effect.result.value
+            if not isinstance(value, Resolved):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "vulnerability-policy-value",
+                        DiagnosticKind.MISSING_DATA,
+                        value.notes,
+                    )
+                )
+                continue
+            if stack_count != 1:
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "vulnerability-policy-stack",
+                        DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                        "veil vulnerability policy cannot be stacked",
+                    )
+                )
+                continue
+            vulnerability_policy = VeilVulnerabilityPolicy(value.value)
+            continue
         event_modifier = _event_modifier(effect, diagnostics, stack_count)
         if event_modifier is not None:
             rule_modifiers.append(event_modifier)
@@ -229,6 +282,7 @@ def apply_matched_modifiers(
         event_modifiers=event_modifiers,
         event_stat_modifiers=tuple(event_stat_modifiers),
         event_multiplier_modifiers=tuple(event_multiplier_modifiers),
+        vulnerability_policy=vulnerability_policy,
         applied_panel_effect_ids=applied_panel_ids,
         panel_traces=panel_traces,
         diagnostics=tuple(diagnostics),

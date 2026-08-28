@@ -258,7 +258,9 @@ DamageEvent 本身不是 Buff 开关。EventCreation 类规则启用后可以改
 通用 Definition 本身不得保存任何具体角色的 CompileConfig；具体编译器只应将配置影响后的
 结果写入通用字段，并由调用方保留原始编译输入。
 以下任一输入改变时，旧 Definition 失效并应重新编译：技能等级、核心技等级、影画、会改变
-事件语义的静态场景条件，以及编译期读取的敌人场景值（例如帷幕易伤输入）。
+事件语义的静态场景条件。敌人的失衡易伤数值和是否失衡属于本次 Calculation Request 的
+结算环境，不得复制进角色 CompileConfig；帷幕上限属于角色编译语义，敌人的失衡易伤仍由
+请求环境唯一提供。
 
 原始角色记录与 reviewed semantic mapping 必须分层保存。原始记录只提供稳定的角色、招式、
 参数和文本字段；SkillGroup、DamageTag、倍率关系、变种属性和场景条件等解释后的语义，必须

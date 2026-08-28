@@ -2,20 +2,29 @@
 
 from .assembler import build_character_editor_view, build_move_calculation_view
 from .catalog import CharacterCatalogItem, supported_character_catalog
+from .character_editor import CharacterEditorView, CompileConfigFieldView
 from .calculation import (
     CalculationView,
     DamageEventModeView,
     DamageEventView,
     MoveCalculationView,
 )
-from .character_editor import CharacterEditorView
 from .requests import CharacterBuildInput, EnemyInput, MoveCalculationViewRequest
+from .registry import (
+    CharacterPresentationRegistration,
+    build_registered_editor_view,
+    compile_registered_definition,
+    config_fields_for,
+    registration_for,
+    supported_character_registrations,
+)
 
 __all__ = [
     "CalculationView",
     "CharacterBuildInput",
     "CharacterCatalogItem",
     "CharacterEditorView",
+    "CompileConfigFieldView",
     "DamageEventModeView",
     "DamageEventView",
     "EnemyInput",
@@ -23,5 +32,11 @@ __all__ = [
     "MoveCalculationViewRequest",
     "build_character_editor_view",
     "build_move_calculation_view",
+    "CharacterPresentationRegistration",
+    "build_registered_editor_view",
+    "compile_registered_definition",
+    "config_fields_for",
+    "registration_for",
+    "supported_character_registrations",
     "supported_character_catalog",
 ]

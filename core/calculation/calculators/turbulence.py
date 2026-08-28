@@ -211,11 +211,12 @@ class TurbulenceDamageCalculator:
         )
         vulnerability = calculate_broad_vulnerability_region(
             BroadVulnerabilityRegionInput(
-                modifiers[CalculationNode.ENEMY_STUN_VULNERABILITY],
-                modifiers[CalculationNode.ENEMY_NORMAL_VULNERABILITY],
-                modifiers[CalculationNode.ENEMY_MOVE_VULNERABILITY],
-                damage_reduction
-                + modifiers[CalculationNode.ENEMY_DAMAGE_REDUCTION],
+                is_stunned=context.target_snapshot.is_stunned,
+                stun_vulnerability=modifiers[CalculationNode.ENEMY_STUN_VULNERABILITY],
+                normal_vulnerability=modifiers[CalculationNode.ENEMY_NORMAL_VULNERABILITY],
+                move_vulnerability=modifiers[CalculationNode.ENEMY_MOVE_VULNERABILITY],
+                damage_reduction=damage_reduction + modifiers[CalculationNode.ENEMY_DAMAGE_REDUCTION],
+                settlement_policy=context.vulnerability_policy,
             )
         )
         assert crit.value is not None

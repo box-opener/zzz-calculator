@@ -492,7 +492,6 @@ def test_cinema_four_creates_astra_identity_extra_for_attack_assist() -> None:
         YeShunguangCompileConfig(
             mingxin_active=True,
             entry_move_uses_linren=True,
-            enemy_stun_vulnerability_bonus=1.5,
         ),
         ye_raw,
     )
@@ -760,7 +759,6 @@ def test_astra_supporting_definition_changes_ye_settlement() -> None:
         YeShunguangCompileConfig(
             mingxin_active=True,
             entry_move_uses_linren=True,
-            enemy_stun_vulnerability_bonus=1.5,
         ),
         ye_raw,
     )

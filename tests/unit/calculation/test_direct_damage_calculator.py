@@ -131,6 +131,7 @@ def _target(
     initial_defense: float = 794.0,
     damage_resistance: dict[Element, float] | None = None,
     damage_reduction: float = 0.0,
+    is_stunned: bool = True,
 ) -> EnemySnapshot:
     resistances = damage_resistance or {}
     return EnemySnapshot(
@@ -143,6 +144,7 @@ def _target(
         anomaly_buildup_resistance={},
         daze_resistance=Resolved(0.0),
         damage_reduction=Resolved(damage_reduction),
+        is_stunned=is_stunned,
     )
 
 

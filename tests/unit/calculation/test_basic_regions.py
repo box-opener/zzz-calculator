@@ -36,6 +36,7 @@ from core.calculation import (
     calculate_turbulence_damage_bonus_region,
     defense_level_coefficient,
 )
+from core.types import VeilVulnerabilityPolicy
 from core.types import (
     CalculationNode,
     Resolved,
@@ -128,6 +129,7 @@ def test_resistance_region_cannot_be_negative() -> None:
 def test_broad_vulnerability_multiplies_additive_and_reduction_regions() -> None:
     result = calculate_broad_vulnerability_region(
         BroadVulnerabilityRegionInput(
+            is_stunned=True,
             stun_vulnerability=0.5,
             normal_vulnerability=0.2,
             move_vulnerability=0.1,
@@ -136,10 +138,39 @@ def test_broad_vulnerability_multiplies_additive_and_reduction_regions() -> None
     )
     breakdown = _breakdown(result)
 
-    assert breakdown[CalculationNode.DAMAGE_VULNERABILITY_ADDITIVE_REGION] == 1.8
+    assert breakdown[CalculationNode.DAMAGE_VULNERABILITY_ADDITIVE_REGION] == pytest.approx(1.8)
     assert breakdown[CalculationNode.DAMAGE_REDUCTION_REGION] == 0.8
     assert result.value == pytest.approx(1.44)
     assert breakdown[CalculationNode.DAMAGE_BROAD_VULNERABILITY_REGION] == result.value
+
+
+def test_standard_vulnerability_ignores_stun_bonus_when_enemy_is_not_stunned() -> None:
+    result = calculate_broad_vulnerability_region(
+        BroadVulnerabilityRegionInput(
+            is_stunned=False,
+            stun_vulnerability=1.5,
+        )
+    )
+    breakdown = _breakdown(result)
+    assert result.value == pytest.approx(1.0)
+    assert breakdown[CalculationNode.ENEMY_STUN_VULNERABILITY] == pytest.approx(1.5)
+    assert breakdown[CalculationNode.DAMAGE_STUN_VULNERABILITY_EFFECTIVE] == pytest.approx(0.0)
+
+
+def test_veil_vulnerability_sums_before_applying_cap_and_ignores_stun_state() -> None:
+    result = calculate_broad_vulnerability_region(
+        BroadVulnerabilityRegionInput(
+            is_stunned=False,
+            stun_vulnerability=0.8,
+            normal_vulnerability=0.2,
+            move_vulnerability=0.3,
+            settlement_policy=VeilVulnerabilityPolicy(1.1),
+        )
+    )
+    breakdown = _breakdown(result)
+    assert result.value == pytest.approx(2.1)
+    assert breakdown[CalculationNode.DAMAGE_VULNERABILITY_EFFECTIVE_BONUS] == pytest.approx(1.1)
+    assert breakdown[CalculationNode.DAMAGE_VEIL_VULNERABILITY_CAP] == pytest.approx(1.1)
 
 
 def test_crit_region_returns_expected_value_multiplier() -> None:

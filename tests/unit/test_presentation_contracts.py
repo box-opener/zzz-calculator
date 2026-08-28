@@ -30,7 +30,12 @@ from core.application.output import (
 from core.calculation import CalculationNode, CalculationResult
 from core.calculation.nodes import CalculationNodeValue
 from core.data.loader import load_character_record, supported_character_ids
-from core.presentation import build_character_editor_view, build_move_calculation_view
+from core.presentation import (
+    build_character_editor_view,
+    build_move_calculation_view,
+    compile_registered_definition,
+    config_fields_for,
+)
 from core.presentation.serialization import to_jsonable
 from core.types import (
     CharacterId,
@@ -121,6 +126,34 @@ def test_character_editor_exposes_static_conditions_and_trigger_inputs() -> None
         view.character_id = "character:other"  # type: ignore[misc]
 
 
+def test_registry_derives_astra_eligibility_from_team_and_exposes_config_schema() -> None:
+    from core.application.rules import RuleEligibility
+
+    values = {"core_level": 1, "cinema_level": 0}
+    solo = compile_registered_definition(
+        "character:1311",
+        values,
+        ("character:1311",),
+    )
+    with_attack = compile_registered_definition(
+        "character:1311",
+        values,
+        ("character:1311", "character:1431"),
+    )
+    solo_extra = next(item for item in solo.rule_items if str(item.rule_id).endswith("extra-ability"))
+    team_extra = next(item for item in with_attack.rule_items if str(item.rule_id).endswith("extra-ability"))
+    assert solo_extra.eligibility is RuleEligibility.INELIGIBLE
+    assert team_extra.eligibility is RuleEligibility.ELIGIBLE
+    fields = config_fields_for("character:1311", values, ("character:1311",))
+    assert {item.field_id for item in fields} == {"core_level", "cinema_level"}
+    with __import__("pytest").raises(ValueError, match="unknown compile config fields"):
+        compile_registered_definition(
+            "character:1311",
+            {**values, "additional_ability_eligible": True},
+            ("character:1311",),
+        )
+
+
 def test_move_calculation_view_keeps_each_crit_mode_and_repeat_trace() -> None:
     view = build_move_calculation_view(
         {
@@ -147,7 +180,6 @@ def test_definition_views_do_not_use_legacy_fixture_paths() -> None:
         YeShunguangCompileConfig(
             mingxin_active=True,
             entry_move_uses_linren=True,
-            enemy_stun_vulnerability_bonus=1.5,
         ),
         load_ye_raw_record(load_character_record("character:1431")),
     )

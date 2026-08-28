@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Mapping
 
 from .anomaly_record import AnomalyRecord
@@ -18,6 +18,7 @@ from .common import (
 )
 from .damage_event import DamageEvent
 from .enums import EffectOperation, Element, SnapshotRule
+from .vulnerability import StandardVulnerabilityPolicy, VulnerabilitySettlementPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,7 @@ class EnemySnapshot:
     anomaly_buildup_resistance: Mapping[Element, Resolvable[Ratio]]
     daze_resistance: Resolvable[Ratio]
     damage_reduction: Resolvable[Ratio]
+    is_stunned: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,3 +68,6 @@ class CalculationContext:
     target_snapshot: EnemySnapshot
     modifiers: tuple[Modifier, ...] = ()
     history_records: tuple[AnomalyRecord, ...] = ()
+    vulnerability_policy: VulnerabilitySettlementPolicy = field(
+        default_factory=StandardVulnerabilityPolicy
+    )

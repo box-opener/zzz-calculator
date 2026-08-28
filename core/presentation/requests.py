@@ -11,7 +11,7 @@ import math
 class CharacterBuildInput:
     character_id: str
     level: int
-    out_of_combat_stats: Mapping[str, float]
+    out_of_combat_stats: Mapping[str, object]
 
     def __post_init__(self) -> None:
         if not self.character_id.strip():
@@ -40,6 +40,7 @@ class EnemyInput:
     damage_resistance: Mapping[str, float] = field(default_factory=dict)
     damage_reduction: float = 0.0
     stun_vulnerability_bonus: float = 0.0
+    is_stunned: bool = False
 
     def __post_init__(self) -> None:
         if not self.enemy_id.strip():
@@ -63,7 +64,6 @@ class SelectedTriggerInput:
 class MoveCalculationViewRequest:
     primary_character_id: str
     supporting_character_ids: tuple[str, ...]
-    current_operator: str
     move_entry_id: str
     character_builds: tuple[CharacterBuildInput, ...]
     enemy: EnemyInput

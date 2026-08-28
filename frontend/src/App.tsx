@@ -84,13 +84,12 @@ function App() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [primaryId, setPrimaryId] = useState(YE_ID);
   const [supportId, setSupportId] = useState(ASTRA_ID);
-  const [currentOperator, setCurrentOperator] = useState(YE_ID);
   const [primaryView, setPrimaryView] = useState<EditorView | null>(null);
   const [supportView, setSupportView] = useState<EditorView | null>(null);
   const [moveEntryId, setMoveEntryId] = useState("");
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({
-    [YE_ID]: { core_level: 1, cinema_level: 0, mingxin_active: true, entry_move_uses_linren: true, enemy_stun_vulnerability_bonus: 1.5 },
-    [ASTRA_ID]: { core_level: 1, cinema_level: 0, additional_ability_eligible: true },
+    [YE_ID]: { core_level: 1, cinema_level: 0, mingxin_active: true, entry_move_uses_linren: true },
+    [ASTRA_ID]: { core_level: 1, cinema_level: 0 },
   });
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
   const [enabledRules, setEnabledRules] = useState<Set<string>>(new Set());
@@ -117,9 +116,9 @@ function App() {
     setLoading(true);
     try {
       const [main, support] = await Promise.all([
-        jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextPrimary, team_character_ids: [nextPrimary, ...(nextSupport ? [nextSupport] : [])], condition_values: conditionSource, ...(configSource[nextPrimary] ?? {}) }) }),
+        jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextPrimary, team_character_ids: [nextPrimary, ...(nextSupport ? [nextSupport] : [])], condition_values: conditionSource, compile_config: configSource[nextPrimary] ?? {} }) }),
         nextSupport
-          ? jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextSupport, team_character_ids: [nextPrimary, nextSupport], condition_values: conditionSource, ...(configSource[nextSupport] ?? {}) }) })
+          ? jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextSupport, team_character_ids: [nextPrimary, nextSupport], condition_values: conditionSource, compile_config: configSource[nextSupport] ?? {} }) })
           : Promise.resolve(null),
       ]);
       setPrimaryView(main);
@@ -132,7 +131,7 @@ function App() {
       [...main.rule_items, ...(support?.rule_items ?? [])].forEach((item) => { if (item.enabled_by_default) available.add(item.rule_id); });
       setEnabledRules(available);
       const nextTriggers: Record<string, string> = {};
-      [...main.scenario_trigger_inputs, ...(support?.scenario_trigger_inputs ?? [])].forEach((item) => { if (item.actor_options[0]) nextTriggers[item.input_id] = item.selected_actor ?? (currentOperator || item.actor_options[0]); });
+      [...main.scenario_trigger_inputs, ...(support?.scenario_trigger_inputs ?? [])].forEach((item) => { if (item.selected_actor) nextTriggers[item.input_id] = item.selected_actor; });
       setTriggerActors(nextTriggers);
     } catch (error) {
       setDiagnostics([(error as Error).message]);
@@ -171,12 +170,12 @@ function App() {
           primary_character_id: primaryId,
           supporting_character_ids: supportId ? [supportId] : [],
           team_character_ids: teamIds,
-          current_operator: currentOperator,
           move_entry_id: moveEntryId,
           compile_configs: configs,
-          condition_values: conditionValues,
-          character_builds: Object.fromEntries(teamIds.map((id) => [id, { level: 60, out_of_combat_stats: { ...DEFAULT_STATS, ...(buildStats[id] ?? DEFAULT_STATS) } }])),
-          enemy: { enemy_id: "enemy:ui", level: 60, initial_defense: enemyDefense, damage_resistance: { physical: enemyResistance, ether: enemyResistance }, stun_vulnerability_bonus: stunVulnerability },
+          condition_values: Object.fromEntries(allConditions.filter((condition) => condition.editable).map((condition) => [condition.condition_id, conditionValues[condition.condition_id] ?? null])),
+          parameter_values: {},
+          character_builds: Object.fromEntries(teamIds.map((id) => [id, { level: 60, out_of_combat_stats: { ...DEFAULT_STATS, ...(buildStats[id] ?? DEFAULT_STATS), penetration_rate: 0, penetration_flat: 0, element_damage_bonus: { [id === YE_ID ? "physical" : "ether"]: 0 } } }])),
+          enemy: { enemy_id: "enemy:ui", level: 60, initial_defense: enemyDefense, damage_resistance: { physical: enemyResistance, ether: enemyResistance }, damage_reduction: 0, stun_vulnerability_bonus: stunVulnerability, is_stunned: false },
           enabled_rule_item_ids: [...enabledRules],
           selected_trigger_inputs: Object.entries(triggerActors).map(([input_id, actor_id]) => ({ input_id, actor_id })),
           rule_stack_counts: stacks,
@@ -204,15 +203,15 @@ function App() {
           <div className="section-heading"><div><p className="eyebrow">ROSTER</p><h2>队伍与当前角色</h2></div><span className="counter">{teamIds.length}/3</span></div>
           <div className="character-grid">
             {characters.map((character) => (
-              <button className={`character-card ${primaryId === character.character_id ? "selected" : ""}`} key={character.character_id} onClick={() => { setPrimaryId(character.character_id); setCurrentOperator(character.character_id); loadEditors(character.character_id, character.character_id === supportId ? "" : supportId); }} type="button">
+              <button className={`character-card ${primaryId === character.character_id ? "selected" : ""}`} key={character.character_id} onClick={() => { setPrimaryId(character.character_id); loadEditors(character.character_id, character.character_id === supportId ? "" : supportId); }} type="button">
                 <img alt={character.display_name} src={character.image_path} style={{ objectPosition: character.image_object_position }} />
                 <span className="character-card-copy"><strong>{character.display_name}</strong><small>{character.specialty} · {character.element}</small></span><span className="rarity">{character.rarity}</span>
               </button>
             ))}
           </div>
           <div className="form-grid two-columns">
-            <label>支援角色<select value={supportId} onChange={(event) => { const nextSupport = event.target.value; setSupportId(nextSupport); if (currentOperator === supportId) setCurrentOperator(primaryId); loadEditors(primaryId, nextSupport); }}><option value="">无</option>{characters.filter((item) => item.character_id !== primaryId).map((item) => <option key={item.character_id} value={item.character_id}>{item.display_name}</option>)}</select></label>
-            <label>当前操作角色<select value={currentOperator} onChange={(event) => setCurrentOperator(event.target.value)}>{teamIds.map((id) => <option key={id} value={id}>{characters.find((item) => item.character_id === id)?.display_name ?? id}</option>)}</select></label>
+            <label>支援角色<select value={supportId} onChange={(event) => { const nextSupport = event.target.value; setSupportId(nextSupport); loadEditors(primaryId, nextSupport); }}><option value="">无</option>{characters.filter((item) => item.character_id !== primaryId).map((item) => <option key={item.character_id} value={item.character_id}>{item.display_name}</option>)}</select></label>
+            <label>当前操作角色<input readOnly value={characters.find((item) => item.character_id === primaryId)?.display_name ?? primaryId} /></label>
           </div>
           {selectedPrimary && <div className="selection-summary"><span className="eyebrow">CURRENT OPERATOR</span><strong>{selectedPrimary.display_name}</strong><span className="muted">{selectedPrimary.character_id}</span></div>}
         </section>
@@ -228,7 +227,7 @@ function App() {
       <section className="workspace-grid">
         <section className="glass-card controls-panel">
           <div className="section-heading"><div><p className="eyebrow">SCENARIO</p><h2>场景与规则</h2></div>{loading && <span className="muted">读取中…</span>}</div>
-          <div className="form-grid two-columns config-fields"><label>叶瞬光核心等级<input type="number" min="1" max="7" value={Number(configs[YE_ID]?.core_level ?? 1)} onChange={(event) => updateConfig(YE_ID, "core_level", Number(event.target.value))} /></label><label>叶瞬光影画<input type="number" min="0" max="6" value={Number(configs[YE_ID]?.cinema_level ?? 0)} onChange={(event) => updateConfig(YE_ID, "cinema_level", Number(event.target.value))} /></label><label>耀嘉音核心等级<input type="number" min="1" max="7" value={Number(configs[ASTRA_ID]?.core_level ?? 1)} onChange={(event) => updateConfig(ASTRA_ID, "core_level", Number(event.target.value))} /></label><label>耀嘉音影画<input type="number" min="0" max="6" value={Number(configs[ASTRA_ID]?.cinema_level ?? 0)} onChange={(event) => updateConfig(ASTRA_ID, "cinema_level", Number(event.target.value))} /></label><label className="check-field">叶瞬光：明心境<input type="checkbox" checked={Boolean(configs[YE_ID]?.mingxin_active)} onChange={(event) => updateConfig(YE_ID, "mingxin_active", event.target.checked)} /></label><label className="check-field">叶瞬光：入场结算凛刃<input type="checkbox" checked={Boolean(configs[YE_ID]?.entry_move_uses_linren)} onChange={(event) => updateConfig(YE_ID, "entry_move_uses_linren", event.target.checked)} /></label><label className="check-field">耀嘉音：额外能力<input type="checkbox" checked={Boolean(configs[ASTRA_ID]?.additional_ability_eligible)} onChange={(event) => updateConfig(ASTRA_ID, "additional_ability_eligible", event.target.checked)} /></label></div>
+          <div className="form-grid two-columns config-fields"><label>叶瞬光核心等级<input type="number" min="1" max="7" value={Number(configs[YE_ID]?.core_level ?? 1)} onChange={(event) => updateConfig(YE_ID, "core_level", Number(event.target.value))} /></label><label>叶瞬光影画<input type="number" min="0" max="6" value={Number(configs[YE_ID]?.cinema_level ?? 0)} onChange={(event) => updateConfig(YE_ID, "cinema_level", Number(event.target.value))} /></label><label>耀嘉音核心等级<input type="number" min="1" max="7" value={Number(configs[ASTRA_ID]?.core_level ?? 1)} onChange={(event) => updateConfig(ASTRA_ID, "core_level", Number(event.target.value))} /></label><label>耀嘉音影画<input type="number" min="0" max="6" value={Number(configs[ASTRA_ID]?.cinema_level ?? 0)} onChange={(event) => updateConfig(ASTRA_ID, "cinema_level", Number(event.target.value))} /></label><label className="check-field">叶瞬光：明心境<input type="checkbox" checked={Boolean(configs[YE_ID]?.mingxin_active)} onChange={(event) => updateConfig(YE_ID, "mingxin_active", event.target.checked)} /></label><label className="check-field">叶瞬光：入场结算凛刃<input type="checkbox" checked={Boolean(configs[YE_ID]?.entry_move_uses_linren)} onChange={(event) => updateConfig(YE_ID, "entry_move_uses_linren", event.target.checked)} /></label></div>
           <div className="control-list">{allConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution}{condition.editable ? " · 可选" : " · 编译期"}</small></span><input disabled={!condition.editable} type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValues, [condition.condition_id]: event.target.checked }; setConditionValues(next); void loadEditors(primaryId, supportId, configs, next); }} /></label>)}</div>
           <div className="rule-list">{allRules.map((rule) => <label className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => setEnabledRules((current) => { const next = new Set(current); if (event.target.checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; })} />{rule.stack.minimum !== null && <input className="stack-input" type="number" min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} onChange={(event) => setStacks((current) => ({ ...current, [rule.rule_id]: Number(event.target.value) }))} />}</label>)}</div>
           {allTriggers.length > 0 && <><div className="section-heading compact"><div><p className="eyebrow">TRIGGER FACTS</p><h2>场景触发</h2></div></div><div className="form-grid two-columns">{allTriggers.map((trigger) => <label key={trigger.input_id}>{trigger.label}<select value={triggerActors[trigger.input_id] ?? ""} onChange={(event) => setTriggerActors((current) => ({ ...current, [trigger.input_id]: event.target.value }))}><option value="">未指定</option>{trigger.actor_options.map((actor) => <option key={actor} value={actor}>{characters.find((item) => item.character_id === actor)?.display_name ?? actor}</option>)}</select></label>)}</div></>}

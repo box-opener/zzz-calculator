@@ -319,6 +319,7 @@ class DirectMoveApplicationService:
             target_snapshot=request.target_snapshot,
             modifiers=application.event_modifiers,
             history_records=request.history_records,
+            vulnerability_policy=application.vulnerability_policy,
         )
         calculation = self._router.calculate(calculation_event, context)
         all_diagnostics = diagnostics + calculation.diagnostics
@@ -511,6 +512,7 @@ def _merge_modifier_applications(
         event_modifiers=event_application.event_modifiers,
         event_stat_modifiers=event_application.event_stat_modifiers,
         event_multiplier_modifiers=event_application.event_multiplier_modifiers,
+        vulnerability_policy=event_application.vulnerability_policy,
         applied_panel_effect_ids=(
             global_panel.applied_panel_effect_ids
             | event_application.applied_panel_effect_ids

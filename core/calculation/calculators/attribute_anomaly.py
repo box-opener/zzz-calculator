@@ -368,6 +368,7 @@ class AttributeAnomalyDamageCalculator:
         )
         vulnerability = calculate_broad_vulnerability_region(
             BroadVulnerabilityRegionInput(
+                is_stunned=context.target_snapshot.is_stunned,
                 stun_vulnerability=modifiers[
                     CalculationNode.ENEMY_STUN_VULNERABILITY
                 ],
@@ -381,6 +382,7 @@ class AttributeAnomalyDamageCalculator:
                     damage_reduction
                     + modifiers[CalculationNode.ENEMY_DAMAGE_REDUCTION]
                 ),
+                settlement_policy=context.vulnerability_policy,
             )
         )
         final_damage = (

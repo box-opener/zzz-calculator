@@ -65,7 +65,6 @@ def _definition(*, cinema_level: int = 0, core_level: int = 1):
             core_level=core_level,
             mingxin_active=True,
             entry_move_uses_linren=True,
-            enemy_stun_vulnerability_bonus=1.5,
         ),
         _raw_record(),
     )
@@ -137,6 +136,7 @@ def _request(
     flowing_cloud_count: int | None = None,
     base_modifiers: tuple[Modifier, ...] = (),
     mode: CritDisplayMode = CritDisplayMode.EXPECTED,
+    is_stunned: bool = False,
 ) -> MoveCalculationRequest:
     target = EnemyId("enemy:application")
     battle = BattleStateId("battle:application")
@@ -164,6 +164,7 @@ def _request(
             anomaly_buildup_resistance={},
             daze_resistance=Resolved(0.0),
             damage_reduction=Resolved(0.0),
+            is_stunned=is_stunned,
         ),
         team_profiles=(
             CharacterMatchProfile(
@@ -226,7 +227,7 @@ def test_direct_move_application_uses_panel_snapshot_before_calculation() -> Non
     )
 
 
-def test_base_stun_vulnerability_is_replaced_by_veil_override() -> None:
+def test_veil_policy_uses_capped_bonus_even_when_enemy_is_not_stunned() -> None:
     definition = _definition()
     base = _request(
         definition,
@@ -243,14 +244,47 @@ def test_base_stun_vulnerability_is_replaced_by_veil_override() -> None:
     base_execution = calculate_move(base)
     veil_execution = calculate_move(with_veil)
 
-    assert _calculated_value(base_execution.output.events[0]) > _calculated_value(
+    assert _calculated_value(base_execution.output.events[0]) < _calculated_value(
         veil_execution.output.events[0]
     )
     veil_values = {
         item.node: item.value.value
         for item in _breakdown(veil_execution.output.events[0])
     }
-    assert veil_values[CalculationNode.ENEMY_STUN_VULNERABILITY] == pytest.approx(1.1)
+    assert veil_values[CalculationNode.ENEMY_STUN_VULNERABILITY] == pytest.approx(1.5)
+    assert veil_values[CalculationNode.DAMAGE_VULNERABILITY_EFFECTIVE_BONUS] == pytest.approx(1.1)
+    assert veil_values[CalculationNode.DAMAGE_VEIL_VULNERABILITY_CAP] == pytest.approx(1.1)
+
+
+def test_standard_vulnerability_depends_on_enemy_stun_state() -> None:
+    definition = _definition()
+    base_modifier = (_stun_modifier(1.5),)
+    active = calculate_move(
+        _request(
+            definition,
+            "basic-fast-1",
+            base_modifiers=base_modifier,
+            is_stunned=True,
+        )
+    )
+    inactive = calculate_move(
+        _request(
+            definition,
+            "basic-fast-1",
+            base_modifiers=base_modifier,
+            is_stunned=False,
+        )
+    )
+    active_values = {
+        item.node: item.value.value
+        for item in _breakdown(active.output.events[0])
+    }
+    inactive_values = {
+        item.node: item.value.value
+        for item in _breakdown(inactive.output.events[0])
+    }
+    assert active_values[CalculationNode.DAMAGE_BROAD_VULNERABILITY_REGION] == pytest.approx(2.5)
+    assert inactive_values[CalculationNode.DAMAGE_BROAD_VULNERABILITY_REGION] == pytest.approx(1.0)
 
 
 def test_unit_repeat_keeps_unit_result_and_repeat_trace_separate() -> None:
@@ -304,7 +338,7 @@ def test_mutually_exclusive_variant_is_resolved_from_conditions_only() -> None:
     assert blocked.output.diagnostics
 
 
-def test_modifier_application_preserves_base_modifier_and_resolves_veil_override() -> (
+def test_modifier_application_resolves_veil_policy_without_rewriting_base_modifiers() -> (
     None
 ):
     definition = _definition()
@@ -322,8 +356,11 @@ def test_modifier_application_preserves_base_modifier_and_resolves_veil_override
         definition.character_id,
     )
     assert not application.diagnostics
-    assert application.event_modifiers[0].operation is EffectOperation.ADD
-    assert application.event_modifiers[0].value == Resolved(1.1)
+    from core.types import VeilVulnerabilityPolicy
+
+    assert len(application.event_modifiers) == 1
+    assert application.event_modifiers[0].modifier_path is CalculationNode.ENEMY_STUN_VULNERABILITY
+    assert application.vulnerability_policy == VeilVulnerabilityPolicy(1.1)
 
 
 def test_event_dependent_panel_modifier_is_blocked_in_stage_fifteen() -> None:

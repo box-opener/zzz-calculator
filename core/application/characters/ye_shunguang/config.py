@@ -1,7 +1,6 @@
 """Ye Shunguang-specific compiler inputs."""
 
 from dataclasses import dataclass
-import math
 
 from core.types import CharacterId, SkillGroup
 
@@ -16,7 +15,6 @@ class YeShunguangCompileConfig:
     cinema_level: int = 0
     mingxin_active: bool = False
     entry_move_uses_linren: bool = False
-    enemy_stun_vulnerability_bonus: float = 0.0
 
     def __post_init__(self) -> None:
         if self.character_id != CharacterId("character:1431"):
@@ -25,13 +23,6 @@ class YeShunguangCompileConfig:
             raise ValueError("core_level must be between 1 and 7")
         if not 0 <= self.cinema_level <= 6:
             raise ValueError("cinema_level must be between 0 and 6")
-        if (
-            not math.isfinite(self.enemy_stun_vulnerability_bonus)
-            or self.enemy_stun_vulnerability_bonus < 0
-        ):
-            raise ValueError(
-                "enemy_stun_vulnerability_bonus must be finite and non-negative"
-            )
         groups = tuple(item.skill_group for item in self.skill_levels)
         if len(set(groups)) != len(groups):
             raise ValueError("skill levels must be unique per skill group")

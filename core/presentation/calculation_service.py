@@ -18,12 +18,10 @@ from core.application import (
 )
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.ids import MoveEntryId, RuleItemId
-from core.application.characters.astra import ASTRA_ID
 from core.types import (
     BattleEventKind,
     BattleStateId,
     CharacterId,
-    CharacterRole,
     CharacterSnapshot,
     CharacterStats,
     CalculationNode,
@@ -36,6 +34,8 @@ from core.types import (
     EffectOperation,
     Resolved,
     SnapshotRule,
+    Unresolved,
+    UnresolvedReason,
 )
 
 from core.presentation.assembler import build_move_calculation_view
@@ -46,29 +46,10 @@ from core.presentation.requests import (
     SelectedTriggerInput,
 )
 from core.presentation.serialization import to_jsonable
-
-
-_ROLES = {
-    ASTRA_ID: CharacterRole.SUPPORT,
-    CharacterId("character:1431"): CharacterRole.ATTACK,
-}
-_ELEMENTS = {
-    ASTRA_ID: Element.ETHER,
-    CharacterId("character:1431"): Element.PHYSICAL,
-}
-_DEFAULT_STATS = {
-    "hp": 10000.0,
-    "attack": 1000.0,
-    "defense": 500.0,
-    "impact": 100.0,
-    "crit_rate": 0.5,
-    "crit_damage": 0.5,
-    "anomaly_mastery": 100.0,
-    "anomaly_proficiency": 100.0,
-    "penetration_rate": 0.0,
-    "penetration_flat": 0.0,
-    "energy_regen": 1.2,
-}
+from core.presentation.registry import (
+    registration_for,
+    compile_registered_definition,
+)
 
 
 def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -77,22 +58,37 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     view_request = _presentation_request(payload)
     definitions = _compile_definitions(payload)
     primary = definitions[0]
+    supplied_operator = payload.get("current_operator")
+    if supplied_operator is not None and str(supplied_operator) != str(primary.character_id):
+        raise ValueError("current_operator must equal primary_character_id for Direct UI")
+    raw_team_ids = payload.get("team_character_ids")
+    if not isinstance(raw_team_ids, (list, tuple)):
+        raise ValueError("team_character_ids is required")
     team_ids = tuple(
         CharacterId(str(item))
-        for item in payload.get(
-            "team_character_ids",
-            [str(item.character_id) for item in definitions],
-        )
+        for item in raw_team_ids
     )
     if not team_ids or len(set(team_ids)) != len(team_ids):
         raise ValueError("team_character_ids must be a non-empty unique array")
-    unknown_team_ids = set(team_ids) - set(_ROLES)
-    if unknown_team_ids:
-        raise ValueError(f"unsupported team character IDs: {sorted(unknown_team_ids)}")
+    for character_id in team_ids:
+        registration_for(character_id)
     definition_ids = {definition.character_id for definition in definitions}
     if not set(team_ids).issubset(definition_ids):
         raise ValueError("every team character must have a compiled definition")
-    current_operator = CharacterId(view_request.current_operator)
+    required_resistances = {
+        registration_for(definition.character_id).base_element.value
+        for definition in definitions
+    }
+    missing_resistances = required_resistances - set(
+        payload.get("enemy", {}).get("damage_resistance", {})
+        if isinstance(payload.get("enemy"), Mapping)
+        else ()
+    )
+    if missing_resistances:
+        raise ValueError(
+            f"enemy damage_resistance is missing: {sorted(missing_resistances)}"
+        )
+    current_operator = CharacterId(primary.character_id)
     if current_operator not in set(team_ids):
         raise ValueError("current_operator must be a team member")
 
@@ -105,7 +101,7 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     team_profiles = tuple(
         CharacterMatchProfile(
             character_id=character_id,
-            role=_ROLES[character_id],
+            role=registration_for(character_id).role,
         )
         for character_id in team_ids
     )
@@ -135,8 +131,6 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _compile_definitions(payload: Mapping[str, Any]) -> tuple[CharacterCalculationDefinition, ...]:
-    from .api import _compile_definition
-
     primary_id = str(payload.get("primary_character_id", ""))
     if not primary_id:
         raise ValueError("primary_character_id is required")
@@ -152,7 +146,9 @@ def _compile_definitions(payload: Mapping[str, Any]) -> tuple[CharacterCalculati
         config = configs.get(character_id, {})
         if not isinstance(config, Mapping):
             raise ValueError(f"compile config must be an object: {character_id}")
-        definitions.append(_compile_definition(character_id, dict(config)))
+        definitions.append(
+            compile_registered_definition(character_id, dict(config), ids)
+        )
     return tuple(definitions)
 
 
@@ -164,37 +160,78 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
         raise ValueError("primary_character_id is required")
     supporting_ids = tuple(str(item) for item in payload.get("supporting_character_ids", ()))
     team_ids = (primary_id, *supporting_ids)
-    raw_builds = payload.get("character_builds", {})
+    raw_builds = payload.get("character_builds")
     if not isinstance(raw_builds, Mapping):
         raise ValueError("character_builds must be an object keyed by character ID")
     builds = []
     for character_id in team_ids:
-        raw = raw_builds.get(character_id, {})
+        if character_id not in raw_builds:
+            raise ValueError(f"character build is required: {character_id}")
+        raw = raw_builds[character_id]
         if not isinstance(raw, Mapping):
             raise ValueError(f"character build must be an object: {character_id}")
-        stats = raw.get("out_of_combat_stats", raw.get("stats", _DEFAULT_STATS))
+        if "level" not in raw:
+            raise ValueError(f"character build level is required: {character_id}")
+        stats = raw.get("out_of_combat_stats", raw.get("stats"))
         if not isinstance(stats, Mapping):
             raise ValueError(f"out_of_combat_stats must be an object: {character_id}")
+        required_stats = {
+            "attack",
+            "crit_rate",
+            "crit_damage",
+            "penetration_rate",
+            "penetration_flat",
+            "element_damage_bonus",
+        }
+        missing_stats = required_stats - set(stats)
+        if missing_stats:
+            raise ValueError(
+                f"character build stats are missing for {character_id}: "
+                f"{sorted(missing_stats)}"
+            )
+        element_key = registration_for(character_id).base_element.value
+        element_bonus = stats["element_damage_bonus"]
+        if not isinstance(element_bonus, Mapping) or element_key not in element_bonus:
+            raise ValueError(
+                f"element_damage_bonus is missing {element_key}: {character_id}"
+            )
         builds.append(
             CharacterBuildInput(
                 character_id=character_id,
-                level=int(raw.get("level", 60)),
+                level=int(raw["level"]),
                 out_of_combat_stats=stats,
             )
         )
-    raw_enemy = payload.get("enemy", {})
+    raw_enemy = payload.get("enemy")
     if not isinstance(raw_enemy, Mapping):
         raise ValueError("enemy must be an object")
     resistances = raw_enemy.get("damage_resistance", {})
     if not isinstance(resistances, Mapping):
         raise ValueError("enemy damage_resistance must be an object")
+    required_enemy_fields = {
+        "enemy_id",
+        "level",
+        "initial_defense",
+        "damage_resistance",
+        "damage_reduction",
+        "stun_vulnerability_bonus",
+        "is_stunned",
+    }
+    missing_enemy_fields = required_enemy_fields - set(raw_enemy)
+    if missing_enemy_fields:
+        raise ValueError(
+            f"enemy fields are missing: {sorted(missing_enemy_fields)}"
+        )
+    if not isinstance(raw_enemy["is_stunned"], bool):
+        raise ValueError("enemy is_stunned must be a boolean")
     enemy = EnemyInput(
-        enemy_id=str(raw_enemy.get("enemy_id", "enemy:ui")),
-        level=int(raw_enemy.get("level", 60)),
-        initial_defense=float(raw_enemy.get("initial_defense", 1000.0)),
+        enemy_id=str(raw_enemy["enemy_id"]),
+        level=int(raw_enemy["level"]),
+        initial_defense=float(raw_enemy["initial_defense"]),
         damage_resistance=resistances,
-        damage_reduction=float(raw_enemy.get("damage_reduction", 0.0)),
-        stun_vulnerability_bonus=float(raw_enemy.get("stun_vulnerability_bonus", 0.0)),
+        damage_reduction=float(raw_enemy["damage_reduction"]),
+        stun_vulnerability_bonus=float(raw_enemy["stun_vulnerability_bonus"]),
+        is_stunned=raw_enemy["is_stunned"],
     )
     selected = payload.get("selected_trigger_inputs", ())
     if not isinstance(selected, (list, tuple)):
@@ -219,7 +256,6 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
         supporting_character_ids=supporting_ids,
-        current_operator=str(payload.get("current_operator", primary_id)),
         move_entry_id=move_entry_id,
         character_builds=tuple(builds),
         enemy=enemy,
@@ -237,8 +273,7 @@ def _build_records(
     records = []
     for build in builds:
         character_id = CharacterId(build.character_id)
-        if character_id not in _ROLES:
-            raise ValueError(f"unsupported character build: {character_id}")
+        registration_for(character_id)
         stats = _character_stats(build.out_of_combat_stats, character_id)
         records.append(
             (
@@ -250,7 +285,7 @@ def _build_records(
 
 
 def _character_stats(raw: Mapping[str, Any], character_id: CharacterId) -> CharacterStats:
-    values = {**_DEFAULT_STATS, **raw}
+    values = dict(raw)
     element_bonus = raw.get("element_damage_bonus", {})
     if not isinstance(element_bonus, Mapping):
         raise ValueError(f"element_damage_bonus must be an object: {character_id}")
@@ -258,19 +293,27 @@ def _character_stats(raw: Mapping[str, Any], character_id: CharacterId) -> Chara
         _element(key): Resolved(float(value))
         for key, value in element_bonus.items()
     }
-    bonuses.setdefault(_ELEMENTS[character_id], Resolved(0.0))
+    bonuses.setdefault(registration_for(character_id).base_element, Resolved(0.0))
+    def stat(name: str):
+        if name in values:
+            return Resolved(float(values[name]))
+        return Unresolved(
+            reason=UnresolvedReason.MISSING_DATA,
+            notes=f"character stat is not supplied: {name}",
+        )
+
     return CharacterStats(
-        hp=Resolved(float(values["hp"])),
-        attack=Resolved(float(values["attack"])),
-        defense=Resolved(float(values["defense"])),
-        impact=Resolved(float(values["impact"])),
-        crit_rate=Resolved(float(values["crit_rate"])),
-        crit_damage=Resolved(float(values["crit_damage"])),
-        anomaly_mastery=Resolved(float(values["anomaly_mastery"])),
-        anomaly_proficiency=Resolved(float(values["anomaly_proficiency"])),
-        penetration_rate=Resolved(float(values["penetration_rate"])),
-        penetration_flat=Resolved(float(values["penetration_flat"])),
-        energy_regen=Resolved(float(values["energy_regen"])),
+        hp=stat("hp"),
+        attack=stat("attack"),
+        defense=stat("defense"),
+        impact=stat("impact"),
+        crit_rate=stat("crit_rate"),
+        crit_damage=stat("crit_damage"),
+        anomaly_mastery=stat("anomaly_mastery"),
+        anomaly_proficiency=stat("anomaly_proficiency"),
+        penetration_rate=stat("penetration_rate"),
+        penetration_flat=stat("penetration_flat"),
+        energy_regen=stat("energy_regen"),
         element_damage_bonus=bonuses,
     )
 
@@ -286,8 +329,12 @@ def _enemy_inputs(enemy: EnemyInput):
             for key, value in enemy.damage_resistance.items()
         },
         anomaly_buildup_resistance={},
-        daze_resistance=Resolved(1.0),
+        daze_resistance=Unresolved(
+            reason=UnresolvedReason.MISSING_DATA,
+            notes="daze resistance is not supplied by the Direct UI",
+        ),
         damage_reduction=Resolved(enemy.damage_reduction),
+        is_stunned=enemy.is_stunned,
     )
     profile = EnemyMatchProfile(enemy_id=enemy_id)
     base = Modifier(
@@ -310,6 +357,34 @@ def _scenario(
     parameter_values = payload.get("parameter_values", {})
     if not isinstance(condition_values, Mapping) or not isinstance(parameter_values, Mapping):
         raise ValueError("condition_values and parameter_values must be objects")
+    known_condition_ids = {
+        condition.condition_id
+        for definition in definitions
+        for condition in definition.scenario_conditions
+    }
+    known_parameter_ids = {
+        parameter.parameter_id
+        for definition in definitions
+        for parameter in definition.scenario_parameters
+    }
+    unknown_conditions = set(condition_values) - {str(item) for item in known_condition_ids}
+    if unknown_conditions:
+        raise ValueError(f"unknown scenario conditions: {sorted(unknown_conditions)}")
+    unknown_parameters = set(parameter_values) - {str(item) for item in known_parameter_ids}
+    if unknown_parameters:
+        raise ValueError(f"unknown scenario parameters: {sorted(unknown_parameters)}")
+    static_condition_values = {
+        str(condition.condition_id): condition.value
+        for definition in definitions
+        for condition in definition.scenario_conditions
+        if condition.resolution.value == "static"
+    }
+    overridden_static = set(condition_values) & set(static_condition_values)
+    if overridden_static:
+        raise ValueError(
+            "static scenario conditions must not be submitted: "
+            f"{sorted(overridden_static)}"
+        )
     conditions = []
     parameters = []
     for definition in definitions:
@@ -334,6 +409,12 @@ def _scenario(
                     value=parameter_values.get(str(parameter.parameter_id), parameter.value),
                 )
             )
+    for condition_id, value in condition_values.items():
+        if value is not None and not isinstance(value, bool):
+            raise ValueError(f"scenario condition must be boolean or null: {condition_id}")
+    for parameter_id, value in parameter_values.items():
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+            raise ValueError(f"scenario parameter must be integer or null: {parameter_id}")
     trigger_facts = []
     trigger_inputs = payload.get("selected_trigger_inputs", ())
     if not isinstance(trigger_inputs, (list, tuple)):
@@ -369,6 +450,8 @@ def _scenario(
             )
         )
     enabled = payload.get("enabled_rule_item_ids")
+    if "enabled_rule_item_ids" not in payload:
+        raise ValueError("enabled_rule_item_ids is required")
     known_rule_ids = {
         rule.rule_id for definition in definitions for rule in definition.rule_items
     }

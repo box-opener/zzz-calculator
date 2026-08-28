@@ -184,6 +184,7 @@ def _target(
     element: Element = Element.PHYSICAL,
     resistance: float = 0.2,
     damage_reduction: float = 0.0,
+    is_stunned: bool = True,
 ) -> EnemySnapshot:
     return EnemySnapshot(
         enemy_id=enemy_id or EnemyId("enemy:target"),
@@ -193,6 +194,7 @@ def _target(
         anomaly_buildup_resistance={},
         daze_resistance=Resolved(0.0),
         damage_reduction=Resolved(damage_reduction),
+        is_stunned=is_stunned,
     )
 
 

@@ -8,6 +8,49 @@ from web.api import app
 client = TestClient(app)
 
 
+def _valid_calculation_payload() -> dict:
+    return {
+        "primary_character_id": "character:1431",
+        "team_character_ids": ["character:1431"],
+        "move_entry_id": "move-entry:ye:1431:basic-fast-1",
+        "compile_configs": {
+            "character:1431": {
+                "core_level": 1,
+                "cinema_level": 0,
+                "mingxin_active": False,
+                "entry_move_uses_linren": False,
+            }
+        },
+        "condition_values": {},
+        "parameter_values": {},
+        "character_builds": {
+            "character:1431": {
+                "level": 60,
+                "out_of_combat_stats": {
+                    "attack": 1200.0,
+                    "crit_rate": 0.65,
+                    "crit_damage": 0.5,
+                    "penetration_rate": 0.0,
+                    "penetration_flat": 0.0,
+                    "element_damage_bonus": {"physical": 0.0},
+                },
+            }
+        },
+        "enemy": {
+            "enemy_id": "enemy:ui",
+            "level": 60,
+            "initial_defense": 1000.0,
+            "damage_resistance": {"physical": 0.2},
+            "damage_reduction": 0.0,
+            "stun_vulnerability_bonus": 1.5,
+            "is_stunned": False,
+        },
+        "enabled_rule_item_ids": [],
+        "selected_trigger_inputs": [],
+        "rule_stack_counts": {},
+    }
+
+
 def test_catalog_uses_production_ids_and_assets() -> None:
     response = client.get("/api/v1/characters")
     assert response.status_code == 200
@@ -26,8 +69,10 @@ def test_definition_preview_returns_versioned_editor_view() -> None:
         json={
             "character_id": "character:1311",
             "team_character_ids": ["character:1311", "character:1431"],
-            "cinema_level": 6,
-            "additional_ability_eligible": True,
+            "compile_config": {
+                "core_level": 1,
+                "cinema_level": 6,
+            },
             "condition_values": {
                 "condition:astra:aria-active": True,
             },
@@ -39,6 +84,10 @@ def test_definition_preview_returns_versioned_editor_view() -> None:
     assert payload["character_id"] == "character:1311"
     assert payload["moves"]
     assert payload["rule_items"]
+    assert {item["field_id"] for item in payload["compile_config_fields"]} == {
+        "core_level",
+        "cinema_level",
+    }
 
 
 def test_invalid_requests_are_structured() -> None:
@@ -64,13 +113,13 @@ def test_move_calculation_executes_all_three_display_modes() -> None:
         json={
             "primary_character_id": "character:1431",
             "team_character_ids": ["character:1431"],
-            "current_operator": "character:1431",
             "move_entry_id": "move-entry:ye:1431:basic-fast-1",
             "compile_configs": {
                 "character:1431": {
+                    "core_level": 1,
+                    "cinema_level": 0,
                     "mingxin_active": False,
                     "entry_move_uses_linren": False,
-                    "enemy_stun_vulnerability_bonus": 1.5,
                 }
             },
             "character_builds": {
@@ -80,6 +129,9 @@ def test_move_calculation_executes_all_three_display_modes() -> None:
                         "attack": 1200.0,
                         "crit_rate": 0.65,
                         "crit_damage": 0.5,
+                        "penetration_rate": 0.0,
+                        "penetration_flat": 0.0,
+                        "element_damage_bonus": {"physical": 0.0},
                     },
                 }
             },
@@ -87,8 +139,10 @@ def test_move_calculation_executes_all_three_display_modes() -> None:
                 "enemy_id": "enemy:ui",
                 "level": 60,
                 "initial_defense": 1000.0,
-                "damage_resistance": {"physical": 0.2},
+                "damage_resistance": {"physical": 0.2, "ether": 0.2},
+                "damage_reduction": 0.0,
                 "stun_vulnerability_bonus": 1.5,
+                "is_stunned": False,
             },
             "enabled_rule_item_ids": [],
         },
@@ -111,13 +165,13 @@ def test_move_calculation_accepts_astra_as_cross_character_support() -> None:
             "primary_character_id": "character:1431",
             "supporting_character_ids": ["character:1311"],
             "team_character_ids": ["character:1431", "character:1311"],
-            "current_operator": "character:1431",
             "move_entry_id": "move-entry:ye:1431:basic-fast-1",
             "compile_configs": {
                 "character:1431": {
+                    "core_level": 1,
+                    "cinema_level": 0,
                     "mingxin_active": False,
                     "entry_move_uses_linren": False,
-                    "enemy_stun_vulnerability_bonus": 1.5,
                 },
                 "character:1311": {
                     "core_level": 1,
@@ -128,15 +182,17 @@ def test_move_calculation_accepts_astra_as_cross_character_support() -> None:
                 "condition:astra:core-attack-buff-active": True,
             },
             "character_builds": {
-                "character:1431": {"level": 60, "out_of_combat_stats": {"attack": 1200.0}},
-                "character:1311": {"level": 60, "out_of_combat_stats": {"attack": 1500.0}},
+                "character:1431": {"level": 60, "out_of_combat_stats": {"attack": 1200.0, "crit_rate": 0.5, "crit_damage": 0.5, "penetration_rate": 0.0, "penetration_flat": 0.0, "element_damage_bonus": {"physical": 0.0}}},
+                "character:1311": {"level": 60, "out_of_combat_stats": {"attack": 1500.0, "crit_rate": 0.5, "crit_damage": 0.5, "penetration_rate": 0.0, "penetration_flat": 0.0, "element_damage_bonus": {"ether": 0.0}}},
             },
             "enemy": {
                 "enemy_id": "enemy:ui",
                 "level": 60,
                 "initial_defense": 1000.0,
-                "damage_resistance": {"physical": 0.2},
+                "damage_resistance": {"physical": 0.2, "ether": 0.2},
+                "damage_reduction": 0.0,
                 "stun_vulnerability_bonus": 1.5,
+                "is_stunned": False,
             },
             "enabled_rule_item_ids": [
                 "rule:astra:1311:core-passive-self",
@@ -155,3 +211,25 @@ def test_move_calculation_accepts_astra_as_cross_character_support() -> None:
     recipients = {item["recipient_character_id"] for item in payload["panel_traces"]}
     assert recipients == {"character:1431", "character:1311"}
     assert payload["resolved_character_snapshots"]
+
+
+def test_calculation_api_does_not_fill_missing_formal_inputs() -> None:
+    import copy
+
+    missing_enemy_state = _valid_calculation_payload()
+    del missing_enemy_state["enemy"]["is_stunned"]
+    response = client.post("/api/v1/moves/calculate", json=missing_enemy_state)
+    assert response.status_code == 400
+    assert "is_stunned" in response.json()["diagnostics"][0]["message"]
+
+    missing_attack = _valid_calculation_payload()
+    del missing_attack["character_builds"]["character:1431"]["out_of_combat_stats"]["attack"]
+    response = client.post("/api/v1/moves/calculate", json=missing_attack)
+    assert response.status_code == 400
+    assert "attack" in response.json()["diagnostics"][0]["message"]
+
+    mismatched_operator = copy.deepcopy(_valid_calculation_payload())
+    mismatched_operator["current_operator"] = "character:1311"
+    response = client.post("/api/v1/moves/calculate", json=mismatched_operator)
+    assert response.status_code == 400
+    assert "primary_character_id" in response.json()["diagnostics"][0]["message"]

@@ -30,6 +30,7 @@ from .calculation import (
 from .catalog import CharacterCatalogItem, supported_character_catalog
 from .character_editor import (
     CharacterEditorView,
+    CompileConfigFieldView,
     MoveVariantView,
     MoveView,
     RuleItemView,
@@ -48,6 +49,7 @@ def build_character_editor_view(
     definition: CharacterCalculationDefinition,
     scenario: CalculationScenario | None = None,
     team_character_ids: Sequence[CharacterId] = (),
+    compile_config_fields: Sequence[CompileConfigFieldView] = (),
 ) -> CharacterEditorView:
     """Build controls without exposing raw Domain/Application objects."""
 
@@ -111,6 +113,7 @@ def build_character_editor_view(
         display_name=display_name,
         role=definition.role.value,
         base_element=definition.base_element.value,
+        compile_config_fields=tuple(compile_config_fields),
         moves=tuple(_move_view(item) for item in definition.move_entries),
         rule_items=tuple(
             _rule_view(rule, scenario, definition.scenario_conditions)

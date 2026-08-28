@@ -142,6 +142,7 @@ def target(
         {},
         Resolved(0.0),
         Resolved(damage_reduction),
+        True,
     )
 
 

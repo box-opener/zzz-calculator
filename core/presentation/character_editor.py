@@ -18,6 +18,19 @@ class ScenarioConditionView:
 
 
 @dataclass(frozen=True, slots=True)
+class CompileConfigFieldView:
+    field_id: str
+    label: str
+    field_type: str
+    value: bool | int | float | str
+    minimum: int | float | None = None
+    maximum: int | float | None = None
+    editable: bool = True
+    options: tuple[str, ...] = ()
+    help_text: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ScenarioParameterView:
     parameter_id: str
     label: str
@@ -90,6 +103,7 @@ class CharacterEditorView:
     display_name: str
     role: str
     base_element: str
+    compile_config_fields: tuple[CompileConfigFieldView, ...]
     moves: tuple[MoveView, ...]
     rule_items: tuple[RuleItemView, ...]
     scenario_conditions: tuple[ScenarioConditionView, ...]
@@ -100,6 +114,7 @@ class CharacterEditorView:
 
 __all__ = [
     "CharacterEditorView",
+    "CompileConfigFieldView",
     "MoveVariantView",
     "MoveView",
     "RuleItemView",

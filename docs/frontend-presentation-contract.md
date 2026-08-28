@@ -9,6 +9,10 @@ Production character source records live under `core/data/characters/` and are
 loaded through `core.data.loader`. Tests use the same records. The old frontend
 database, old formulas, and old state objects are not calculation inputs.
 
+Character compiler selection, display metadata, config fields, role/element
+metadata, and team-derived eligibility are owned by the presentation registry.
+The HTTP layer only transports JSON and does not branch on character IDs.
+
 ## Input ownership
 
 The browser submits named build, enemy, scenario-condition, integer-parameter,
@@ -25,6 +29,11 @@ enabled-rule selection. Eligibility, condition satisfaction, and trigger facts
 remain separate. A rule is toggleable only when the current scenario makes it
 available; an ineligible or blocked rule cannot be forced on by the UI.
 
+For the current Direct UI, `primary_character_id` is also the move owner and
+the scenario operator. The browser does not submit an independent operator
+identity. Character and enemy calculation inputs are explicit; API requests do
+not silently substitute demonstration defaults for missing formal values.
+
 ## Output ownership
 
 Presentation output is versioned as `presentation-v1`. Three crit-display
@@ -39,3 +48,9 @@ does not infer it from before/after snapshots.
 The browser formats values only. It does not perform damage multiplication,
 crit calculations, repeat-count multiplication, total aggregation, modifier
 matching, or eligibility evaluation.
+
+Enemy `is_stunned` and `stun_vulnerability_bonus` are independent named inputs.
+The latter is supplied once by the enemy settlement environment; a character
+compiler must not carry a second copy. A veil-like mechanism is represented as
+an explicit vulnerability settlement policy for the current event, not as a
+replacement of the enemy's base stun-vulnerability value.

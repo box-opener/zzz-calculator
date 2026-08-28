@@ -14,20 +14,8 @@ from fastapi import Body, FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from core.application.characters.astra import (
-    AstraCompileConfig,
-    compile_astra,
-    load_raw_record as load_astra_raw_record,
-)
-from core.application.characters.ye_shunguang import (
-    YeShunguangCompileConfig,
-    compile_ye_shunguang,
-    load_raw_record as load_ye_raw_record,
-)
-from core.application.scenario import CalculationScenario
-from core.data.loader import load_character_record
 from core.presentation import (
-    build_character_editor_view,
+    build_registered_editor_view,
     supported_character_catalog,
 )
 from core.presentation.serialization import to_jsonable
@@ -54,21 +42,20 @@ def list_characters() -> list[dict[str, Any]]:
 def preview_definition(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
     try:
         character_id = str(payload.get("character_id", ""))
-        definition = _compile_definition(character_id, payload)
         team_ids = tuple(
             CharacterId(str(item))
             for item in payload.get("team_character_ids", (character_id,))
         )
         if len(set(team_ids)) != len(team_ids):
             raise ValueError("team_character_ids must be unique")
-        current_operator = CharacterId(str(payload.get("current_operator", team_ids[0])))
-        if current_operator not in set(team_ids):
-            raise ValueError("current_operator must be a team member")
-        scenario = _preview_scenario(definition, payload, team_ids)
-        view = build_character_editor_view(
-            definition,
-            scenario=scenario,
-            team_character_ids=team_ids,
+        config_values = payload.get("compile_config", {})
+        if not isinstance(config_values, dict):
+            raise ValueError("compile_config must be an object")
+        view = build_registered_editor_view(
+            character_id,
+            config_values,
+            team_ids,
+            condition_values=payload.get("condition_values", {}),
         )
         return JSONResponse(to_jsonable(view))
     except (TypeError, ValueError, KeyError) as exc:
@@ -91,7 +78,7 @@ def preview_definition(payload: dict[str, Any] = Body(default={})) -> JSONRespon
 @app.post("/api/v1/moves/calculate")
 def calculate_move(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
     try:
-        from .calculation_adapter import calculate_payload
+        from core.presentation.calculation_service import calculate_payload
 
         return JSONResponse(content=calculate_payload(payload))
     except (TypeError, ValueError, KeyError) as exc:
@@ -120,60 +107,6 @@ def health() -> dict[str, str]:
 # in registration order, so mounting ``/`` first would swallow ``/api``.
 if _FRONTEND_DIST.is_dir():
     app.mount("/", StaticFiles(directory=_FRONTEND_DIST, html=True), name="frontend")
-
-
-def _compile_definition(character_id: str, payload: dict[str, Any]):
-    if character_id == "character:1311":
-        return compile_astra(
-            AstraCompileConfig(
-                core_level=int(payload.get("core_level", 1)),
-                cinema_level=int(payload.get("cinema_level", 0)),
-                additional_ability_eligible=bool(
-                    payload.get("additional_ability_eligible", False)
-                ),
-            ),
-            load_astra_raw_record(load_character_record(character_id)),
-        )
-    if character_id == "character:1431":
-        return compile_ye_shunguang(
-            YeShunguangCompileConfig(
-                core_level=int(payload.get("core_level", 1)),
-                cinema_level=int(payload.get("cinema_level", 0)),
-                mingxin_active=bool(payload.get("mingxin_active", False)),
-                entry_move_uses_linren=bool(
-                    payload.get("entry_move_uses_linren", False)
-                ),
-                enemy_stun_vulnerability_bonus=float(
-                    payload.get("enemy_stun_vulnerability_bonus", 0.0)
-                ),
-            ),
-            load_ye_raw_record(load_character_record(character_id)),
-        )
-    raise ValueError(f"unsupported character_id: {character_id}")
-
-
-def _preview_scenario(definition, payload: dict[str, Any], team_ids):
-    condition_values = payload.get("condition_values", {})
-    if not isinstance(condition_values, dict):
-        raise ValueError("condition_values must be an object")
-    conditions = tuple(
-        item
-        if item.resolution.value == "static"
-        else type(item)(
-            condition_id=item.condition_id,
-            label=item.label,
-            original_text=item.original_text,
-            resolution=item.resolution,
-            value=condition_values.get(str(item.condition_id), item.value),
-        )
-        for item in definition.scenario_conditions
-    )
-    return CalculationScenario(
-        scenario_id="preview",
-        current_operator=CharacterId(str(payload.get("current_operator", team_ids[0]))),
-        conditions=conditions,
-        parameters=definition.scenario_parameters,
-    )
 
 
 __all__ = ["app"]

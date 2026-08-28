@@ -31,6 +31,8 @@ from core.data.loader import load_character_record
 from core.types import (
     AnyFilter,
     BattleStateId,
+    CharacterId,
+    CharacterRole,
     CalculationContext,
     CalculationNode,
     CharacterSnapshot,
@@ -75,14 +77,12 @@ def _definition(
     cinema_level: int = 0,
     mingxin_active: bool = True,
     entry_move_uses_linren: bool = True,
-    enemy_stun_vulnerability_bonus: float = 1.5,
     core_level: int = 1,
 ) -> CharacterCalculationDefinition:
     config = YeShunguangCompileConfig(
         cinema_level=cinema_level,
         mingxin_active=mingxin_active,
         entry_move_uses_linren=entry_move_uses_linren,
-        enemy_stun_vulnerability_bonus=enemy_stun_vulnerability_bonus,
         core_level=core_level,
     )
     return compile_ye_shunguang(config, _raw_fixture())
@@ -579,6 +579,36 @@ def test_compiled_ye_definition_feeds_matcher_without_cross_move_cinema_effects(
         )
 
 
+def test_veil_policy_matches_damage_dealer_not_current_operator() -> None:
+    definition = _definition(cinema_level=0)
+    veil = next(item for item in definition.rule_items if str(item.rule_id).endswith("veil"))
+    own_event = _event_for_entry(definition, "basic-fast-1")
+    own_result = EffectMatcher().match_rule_item(
+        veil,
+        _matcher_context(own_event, definition),
+    )
+    assert own_result.status is EffectMatchStatus.MATCHED
+
+    other = CharacterId("character:other")
+    other_event = replace(
+        own_event,
+        metadata=replace(own_event.metadata, damage_dealer=other),
+    )
+    own_context = _matcher_context(other_event, definition)
+    own_snapshot = own_context.calculation_context.character_snapshots[0]
+    other_context = replace(
+        own_context,
+        calculation_context=replace(
+            own_context.calculation_context,
+            character_snapshots=(own_snapshot, CharacterSnapshot(other, 60, own_snapshot.settlement_stats)),
+        ),
+        team=own_context.team
+        + (CharacterMatchProfile(other, CharacterRole.ATTACK),),
+    )
+    other_result = EffectMatcher().match_rule_item(veil, other_context)
+    assert other_result.status is EffectMatchStatus.NOT_MATCHED
+
+
 def test_derived_cinema_template_has_no_source_move_identity_and_cannot_recurse() -> None:
     definition = _definition(cinema_level=6)
     zhanwang = _entry(definition, "ultimate-zhanwangkaitian")
@@ -693,12 +723,13 @@ def test_core_level_and_entry_element_are_compiled_from_config() -> None:
 
 
 def test_veil_bonus_uses_bonus_units_and_cinema_cap() -> None:
-    base = _definition(cinema_level=0, enemy_stun_vulnerability_bonus=1.5)
-    c4 = _definition(cinema_level=4, enemy_stun_vulnerability_bonus=3.0)
+    base = _definition(cinema_level=0)
+    c4 = _definition(cinema_level=4)
     base_veil = next(item for item in base.rule_items if str(item.rule_id).endswith("veil"))
     c4_veil = next(item for item in c4.rule_items if str(item.rule_id).endswith("veil"))
     assert isinstance(base_veil.effects[0], ModifierEffect)
     assert isinstance(c4_veil.effects[0], ModifierEffect)
-    assert base_veil.effects[0].result.operation is EffectOperation.OVERRIDE
+    assert base_veil.effects[0].result.operation is EffectOperation.SET
+    assert base_veil.effects[0].result.modifier_path is CalculationNode.DAMAGE_VEIL_VULNERABILITY_CAP
     assert base_veil.effects[0].result.value.value == pytest.approx(1.1)  # type: ignore[union-attr]
     assert c4_veil.effects[0].result.value.value == pytest.approx(2.0)  # type: ignore[union-attr]

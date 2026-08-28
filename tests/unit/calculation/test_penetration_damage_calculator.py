@@ -133,6 +133,7 @@ def _target(
     element: Element = Element.FIRE,
     resistance: float | Unresolved = 0.0,
     damage_reduction: float | Unresolved = 0.0,
+    is_stunned: bool = True,
 ) -> EnemySnapshot:
     return EnemySnapshot(
         enemy_id=EnemyId("enemy:target"),
@@ -142,6 +143,7 @@ def _target(
         anomaly_buildup_resistance={},
         daze_resistance=Resolved(0.0),
         damage_reduction=_value(damage_reduction),
+        is_stunned=is_stunned,
     )
 
 

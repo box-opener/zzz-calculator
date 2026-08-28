@@ -105,7 +105,6 @@ def _ye_definition(*, cinema_level: int = 0):
             core_level=1,
             mingxin_active=True,
             entry_move_uses_linren=True,
-            enemy_stun_vulnerability_bonus=1.5,
         ),
         raw,
     )

@@ -26,30 +26,10 @@ class CharacterCatalogItem:
             raise ValueError("catalog character image_path is required")
 
 
-_CATALOG = (
-    CharacterCatalogItem(
-        character_id="character:1311",
-        display_name="耀嘉音",
-        rarity="S",
-        element="ether",
-        specialty="support",
-        image_path="/characters/IconRole36.webp",
-        image_object_position="50% 20%",
-    ),
-    CharacterCatalogItem(
-        character_id="character:1431",
-        display_name="叶瞬光",
-        rarity="S",
-        element="physical",
-        specialty="attack",
-        image_path="/characters/IconRole55.webp",
-        image_object_position="50% 18%",
-    ),
-)
-
-
 def supported_character_catalog() -> tuple[CharacterCatalogItem, ...]:
-    return _CATALOG
+    from .registry import supported_character_registrations
+
+    return tuple(item.catalog for item in supported_character_registrations())
 
 
 __all__ = ["CharacterCatalogItem", "supported_character_catalog"]
