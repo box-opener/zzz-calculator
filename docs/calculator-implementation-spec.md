@@ -370,13 +370,20 @@ settlement snapshot。该正式快照应保存在 Application 输出中。非暴
 只允许在调用 Calculator 前对暴击率建立临时快照，不得重新匹配 Effect，也不得把展示快照
 当作正式局内面板。
 
-基础 Panel Effect 只有在 `trigger is None`、`condition` 为空或为 `AlwaysCondition`、且
-`filters` 为空时才视为全局、事件无关的 Panel Effect。
+Panel Effect 只有在没有当前 DamageEvent 相关的 `filters`，且 `condition` 为空、为
+`AlwaysCondition` 或其他已定义的静态 Scenario 条件（如 `RuleStackCondition`）时，才视为
+可进入全局 Panel pre-pass。若存在 `trigger`，只能用场景中的触发事实判断规则是否已触发，
+不得用触发事实选择 recipient。
 
 应用层在当前 DamageEvent 匹配前执行一次全局 Panel pre-pass。事件无关的 `target=SELF`
 Panel Effect 写入其 `Effect.owner` 的角色快照，即使该角色不是当前操作角色；它仍必须通过
 RuleItem 的启用、资格、场景条件和叠层校验。这样支援角色的自身面板变化可以影响其随后创建的
 派生事件，同时不会把自身事件增伤误当成全局面板。
+
+Panel Effect 的 recipient 直接由 `EffectTarget` 决定：`SELF` 写入 `Effect.owner`，`TEAM`
+写入当前 active team 的全部 CharacterSnapshot，`ENEMY` 不属于角色 Panel recipient。不得
+根据 SUPPORT_ENTRY 或其他入场事实选择 TEAM Panel 的单一 recipient；触发事实只在规则本身
+需要判断是否已触发时使用。
 
 事件专属面板属性必须进入独立的 event-stat lane，不得污染正式 settlement snapshot。第一版
 只支持 `CHARACTER_CURRENT_CRIT_RATE + ADD`，其 recipient 从当前 DamageEvent 的

@@ -5,14 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 
 from core.types import (
+    AllCondition,
     AlwaysCondition,
+    AnyCondition,
     BattleEventKind,
     CalculationNode,
     CharacterId,
     CharacterSnapshot,
     DirectDamageEvent,
     DynamicIdentity,
-    DynamicIdentityFilter,
     EffectId,
     EffectOperation,
     EventCreationEffect,
@@ -23,6 +24,8 @@ from core.types import (
     InitialCharacterSnapshot,
     PanelStatDerivedValue,
     Resolved,
+    RuleStackCondition,
+    NotCondition,
     StandardCritRule,
     StandardVulnerabilityPolicy,
     Unresolved,
@@ -261,11 +264,11 @@ def apply_matched_modifiers(
         if event_modifier is not None:
             rule_modifiers.append(event_modifier)
 
-    snapshots, applied_panel_ids, panel_traces = _apply_panel_effects(
+    snapshots, applied_panel_ids, panel_traces = _apply_panel_effects_to_recipients(
         snapshots,
         panel_effects,
-        current_operator,
         diagnostics,
+        initial_character_snapshots=initial_character_snapshots,
         rule_item_id_by_effect={
             application.effect.rule.effect_id: application.rule_item_id
             for application in matched_effects
@@ -296,12 +299,7 @@ def apply_global_panel_effects(
     scenario: CalculationScenario,
     team_character_ids: frozenset[CharacterId] | None = None,
 ) -> ModifierApplicationResult:
-    """Apply event-independent Panel Effects to their declared recipients.
-
-    This pre-pass is intentionally separate from current-event matching.  It
-    allows a support character's SELF panel Effect to update that support's
-    snapshot before a different character's event is settled.
-    """
+    """Apply event-independent Panel Effects to SELF or the active TEAM."""
 
     diagnostics: list[CalculationDiagnostic] = []
     snapshots = tuple(base_character_snapshots)
@@ -312,15 +310,6 @@ def apply_global_panel_effects(
             continue
         if rule.eligibility is RuleEligibility.INELIGIBLE:
             continue
-        panel_effects = tuple(
-            effect
-            for effect in rule.effects
-            if isinstance(effect, ModifierEffect)
-            and effect.result.modifier_path in _PANEL_NODES
-            and _is_recipient_panel_effect(effect)
-        )
-        if not panel_effects:
-            continue
         condition_status, condition_diagnostics = _resolve_rule_conditions(
             rule,
             scenario,
@@ -328,29 +317,39 @@ def apply_global_panel_effects(
         diagnostics.extend(condition_diagnostics)
         if condition_status is not EffectMatchStatus.MATCHED:
             continue
+        trigger_status, trigger_diagnostics = _resolve_rule_trigger(rule, scenario)
+        diagnostics.extend(trigger_diagnostics)
+        if trigger_status is not EffectMatchStatus.MATCHED:
+            continue
         stack_count = _resolved_rule_stack(rule, scenario)
-        for effect in panel_effects:
-            effect = _resolve_effect_value(
+        for effect in rule.effects:
+            if not isinstance(effect, ModifierEffect):
+                continue
+            if effect.result.modifier_path not in _PANEL_NODES:
+                continue
+            if not _is_recipient_panel_effect(effect):
+                continue
+            effect_status, effect_diagnostics = _resolve_panel_effect_condition(
+                effect,
+                scenario,
+            )
+            diagnostics.extend(effect_diagnostics)
+            if effect_status is not EffectMatchStatus.MATCHED:
+                continue
+            resolved_effect = _resolve_effect_value(
                 effect,
                 initial_character_snapshots,
                 diagnostics,
             )
-            if effect is None:
+            if resolved_effect is None:
                 continue
-            recipient = _panel_recipient(
-                effect,
-                scenario,
-                diagnostics,
-                team_character_ids,
-            )
-            if recipient is None:
-                continue
-            updated, effect_ids, panel_traces = _apply_panel_effects(
+            updated, effect_ids, panel_traces = _apply_panel_effects_to_recipients(
                 snapshots,
-                [(effect, stack_count)],
-                recipient,
+                [(resolved_effect, stack_count)],
                 diagnostics,
-                rule_item_id_by_effect={effect.rule.effect_id: rule.rule_id},
+                initial_character_snapshots=initial_character_snapshots,
+                team_character_ids=team_character_ids,
+                rule_item_id_by_effect={resolved_effect.rule.effect_id: rule.rule_id},
             )
             snapshots = updated
             applied_ids.update(effect_ids)
@@ -362,6 +361,137 @@ def apply_global_panel_effects(
         applied_panel_effect_ids=frozenset(applied_ids),
         panel_traces=tuple(traces),
         diagnostics=tuple(diagnostics),
+    )
+
+
+def _resolve_rule_trigger(
+    rule: CalculationRuleItem,
+    scenario: CalculationScenario,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    """Resolve a trigger fact without treating its actor as a recipient."""
+
+    effect_triggers = {
+        effect.rule.effect_id: effect.rule.trigger
+        for effect in rule.effects
+        if isinstance(effect, ModifierEffect) and effect.rule.trigger is not None
+    }
+    if not effect_triggers:
+        return EffectMatchStatus.MATCHED, ()
+    for effect_id, selector in effect_triggers.items():
+        facts = tuple(
+            fact
+            for fact in scenario.trigger_facts
+            if fact.effect_id == effect_id
+            and fact.event_kind is selector.event_kind
+            and (selector.move_id is None or fact.move_id == selector.move_id)
+        )
+        if facts:
+            continue
+        return (
+            EffectMatchStatus.BLOCKED,
+            (
+                _diagnostic(
+                    str(effect_id),
+                    "missing-trigger-fact",
+                    DiagnosticKind.MISSING_DATA,
+                    "Panel Effect trigger has no matching scenario trigger fact",
+                ),
+            ),
+        )
+    return EffectMatchStatus.MATCHED, ()
+
+
+def _resolve_panel_effect_condition(
+    effect: ModifierEffect,
+    scenario: CalculationScenario,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    condition = effect.rule.condition
+    if condition is None or isinstance(condition, AlwaysCondition):
+        return EffectMatchStatus.MATCHED, ()
+    if isinstance(condition, AllCondition):
+        evaluations = tuple(
+            _resolve_panel_condition(item, effect.rule.effect_id, scenario)
+            for item in condition.conditions
+        )
+        if any(status is EffectMatchStatus.NOT_MATCHED for status, _ in evaluations):
+            return EffectMatchStatus.NOT_MATCHED, ()
+        if any(status is EffectMatchStatus.BLOCKED for status, _ in evaluations):
+            return EffectMatchStatus.BLOCKED, tuple(
+                diagnostic
+                for _, diagnostics in evaluations
+                for diagnostic in diagnostics
+            )
+        return EffectMatchStatus.MATCHED, ()
+    if isinstance(condition, AnyCondition):
+        evaluations = tuple(
+            _resolve_panel_condition(item, effect.rule.effect_id, scenario)
+            for item in condition.conditions
+        )
+        if any(status is EffectMatchStatus.MATCHED for status, _ in evaluations):
+            return EffectMatchStatus.MATCHED, ()
+        if any(status is EffectMatchStatus.BLOCKED for status, _ in evaluations):
+            return EffectMatchStatus.BLOCKED, tuple(
+                diagnostic
+                for _, diagnostics in evaluations
+                for diagnostic in diagnostics
+            )
+        return EffectMatchStatus.NOT_MATCHED, ()
+    if isinstance(condition, NotCondition):
+        status, diagnostics = _resolve_panel_condition(
+            condition.condition,
+            effect.rule.effect_id,
+            scenario,
+        )
+        if status is EffectMatchStatus.MATCHED:
+            return EffectMatchStatus.NOT_MATCHED, diagnostics
+        if status is EffectMatchStatus.NOT_MATCHED:
+            return EffectMatchStatus.MATCHED, diagnostics
+        return status, diagnostics
+    return _resolve_panel_condition(condition, effect.rule.effect_id, scenario)
+
+
+def _resolve_panel_condition(
+    condition,
+    effect_id: EffectId,
+    scenario: CalculationScenario,
+) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
+    if condition is None or isinstance(condition, AlwaysCondition):
+        return EffectMatchStatus.MATCHED, ()
+    if isinstance(condition, RuleStackCondition):
+        if (
+            condition.requires_rule_enabled
+            and condition.rule_item_id not in scenario.enabled_rule_item_ids
+        ):
+            return EffectMatchStatus.NOT_MATCHED, ()
+        selected = scenario.selected_stack(condition.rule_item_id)
+        if selected is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    _diagnostic(
+                        str(effect_id),
+                        "missing-rule-stack",
+                        DiagnosticKind.MISSING_DATA,
+                        f"missing resolved RuleItem stack: {condition.rule_item_id}",
+                    ),
+                ),
+            )
+        return (
+            EffectMatchStatus.MATCHED
+            if selected == condition.required_value
+            else EffectMatchStatus.NOT_MATCHED,
+            (),
+        )
+    return (
+        EffectMatchStatus.BLOCKED,
+        (
+            _diagnostic(
+                str(effect_id),
+                "panel-condition",
+                DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                "event-dependent Panel Effect cannot enter global pre-pass",
+            ),
+        ),
     )
 
 
@@ -437,77 +567,22 @@ def _resolved_rule_stack(
     return rule.stack_count if selected is None else selected
 
 
-def _panel_recipient(
+def _panel_recipients(
     effect: ModifierEffect,
-    scenario: CalculationScenario,
-    diagnostics: list[CalculationDiagnostic],
+    snapshots: tuple[CharacterSnapshot, ...],
     team_character_ids: frozenset[CharacterId] | None = None,
-) -> CharacterId | None:
+) -> tuple[CharacterId, ...]:
     rule = effect.rule
     if rule.target is EffectTarget.SELF:
-        if rule.owner is None:
-            diagnostics.append(
-                _diagnostic(
-                    str(rule.effect_id),
-                    "panel-recipient-owner",
-                    DiagnosticKind.MISSING_DATA,
-                    "SELF Panel Effect has no owner",
-                )
-            )
-            return None
-        recipient = rule.owner
-        if team_character_ids is not None and recipient not in team_character_ids:
-            diagnostics.append(
-                _diagnostic(
-                    str(rule.effect_id),
-                    "panel-recipient-team",
-                    DiagnosticKind.DATA_QUALITY,
-                    "SELF Panel Effect owner is not in the active team",
-                )
-            )
-            return None
-        return recipient
-
-    facts = tuple(
-        fact
-        for fact in scenario.trigger_facts
-        if str(fact.effect_id) == str(rule.effect_id)
-        and fact.event_kind is BattleEventKind.SUPPORT_ENTRY
-        and fact.actor is not None
-    )
-    if not facts:
-        diagnostics.append(
-            _diagnostic(
-                str(rule.effect_id),
-                "panel-recipient-fact",
-                DiagnosticKind.MISSING_DATA,
-                "support-entry Panel Effect has no recipient trigger fact",
-            )
+        return (rule.owner,) if rule.owner is not None else ()
+    if rule.target is EffectTarget.TEAM:
+        return tuple(
+            item.character_id
+            for item in snapshots
+            if team_character_ids is None
+            or item.character_id in team_character_ids
         )
-        return None
-    actors = {fact.actor for fact in facts if fact.actor is not None}
-    if len(actors) != 1:
-        diagnostics.append(
-            _diagnostic(
-                str(rule.effect_id),
-                "panel-recipient-ambiguous",
-                DiagnosticKind.DATA_QUALITY,
-                "support-entry Panel Effect has multiple recipient actors",
-            )
-        )
-        return None
-    recipient = next(iter(actors))
-    if team_character_ids is not None and recipient not in team_character_ids:
-        diagnostics.append(
-            _diagnostic(
-                str(rule.effect_id),
-                "panel-recipient-team",
-                DiagnosticKind.DATA_QUALITY,
-                "support-entry Panel Effect recipient is not in the active team",
-            )
-        )
-        return None
-    return recipient
+    return ()
 
 
 def _resolve_effect_value(
@@ -582,23 +657,21 @@ def _resolve_effect_value(
 
 def _is_recipient_panel_effect(effect: ModifierEffect) -> bool:
     rule = effect.rule
-    if rule.trigger is None and (
-        rule.condition is None or isinstance(rule.condition, AlwaysCondition)
-    ) and not rule.filters:
-        return True
     return (
-        rule.target is EffectTarget.TEAM
-        and rule.trigger is not None
-        and rule.trigger.event_kind is BattleEventKind.SUPPORT_ENTRY
-        and rule.trigger.move_id is None
-        and (rule.condition is None or isinstance(rule.condition, AlwaysCondition))
-        and bool(rule.filters)
-        and all(
-            isinstance(item, DynamicIdentityFilter)
-            and item.identity is DynamicIdentity.SUPPORT_ENTRY_CHARACTER
-            for item in rule.filters
-        )
+        rule.target in {EffectTarget.SELF, EffectTarget.TEAM}
+        and not rule.filters
+        and _is_event_independent_condition(rule.condition)
     )
+
+
+def _is_event_independent_condition(condition) -> bool:
+    if condition is None or isinstance(condition, (AlwaysCondition, RuleStackCondition)):
+        return True
+    if isinstance(condition, (AllCondition, AnyCondition)):
+        return all(_is_event_independent_condition(item) for item in condition.conditions)
+    if isinstance(condition, NotCondition):
+        return _is_event_independent_condition(condition.condition)
+    return False
 
 
 def _event_stat_modifier(
@@ -745,12 +818,59 @@ def _event_modifier(
     )
 
 
+def _apply_panel_effects_to_recipients(
+    snapshots: tuple[CharacterSnapshot, ...],
+    effects: list[tuple[ModifierEffect, int]],
+    diagnostics: list[CalculationDiagnostic],
+    *,
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = (),
+    team_character_ids: frozenset[CharacterId] | None = None,
+    rule_item_id_by_effect: dict[EffectId, RuleItemId | None] | None = None,
+) -> tuple[
+    tuple[CharacterSnapshot, ...],
+    frozenset[EffectId],
+    tuple[PanelModifierExecutionTrace, ...],
+]:
+    updated_snapshots = snapshots
+    applied_ids: set[EffectId] = set()
+    traces: list[PanelModifierExecutionTrace] = []
+    for effect, stack_count in effects:
+        recipients = _panel_recipients(
+            effect,
+            updated_snapshots,
+            team_character_ids,
+        )
+        if not recipients:
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "panel-recipient",
+                    DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                    "Panel Effect target has no active CharacterSnapshot recipient",
+                )
+            )
+            continue
+        for recipient in recipients:
+            updated_snapshots, effect_ids, effect_traces = _apply_panel_effects(
+                updated_snapshots,
+                [(effect, stack_count)],
+                recipient,
+                diagnostics,
+                initial_character_snapshots=initial_character_snapshots,
+                rule_item_id_by_effect=rule_item_id_by_effect,
+            )
+            applied_ids.update(effect_ids)
+            traces.extend(effect_traces)
+    return updated_snapshots, frozenset(applied_ids), tuple(traces)
+
+
 def _apply_panel_effects(
     snapshots: tuple[CharacterSnapshot, ...],
     effects: list[tuple[ModifierEffect, int]],
     recipient: CharacterId,
     diagnostics: list[CalculationDiagnostic],
     *,
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = (),
     rule_item_id_by_effect: dict[EffectId, RuleItemId | None] | None = None,
 ) -> tuple[
     tuple[CharacterSnapshot, ...],
@@ -885,6 +1005,56 @@ def _apply_panel_effects(
                     modifier_path=effect.result.modifier_path,
                     operation=effect.result.operation,
                     resolved_value=value.value * stack_count,
+                    stack_count=stack_count,
+                )
+            )
+        elif effect.result.modifier_path is CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS:
+            initial = next(
+                (
+                    item
+                    for item in initial_character_snapshots
+                    if item.character_id == recipient
+                ),
+                None,
+            )
+            base_attack = initial.initial_stats.attack if initial is not None else None
+            if not isinstance(base_attack, Resolved):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "panel-base-value",
+                        DiagnosticKind.MISSING_DATA,
+                        "initial attack is unresolved for a combat attack-percent Panel Effect",
+                    )
+                )
+                continue
+            current = updated_stats.attack
+            if not isinstance(current, Resolved):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "panel-base-value",
+                        DiagnosticKind.MISSING_DATA,
+                        "current attack is unresolved",
+                    )
+                )
+                continue
+            updated_stats = replace(
+                updated_stats,
+                attack=Resolved(
+                    current.value + base_attack.value * value.value * stack_count
+                ),
+            )
+            applied_effect_ids.add(effect.rule.effect_id)
+            traces.append(
+                PanelModifierExecutionTrace(
+                    recipient_character_id=recipient,
+                    owner_character_id=effect.rule.owner,
+                    rule_item_id=(rule_item_id_by_effect or {}).get(effect.rule.effect_id),
+                    effect_id=effect.rule.effect_id,
+                    modifier_path=effect.result.modifier_path,
+                    operation=effect.result.operation,
+                    resolved_value=base_attack.value * value.value * stack_count,
                     stack_count=stack_count,
                 )
             )

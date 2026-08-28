@@ -412,3 +412,44 @@ def test_song_of_noise_two_stack_attack_effect_follows_damage_stack() -> None:
     }
     assert statuses[weapon.rule_items[0].rule_id].value == "matched"
     assert statuses[weapon.rule_items[1].rule_id].value == "not-matched"
+
+
+def test_song_of_noise_two_stack_attack_effect_applies_to_the_entire_team() -> None:
+    definition = _ye_definition()
+    weapon = compile_wengine(
+        WEngineBuildInput("wengine:14149", ASTRA_ID),
+        owner_capabilities=EquipmentOwnerCapabilities(
+            character_id=ASTRA_ID,
+            role=CharacterRole.SUPPORT,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+        ),
+    )
+    condition_id = weapon.scenario_conditions[0].condition_id
+    request = _request(
+        definition,
+        additional_rule_items=weapon.rule_items,
+        additional_scenario_conditions=weapon.scenario_conditions,
+        condition_values={str(condition_id): True},
+        team_snapshots=(
+            CharacterSnapshot(YE_ID, 60, _stats()),
+            CharacterSnapshot(ASTRA_ID, 60, _stats(800.0)),
+        ),
+    )
+    request = replace(
+        request,
+        scenario=replace(
+            request.scenario,
+            rule_stack_counts=(
+                ScenarioRuleStack(weapon.rule_items[0].rule_id, 2),
+            ),
+        ),
+    )
+
+    execution = calculate_move(request)
+    snapshots = {
+        item.character_id: item for item in execution.resolved_character_snapshots
+    }
+    assert snapshots[YE_ID].settlement_stats.attack == Resolved(1100.0)
+    assert snapshots[ASTRA_ID].settlement_stats.attack == Resolved(880.0)

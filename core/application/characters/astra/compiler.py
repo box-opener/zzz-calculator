@@ -647,9 +647,6 @@ def compile_astra(
                 core_value,
                 target=EffectTarget.TEAM,
                 trigger=EventSelector(BattleEventKind.SUPPORT_ENTRY),
-                filters=(
-                    DynamicIdentityFilter(DynamicIdentity.SUPPORT_ENTRY_CHARACTER),
-                ),
             ),
         ),
     )

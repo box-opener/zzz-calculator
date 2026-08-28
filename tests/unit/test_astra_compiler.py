@@ -834,5 +834,5 @@ def test_astra_supporting_definition_changes_ye_settlement() -> None:
     snapshots = {
         item.character_id: item for item in execution.resolved_character_snapshots
     }
-    assert snapshots[astra.character_id].settlement_stats.attack == Resolved(2400.0)
+    assert snapshots[astra.character_id].settlement_stats.attack == Resolved(4000.0)
     assert snapshots[ye.character_id].settlement_stats.attack == Resolved(2600.0)
