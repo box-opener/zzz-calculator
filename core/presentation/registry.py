@@ -17,7 +17,8 @@ from core.application.characters.ye_shunguang import (
     compile_ye_shunguang,
     load_raw_record as load_ye_raw_record,
 )
-from core.types import CharacterId, CharacterRole, Element
+from core.application.characters.config import CharacterSkillLevel
+from core.types import CharacterId, CharacterRole, Element, SkillGroup
 from core.application.scenario import CalculationScenario
 
 from core.data.loader import load_character_record
@@ -33,7 +34,7 @@ class CharacterPresentationRegistration:
     role: CharacterRole
     base_element: Element
     compile_definition: Callable[
-        [Mapping[str, Any], Sequence[CharacterId]], CharacterCalculationDefinition
+        [Mapping[str, Any], Sequence[CharacterId], bool], CharacterCalculationDefinition
     ]
     config_fields: Callable[
         [Mapping[str, Any], Sequence[CharacterId]], tuple[CompileConfigFieldView, ...]
@@ -110,6 +111,7 @@ def _ye_fields(
             bool(values.get("entry_move_uses_linren", False)),
             "STATIC 属性结算语义，独立于明心境",
         ),
+        *_skill_level_fields(values),
     )
 
 
@@ -134,7 +136,64 @@ def _astra_fields(
             6,
             "已解锁的影画等级",
         ),
+        *_skill_level_fields(values),
     )
+
+
+_SKILL_GROUP_LABELS = {
+    SkillGroup.BASIC_ATTACK: "普通攻击",
+    SkillGroup.DODGE: "闪避",
+    SkillGroup.SPECIAL_ATTACK: "特殊技",
+    SkillGroup.CHAIN_ATTACK: "连携技",
+    SkillGroup.ASSIST: "支援技",
+    SkillGroup.ULTIMATE: "终结技",
+}
+
+
+def _skill_level_fields(values: Mapping[str, Any]) -> tuple[CompileConfigFieldView, ...]:
+    selected = values.get("skill_levels", {})
+    if selected is None:
+        selected = {}
+    if not isinstance(selected, Mapping):
+        raise ValueError("skill_levels must be an object keyed by SkillGroup")
+    return tuple(
+        CompileConfigFieldView(
+            field_id=f"skill_level:{group.value}",
+            label=f"{_SKILL_GROUP_LABELS[group]}等级",
+            field_type="select",
+            value=int(selected.get(group.value, 12)),
+            minimum=1,
+            maximum=16,
+            options=("12", "14", "16"),
+            help_text="当前生产源数据提供的技能倍率等级",
+        )
+        for group in (
+            SkillGroup.BASIC_ATTACK,
+            SkillGroup.DODGE,
+            SkillGroup.SPECIAL_ATTACK,
+            SkillGroup.CHAIN_ATTACK,
+            SkillGroup.ASSIST,
+            SkillGroup.ULTIMATE,
+        )
+    )
+
+
+def _skill_levels(values: Mapping[str, Any]) -> tuple[CharacterSkillLevel, ...]:
+    selected = values.get("skill_levels", {})
+    if selected is None:
+        return ()
+    if not isinstance(selected, Mapping):
+        raise ValueError("skill_levels must be an object keyed by SkillGroup")
+    levels = []
+    for key, value in selected.items():
+        try:
+            group = SkillGroup(str(key))
+        except ValueError as exc:
+            raise ValueError(f"unknown skill group in skill_levels: {key}") from exc
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"skill level must be an integer: {key}")
+        levels.append(CharacterSkillLevel(group, value))
+    return tuple(levels)
 
 
 def _allowed(values: Mapping[str, Any], allowed: frozenset[str]) -> None:
@@ -163,24 +222,39 @@ def _boolean(values: Mapping[str, Any], field_id: str) -> bool:
     return value
 
 
+def _integer_with_default(
+    values: Mapping[str, Any], field_id: str, default: int, strict: bool
+) -> int:
+    return _integer(values, field_id) if strict else _integer({field_id: values.get(field_id, default)}, field_id)
+
+
+def _boolean_with_default(
+    values: Mapping[str, Any], field_id: str, default: bool, strict: bool
+) -> bool:
+    return _boolean(values, field_id) if strict else _boolean({field_id: values.get(field_id, default)}, field_id)
+
+
 def _compile_ye(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
+    strict: bool = True,
 ) -> CharacterCalculationDefinition:
     _allowed(
         values,
         frozenset({"core_level", "cinema_level", "mingxin_active", "entry_move_uses_linren", "skill_levels"}),
     )
-    _required(
-        values,
-        frozenset({"core_level", "cinema_level", "mingxin_active", "entry_move_uses_linren"}),
-    )
+    if strict:
+        _required(
+            values,
+            frozenset({"core_level", "cinema_level", "mingxin_active", "entry_move_uses_linren"}),
+        )
     return compile_ye_shunguang(
         YeShunguangCompileConfig(
-            core_level=_integer(values, "core_level"),
-            cinema_level=_integer(values, "cinema_level"),
-            mingxin_active=_boolean(values, "mingxin_active"),
-            entry_move_uses_linren=_boolean(values, "entry_move_uses_linren"),
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            mingxin_active=_boolean_with_default(values, "mingxin_active", False, strict),
+            entry_move_uses_linren=_boolean_with_default(values, "entry_move_uses_linren", False, strict),
         ),
         load_ye_raw_record(load_character_record("character:1431")),
     )
@@ -198,16 +272,19 @@ def _astra_eligibility(team_ids: Sequence[CharacterId]) -> bool:
 def _compile_astra(
     values: Mapping[str, Any],
     team_ids: Sequence[CharacterId],
+    strict: bool = True,
 ) -> CharacterCalculationDefinition:
     _allowed(
         values,
         frozenset({"core_level", "cinema_level", "skill_levels"}),
     )
-    _required(values, frozenset({"core_level", "cinema_level"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
     return compile_astra(
         AstraCompileConfig(
-            core_level=_integer(values, "core_level"),
-            cinema_level=_integer(values, "cinema_level"),
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_astra_eligibility(team_ids),
         ),
         load_astra_raw_record(load_character_record("character:1311")),
@@ -265,12 +342,14 @@ def compile_registered_definition(
     character_id: str | CharacterId,
     values: Mapping[str, Any],
     team_character_ids: Sequence[str | CharacterId],
+    *,
+    strict: bool = True,
 ) -> CharacterCalculationDefinition:
     registration = registration_for(character_id)
     team_ids = tuple(CharacterId(str(item)) for item in team_character_ids)
     if any(item not in _REGISTRATIONS for item in team_ids):
         raise ValueError("team contains an unsupported character")
-    return registration.compile_definition(values, team_ids)
+    return registration.compile_definition(values, team_ids, strict)
 
 
 def config_fields_for(
@@ -294,7 +373,12 @@ def build_registered_editor_view(
     """Compile and build an editor view without putting role semantics in HTTP."""
 
     team_ids = tuple(CharacterId(str(item)) for item in team_character_ids)
-    definition = compile_registered_definition(character_id, config_values, team_ids)
+    definition = compile_registered_definition(
+        character_id,
+        config_values,
+        team_ids,
+        strict=False,
+    )
     if condition_values is not None and not isinstance(condition_values, Mapping):
         raise ValueError("condition_values must be an object")
     selected = condition_values or {}

@@ -88,10 +88,9 @@ def test_definition_preview_returns_versioned_editor_view() -> None:
     assert payload["character_id"] == "character:1311"
     assert payload["moves"]
     assert payload["rule_items"]
-    assert {item["field_id"] for item in payload["compile_config_fields"]} == {
-        "core_level",
-        "cinema_level",
-    }
+    field_ids = {item["field_id"] for item in payload["compile_config_fields"]}
+    assert {"core_level", "cinema_level"}.issubset(field_ids)
+    assert "additional_ability_eligible" not in field_ids
 
 
 def test_invalid_requests_are_structured() -> None:
@@ -237,3 +236,23 @@ def test_calculation_api_does_not_fill_missing_formal_inputs() -> None:
     response = client.post("/api/v1/moves/calculate", json=mismatched_operator)
     assert response.status_code == 400
     assert "primary_character_id" in response.json()["diagnostics"][0]["message"]
+
+
+def test_skill_level_and_integer_parameter_inputs_reach_compiler_and_scenario() -> None:
+    payload = _valid_calculation_payload()
+    payload["move_entry_id"] = "move-entry:ye:1431:basic-cloud"
+    payload["compile_configs"]["character:1431"]["skill_levels"] = {
+        "basic-attack": 14,
+    }
+    payload["parameter_values"] = {
+        "parameter:ye:flowing-cloud-sword-count": 5,
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    event = response.json()["events"][0]
+    assert event["repeat_count"] == 5
+    assert any(
+        item["node"] == "damage.skill-multiplier"
+        and abs(item["value"] - 2.558) < 1e-9
+        for item in event["modes"]["expected"]["calculation_breakdown"]
+    )

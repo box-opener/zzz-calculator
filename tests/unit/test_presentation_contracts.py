@@ -145,7 +145,9 @@ def test_registry_derives_astra_eligibility_from_team_and_exposes_config_schema(
     assert solo_extra.eligibility is RuleEligibility.INELIGIBLE
     assert team_extra.eligibility is RuleEligibility.ELIGIBLE
     fields = config_fields_for("character:1311", values, ("character:1311",))
-    assert {item.field_id for item in fields} == {"core_level", "cinema_level"}
+    assert {"core_level", "cinema_level"}.issubset(
+        {item.field_id for item in fields}
+    )
     with __import__("pytest").raises(ValueError, match="unknown compile config fields"):
         compile_registered_definition(
             "character:1311",

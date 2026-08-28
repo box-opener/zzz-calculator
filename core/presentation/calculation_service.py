@@ -127,7 +127,20 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             crit_display_mode=mode,
         )
         executions[mode] = calculate_move(request)
-    return to_jsonable(build_move_calculation_view(executions))
+    source_labels = {
+        str(rule.rule_id): rule.display_name
+        for definition in definitions
+        for rule in definition.rule_items
+    }
+    source_labels.update(
+        {
+            str(effect.rule.effect_id): effect.rule.source.label
+            for definition in definitions
+            for rule in definition.rule_items
+            for effect in rule.effects
+        }
+    )
+    return to_jsonable(build_move_calculation_view(executions, source_labels))
 
 
 def _compile_definitions(payload: Mapping[str, Any]) -> tuple[CharacterCalculationDefinition, ...]:

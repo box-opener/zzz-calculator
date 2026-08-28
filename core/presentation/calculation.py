@@ -28,6 +28,7 @@ class CalculationNodeValueView:
 @dataclass(frozen=True, slots=True)
 class ModifierView:
     effect_id: str
+    source_label: str | None
     modifier_path: str
     operation: str
     value: float | None
@@ -38,6 +39,7 @@ class ModifierView:
 @dataclass(frozen=True, slots=True)
 class EffectMatchView:
     effect_id: str
+    source_label: str | None
     status: str
     diagnostics: tuple[DiagnosticView, ...]
 
@@ -45,6 +47,7 @@ class EffectMatchView:
 @dataclass(frozen=True, slots=True)
 class RuleMatchView:
     rule_id: str
+    source_label: str | None
     status: str
     effects: tuple[EffectMatchView, ...]
     diagnostics: tuple[DiagnosticView, ...]
@@ -74,6 +77,7 @@ class PanelTraceView:
     owner_character_id: str | None
     rule_item_id: str | None
     effect_id: str
+    source_label: str | None
     modifier_path: str
     operation: str
     resolved_value: float
@@ -132,10 +136,16 @@ def calculation_node_view(value: CalculationNodeValue) -> CalculationNodeValueVi
     )
 
 
-def modifier_view(modifier, *, recipient_character_id: str | None = None) -> ModifierView:
+def modifier_view(
+    modifier,
+    *,
+    recipient_character_id: str | None = None,
+    source_labels: dict[str, str] | None = None,
+) -> ModifierView:
     numeric, unresolved = _resolvable_view(modifier.value)
     return ModifierView(
         effect_id=str(modifier.effect_id),
+        source_label=(source_labels or {}).get(str(modifier.effect_id)),
         modifier_path=modifier.modifier_path.value,
         operation=modifier.operation.value,
         value=numeric,
@@ -144,16 +154,21 @@ def modifier_view(modifier, *, recipient_character_id: str | None = None) -> Mod
     )
 
 
-def event_trace_view(trace: DamageEventExecutionTrace) -> EventTraceView:
+def event_trace_view(
+    trace: DamageEventExecutionTrace,
+    source_labels: dict[str, str] | None = None,
+) -> EventTraceView:
     return EventTraceView(
         semantic_id=str(trace.semantic_id),
         rule_matches=tuple(
             RuleMatchView(
                 rule_id=str(match.rule_id),
+                source_label=(source_labels or {}).get(str(match.rule_id)),
                 status=match.status.value,
                 effects=tuple(
                     EffectMatchView(
                         effect_id=str(effect.effect_id),
+                        source_label=(source_labels or {}).get(str(effect.effect_id)),
                         status=effect.status.value,
                         diagnostics=tuple(
                             DiagnosticView(
@@ -183,16 +198,21 @@ def event_trace_view(trace: DamageEventExecutionTrace) -> EventTraceView:
             )
             for match in trace.rule_matches
         ),
-        applied_modifiers=tuple(modifier_view(item) for item in trace.applied_modifiers),
+        applied_modifiers=tuple(
+            modifier_view(item, source_labels=source_labels)
+            for item in trace.applied_modifiers
+        ),
         event_stat_modifiers=tuple(
             modifier_view(
                 item.as_modifier(),
                 recipient_character_id=str(item.recipient),
+                source_labels=source_labels,
             )
             for item in trace.event_stat_modifiers
         ),
         event_multiplier_modifiers=tuple(
-            modifier_view(item) for item in trace.event_multiplier_modifiers
+            modifier_view(item, source_labels=source_labels)
+            for item in trace.event_multiplier_modifiers
         ),
         created_by_effect_id=(
             str(trace.created_by_effect_id)

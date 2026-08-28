@@ -128,6 +128,7 @@ def build_character_editor_view(
 
 def build_move_calculation_view(
     executions: Mapping[CritDisplayMode, MoveCalculationExecution],
+    source_labels: Mapping[str, str] | None = None,
 ) -> CalculationView:
     """Align three application executions by semantic event ID."""
 
@@ -190,13 +191,14 @@ def build_move_calculation_view(
             for mode in required_modes
         }
         traces = tuple(
-            event_trace_view(
-                next(
+                event_trace_view(
+                    next(
                     trace
                     for trace in executions[mode].event_traces
                     if trace.semantic_id == semantic_id
+                    ),
+                    source_labels=dict(source_labels or {}),
                 )
-            )
             for mode in required_modes
         )
         common_trace = traces[0] if all(item == traces[0] for item in traces[1:]) else None
@@ -243,6 +245,7 @@ def build_move_calculation_view(
             ),
             rule_item_id=(str(item.rule_item_id) if item.rule_item_id else None),
             effect_id=str(item.effect_id),
+            source_label=(source_labels or {}).get(str(item.effect_id)),
             modifier_path=item.modifier_path.value,
             operation=item.operation.value,
             resolved_value=item.resolved_value,
