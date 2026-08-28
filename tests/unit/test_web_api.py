@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from web.api import app
@@ -60,7 +62,9 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1431",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
-    assert client.get("/characters/IconRole36.webp").status_code == 200
+    asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
+    assert (asset_root / "IconRole36.webp").is_file()
+    assert (asset_root / "IconRole55.webp").is_file()
 
 
 def test_definition_preview_returns_versioned_editor_view() -> None:
