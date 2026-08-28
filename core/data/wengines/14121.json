@@ -1,0 +1,23 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14121.json",
+  "id": "14121",
+  "name": "啜泣摇篮",
+  "rarity": "S",
+  "specialty": "support",
+  "catalog": {"icon": "Weapon_S_1211", "atk": 684, "sub": "PEN Ratio"},
+  "nanoka_detail_fields": {
+    "base_property": {"name": "基础攻击力", "name2": "基础攻击力", "format": "{0:0.#}", "value": 46},
+    "rand_property": {"name": "穿透率", "name2": "穿透率", "format": "{0:0.#%}", "value": 960}
+  },
+  "resolved_level_60": {"base_attack": 684.0, "advanced_stat_key": "penetration_rate", "advanced_stat_value": 0.24},
+  "talents": {
+    "1": {"name": "惩·罚", "text": "位于后场时，装备者的能量自动回复提升<color=#2BAD00>0.6</color>点/秒；装备者攻击命中敌人时，所有单位对目标造成的伤害提升<color=#2BAD00>10%</color>，持续3秒；效果持续期间，每0.5秒该增益效果额外提升<color=#2BAD00>1.7%</color>，最多额外提升<color=#2BAD00>10.2%</color>，重复触发时仅刷新持续时间，不刷新伤害提升效果，同名被动效果之间不可叠加。", "numeric_values": {"damage_bonus_base": 0.10, "damage_bonus_per_tick": 0.017, "max_ticks": 6}},
+    "2": {"name": "惩·罚", "text": "位于后场时，装备者的能量自动回复提升<color=#2BAD00>0.75</color>点/秒；装备者攻击命中敌人时，所有单位对目标造成的伤害提升<color=#2BAD00>12.5%</color>，持续3秒；效果持续期间，每0.5秒该增益效果额外提升<color=#2BAD00>2%</color>，最多额外提升<color=#2BAD00>12%</color>，重复触发时仅刷新持续时间，不刷新伤害提升效果，同名被动效果之间不可叠加。", "numeric_values": {"damage_bonus_base": 0.125, "damage_bonus_per_tick": 0.020, "max_ticks": 6}},
+    "3": {"name": "惩·罚", "text": "位于后场时，装备者的能量自动回复提升<color=#2BAD00>0.9</color>点/秒；装备者攻击命中敌人时，所有单位对目标造成的伤害提升<color=#2BAD00>15%</color>，持续3秒；效果持续期间，每0.5秒该增益效果额外提升<color=#2BAD00>2.5%</color>，最多额外提升<color=#2BAD00>15%</color>，重复触发时仅刷新持续时间，不刷新伤害提升效果，同名被动效果之间不可叠加。", "numeric_values": {"damage_bonus_base": 0.15, "damage_bonus_per_tick": 0.025, "max_ticks": 6}},
+    "4": {"name": "惩·罚", "text": "位于后场时，装备者的能量自动回复提升<color=#2BAD00>1.05</color>点/秒；装备者攻击命中敌人时，所有单位对目标造成的伤害提升<color=#2BAD00>17.5%</color>，持续3秒；效果持续期间，每0.5秒该增益效果额外提升<color=#2BAD00>3%</color>，最多额外提升<color=#2BAD00>18%</color>，重复触发时仅刷新持续时间，不刷新伤害提升效果，同名被动效果之间不可叠加。", "numeric_values": {"damage_bonus_base": 0.175, "damage_bonus_per_tick": 0.030, "max_ticks": 6}},
+    "5": {"name": "惩·罚", "text": "位于后场时，装备者的能量自动回复提升<color=#2BAD00>1.2</color>点/秒；装备者攻击命中敌人时，所有单位对目标造成的伤害提升<color=#2BAD00>20%</color>，持续3秒；效果持续期间，每0.5秒该增益效果额外提升<color=#2BAD00>3.3%</color>，最多额外提升<color=#2BAD00>19.8%</color>，重复触发时仅刷新持续时间，不刷新伤害提升效果，同名被动效果之间不可叠加。", "numeric_values": {"damage_bonus_base": 0.20, "damage_bonus_per_tick": 0.033, "max_ticks": 6}}
+  }
+}

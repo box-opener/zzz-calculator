@@ -1,0 +1,23 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14102.json",
+  "id": "14102",
+  "name": "钢铁肉垫",
+  "rarity": "S",
+  "specialty": "attack",
+  "catalog": {"icon": "Weapon_S_1021", "atk": 684, "sub": "CRIT Rate"},
+  "nanoka_detail_fields": {
+    "base_property": {"name": "基础攻击力", "name2": "基础攻击力", "format": "{0:0.#}", "value": 46},
+    "rand_property": {"name": "暴击率", "name2": "暴击率", "format": "{0:0.#%}", "value": 960}
+  },
+  "resolved_level_60": {"base_attack": 684.0, "advanced_stat_key": "crit_rate", "advanced_stat_value": 0.24},
+  "talents": {
+    "1": {"name": "合金猫爪", "text": "<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>20%</color>；从背后攻击命中敌人时，装备者造成的伤害提升<color=#2BAD00>25%</color>。", "numeric_values": {"physical_damage_bonus": 0.20, "back_attack_damage_bonus": 0.25}},
+    "2": {"name": "合金猫爪", "text": "<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>25%</color>；从背后攻击命中敌人时，装备者造成的伤害提升<color=#2BAD00>31.5%</color>。", "numeric_values": {"physical_damage_bonus": 0.25, "back_attack_damage_bonus": 0.315}},
+    "3": {"name": "合金猫爪", "text": "<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>30%</color>；从背后攻击命中敌人时，装备者造成的伤害提升<color=#2BAD00>38%</color>。", "numeric_values": {"physical_damage_bonus": 0.30, "back_attack_damage_bonus": 0.38}},
+    "4": {"name": "合金猫爪", "text": "<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>35%</color>；从背后攻击命中敌人时，装备者造成的伤害提升<color=#2BAD00>44%</color>。", "numeric_values": {"physical_damage_bonus": 0.35, "back_attack_damage_bonus": 0.44}},
+    "5": {"name": "合金猫爪", "text": "<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>40%</color>；从背后攻击命中敌人时，装备者造成的伤害提升<color=#2BAD00>50%</color>。", "numeric_values": {"physical_damage_bonus": 0.40, "back_attack_damage_bonus": 0.50}}
+  }
+}

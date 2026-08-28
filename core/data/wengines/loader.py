@@ -1,4 +1,4 @@
-"""Load the small, reviewed Stage-018-2 W-Engine raw fixture set."""
+"""Load the reviewed W-Engine raw fixture sets."""
 
 from __future__ import annotations
 
@@ -8,8 +8,18 @@ from typing import Any
 
 
 _WENGINE_FILES = {
+    "wengine:12006": "12006.json",
+    "wengine:13103": "13103.json",
+    "wengine:14102": "14102.json",
+    "wengine:14104": "14104.json",
+    "wengine:14119": "14119.json",
+    "wengine:14120": "14120.json",
+    "wengine:14121": "14121.json",
+    "wengine:14124": "14124.json",
     "wengine:14131": "14131.json",
     "wengine:14143": "14143.json",
+    "wengine:14145": "14145.json",
+    "wengine:14149": "14149.json",
 }
 
 
@@ -17,7 +27,7 @@ def load_wengine_record(wengine_id: str) -> dict[str, Any]:
     try:
         filename = _WENGINE_FILES[wengine_id]
     except KeyError as exc:
-        raise ValueError(f"unsupported Stage-018-2 W-Engine: {wengine_id}") from exc
+        raise ValueError(f"unsupported reviewed W-Engine: {wengine_id}") from exc
     resource = resources.files("core.data.wengines").joinpath(filename)
     with resource.open("rb") as stream:
         payload = json.load(stream)

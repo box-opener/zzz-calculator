@@ -1,0 +1,23 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/13103.json",
+  "id": "13103",
+  "name": "聚宝箱",
+  "rarity": "A",
+  "specialty": "support",
+  "catalog": {"icon": "Weapon_A_1031", "atk": 624, "sub": "Energy Regen"},
+  "nanoka_detail_fields": {
+    "base_property": {"name": "基础攻击力", "name2": "基础攻击力", "format": "{0:0.#}", "value": 42},
+    "rand_property": {"name": "能量自动回复", "name2": "能量自动回复", "format": "{0:0.#%}", "value": 2000}
+  },
+  "resolved_level_60": {"base_attack": 624.0, "advanced_stat_key": "energy_regen_percent", "advanced_stat_value": 0.50},
+  "talents": {
+    "1": {"name": "财迷心窍", "text": "<color=#FFFFFF>[强化特殊技]</color>、<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#FE437E>以太伤害</color>时，所有单位对目标造成的伤害提升<color=#2BAD00>15%</color>，装备者的能量自动回复提升<color=#2BAD00>0.5</color>点/秒，持续2秒，同名被动效果之间不可叠加。", "numeric_values": {"all_damage_bonus": 0.15, "energy_regen_flat": 0.5}},
+    "2": {"name": "财迷心窍", "text": "<color=#FFFFFF>[强化特殊技]</color>、<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#FE437E>以太伤害</color>时，所有单位对目标造成的伤害提升<color=#2BAD00>17.5%</color>，装备者的能量自动回复提升<color=#2BAD00>0.58</color>点/秒，持续2秒，同名被动效果之间不可叠加。", "numeric_values": {"all_damage_bonus": 0.175, "energy_regen_flat": 0.58}},
+    "3": {"name": "财迷心窍", "text": "<color=#FFFFFF>[强化特殊技]</color>、<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#FE437E>以太伤害</color>时，所有单位对目标造成的伤害提升<color=#2BAD00>20%</color>，装备者的能量自动回复提升<color=#2BAD00>0.65</color>点/秒，持续2秒，同名被动效果之间不可叠加。", "numeric_values": {"all_damage_bonus": 0.20, "energy_regen_flat": 0.65}},
+    "4": {"name": "财迷心窍", "text": "<color=#FFFFFF>[强化特殊技]</color>、<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#FE437E>以太伤害</color>时，所有单位对目标造成的伤害提升<color=#2BAD00>22%</color>，装备者的能量自动回复提升<color=#2BAD00>0.72</color>点/秒，持续2秒，同名被动效果之间不可叠加。", "numeric_values": {"all_damage_bonus": 0.22, "energy_regen_flat": 0.72}},
+    "5": {"name": "财迷心窍", "text": "<color=#FFFFFF>[强化特殊技]</color>、<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#FE437E>以太伤害</color>时，所有单位对目标造成的伤害提升<color=#2BAD00>24%</color>，装备者的能量自动回复提升<color=#2BAD00>0.8</color>点/秒，持续2秒，同名被动效果之间不可叠加。", "numeric_values": {"all_damage_bonus": 0.24, "energy_regen_flat": 0.8}}
+  }
+}

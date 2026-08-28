@@ -1,0 +1,23 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14119.json",
+  "id": "14119",
+  "name": "深海访客",
+  "rarity": "S",
+  "specialty": "attack",
+  "catalog": {"icon": "Weapon_S_1191", "atk": 713, "sub": "CRIT Rate"},
+  "nanoka_detail_fields": {
+    "base_property": {"name": "基础攻击力", "name2": "基础攻击力", "format": "{0:0.#}", "value": 48},
+    "rand_property": {"name": "暴击率", "name2": "暴击率", "format": "{0:0.#%}", "value": 960}
+  },
+  "resolved_level_60": {"base_attack": 713.0, "advanced_stat_key": "crit_rate", "advanced_stat_value": 0.24},
+  "talents": {
+    "1": {"name": "诸洋之王", "text": "<color=#98EFF0>冰属性伤害</color>提升<color=#2BAD00>25%</color>；<color=#FFFFFF>[普通攻击]</color>命中敌人时，装备者的暴击率提升<color=#2BAD00>10%</color>，持续8秒；<color=#FFFFFF>[冲刺攻击]</color>造成<color=#98EFF0>冰属性伤害</color>时，装备者的暴击率额外提升<color=#2BAD00>10%</color>，持续15秒，每种增益效果单独结算持续时间。", "numeric_values": {"ice_damage_bonus": 0.25, "basic_crit_rate_bonus": 0.10, "dash_crit_rate_bonus": 0.10}},
+    "2": {"name": "诸洋之王", "text": "<color=#98EFF0>冰属性伤害</color>提升<color=#2BAD00>31.5%</color>；<color=#FFFFFF>[普通攻击]</color>命中敌人时，装备者的暴击率提升<color=#2BAD00>12.5%</color>，持续8秒；<color=#FFFFFF>[冲刺攻击]</color>造成<color=#98EFF0>冰属性伤害</color>时，装备者的暴击率额外提升<color=#2BAD00>12.5%</color>，持续15秒，每种增益效果单独结算持续时间。", "numeric_values": {"ice_damage_bonus": 0.315, "basic_crit_rate_bonus": 0.125, "dash_crit_rate_bonus": 0.125}},
+    "3": {"name": "诸洋之王", "text": "<color=#98EFF0>冰属性伤害</color>提升<color=#2BAD00>38%</color>；<color=#FFFFFF>[普通攻击]</color>命中敌人时，装备者的暴击率提升<color=#2BAD00>15%</color>，持续8秒；<color=#FFFFFF>[冲刺攻击]</color>造成<color=#98EFF0>冰属性伤害</color>时，装备者的暴击率额外提升<color=#2BAD00>15%</color>，持续15秒，每种增益效果单独结算持续时间。", "numeric_values": {"ice_damage_bonus": 0.38, "basic_crit_rate_bonus": 0.15, "dash_crit_rate_bonus": 0.15}},
+    "4": {"name": "诸洋之王", "text": "<color=#98EFF0>冰属性伤害</color>提升<color=#2BAD00>44.5%</color>；<color=#FFFFFF>[普通攻击]</color>命中敌人时，装备者的暴击率提升<color=#2BAD00>17.5%</color>，持续8秒；<color=#FFFFFF>[冲刺攻击]</color>造成<color=#98EFF0>冰属性伤害</color>时，装备者的暴击率额外提升<color=#2BAD00>17.5%</color>，持续15秒，每种增益效果单独结算持续时间。", "numeric_values": {"ice_damage_bonus": 0.445, "basic_crit_rate_bonus": 0.175, "dash_crit_rate_bonus": 0.175}},
+    "5": {"name": "诸洋之王", "text": "<color=#98EFF0>冰属性伤害</color>提升<color=#2BAD00>50%</color>；<color=#FFFFFF>[普通攻击]</color>命中敌人时，装备者的暴击率提升<color=#2BAD00>20%</color>，持续8秒；<color=#FFFFFF>[冲刺攻击]</color>造成<color=#98EFF0>冰属性伤害</color>时，装备者的暴击率额外提升<color=#2BAD00>20%</color>，持续15秒，每种增益效果单独结算持续时间。", "numeric_values": {"ice_damage_bonus": 0.50, "basic_crit_rate_bonus": 0.20, "dash_crit_rate_bonus": 0.20}}
+  }
+}

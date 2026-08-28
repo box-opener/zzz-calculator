@@ -13,6 +13,11 @@ from .wengine_reviewed import (
     reviewed_mapping_for,
 )
 from .wengine import ASTRA_DAMAGE_BUFF_CONDITION_ID, YE_MINGXIN_CONDITION_ID, astra_damage_buff_condition_id_for
+from .wengine_ids import (
+    WENGINE_ATTACK_SAMPLE_IDS,
+    WENGINE_SUPPORT_SAMPLE_IDS,
+    WENGINE_STAGE_18_2_5_IDS,
+)
 
 __all__ = [
     "WEngineBuildResolution",
@@ -26,4 +31,7 @@ __all__ = [
     "ASTRA_DAMAGE_BUFF_CONDITION_ID",
     "astra_damage_buff_condition_id_for",
     "YE_MINGXIN_CONDITION_ID",
+    "WENGINE_ATTACK_SAMPLE_IDS",
+    "WENGINE_SUPPORT_SAMPLE_IDS",
+    "WENGINE_STAGE_18_2_5_IDS",
 ]

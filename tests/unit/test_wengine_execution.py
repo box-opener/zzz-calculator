@@ -294,3 +294,77 @@ def test_astra_signature_team_damage_rule_applies_to_ye_event() -> None:
         if item.modifier_path is CalculationNode.DAMAGE_NORMAL_BONUS
     )
     assert modifier.value == Resolved(0.20)
+
+
+def test_stage_18_2_5_team_damage_effects_use_the_existing_damage_lane() -> None:
+    definition = _ye_definition()
+    for wengine_id, condition_suffix, expected_value in (
+        ("wengine:13103", "ether-triggered-buff-active", 0.15),
+        ("wengine:14145", "veil-triggered-buff-active", 0.25),
+    ):
+        weapon = compile_wengine(
+            WEngineBuildInput(wengine_id, ASTRA_ID),
+            equipped_character_role=CharacterRole.SUPPORT,
+        )
+        condition_id = next(
+            item.condition_id
+            for item in weapon.scenario_conditions
+            if str(item.condition_id).endswith(condition_suffix)
+        )
+        request = _request(
+            definition,
+            additional_rule_items=weapon.rule_items,
+            additional_scenario_conditions=weapon.scenario_conditions,
+            condition_values={str(condition_id): True},
+            team_snapshots=(
+                CharacterSnapshot(YE_ID, 60, _stats()),
+                CharacterSnapshot(ASTRA_ID, 60, _stats(800.0)),
+            ),
+        )
+        execution = calculate_move(request)
+        assert execution.output.complete is True
+        modifiers = execution.event_traces[0].applied_modifiers
+        assert any(
+            item.modifier_path is CalculationNode.DAMAGE_NORMAL_BONUS
+            and item.value == Resolved(expected_value)
+            for item in modifiers
+        )
+
+
+def test_stage_18_2_5_stacked_team_damage_effect_keeps_unit_increment() -> None:
+    definition = _ye_definition()
+    weapon = compile_wengine(
+        WEngineBuildInput("wengine:14121", ASTRA_ID),
+        equipped_character_role=CharacterRole.SUPPORT,
+    )
+    condition_id = weapon.scenario_conditions[0].condition_id
+    request = _request(
+        definition,
+        additional_rule_items=weapon.rule_items,
+        additional_scenario_conditions=weapon.scenario_conditions,
+        condition_values={str(condition_id): True},
+        team_snapshots=(
+            CharacterSnapshot(YE_ID, 60, _stats()),
+            CharacterSnapshot(ASTRA_ID, 60, _stats(800.0)),
+        ),
+    )
+    request = replace(
+        request,
+        scenario=replace(
+            request.scenario,
+            rule_stack_counts=(
+                ScenarioRuleStack(weapon.rule_items[1].rule_id, 6),
+            ),
+        ),
+    )
+
+    execution = calculate_move(request)
+
+    assert execution.output.complete is True
+    damage_modifiers = tuple(
+        item.value
+        for item in execution.event_traces[0].applied_modifiers
+        if item.modifier_path is CalculationNode.DAMAGE_NORMAL_BONUS
+    )
+    assert Resolved(0.10) in damage_modifiers
+    assert Resolved(0.10200000000000001) in damage_modifiers

@@ -67,28 +67,28 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert (asset_root / "IconRole55.webp").is_file()
 
 
-def test_wengine_catalog_exposes_the_two_reviewed_signature_weapons() -> None:
+def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
     response = client.get("/api/v1/wengines")
 
     assert response.status_code == 200
-    assert response.json() == [
-        {
-            "wengine_id": "wengine:14131",
-            "display_name": "玲珑妆匣",
-            "rarity": "S",
-            "specialty": "support",
-            "icon_key": "Weapon_S_1311",
-            "signature_character_id": "character:1311",
-        },
-        {
-            "wengine_id": "wengine:14143",
-            "display_name": "云霓孤光",
-            "rarity": "S",
-            "specialty": "attack",
-            "icon_key": "Weapon_S_1431",
-            "signature_character_id": "character:1431",
-        },
-    ]
+    catalog = response.json()
+    assert {item["wengine_id"] for item in catalog} == {
+        "wengine:12006",
+        "wengine:13103",
+        "wengine:14102",
+        "wengine:14104",
+        "wengine:14119",
+        "wengine:14120",
+        "wengine:14121",
+        "wengine:14124",
+        "wengine:14131",
+        "wengine:14143",
+        "wengine:14145",
+        "wengine:14149",
+    }
+    assert {item["specialty"] for item in catalog} == {"attack", "support"}
+    assert next(item for item in catalog if item["wengine_id"] == "wengine:14131")["signature_character_id"] == "character:1311"
+    assert all("rule_item_ids" not in item for item in catalog)
 
 
 def test_wengine_preview_exposes_owner_qualified_rules_for_the_editor() -> None:

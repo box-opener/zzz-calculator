@@ -53,6 +53,7 @@ def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:
         load_wengine_raw_record,
         signature_wengine_id_for,
     )
+    from core.data.wengines.loader import supported_wengine_ids
     from core.application.equipment.wengine import ASTRA_ID, YE_ID
 
     signature_characters = {
@@ -60,9 +61,9 @@ def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:
         signature_wengine_id_for(YE_ID): YE_ID,
     }
     items = []
-    for wengine_id in ("wengine:14131", "wengine:14143"):
+    for wengine_id in supported_wengine_ids():
         raw = load_wengine_raw_record(wengine_id)
-        signature_character_id = signature_characters[wengine_id]
+        signature_character_id = signature_characters.get(wengine_id)
         items.append(
             WEngineCatalogItem(
                 wengine_id=wengine_id,
@@ -70,7 +71,11 @@ def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:
                 rarity=raw.rarity,
                 specialty=raw.specialty.value,
                 icon_key=raw.icon,
-                signature_character_id=str(signature_character_id),
+                signature_character_id=(
+                    str(signature_character_id)
+                    if signature_character_id is not None
+                    else None
+                ),
             )
         )
     return tuple(items)

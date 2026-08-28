@@ -10,6 +10,10 @@ from core.application.equipment.wengine import (
     YE_VEIL_ACTIVE_CONDITION_ID,
     signature_wengine_id_for,
 )
+from core.application.equipment.wengine_ids import (
+    WENGINE_ATTACK_SAMPLE_IDS,
+    WENGINE_SUPPORT_SAMPLE_IDS,
+)
 from core.application.rules import RuleEligibility
 from core.types import (
     BuildContributionLayer,
@@ -207,3 +211,65 @@ def test_wengine_level_other_than_reviewed_max_is_explicitly_unresolved() -> Non
     assert result.contributions == ()
     assert result.rule_items == ()
     assert result.diagnostics[0].blocking is True
+
+
+def test_stage_18_2_5_sample_catalog_compiles_static_values_and_reviewed_effects() -> None:
+    expected = {
+        "wengine:14102": (684.0, CharacterStat.CRIT_RATE, 0.24),
+        "wengine:14104": (684.0, CharacterStat.ATTACK, 0.30),
+        "wengine:14119": (713.0, CharacterStat.CRIT_RATE, 0.24),
+        "wengine:14120": (713.0, CharacterStat.CRIT_DAMAGE, 0.48),
+        "wengine:14124": (713.0, CharacterStat.CRIT_DAMAGE, 0.48),
+        "wengine:12006": (475.0, CharacterStat.HP, 0.20),
+        "wengine:13103": (624.0, CharacterStat.ENERGY_REGEN, 0.50),
+        "wengine:14121": (684.0, CharacterStat.PENETRATION_RATE, 0.24),
+        "wengine:14145": (713.0, CharacterStat.HP, 0.30),
+        "wengine:14149": (713.0, CharacterStat.ENERGY_REGEN, 0.60),
+    }
+    for wengine_id in WENGINE_ATTACK_SAMPLE_IDS + WENGINE_SUPPORT_SAMPLE_IDS:
+        raw = load_wengine_raw_record(str(wengine_id))
+        owner = CharacterId(
+            "character:1431"
+            if raw.specialty is CharacterRole.ATTACK
+            else "character:1311"
+        )
+        result = compile_wengine(
+            WEngineBuildInput(wengine_id, owner),
+            equipped_character_role=raw.specialty,
+        )
+        base_attack, stat, advanced_value = expected[str(wengine_id)]
+        assert result.complete is True
+        assert result.contributions[0].value == Resolved(base_attack)
+        assert result.contributions[1].stat is stat
+        assert result.contributions[1].value == Resolved(advanced_value)
+        assert result.rule_items
+        assert all(item.effects for item in result.rule_items)
+
+
+def test_stage_18_2_5_reviewed_effects_keep_damage_filters_and_stack_bounds() -> None:
+    owner = CharacterId("character:1431")
+    steel = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14102"), owner),
+        equipped_character_role=CharacterRole.ATTACK,
+    )
+    assert steel.rule_items[0].effects[0].result.value == Resolved(0.20)
+    assert isinstance(steel.rule_items[0].effects[0].rule.filters[0], AnyFilter)
+    assert steel.rule_items[1].condition_ids == (
+        steel.scenario_conditions[0].condition_id,
+    )
+
+    brimstone = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14104"), owner),
+        equipped_character_role=CharacterRole.ATTACK,
+    )
+    assert brimstone.rule_items[0].stack_count == 8
+    assert brimstone.rule_items[0].stack_min == 0
+    assert brimstone.rule_items[0].stack_max == 8
+    assert brimstone.rule_items[0].effects[0].result.modifier_path is CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS
+
+    cradle = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14121"), CharacterId("character:1311")),
+        equipped_character_role=CharacterRole.SUPPORT,
+    )
+    assert cradle.rule_items[1].stack_count == 6
+    assert cradle.rule_items[1].effects[0].result.value == Resolved(0.017)

@@ -1,0 +1,23 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14124.json",
+  "id": "14124",
+  "name": "防暴者Ⅵ型",
+  "rarity": "S",
+  "specialty": "attack",
+  "catalog": {"icon": "Weapon_S_1241", "atk": 713, "sub": "CRIT DMG"},
+  "nanoka_detail_fields": {
+    "base_property": {"name": "基础攻击力", "name2": "基础攻击力", "format": "{0:0.#}", "value": 48},
+    "rand_property": {"name": "暴击伤害", "name2": "暴击伤害", "format": "{0:0.#%}", "value": 1920}
+  },
+  "resolved_level_60": {"base_attack": 713.0, "advanced_stat_key": "crit_damage", "advanced_stat_value": 0.48},
+  "talents": {
+    "1": {"name": "安全巡查", "text": "暴击率提升<color=#2BAD00>15%</color>；发动<color=#FFFFFF>[强化特殊技]</color>时，为装备者提供8层充能效果，最多叠加8层；<color=#FFFFFF>[普通攻击]</color>或<color=#FFFFFF>[冲刺攻击]</color>造成<color=#FE437E>以太伤害</color>时，消耗1层充能，使当前招式造成的伤害提升<color=#2BAD00>35%</color>。", "numeric_values": {"crit_rate_bonus": 0.15, "ether_attack_damage_bonus": 0.35, "max_charges": 8}},
+    "2": {"name": "安全巡查", "text": "暴击率提升<color=#2BAD00>18.8%</color>；发动<color=#FFFFFF>[强化特殊技]</color>时，为装备者提供8层充能效果，最多叠加8层；<color=#FFFFFF>[普通攻击]</color>或<color=#FFFFFF>[冲刺攻击]</color>造成<color=#FE437E>以太伤害</color>时，消耗1层充能，使当前招式造成的伤害提升<color=#2BAD00>43.5%</color>。", "numeric_values": {"crit_rate_bonus": 0.188, "ether_attack_damage_bonus": 0.435, "max_charges": 8}},
+    "3": {"name": "安全巡查", "text": "暴击率提升<color=#2BAD00>22.6%</color>；发动<color=#FFFFFF>[强化特殊技]</color>时，为装备者提供8层充能效果，最多叠加8层；<color=#FFFFFF>[普通攻击]</color>或<color=#FFFFFF>[冲刺攻击]</color>造成<color=#FE437E>以太伤害</color>时，消耗1层充能，使当前招式造成的伤害提升<color=#2BAD00>52%</color>。", "numeric_values": {"crit_rate_bonus": 0.226, "ether_attack_damage_bonus": 0.52, "max_charges": 8}},
+    "4": {"name": "安全巡查", "text": "暴击率提升<color=#2BAD00>26.4%</color>；发动<color=#FFFFFF>[强化特殊技]</color>时，为装备者提供8层充能效果，最多叠加8层；<color=#FFFFFF>[普通攻击]</color>或<color=#FFFFFF>[冲刺攻击]</color>造成<color=#FE437E>以太伤害</color>时，消耗1层充能，使当前招式造成的伤害提升<color=#2BAD00>60.5%</color>。", "numeric_values": {"crit_rate_bonus": 0.264, "ether_attack_damage_bonus": 0.605, "max_charges": 8}},
+    "5": {"name": "安全巡查", "text": "暴击率提升<color=#2BAD00>30%</color>；发动<color=#FFFFFF>[强化特殊技]</color>时，为装备者提供8层充能效果，最多叠加8层；<color=#FFFFFF>[普通攻击]</color>或<color=#FFFFFF>[冲刺攻击]</color>造成<color=#FE437E>以太伤害</color>时，消耗1层充能，使当前招式造成的伤害提升<color=#2BAD00>70%</color>。", "numeric_values": {"crit_rate_bonus": 0.30, "ether_attack_damage_bonus": 0.70, "max_charges": 8}}
+  }
+}

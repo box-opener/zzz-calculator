@@ -1,0 +1,23 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/12006.json",
+  "id": "12006",
+  "name": "「残响」-Ⅲ型",
+  "rarity": "B",
+  "specialty": "support",
+  "catalog": {"icon": "Weapon_B_Common_06", "atk": 475, "sub": "HP"},
+  "nanoka_detail_fields": {
+    "base_property": {"name": "基础攻击力", "name2": "基础攻击力", "format": "{0:0.#}", "value": 32},
+    "rand_property": {"name": "生命值", "name2": "生命值百分比", "format": "{0:0.#%}", "value": 800}
+  },
+  "resolved_level_60": {"base_attack": 475.0, "advanced_stat_key": "hp_percent", "advanced_stat_value": 0.20},
+  "talents": {
+    "1": {"name": "强音", "text": "发动<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>时，全队角色攻击力提升<color=#2BAD00>8%</color>，持续10秒，20秒内最多触发一次，同名被动效果之间不可叠加。", "numeric_values": {"team_attack_percent": 0.08}},
+    "2": {"name": "强音", "text": "发动<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>时，全队角色攻击力提升<color=#2BAD00>9%</color>，持续10秒，20秒内最多触发一次，同名被动效果之间不可叠加。", "numeric_values": {"team_attack_percent": 0.09}},
+    "3": {"name": "强音", "text": "发动<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>时，全队角色攻击力提升<color=#2BAD00>10%</color>，持续10秒，20秒内最多触发一次，同名被动效果之间不可叠加。", "numeric_values": {"team_attack_percent": 0.10}},
+    "4": {"name": "强音", "text": "发动<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>时，全队角色攻击力提升<color=#2BAD00>11%</color>，持续10秒，20秒内最多触发一次，同名被动效果之间不可叠加。", "numeric_values": {"team_attack_percent": 0.11}},
+    "5": {"name": "强音", "text": "发动<color=#FFFFFF>[连携技]</color>或<color=#FFFFFF>[终结技]</color>时，全队角色攻击力提升<color=#2BAD00>12%</color>，持续10秒，20秒内最多触发一次，同名被动效果之间不可叠加。", "numeric_values": {"team_attack_percent": 0.12}}
+  }
+}

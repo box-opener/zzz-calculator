@@ -1,4 +1,4 @@
-"""Reviewed W-Engine vertical slice for the two current characters."""
+"""Reviewed W-Engine vertical slices used by the build validation stages."""
 
 from __future__ import annotations
 
@@ -21,6 +21,8 @@ from core.types import (
     CharacterId,
     CharacterRole,
     CharacterStat,
+    DamageTag,
+    DamageTagFilter,
     DynamicIdentityCondition,
     DynamicIdentity,
     EffectId,
@@ -65,6 +67,19 @@ class WEngineRawTalent:
     text: str
     numeric_values: Mapping[str, float | int]
 
+    def __post_init__(self) -> None:
+        if not 1 <= self.refinement <= 5:
+            raise ValueError("W-Engine talent refinement must be between 1 and 5")
+        if not self.name.strip() or not self.text.strip():
+            raise ValueError("W-Engine talent name and text are required")
+        for key, value in self.numeric_values.items():
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError("W-Engine talent numeric keys must be non-empty")
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError("W-Engine talent numeric values must be numbers")
+            if not math.isfinite(float(value)):
+                raise ValueError("W-Engine talent numeric values must be finite")
+
 
 @dataclass(frozen=True, slots=True)
 class WEngineRawRecord:
@@ -86,10 +101,10 @@ class WEngineRawRecord:
             raise ValueError("W-Engine source metadata is required")
         if not self.name.strip() or not self.icon.strip():
             raise ValueError("W-Engine display metadata is required")
-        if self.rarity != "S":
-            raise ValueError("Stage18-2 only contains S-rank W-Engines")
+        if self.rarity not in {"S", "A", "B"}:
+            raise ValueError("reviewed W-Engine rarity must be S, A, or B")
         if self.max_level != 60:
-            raise ValueError("Stage18-2 W-Engine max level must be 60")
+            raise ValueError("Stage18-2.5 W-Engine max level must be 60")
         if not math.isfinite(self.base_attack) or not math.isfinite(
             self.advanced_stat_value
         ):
@@ -160,7 +175,7 @@ def compile_wengine(
             str(build_input.wengine_id),
             "level",
             DiagnosticKind.MISSING_DATA,
-            "Stage18-2 only carries reviewed max-level W-Engine values",
+            "Stage18-2.5 only carries reviewed max-level W-Engine values",
         )
         contributions = ()
         rules = ()
@@ -282,6 +297,26 @@ def _reviewed_rules(
                 value=False,
             ),
         )
+    if effect_family == "attack-steel-cushion":
+        return _steel_cushion_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-brimstone":
+        return _brimstone_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-deep-sea-visitor":
+        return _deep_sea_visitor_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-heart-of-sword":
+        return _heart_of_sword_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-defense-patrol":
+        return _defense_patrol_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "support-resonab-3":
+        return _resonab_three_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "support-treasure-chest":
+        return _treasure_chest_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "support-crying-cradle":
+        return _crying_cradle_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "support-dream-forge":
+        return _dream_forge_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "support-song-of-noise":
+        return _song_of_noise_rules(raw, build_input, talent, source, eligibility)
     raise ValueError(f"no reviewed W-Engine rule mapping for {raw.wengine_id}")
 
 
@@ -370,6 +405,712 @@ def _ye_rules(
         effects=(resistance_effect,),
     )
     return resistance_rule, veil_rule
+
+
+def _instance_condition_id(
+    raw: WEngineRawRecord,
+    owner: CharacterId,
+    suffix: str,
+) -> ScenarioConditionId:
+    return ScenarioConditionId(
+        f"condition:{raw.wengine_id}:owner:{_owner_token(owner)}:{suffix}"
+    )
+
+
+def _condition(
+    raw: WEngineRawRecord,
+    owner: CharacterId,
+    suffix: str,
+    label: str,
+    original_text: str,
+) -> tuple[ScenarioConditionId, ScenarioCondition]:
+    condition_id = _instance_condition_id(raw, owner, suffix)
+    return condition_id, ScenarioCondition(
+        condition_id=condition_id,
+        label=label,
+        original_text=original_text,
+        resolution=ConditionResolution.USER_SELECTED,
+        value=False,
+    )
+
+
+def _wearer_modifier(
+    *,
+    raw: WEngineRawRecord,
+    owner: CharacterId,
+    source: RuleSource,
+    suffix: str,
+    path: CalculationNode,
+    value: float,
+    filters=(),
+) -> ModifierEffect:
+    return ModifierEffect(
+        rule=_effect_rule(
+            effect_id=_instance_effect_id(raw.wengine_id, owner, suffix),
+            source=source,
+            owner=owner,
+            target=EffectTarget.SELF,
+            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
+            filters=filters,
+        ),
+        result=ModifierResult(
+            modifier_path=path,
+            operation=EffectOperation.ADD,
+            value=Resolved(value),
+        ),
+    )
+
+
+def _panel_modifier(
+    *,
+    raw: WEngineRawRecord,
+    owner: CharacterId,
+    source: RuleSource,
+    suffix: str,
+    path: CalculationNode,
+    value: float,
+    target: EffectTarget = EffectTarget.SELF,
+) -> ModifierEffect:
+    return ModifierEffect(
+        rule=_effect_rule(
+            effect_id=_instance_effect_id(raw.wengine_id, owner, suffix),
+            source=source,
+            owner=owner,
+            target=target,
+        ),
+        result=ModifierResult(
+            modifier_path=path,
+            operation=EffectOperation.ADD,
+            value=Resolved(value),
+        ),
+    )
+
+
+def _team_damage_modifier(
+    *,
+    raw: WEngineRawRecord,
+    owner: CharacterId,
+    source: RuleSource,
+    suffix: str,
+    value: float,
+) -> ModifierEffect:
+    return ModifierEffect(
+        rule=_effect_rule(
+            effect_id=_instance_effect_id(raw.wengine_id, owner, suffix),
+            source=source,
+            owner=owner,
+            target=EffectTarget.ENEMY,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.DAMAGE_NORMAL_BONUS,
+            operation=EffectOperation.ADD,
+            value=Resolved(value),
+        ),
+    )
+
+
+def _rule(
+    *,
+    raw: WEngineRawRecord,
+    owner: CharacterId,
+    source: RuleSource,
+    suffix: str,
+    label: str,
+    eligibility: RuleEligibility,
+    effects: tuple[ModifierEffect, ...],
+    condition_ids: tuple[ScenarioConditionId, ...] = (),
+    stack_count: int | None = None,
+    stack_min: int | None = None,
+    stack_max: int | None = None,
+) -> CalculationRuleItem:
+    return CalculationRuleItem(
+        rule_id=RuleItemId(_instance_rule_id(raw.wengine_id, owner, suffix)),
+        owner=owner,
+        source=source,
+        display_name=label,
+        original_text=source.raw_text or label,
+        eligibility=eligibility,
+        condition_ids=condition_ids,
+        effects=effects,
+        stack_count=stack_count,
+        stack_min=stack_min,
+        stack_max=stack_max,
+    )
+
+
+def _steel_cushion_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    back_id, back_condition = _condition(
+        raw,
+        owner,
+        "back-attack-active",
+        "钢铁肉垫：从背后攻击已成立",
+        "从背后攻击命中敌人",
+    )
+    physical_scope = (
+        AnyFilter(
+            (
+                ElementFilter(Element.PHYSICAL),
+                ElementFilter(Element.LINREN),
+            )
+        ),
+    )
+    rules = (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="physical-damage",
+            label=f"{raw.name}·物理伤害提升",
+            eligibility=eligibility,
+            effects=(
+                _wearer_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="physical-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["physical_damage_bonus"]),
+                    filters=physical_scope,
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="back-attack-damage",
+            label=f"{raw.name}·背后攻击伤害提升",
+            eligibility=eligibility,
+            condition_ids=(back_id,),
+            effects=(
+                _wearer_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="back-attack-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["back_attack_damage_bonus"]),
+                ),
+            ),
+        ),
+    )
+    return rules, (back_condition,)
+
+
+def _brimstone_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "attack-buff-active",
+        "硫磺石攻击力增益已触发",
+        "普通攻击、冲刺攻击或闪避反击命中敌人后获得攻击力提升",
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="attack-buff",
+        path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+        value=float(talent.numeric_values["attack_percent_per_stack"]),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="attack-buff",
+            label=f"{raw.name}·炽烈吐息攻击力增益",
+            eligibility=eligibility,
+            condition_ids=(condition_id,),
+            effects=(effect,),
+            stack_count=int(talent.numeric_values["max_stacks"]),
+            stack_min=0,
+            stack_max=int(talent.numeric_values["max_stacks"]),
+        ),
+    ), (condition,)
+
+
+def _deep_sea_visitor_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    basic_id, basic_condition = _condition(
+        raw,
+        owner,
+        "basic-crit-buff-active",
+        "深海访客：普通攻击暴击率增益已触发",
+        "普通攻击命中敌人时",
+    )
+    dash_id, dash_condition = _condition(
+        raw,
+        owner,
+        "dash-crit-buff-active",
+        "深海访客：冲刺攻击暴击率增益已触发",
+        "冲刺攻击造成冰属性伤害时",
+    )
+    ice_scope = (
+        AnyFilter((ElementFilter(Element.ICE),)),
+    )
+    rules = (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="ice-damage",
+            label=f"{raw.name}·冰属性伤害提升",
+            eligibility=eligibility,
+            effects=(
+                _wearer_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="ice-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["ice_damage_bonus"]),
+                    filters=ice_scope,
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="basic-crit-buff",
+            label=f"{raw.name}·普通攻击暴击率增益",
+            eligibility=eligibility,
+            condition_ids=(basic_id,),
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="basic-crit-buff",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["basic_crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="dash-crit-buff",
+            label=f"{raw.name}·冲刺攻击暴击率增益",
+            eligibility=eligibility,
+            condition_ids=(dash_id,),
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="dash-crit-buff",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["dash_crit_rate_bonus"]),
+                ),
+            ),
+        ),
+    )
+    return rules, (basic_condition, dash_condition)
+
+
+def _heart_of_sword_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    trigger_id, trigger_condition = _condition(
+        raw,
+        owner,
+        "anomaly-or-daze-buff-active",
+        "残心青囊：异常或失衡触发的暴击率增益已生效",
+        "队伍中任意角色对敌人施加属性异常效果或造成失衡时",
+    )
+    electric_dash = (
+        DamageTagFilter(DamageTag.DASH_ATTACK),
+        ElementFilter(Element.ELECTRIC),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="electric-dash-damage",
+            label=f"{raw.name}·冲刺攻击电属性伤害提升",
+            eligibility=eligibility,
+            effects=(
+                _wearer_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="electric-dash-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["electric_dash_damage_bonus"]),
+                    filters=electric_dash,
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="triggered-crit-rate",
+            label=f"{raw.name}·触发后额外暴击率",
+            eligibility=eligibility,
+            condition_ids=(trigger_id,),
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="triggered-crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["triggered_crit_rate_bonus"]),
+                ),
+            ),
+        ),
+    ), (trigger_condition,)
+
+
+def _defense_patrol_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    charge_id, charge_condition = _condition(
+        raw,
+        owner,
+        "charge-available",
+        "防暴者Ⅵ型：当前招式有可消耗充能",
+        "普通攻击或冲刺攻击造成以太伤害时消耗1层充能",
+    )
+    attack_scope = (
+        AnyFilter(
+            (
+                DamageTagFilter(DamageTag.BASIC_ATTACK),
+                DamageTagFilter(DamageTag.DASH_ATTACK),
+            )
+        ),
+        ElementFilter(Element.ETHER),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="charged-ether-damage",
+            label=f"{raw.name}·充能以太伤害提升",
+            eligibility=eligibility,
+            condition_ids=(charge_id,),
+            effects=(
+                _wearer_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="charged-ether-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["ether_attack_damage_bonus"]),
+                    filters=attack_scope,
+                ),
+            ),
+        ),
+    ), (charge_condition,)
+
+
+def _resonab_three_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "team-attack-buff-active",
+        "「残响」-Ⅲ型：全队攻击力增益已触发",
+        "发动连携技或终结技时",
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="team-attack-buff",
+        path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+        value=float(talent.numeric_values["team_attack_percent"]),
+        target=EffectTarget.TEAM,
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-attack-buff",
+            label=f"{raw.name}·全队攻击力提升",
+            eligibility=eligibility,
+            condition_ids=(condition_id,),
+            effects=(effect,),
+        ),
+    ), (condition,)
+
+
+def _treasure_chest_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "ether-triggered-buff-active",
+        "聚宝箱：以太伤害触发的增益已生效",
+        "强化特殊技、连携技或终结技造成以太伤害时",
+    )
+    effect = _team_damage_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="all-damage-buff",
+        value=float(talent.numeric_values["all_damage_bonus"]),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="all-damage-buff",
+            label=f"{raw.name}·全队伤害提升",
+            eligibility=eligibility,
+            condition_ids=(condition_id,),
+            effects=(effect,),
+        ),
+    ), (condition,)
+
+
+def _crying_cradle_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "damage-buff-active",
+        "啜泣摇篮：攻击命中后的全队增益已生效",
+        "装备者攻击命中敌人时",
+    )
+    base = _team_damage_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="damage-buff-base",
+        value=float(values["damage_bonus_base"]),
+    )
+    increment = _team_damage_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="damage-buff-increment",
+        value=float(values["damage_bonus_per_tick"]),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="damage-buff-base",
+            label=f"{raw.name}·基础全队伤害提升",
+            eligibility=eligibility,
+            condition_ids=(condition_id,),
+            effects=(base,),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="damage-buff-increment",
+            label=f"{raw.name}·持续期间额外伤害提升",
+            eligibility=eligibility,
+            condition_ids=(condition_id,),
+            effects=(increment,),
+            stack_count=int(values["max_ticks"]),
+            stack_min=0,
+            stack_max=int(values["max_ticks"]),
+        ),
+    ), (condition,)
+
+
+def _dream_forge_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "veil-triggered-buff-active",
+        "铸梦炉歌：以太帷幕触发的全队增益已生效",
+        "当装备者开启或延长以太帷幕的持续时间时",
+    )
+    effect = _team_damage_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="team-damage-buff",
+        value=float(talent.numeric_values["team_damage_bonus"]),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-damage-buff",
+            label=f"{raw.name}·全队伤害提升",
+            eligibility=eligibility,
+            condition_ids=(condition_id,),
+            effects=(effect,),
+        ),
+    ), (condition,)
+
+
+def _song_of_noise_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    active_id, active_condition = _condition(
+        raw,
+        owner,
+        "team-damage-buff-active",
+        "思络成歌：全队伤害增益已生效",
+        "装备者发动强化特殊技造成物理伤害时",
+    )
+    full_id, full_condition = _condition(
+        raw,
+        owner,
+        "full-stacks-attack-buff-active",
+        "思络成歌：2层时全队攻击力增益已生效",
+        "拥有2层效果时",
+    )
+    damage_effect = _team_damage_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="team-damage-buff",
+        value=float(values["team_damage_per_stack"]),
+    )
+    attack_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="team-attack-buff",
+        path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+        value=float(values["team_attack_at_max"]),
+        target=EffectTarget.TEAM,
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-damage-buff",
+            label=f"{raw.name}·全队伤害提升",
+            eligibility=eligibility,
+            condition_ids=(active_id,),
+            effects=(damage_effect,),
+            stack_count=int(values["max_stacks"]),
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-attack-buff",
+            label=f"{raw.name}·2层全队攻击力提升",
+            eligibility=eligibility,
+            condition_ids=(full_id,),
+            effects=(attack_effect,),
+        ),
+    ), (active_condition, full_condition)
 
 
 def _astra_rules(

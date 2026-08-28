@@ -12,15 +12,18 @@ Current scope is deliberately limited to:
 - calculation-node names and aggregation metadata;
 - unit tests for structural invariants.
 
-The current Stage18-2 slice additionally includes reviewed max-level data for
-the Ye Shunguang signature W-Engine `14143` and Astra signature W-Engine
-`14131`.  Their static panel contributions and reviewed combat Effects enter
-the existing Build Assembly / Matcher / Execution pipeline.  Non-max-level
-W-Engine values are intentionally not part of this slice and produce an
-explicit diagnostic.
+The current Stage18-2 slices additionally include reviewed max-level data for
+the Ye Shunguang signature W-Engine `14143`, Astra signature W-Engine `14131`,
+and the Stage18-2.5 attack/support validation set. Their static panel
+contributions and reviewed damage-relevant combat Effects enter the existing
+Build Assembly / Matcher / Execution pipeline; non-damage resource effects are
+retained in raw source text but are outside the current damage scope.
+Non-max-level W-Engine values are intentionally not part of this slice and
+produce an explicit diagnostic.
 
-There are no damage calculators, event dispatchers, Effect matchers, character
-data parsers, or natural-language parsers in this ticket.
+Natural-language parsing and full event dispatch remain outside this stage;
+the existing direct-damage calculator, matcher, and reviewed character/build
+compilers are reused by the W-Engine validation slice.
 
 ## Tests
 

@@ -1,0 +1,23 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14104.json",
+  "id": "14104",
+  "name": "硫磺石",
+  "rarity": "S",
+  "specialty": "attack",
+  "catalog": {"icon": "Weapon_S_1041", "atk": 684, "sub": "ATK"},
+  "nanoka_detail_fields": {
+    "base_property": {"name": "基础攻击力", "name2": "基础攻击力", "format": "{0:0.#}", "value": 46},
+    "rand_property": {"name": "攻击力", "name2": "攻击力百分比", "format": "{0:0.#%}", "value": 1200}
+  },
+  "resolved_level_60": {"base_attack": 684.0, "advanced_stat_key": "attack_percent", "advanced_stat_value": 0.30},
+  "talents": {
+    "1": {"name": "炽烈吐息", "text": "<color=#FFFFFF>[普通攻击]</color>、<color=#FFFFFF>[冲刺攻击]</color>或<color=#FFFFFF>[闪避反击]</color>命中敌人时，装备者的攻击力提升<color=#2BAD00>3.5%</color>，最多叠加8层，持续8秒，0.5秒内最多触发一次，每层效果单独结算持续时间。", "numeric_values": {"attack_percent_per_stack": 0.035, "max_stacks": 8}},
+    "2": {"name": "炽烈吐息", "text": "<color=#FFFFFF>[普通攻击]</color>、<color=#FFFFFF>[冲刺攻击]</color>或<color=#FFFFFF>[闪避反击]</color>命中敌人时，装备者的攻击力提升<color=#2BAD00>4.4%</color>，最多叠加8层，持续8秒，0.5秒内最多触发一次，每层效果单独结算持续时间。", "numeric_values": {"attack_percent_per_stack": 0.044, "max_stacks": 8}},
+    "3": {"name": "炽烈吐息", "text": "<color=#FFFFFF>[普通攻击]</color>、<color=#FFFFFF>[冲刺攻击]</color>或<color=#FFFFFF>[闪避反击]</color>命中敌人时，装备者的攻击力提升<color=#2BAD00>5.2%</color>，最多叠加8层，持续8秒，0.5秒内最多触发一次，每层效果单独结算持续时间。", "numeric_values": {"attack_percent_per_stack": 0.052, "max_stacks": 8}},
+    "4": {"name": "炽烈吐息", "text": "<color=#FFFFFF>[普通攻击]</color>、<color=#FFFFFF>[冲刺攻击]</color>或<color=#FFFFFF>[闪避反击]</color>命中敌人时，装备者的攻击力提升<color=#2BAD00>6%</color>，最多叠加8层，持续8秒，0.5秒内最多触发一次，每层效果单独结算持续时间。", "numeric_values": {"attack_percent_per_stack": 0.06, "max_stacks": 8}},
+    "5": {"name": "炽烈吐息", "text": "<color=#FFFFFF>[普通攻击]</color>、<color=#FFFFFF>[冲刺攻击]</color>或<color=#FFFFFF>[闪避反击]</color>命中敌人时，装备者的攻击力提升<color=#2BAD00>7%</color>，最多叠加8层，持续8秒，0.5秒内最多触发一次，每层效果单独结算持续时间。", "numeric_values": {"attack_percent_per_stack": 0.07, "max_stacks": 8}}
+  }
+}
