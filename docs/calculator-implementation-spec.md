@@ -323,6 +323,10 @@ Scenario、Character、Enemy 或 Buff 数据。
 只提供本次场景可用的 RuleItem、Effect 和派生事件模板。请求内的 RuleItem、Effect、事件模板
 和 DamageEvent 语义身份必须在所有 Definition 合并后的作用域内唯一。
 
+装备编译器产生的 `CalculationRuleItem` 和用户可选的装备场景条件，可以通过应用请求的
+附加规则/条件集合进入同一匹配管线。它们不应伪装成一个重复的角色 Definition；装备规则
+的 owner 仍然是装备角色，source 必须保留具体音擎或其他装备身份。
+
 派生伤害模板有两种合法归属：招式自身的
 `MoveCalculationEntry.derived_damage_events`，以及 Definition 级的
 `independent_derived_damage_events`。后者用于由支援入场、队伍条件或其他不属于某个本角色
@@ -436,6 +440,11 @@ Build Assembly 支持两种输入模式：
 手工面板模式与装备模式最终必须输出相同类型的角色初始快照，后续应用执行层和
 Calculator 不得区分面板来源。缺失或无法解析的构建数据必须保留为未决状态并产生
 结构化诊断，不得按零或其他默认值静默计算。
+
+Stage18-2 的音擎 vertical slice 只开放已审核的叶瞬光与耀嘉音专武，并以满级60级
+静态值作为当前数据切片；非60级输入必须产生明确诊断，不能回退到满级值。音擎的
+基础攻击和高级属性进入 Build Assembly，音擎特效则通过附加的 RuleItem/Scenario
+Condition 集合进入现有 Matcher 与 Execution。专武映射必须使用显式的角色 ID 映射。
 
 ## 多倍率参数处理
 

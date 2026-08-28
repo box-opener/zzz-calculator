@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from core.presentation import (
     build_registered_editor_view,
     supported_character_catalog,
+    supported_wengine_catalog,
 )
 from core.presentation.serialization import to_jsonable
 from core.types import CharacterId
@@ -36,6 +37,11 @@ _FRONTEND_DIST = _PROJECT_ROOT / "frontend" / "dist"
 @app.get("/api/v1/characters")
 def list_characters() -> list[dict[str, Any]]:
     return [to_jsonable(item) for item in supported_character_catalog()]
+
+
+@app.get("/api/v1/wengines")
+def list_wengines() -> list[dict[str, Any]]:
+    return [to_jsonable(item) for item in supported_wengine_catalog()]
 
 
 @app.post("/api/v1/definitions/preview")

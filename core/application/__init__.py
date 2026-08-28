@@ -2,6 +2,16 @@
 
 from .diagnostics import CalculationDiagnostic, DiagnosticKind
 from .build import ResolvedBuild, assemble_build
+from .equipment import (
+    WEngineBuildResolution,
+    WEngineRawRecord,
+    compile_wengine,
+    load_wengine_raw_record,
+    signature_wengine_id_for,
+    WEngineReviewedMapping,
+    WENGINE_REVIEWED_MAPPINGS,
+    reviewed_mapping_for,
+)
 from .element_scope import element_scope_filter
 from .execution import (
     CalculationRouter,
@@ -73,6 +83,14 @@ __all__ = [
     "CalculationDiagnostic",
     "ResolvedBuild",
     "assemble_build",
+    "WEngineBuildResolution",
+    "WEngineRawRecord",
+    "compile_wengine",
+    "load_wengine_raw_record",
+    "signature_wengine_id_for",
+    "WEngineReviewedMapping",
+    "WENGINE_REVIEWED_MAPPINGS",
+    "reviewed_mapping_for",
     "CalculationRuleItem",
     "CalculationScenario",
     "CharacterMatchProfile",

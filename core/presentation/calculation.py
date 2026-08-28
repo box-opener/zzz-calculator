@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from core.application.execution.contracts import DamageEventExecutionTrace
 from core.application.output import CritDisplayMode, DamageEventCalculationOutput
 from core.calculation.nodes import CalculationNodeValue
-from core.types import CharacterSnapshot, Resolved, Unresolved
+from core.types import BuildContributionTrace, CharacterSnapshot, Resolved, Unresolved
 
 from .diagnostics import DiagnosticView
 
@@ -85,6 +85,20 @@ class PanelTraceView:
 
 
 @dataclass(frozen=True, slots=True)
+class BuildContributionView:
+    character_id: str
+    contribution_id: str
+    source_id: str
+    source_type: str
+    source_label: str
+    stat: str
+    layer: str
+    value: float | None
+    element: str | None
+    unresolved: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class DamageEventModeView:
     value: float | None
     known_value: float | None
@@ -120,6 +134,7 @@ class CalculationView:
     totals: dict[str, MoveTotalsView]
     resolved_character_snapshots: tuple[PanelSnapshotView, ...]
     panel_traces: tuple[PanelTraceView, ...]
+    build_provenance: tuple[BuildContributionView, ...]
     diagnostics: tuple[DiagnosticView, ...]
 
 
@@ -269,6 +284,22 @@ def panel_snapshot_view(snapshot: CharacterSnapshot) -> PanelSnapshotView:
     )
 
 
+def build_contribution_view(trace: BuildContributionTrace) -> BuildContributionView:
+    numeric, unresolved = _resolvable_view(trace.applied_value)
+    return BuildContributionView(
+        character_id=str(trace.character_id),
+        contribution_id=trace.contribution_id,
+        source_id=trace.source.source_id,
+        source_type=trace.source.source_type.value,
+        source_label=trace.source.label,
+        stat=trace.stat.value,
+        layer=trace.layer.value,
+        value=numeric,
+        element=trace.element.value if trace.element is not None else None,
+        unresolved=unresolved,
+    )
+
+
 def _mode_view(item: DamageEventCalculationOutput) -> DamageEventModeView:
     result = item.result
     return DamageEventModeView(
@@ -310,6 +341,7 @@ def _resolvable_view(value) -> tuple[float | None, str | None]:
 __all__ = [
     "CalculationNodeValueView",
     "CalculationView",
+    "BuildContributionView",
     "DamageEventModeView",
     "DamageEventView",
     "EffectMatchView",
@@ -322,4 +354,5 @@ __all__ = [
     "calculation_node_view",
     "event_trace_view",
     "panel_snapshot_view",
+    "build_contribution_view",
 ]

@@ -34,7 +34,8 @@ from ..output import (
     CritDisplayMode,
     MoveCalculationOutput,
 )
-from ..scenario import CalculationScenario
+from ..scenario import CalculationScenario, ConditionResolution, ScenarioCondition
+from ..rules import CalculationRuleItem
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +50,8 @@ class MoveCalculationRequest:
     team_profiles: tuple[CharacterMatchProfile, ...]
     target_profile: EnemyMatchProfile
     supporting_definitions: tuple[CharacterCalculationDefinition, ...] = ()
+    additional_rule_items: tuple[CalculationRuleItem, ...] = ()
+    additional_scenario_conditions: tuple[ScenarioCondition, ...] = ()
     initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = ()
     base_calculation_modifiers: tuple[Modifier, ...] = ()
     history_records: tuple[AnomalyRecord, ...] = ()
@@ -66,6 +69,37 @@ class MoveCalculationRequest:
             )
         for definition in self.supporting_definitions:
             definition.validate_scenario(self.scenario)
+        definition_conditions = tuple(
+            condition
+            for definition in definitions
+            for condition in definition.scenario_conditions
+        )
+        all_conditions = (*definition_conditions, *self.additional_scenario_conditions)
+        condition_ids = tuple(item.condition_id for item in all_conditions)
+        if len(set(condition_ids)) != len(condition_ids):
+            raise ValueError(
+                "primary, supporting, and additional scenario condition IDs must be unique"
+            )
+        scenario_conditions = {
+            item.condition_id: item for item in self.scenario.conditions
+        }
+        for condition in self.additional_scenario_conditions:
+            actual = scenario_conditions.get(condition.condition_id)
+            if actual is None:
+                raise ValueError(
+                    f"scenario is missing additional condition: {condition.condition_id}"
+                )
+            if actual.resolution is not condition.resolution:
+                raise ValueError(
+                    "scenario additional condition resolution does not match definition"
+                )
+            if (
+                condition.resolution is ConditionResolution.STATIC
+                and actual.value != condition.value
+            ):
+                raise ValueError(
+                    "scenario cannot override a static additional condition"
+                )
         if self.target_snapshot.enemy_id != self.target_profile.enemy_id:
             raise ValueError("target snapshot and target profile must match")
         snapshot_ids = tuple(
@@ -92,13 +126,27 @@ class MoveCalculationRequest:
             rule
             for definition in definitions
             for rule in definition.rule_items
-        )
+        ) + tuple(self.additional_rule_items)
         rule_ids = tuple(item.rule_id for item in rule_items)
         if len(set(rule_ids)) != len(rule_ids):
             raise ValueError(
                 "primary and supporting definitions must have unique RuleItem IDs"
             )
         rule_map = {item.rule_id: item for item in rule_items}
+        known_condition_ids = set(condition_ids)
+        for rule in self.additional_rule_items:
+            unknown = set(rule.condition_ids) - known_condition_ids
+            if unknown:
+                raise ValueError(
+                    "additional RuleItem references unknown scenario conditions: "
+                    f"{sorted(map(str, unknown))}"
+                )
+        unknown_enabled = set(self.scenario.enabled_rule_item_ids) - set(rule_ids)
+        if unknown_enabled:
+            raise ValueError(
+                "scenario enables unknown RuleItems: "
+                f"{sorted(map(str, unknown_enabled))}"
+            )
         for selection in self.scenario.rule_stack_counts:
             rule = rule_map.get(selection.rule_item_id)
             if rule is None:

@@ -89,7 +89,7 @@ class DirectMoveApplicationService:
         assert multiplier.multiplier is not None
 
         definitions = _all_definitions(request)
-        rule_items = _all_rule_items(definitions)
+        rule_items = _all_rule_items(request)
 
         main_template = _find_template(
             definitions,
@@ -498,9 +498,12 @@ def _all_definitions(
 
 
 def _all_rule_items(
-    definitions: tuple[CharacterCalculationDefinition, ...],
+    request: MoveCalculationRequest,
 ) -> tuple:
-    return tuple(rule for definition in definitions for rule in definition.rule_items)
+    definitions = _all_definitions(request)
+    return tuple(
+        rule for definition in definitions for rule in definition.rule_items
+    ) + tuple(request.additional_rule_items)
 
 
 def _merge_modifier_applications(
@@ -610,13 +613,16 @@ def _apply_event_stat_modifiers(
                 )
             )
             continue
-        if modifier.modifier_path is not CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
+        if modifier.modifier_path not in {
+            CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+        }:
             diagnostics.append(
                 _diagnostic(
                     str(modifier.effect_id),
                     "event-stat-node",
                     DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                    "Stage-016 only applies event-level current crit-rate modifiers",
+                    "Stage-018 only applies event-level current crit-rate and crit-damage modifiers",
                 )
             )
             continue
@@ -626,11 +632,15 @@ def _apply_event_stat_modifiers(
                     str(modifier.effect_id),
                     "event-stat-operation",
                     DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                    "event-level current crit-rate modifiers support ADD only",
+                    "event-level current crit-rate and crit-damage modifiers support ADD only",
                 )
             )
             continue
-        current = target.settlement_stats.crit_rate
+        current = (
+            target.settlement_stats.crit_rate
+            if modifier.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
+            else target.settlement_stats.crit_damage
+        )
         if not isinstance(current, Resolved) or not isinstance(
             modifier.value, Resolved
         ):
@@ -639,7 +649,7 @@ def _apply_event_stat_modifiers(
                     str(modifier.effect_id),
                     "event-stat-value",
                     DiagnosticKind.MISSING_DATA,
-                    "event-level crit-rate modifier value is unresolved",
+                    "event-level crit-rate or crit-damage modifier value is unresolved",
                 )
             )
             continue
@@ -647,7 +657,15 @@ def _apply_event_stat_modifiers(
             target,
             settlement_stats=replace(
                 target.settlement_stats,
-                crit_rate=Resolved(current.value + modifier.value.value),
+                **(
+                    {
+                        "crit_rate": Resolved(current.value + modifier.value.value)
+                    }
+                    if modifier.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
+                    else {
+                        "crit_damage": Resolved(current.value + modifier.value.value)
+                    }
+                ),
             ),
         )
     return tuple(index[item.character_id] for item in snapshots)

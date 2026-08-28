@@ -75,6 +75,7 @@ from .common import (
     StateId,
     Unresolved,
     UnresolvedReason,
+    WEngineId,
 )
 from .damage_event import (
     AnomalyRecordValueField,
@@ -172,3 +173,4 @@ from .vulnerability import (
     VeilVulnerabilityPolicy,
     VulnerabilitySettlementPolicy,
 )
+from .wengine import WEngineBuildInput

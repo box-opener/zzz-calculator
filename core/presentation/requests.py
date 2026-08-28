@@ -6,18 +6,31 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 import math
 
+from core.types import BuildMode
+
 
 @dataclass(frozen=True, slots=True)
 class CharacterBuildInput:
     character_id: str
     level: int
     out_of_combat_stats: Mapping[str, object]
+    build_mode: BuildMode = BuildMode.MANUAL_PANEL
+    base_stats: Mapping[str, object] | None = None
+    wengine_id: str | None = None
+    wengine_level: int = 60
+    wengine_refinement: int = 1
 
     def __post_init__(self) -> None:
         if not self.character_id.strip():
             raise ValueError("character build character_id is required")
         if not 1 <= self.level <= 60:
             raise ValueError("character build level must be between 1 and 60")
+        if not 1 <= self.wengine_level <= 60:
+            raise ValueError("W-Engine level must be between 1 and 60")
+        if not 1 <= self.wengine_refinement <= 5:
+            raise ValueError("W-Engine refinement must be between 1 and 5")
+        if self.build_mode is BuildMode.MANUAL_PANEL and self.wengine_id is not None:
+            raise ValueError("manual panel build cannot define a W-Engine")
         for key, value in self.out_of_combat_stats.items():
             if key == "element_damage_bonus":
                 if not isinstance(value, Mapping):
@@ -30,6 +43,19 @@ class CharacterBuildInput:
                 for item in values
             ):
                 raise ValueError("character build stats must be finite numbers")
+        if self.base_stats is not None:
+            for key, value in self.base_stats.items():
+                if key == "element_damage_bonus":
+                    if not isinstance(value, Mapping):
+                        raise ValueError("base element_damage_bonus must be an object")
+                    values = value.values()
+                else:
+                    values = (value,)
+                if any(
+                    not isinstance(item, (int, float)) or not math.isfinite(float(item))
+                    for item in values
+                ):
+                    raise ValueError("base character stats must be finite numbers")
 
 
 @dataclass(frozen=True, slots=True)

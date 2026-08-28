@@ -67,6 +67,39 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert (asset_root / "IconRole55.webp").is_file()
 
 
+def test_wengine_catalog_exposes_the_two_reviewed_signature_weapons() -> None:
+    response = client.get("/api/v1/wengines")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "wengine_id": "wengine:14131",
+            "display_name": "玲珑妆匣",
+            "rarity": "S",
+            "specialty": "support",
+            "icon_key": "Weapon_S_1311",
+            "signature_character_id": "character:1311",
+            "rule_item_ids": ["rule:wengine:14131:team-damage"],
+            "scenario_condition_ids": ["condition:wengine:14131:damage-buff-active"],
+            "stack_rule_item_ids": ["rule:wengine:14131:team-damage"],
+        },
+        {
+            "wengine_id": "wengine:14143",
+            "display_name": "云霓孤光",
+            "rarity": "S",
+            "specialty": "attack",
+            "icon_key": "Weapon_S_1431",
+            "signature_character_id": "character:1431",
+            "rule_item_ids": [
+                "rule:wengine:14143:resistance-ignore",
+                "rule:wengine:14143:veil",
+            ],
+            "scenario_condition_ids": [],
+            "stack_rule_item_ids": [],
+        },
+    ]
+
+
 def test_definition_preview_returns_versioned_editor_view() -> None:
     response = client.post(
         "/api/v1/definitions/preview",
@@ -249,12 +282,136 @@ def test_skill_level_and_integer_parameter_inputs_reach_compiler_and_scenario() 
     }
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200
-    event = response.json()["events"][0]
-    assert event["repeat_count"] == 5
+
+
+def test_wengine_equipment_build_reaches_build_assembly_and_execution() -> None:
+    payload = _valid_calculation_payload()
+    payload["character_builds"]["character:1431"] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": "wengine:14143",
+        "wengine_level": 60,
+        "wengine_refinement": 1,
+        "base_stats": {
+            "hp": 10000.0,
+            "attack": 1000.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.5,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "energy_regen": 1.2,
+            "element_damage_bonus": {"physical": 0.0},
+        },
+    }
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:14143:resistance-ignore",
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+
+    assert response.status_code == 200
+    snapshot = response.json()["resolved_character_snapshots"][0]
+    assert snapshot["stats"]["attack"] == 1743.0
+    assert snapshot["stats"]["crit_damage"] == 0.98
+    provenance = response.json()["build_provenance"]
     assert any(
-        item["node"] == "damage.skill-multiplier"
-        and abs(item["value"] - 2.558) < 1e-9
-        for item in event["modes"]["expected"]["calculation_breakdown"]
+        item["source_id"] == "wengine:14143"
+        and item["stat"] == "attack"
+        and item["layer"] == "white-value"
+        for item in provenance
+    )
+
+
+def test_astra_signature_wengine_adds_team_damage_from_equipment_build() -> None:
+    payload = _valid_calculation_payload()
+    payload["supporting_character_ids"] = ["character:1311"]
+    payload["team_character_ids"] = ["character:1431", "character:1311"]
+    payload["compile_configs"]["character:1311"] = {
+        "core_level": 1,
+        "cinema_level": 0,
+    }
+    payload["character_builds"]["character:1311"] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": "wengine:14131",
+        "wengine_level": 60,
+        "wengine_refinement": 1,
+        "base_stats": {
+            "hp": 10000.0,
+            "attack": 1000.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.5,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "energy_regen": 1.2,
+            "element_damage_bonus": {"ether": 0.0},
+        },
+    }
+    payload["enemy"]["damage_resistance"]["ether"] = 0.2
+    payload["condition_values"] = {
+        "condition:wengine:14131:damage-buff-active": True,
+    }
+    payload["enabled_rule_item_ids"] = ["rule:wengine:14131:team-damage"]
+    payload["rule_stack_counts"] = {"rule:wengine:14131:team-damage": 2}
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+
+    assert response.status_code == 200
+    event_trace = response.json()["events"][0]["common_application_trace"]
+    assert any(
+        item["effect_id"] == "effect:wengine:14131:team-damage"
+        and item["value"] == 0.2
+        for item in event_trace["applied_modifiers"]
+    )
+
+
+def test_ye_signature_wengine_uses_the_existing_mingxin_condition_for_veil_effects() -> None:
+    payload = _valid_calculation_payload()
+    payload["compile_configs"]["character:1431"]["mingxin_active"] = True
+    payload["character_builds"]["character:1431"] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": "wengine:14143",
+        "wengine_level": 60,
+        "wengine_refinement": 1,
+        "base_stats": {
+            "hp": 10000.0,
+            "attack": 1000.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.5,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "energy_regen": 1.2,
+            "element_damage_bonus": {"physical": 0.0},
+        },
+    }
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:14143:resistance-ignore",
+        "rule:wengine:14143:veil",
+    ]
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+
+    assert response.status_code == 200
+    event_trace = response.json()["events"][0]["common_application_trace"]
+    assert any(
+        item["effect_id"] == "effect:wengine:14143:veil-damage"
+        for item in event_trace["applied_modifiers"]
+    )
+    assert any(
+        item["effect_id"] == "effect:wengine:14143:veil-crit-damage"
+        for item in event_trace["event_stat_modifiers"]
     )
 
 

@@ -1,0 +1,89 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14143.json",
+  "id": "14143",
+  "name": "云霓孤光",
+  "rarity": "S",
+  "specialty": "attack",
+  "catalog": {
+    "icon": "Weapon_S_1431",
+    "atk": 743,
+    "sub": "CRIT DMG"
+  },
+  "nanoka_detail_fields": {
+    "base_property": {
+      "name": "基础攻击力",
+      "name2": "基础攻击力",
+      "format": "{0:0.#}",
+      "value": 50
+    },
+    "rand_property": {
+      "name": "暴击伤害",
+      "name2": "暴击伤害",
+      "format": "{0:0.#%}",
+      "value": 1920
+    },
+    "level_60": {
+      "rate": 94090,
+      "rate2": 4000
+    },
+    "stars_5": {
+      "star_rate": 44610,
+      "rand_rate": 15000
+    }
+  },
+  "resolved_level_60": {
+    "base_attack": 743.0,
+    "advanced_stat_key": "crit_damage",
+    "advanced_stat_value": 0.48
+  },
+  "talents": {
+    "1": {
+      "name": "玉魄冰心",
+      "text": "装备者造成的伤害无视目标<color=#2BAD00>20%</color><color=#F0D12B>物理属性伤害抗性</color>；装备者开启<color=#FFFFFF>[以太帷幕]</color>时，自身造成的伤害提升<color=#2BAD00>25%</color>，暴击伤害提升<color=#2BAD00>25%</color>，持续40秒，重复触发时刷新持续时间。",
+      "numeric_values": {
+        "physical_resistance_ignore": 0.20,
+        "veil_damage_bonus": 0.25,
+        "veil_crit_damage_bonus": 0.25
+      }
+    },
+    "2": {
+      "name": "玉魄冰心",
+      "text": "装备者造成的伤害无视目标<color=#2BAD00>22%</color><color=#F0D12B>物理属性伤害抗性</color>；装备者开启<color=#FFFFFF>[以太帷幕]</color>时，自身造成的伤害提升<color=#2BAD00>28.7%</color>，暴击伤害提升<color=#2BAD00>28.7%</color>，持续40秒，重复触发时刷新持续时间。",
+      "numeric_values": {
+        "physical_resistance_ignore": 0.22,
+        "veil_damage_bonus": 0.287,
+        "veil_crit_damage_bonus": 0.287
+      }
+    },
+    "3": {
+      "name": "玉魄冰心",
+      "text": "装备者造成的伤害无视目标<color=#2BAD00>24%</color><color=#F0D12B>物理属性伤害抗性</color>；装备者开启<color=#FFFFFF>[以太帷幕]</color>时，自身造成的伤害提升<color=#2BAD00>32.5%</color>，暴击伤害提升<color=#2BAD00>32.5%</color>，持续40秒，重复触发时刷新持续时间。",
+      "numeric_values": {
+        "physical_resistance_ignore": 0.24,
+        "veil_damage_bonus": 0.325,
+        "veil_crit_damage_bonus": 0.325
+      }
+    },
+    "4": {
+      "name": "玉魄冰心",
+      "text": "装备者造成的伤害无视目标<color=#2BAD00>26%</color><color=#F0D12B>物理属性伤害抗性</color>；装备者开启<color=#FFFFFF>[以太帷幕]</color>时，自身造成的伤害提升<color=#2BAD00>36.2%</color>，暴击伤害提升<color=#2BAD00>36.2%</color>，持续40秒，重复触发时刷新持续时间。",
+      "numeric_values": {
+        "physical_resistance_ignore": 0.26,
+        "veil_damage_bonus": 0.362,
+        "veil_crit_damage_bonus": 0.362
+      }
+    },
+    "5": {
+      "name": "玉魄冰心",
+      "text": "装备者造成的伤害无视目标<color=#2BAD00>28%</color><color=#F0D12B>物理属性伤害抗性</color>；装备者开启<color=#FFFFFF>[以太帷幕]</color>时，自身造成的伤害提升<color=#2BAD00>40%</color>，暴击伤害提升<color=#2BAD00>40%</color>，持续40秒，重复触发时刷新持续时间。",
+      "numeric_values": {
+        "physical_resistance_ignore": 0.28,
+        "veil_damage_bonus": 0.40,
+        "veil_crit_damage_bonus": 0.40
+      }
+    }
+  }
+}

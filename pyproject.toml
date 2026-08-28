@@ -18,6 +18,7 @@ include = ["core*", "web*"]
 
 [tool.setuptools.package-data]
 "core.data.characters" = ["*.json"]
+"core.data.wengines" = ["*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]

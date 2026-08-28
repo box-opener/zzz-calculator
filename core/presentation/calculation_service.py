@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any
 
 from core.application import (
@@ -14,14 +14,21 @@ from core.application import (
     MoveCalculationRequest,
     ScenarioRuleStack,
     ScenarioTriggerFact,
+    assemble_build,
     calculate_move,
+    compile_wengine,
 )
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.ids import MoveEntryId, RuleItemId
+from core.application.rules import CalculationRuleItem
+from core.application.scenario import ScenarioCondition
 from core.types import (
     BattleEventKind,
     BattleStateId,
+    BuildMode,
+    CharacterBuildDefinition,
     CharacterId,
+    BuildContributionTrace,
     CharacterSnapshot,
     CharacterStats,
     CalculationNode,
@@ -36,6 +43,8 @@ from core.types import (
     SnapshotRule,
     Unresolved,
     UnresolvedReason,
+    WEngineBuildInput,
+    WEngineId,
 )
 
 from core.presentation.assembler import build_move_calculation_view
@@ -50,6 +59,15 @@ from core.presentation.registry import (
     registration_for,
     compile_registered_definition,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _BuiltCharacterRecord:
+    snapshot: CharacterSnapshot
+    initial_snapshot: InitialCharacterSnapshot
+    rule_items: tuple[CalculationRuleItem, ...] = ()
+    scenario_conditions: tuple[ScenarioCondition, ...] = ()
+    provenance: tuple[BuildContributionTrace, ...] = ()
 
 
 def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -101,11 +119,33 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("current_operator must be a team member")
 
     build_records = _build_records(view_request.character_builds)
+    additional_rule_items = tuple(
+        rule
+        for record in build_records
+        for rule in record.rule_items
+    )
+    additional_scenario_conditions = tuple(
+        condition
+        for record in build_records
+        for condition in record.scenario_conditions
+    )
+    build_provenance = tuple(
+        trace
+        for record in build_records
+        for trace in record.provenance
+    )
     enemy_snapshot, enemy_profile, base_modifiers = _enemy_inputs(view_request.enemy)
-    scenario = _scenario(payload, definitions, current_operator, team_ids)
+    scenario = _scenario(
+        payload,
+        definitions,
+        current_operator,
+        team_ids,
+        additional_rule_items=additional_rule_items,
+        additional_scenario_conditions=additional_scenario_conditions,
+    )
     move_entry_id = view_request.move_entry_id
-    base_snapshots = tuple(item[0] for item in build_records)
-    initial_snapshots = tuple(item[1] for item in build_records)
+    base_snapshots = tuple(item.snapshot for item in build_records)
+    initial_snapshots = tuple(item.initial_snapshot for item in build_records)
     team_profiles = tuple(
         CharacterMatchProfile(
             character_id=character_id,
@@ -131,6 +171,8 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             target_snapshot=enemy_snapshot,
             team_profiles=team_profiles,
             target_profile=enemy_profile,
+            additional_rule_items=additional_rule_items,
+            additional_scenario_conditions=additional_scenario_conditions,
             base_calculation_modifiers=base_modifiers,
             crit_display_mode=mode,
         )
@@ -142,13 +184,32 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
     source_labels.update(
         {
+            str(rule.rule_id): rule.display_name
+            for rule in additional_rule_items
+        }
+    )
+    source_labels.update(
+        {
             str(effect.rule.effect_id): effect.rule.source.label
             for definition in definitions
             for rule in definition.rule_items
             for effect in rule.effects
         }
     )
-    return to_jsonable(build_move_calculation_view(executions, source_labels))
+    source_labels.update(
+        {
+            str(effect.rule.effect_id): effect.rule.source.label
+            for rule in additional_rule_items
+            for effect in rule.effects
+        }
+    )
+    return to_jsonable(
+        build_move_calculation_view(
+            executions,
+            source_labels,
+            build_provenance=build_provenance,
+        )
+    )
 
 
 def _compile_definitions(payload: Mapping[str, Any]) -> tuple[CharacterCalculationDefinition, ...]:
@@ -200,7 +261,20 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
             raise ValueError(f"character build must be an object: {character_id}")
         if "level" not in raw:
             raise ValueError(f"character build level is required: {character_id}")
-        stats = raw.get("out_of_combat_stats", raw.get("stats"))
+        try:
+            build_mode = BuildMode(
+                str(raw.get("build_mode", BuildMode.MANUAL_PANEL.value))
+            )
+        except ValueError as exc:
+            raise ValueError(f"unsupported build_mode: {character_id}") from exc
+        if build_mode is BuildMode.EQUIPMENT_BUILD:
+            base_stats = raw.get("base_stats")
+            if not isinstance(base_stats, Mapping):
+                raise ValueError(f"base_stats must be an object: {character_id}")
+            stats = raw.get("out_of_combat_stats", base_stats)
+        else:
+            base_stats = None
+            stats = raw.get("out_of_combat_stats", raw.get("stats"))
         if not isinstance(stats, Mapping):
             raise ValueError(f"out_of_combat_stats must be an object: {character_id}")
         required_stats = {
@@ -228,6 +302,15 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
                 character_id=character_id,
                 level=int(raw["level"]),
                 out_of_combat_stats=stats,
+                build_mode=build_mode,
+                base_stats=base_stats,
+                wengine_id=(
+                    str(raw["wengine_id"])
+                    if raw.get("wengine_id") is not None
+                    else None
+                ),
+                wengine_level=int(raw.get("wengine_level", 60)),
+                wengine_refinement=int(raw.get("wengine_refinement", 1)),
             )
         )
     raw_enemy = payload.get("enemy")
@@ -301,16 +384,68 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
 
 def _build_records(
     builds: tuple[CharacterBuildInput, ...],
-) -> tuple[tuple[CharacterSnapshot, InitialCharacterSnapshot], ...]:
+) -> tuple[_BuiltCharacterRecord, ...]:
     records = []
     for build in builds:
         character_id = CharacterId(build.character_id)
-        registration_for(character_id)
-        stats = _character_stats(build.out_of_combat_stats, character_id)
+        registration = registration_for(character_id)
+        if build.build_mode is BuildMode.MANUAL_PANEL:
+            stats = _character_stats(build.out_of_combat_stats, character_id)
+            records.append(
+                _BuiltCharacterRecord(
+                    snapshot=CharacterSnapshot(character_id, build.level, stats),
+                    initial_snapshot=InitialCharacterSnapshot(
+                        character_id,
+                        build.level,
+                        stats,
+                    ),
+                    provenance=(),
+                )
+            )
+            continue
+
+        if build.base_stats is None:
+            raise ValueError(f"equipment build base_stats is missing: {character_id}")
+        base_stats = _character_stats(build.base_stats, character_id)
+        rule_items = ()
+        conditions = ()
+        contributions = ()
+        if build.wengine_id is not None:
+            wengine = compile_wengine(
+                WEngineBuildInput(
+                    WEngineId(build.wengine_id),
+                    character_id,
+                    level=build.wengine_level,
+                    refinement=build.wengine_refinement,
+                ),
+                equipped_character_role=registration.role,
+            )
+            if not wengine.complete:
+                messages = "; ".join(item.message for item in wengine.diagnostics)
+                raise ValueError(messages)
+            contributions = wengine.contributions
+            rule_items = wengine.rule_items
+            conditions = wengine.scenario_conditions
+        resolved_build = assemble_build(
+            CharacterBuildDefinition(
+                character_id=character_id,
+                level=build.level,
+                mode=BuildMode.EQUIPMENT_BUILD,
+                base_stats=base_stats,
+                contributions=contributions,
+            ),
+            rule_items=rule_items,
+        )
+        if not resolved_build.complete:
+            messages = "; ".join(item.message for item in resolved_build.diagnostics)
+            raise ValueError(messages or f"equipment build is unresolved: {character_id}")
         records.append(
-            (
-                CharacterSnapshot(character_id, build.level, stats),
-                InitialCharacterSnapshot(character_id, build.level, stats),
+            _BuiltCharacterRecord(
+                snapshot=resolved_build.character_snapshot,
+                initial_snapshot=resolved_build.initial_snapshot,
+                rule_items=rule_items,
+                scenario_conditions=conditions,
+                provenance=resolved_build.provenance,
             )
         )
     return tuple(records)
@@ -384,6 +519,9 @@ def _scenario(
     definitions: tuple[CharacterCalculationDefinition, ...],
     current_operator: CharacterId,
     team_ids: tuple[CharacterId, ...],
+    *,
+    additional_rule_items: tuple[CalculationRuleItem, ...] = (),
+    additional_scenario_conditions: tuple[ScenarioCondition, ...] = (),
 ) -> CalculationScenario:
     condition_values = payload.get("condition_values", {})
     parameter_values = payload.get("parameter_values", {})
@@ -394,6 +532,9 @@ def _scenario(
         for definition in definitions
         for condition in definition.scenario_conditions
     }
+    known_condition_ids.update(
+        condition.condition_id for condition in additional_scenario_conditions
+    )
     known_parameter_ids = {
         parameter.parameter_id
         for definition in definitions
@@ -411,6 +552,13 @@ def _scenario(
         for condition in definition.scenario_conditions
         if condition.resolution.value == "static"
     }
+    static_condition_values.update(
+        {
+            str(condition.condition_id): condition.value
+            for condition in additional_scenario_conditions
+            if condition.resolution.value == "static"
+        }
+    )
     overridden_static = set(condition_values) & set(static_condition_values)
     if overridden_static:
         raise ValueError(
@@ -441,6 +589,20 @@ def _scenario(
                     value=parameter_values.get(str(parameter.parameter_id), parameter.value),
                 )
             )
+    for condition in additional_scenario_conditions:
+        if any(item.condition_id == condition.condition_id for item in conditions):
+            continue
+        if condition.resolution.value == "static":
+            conditions.append(condition)
+        else:
+            conditions.append(
+                replace(
+                    condition,
+                    value=condition_values.get(
+                        str(condition.condition_id), condition.value
+                    ),
+                )
+            )
     for condition_id, value in condition_values.items():
         if value is not None and not isinstance(value, bool):
             raise ValueError(f"scenario condition must be boolean or null: {condition_id}")
@@ -468,6 +630,13 @@ def _scenario(
             if effect.rule.trigger is not None
             and effect.rule.trigger.event_kind is BattleEventKind.SUPPORT_ENTRY
         }
+        known_trigger_effect_ids.update(
+            effect.rule.effect_id
+            for rule in additional_rule_items
+            for effect in rule.effects
+            if effect.rule.trigger is not None
+            and effect.rule.trigger.event_kind is BattleEventKind.SUPPORT_ENTRY
+        )
         if effect_id not in known_trigger_effect_ids:
             raise ValueError(f"unknown presentation trigger input: {input_id}")
         actor = item.get("actor_id")
@@ -487,12 +656,20 @@ def _scenario(
     known_rule_ids = {
         rule.rule_id for definition in definitions for rule in definition.rule_items
     }
+    known_rule_ids.update(rule.rule_id for rule in additional_rule_items)
     if enabled is None:
         enabled_ids = frozenset(
-            rule.rule_id
-            for definition in definitions
-            for rule in definition.rule_items
-            if rule.eligibility.value != "ineligible"
+            {
+                rule.rule_id
+                for definition in definitions
+                for rule in definition.rule_items
+                if rule.eligibility.value != "ineligible"
+            }
+            | {
+                rule.rule_id
+                for rule in additional_rule_items
+                if rule.eligibility.value != "ineligible"
+            }
         )
     else:
         if not isinstance(enabled, (list, tuple, set, frozenset)):

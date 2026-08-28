@@ -188,6 +188,7 @@ class CharacterBuildDefinition:
 class BuildContributionTrace:
     """White-box trace for one contribution after validation."""
 
+    character_id: CharacterId
     contribution_id: str
     source: BuildSource
     stat: CharacterStat

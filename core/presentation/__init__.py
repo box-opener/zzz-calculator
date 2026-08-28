@@ -1,7 +1,12 @@
 """Stable, browser-facing views assembled from application contracts."""
 
 from .assembler import build_character_editor_view, build_move_calculation_view
-from .catalog import CharacterCatalogItem, supported_character_catalog
+from .catalog import (
+    CharacterCatalogItem,
+    WEngineCatalogItem,
+    supported_character_catalog,
+    supported_wengine_catalog,
+)
 from .character_editor import CharacterEditorView, CompileConfigFieldView
 from .calculation import (
     CalculationView,
@@ -23,6 +28,7 @@ __all__ = [
     "CalculationView",
     "CharacterBuildInput",
     "CharacterCatalogItem",
+    "WEngineCatalogItem",
     "CharacterEditorView",
     "CompileConfigFieldView",
     "DamageEventModeView",
@@ -39,4 +45,5 @@ __all__ = [
     "registration_for",
     "supported_character_registrations",
     "supported_character_catalog",
+    "supported_wengine_catalog",
 ]

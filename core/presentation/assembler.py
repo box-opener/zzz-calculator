@@ -19,11 +19,13 @@ from core.types import (
 
 from .calculation import (
     CalculationView,
+    BuildContributionView,
     DamageEventModeView,
     DamageEventView,
     MoveTotalsView,
     PanelTraceView,
     event_trace_view,
+    build_contribution_view,
     panel_snapshot_view,
     _mode_view,
 )
@@ -129,6 +131,7 @@ def build_character_editor_view(
 def build_move_calculation_view(
     executions: Mapping[CritDisplayMode, MoveCalculationExecution],
     source_labels: Mapping[str, str] | None = None,
+    build_provenance=(),
 ) -> CalculationView:
     """Align three application executions by semantic event ID."""
 
@@ -292,6 +295,9 @@ def build_move_calculation_view(
         totals=totals,
         resolved_character_snapshots=snapshots,
         panel_traces=panel_views,
+        build_provenance=tuple(
+            build_contribution_view(item) for item in build_provenance
+        ),
         diagnostics=tuple(diagnostics),
     )
 

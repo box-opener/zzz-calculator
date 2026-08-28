@@ -12,6 +12,18 @@ type Character = {
   image_object_position: string;
 };
 
+type WEngine = {
+  wengine_id: string;
+  display_name: string;
+  rarity: string;
+  specialty: string;
+  icon_key: string;
+  signature_character_id: string | null;
+  rule_item_ids: string[];
+  scenario_condition_ids: string[];
+  stack_rule_item_ids: string[];
+};
+
 type Condition = {
   condition_id: string;
   label: string;
@@ -90,11 +102,12 @@ type CalculationView = {
   diagnostics: { message: string; blocking: boolean }[];
   resolved_character_snapshots: { character_id: string; stats: Record<string, number | null | Record<string, number | null>> }[];
   panel_traces: { recipient_character_id: string; effect_id: string; source_label: string | null; resolved_value: number; modifier_path: string }[];
+  build_provenance: { character_id: string; contribution_id: string; source_id: string; source_type: string; source_label: string; stat: string; layer: string; value: number | null; element: string | null; unresolved: string | null }[];
 };
 
 const YE_ID = "character:1431";
 const ASTRA_ID = "character:1311";
-const DEFAULT_STATS = { attack: 1000, crit_rate: 0.5, crit_damage: 0.5, penetration_rate: 0, penetration_flat: 0, element_damage_bonus: { physical: 0, ether: 0 } };
+const DEFAULT_STATS = { hp: 10000, attack: 1000, defense: 500, impact: 100, anomaly_mastery: 100, anomaly_proficiency: 100, energy_regen: 1.2, crit_rate: 0.5, crit_damage: 0.5, penetration_rate: 0, penetration_flat: 0, element_damage_bonus: { physical: 0, ether: 0 } };
 
 async function jsonRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -108,6 +121,7 @@ async function jsonRequest<T>(path: string, options?: RequestInit): Promise<T> {
 
 function App() {
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [wengines, setWengines] = useState<WEngine[]>([]);
   const [{ primaryId, supportId }, dispatchTeam] = useReducer(teamReducer, { primaryId: YE_ID, supportId: ASTRA_ID });
   const [primaryView, setPrimaryView] = useState<EditorView | null>(null);
   const [supportView, setSupportView] = useState<EditorView | null>(null);
@@ -124,6 +138,10 @@ function App() {
     [ASTRA_ID]: { ...DEFAULT_STATS, element_damage_bonus: { ...DEFAULT_STATS.element_damage_bonus } },
   });
   const [characterLevels, setCharacterLevels] = useState<Record<string, number>>({ [YE_ID]: 60, [ASTRA_ID]: 60 });
+  const [buildModes, setBuildModes] = useState<Record<string, "manual-panel" | "equipment-build">>({ [YE_ID]: "manual-panel", [ASTRA_ID]: "manual-panel" });
+  const [wengineSelections, setWengineSelections] = useState<Record<string, { id: string; level: number; refinement: number }>>({});
+  const [wengineConditions, setWengineConditions] = useState<Record<string, boolean>>({});
+  const [wengineStackCounts, setWengineStackCounts] = useState<Record<string, number>>({});
   const [enemyLevel, setEnemyLevel] = useState(60);
   const [enemyDamageReduction, setEnemyDamageReduction] = useState(0);
   const [enemyIsStunned, setEnemyIsStunned] = useState(false);
@@ -205,9 +223,24 @@ function App() {
   };
 
   useEffect(() => {
-    jsonRequest<Character[]>("/api/v1/characters")
-      .then(setCharacters)
-      .then(() => loadEditors())
+    Promise.all([
+      jsonRequest<Character[]>("/api/v1/characters"),
+      jsonRequest<WEngine[]>("/api/v1/wengines"),
+    ])
+      .then(([loadedCharacters, loadedWengines]) => {
+        setCharacters(loadedCharacters);
+        setWengines(loadedWengines);
+        setWengineSelections((current) => {
+          const next = { ...current };
+          loadedWengines.forEach((item) => {
+            if (item.signature_character_id && !next[item.signature_character_id]) {
+              next[item.signature_character_id] = { id: item.wengine_id, level: 60, refinement: 1 };
+            }
+          });
+          return next;
+        });
+        return loadEditors();
+      })
       .catch((error: Error) => setDiagnostics([error.message]));
     // The catalog is the only initial network request; editor loading follows it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -246,11 +279,43 @@ function App() {
     void loadEditors(primaryId, supportId, configs, next, { conditionValues: next });
   };
 
+  const buildPayloads = () => Object.fromEntries(teamIds.map((id) => {
+    const mode = buildModes[id] ?? "manual-panel";
+    const selection = wengineSelections[id];
+    if (mode === "equipment-build") {
+      return [id, {
+        level: characterLevels[id] ?? 60,
+        build_mode: mode,
+        base_stats: { ...buildStats[id], element_damage_bonus: { ...buildStats[id]?.element_damage_bonus } },
+        ...(selection?.id ? { wengine_id: selection.id, wengine_level: selection.level, wengine_refinement: selection.refinement } : {}),
+      }];
+    }
+    return [id, { level: characterLevels[id] ?? 60, out_of_combat_stats: { ...buildStats[id], element_damage_bonus: { ...buildStats[id]?.element_damage_bonus } } }];
+  }));
+
   const calculate = async () => {
     if (!moveEntryId) return;
     setCalculating(true);
     setDiagnostics([]);
     try {
+      const selectedWengineRuleIds = teamIds.flatMap((id) => {
+        const selection = wengineSelections[id];
+        if (buildModes[id] !== "equipment-build" || !selection?.id) return [];
+        return wengines.find((item) => item.wengine_id === selection.id)?.rule_item_ids ?? [];
+      });
+      const selectedWengineStacks = Object.fromEntries(
+        selectedWengineRuleIds
+          .filter((ruleId) => Number.isInteger(wengineStackCounts[ruleId]))
+          .map((ruleId) => [ruleId, wengineStackCounts[ruleId]]),
+      );
+      const selectedWengineConditionValues = Object.fromEntries(
+        teamIds.flatMap((id) => {
+          if (buildModes[id] !== "equipment-build") return [];
+          const wengineId = wengineSelections[id]?.id;
+          const catalog = wengines.find((item) => item.wengine_id === wengineId);
+          return catalog?.scenario_condition_ids.map((conditionId) => [conditionId, wengineConditions[conditionId] ?? false]) ?? [];
+        }),
+      );
       const result = await jsonRequest<CalculationView>("/api/v1/moves/calculate", {
         method: "POST",
         body: JSON.stringify({
@@ -259,13 +324,16 @@ function App() {
           team_character_ids: teamIds,
           move_entry_id: moveEntryId,
           compile_configs: configs,
-          condition_values: Object.fromEntries(allConditions.filter((condition) => condition.editable).map((condition) => [condition.condition_id, conditionValues[condition.condition_id] ?? null])),
+          condition_values: {
+            ...Object.fromEntries(allConditions.filter((condition) => condition.editable).map((condition) => [condition.condition_id, conditionValues[condition.condition_id] ?? null])),
+            ...selectedWengineConditionValues,
+          },
           parameter_values: parameterValues,
-          character_builds: Object.fromEntries(teamIds.map((id) => [id, { level: characterLevels[id] ?? 60, out_of_combat_stats: { ...buildStats[id] } }])),
+          character_builds: buildPayloads(),
           enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: { physical: enemyPhysicalResistance, ether: enemyEtherResistance }, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
-          enabled_rule_item_ids: [...enabledRules],
+          enabled_rule_item_ids: [...new Set([...enabledRules, ...selectedWengineRuleIds])],
           selected_trigger_inputs: Object.entries(triggerActors).filter(([, actor_id]) => actor_id).map(([input_id, actor_id]) => ({ input_id, actor_id })),
-          rule_stack_counts: stacks,
+          rule_stack_counts: { ...stacks, ...selectedWengineStacks },
         }),
       });
       setCalculation(result);
@@ -312,7 +380,9 @@ function App() {
 
         <section className="glass-card build-panel">
           <div className="section-heading"><div><p className="eyebrow">BUILD INPUT</p><h2>局外面板</h2></div><span className="muted">每个角色独立</span></div>
-          <div className="build-character-fields">{teamIds.map((id) => <div className="build-character" key={id}><strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong><div className="form-grid three-columns"><label>等级<input type="number" min="1" max="60" value={characterLevels[id] ?? 60} onChange={(event) => setCharacterLevels((current) => ({ ...current, [id]: Number(event.target.value) }))} /></label><label>攻击力<input type="number" value={buildStats[id]?.attack ?? 1000} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label><label>暴击率<input type="number" step="0.01" value={buildStats[id]?.crit_rate ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label><label>暴击伤害<input type="number" step="0.01" value={buildStats[id]?.crit_damage ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label><label>穿透率<input type="number" step="0.01" value={buildStats[id]?.penetration_rate ?? 0} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label><label>穿透值<input type="number" value={buildStats[id]?.penetration_flat ?? 0} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label><label>物理伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.physical ?? 0} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label><label>以太伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.ether ?? 0} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label></div></div>)}</div>
+          <div className="build-character-fields">{teamIds.map((id) => <div className="build-character" key={id}><strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong><div className="form-grid three-columns"><label>面板模式<select value={buildModes[id] ?? "manual-panel"} onChange={(event) => setBuildModes((current) => ({ ...current, [id]: event.target.value as "manual-panel" | "equipment-build" }))}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label><label>等级<input type="number" min="1" max="60" value={characterLevels[id] ?? 60} onChange={(event) => setCharacterLevels((current) => ({ ...current, [id]: Number(event.target.value) }))} /></label><label>攻击力<input type="number" value={buildStats[id]?.attack ?? 1000} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label><label>暴击率<input type="number" step="0.01" value={buildStats[id]?.crit_rate ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label><label>暴击伤害<input type="number" step="0.01" value={buildStats[id]?.crit_damage ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label><label>穿透率<input type="number" step="0.01" value={buildStats[id]?.penetration_rate ?? 0} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label><label>穿透值<input type="number" value={buildStats[id]?.penetration_flat ?? 0} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label><label>物理伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.physical ?? 0} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label><label>以太伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.ether ?? 0} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label></div>{(buildModes[id] ?? "manual-panel") === "equipment-build" && <div className="form-grid three-columns"><label>音擎<select value={wengineSelections[id]?.id ?? ""} onChange={(event) => setWengineSelections((current) => ({ ...current, [id]: { ...(current[id] ?? { level: 60, refinement: 1 }), id: event.target.value } }))}><option value="">无</option>{wengines.filter((item) => item.specialty === characters.find((character) => character.character_id === id)?.specialty).map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label><label>音擎等级<input type="number" min="60" max="60" value={wengineSelections[id]?.level ?? 60} readOnly /></label><label>精炼<input type="number" min="1" max="5" value={wengineSelections[id]?.refinement ?? 1} onChange={(event) => setWengineSelections((current) => ({ ...current, [id]: { ...(current[id] ?? { id: "", level: 60 }), refinement: Number(event.target.value) } }))} /></label>{wengineSelections[id]?.id === "wengine:14143" && <span className="muted">帷幕效果随叶瞬光明心境场景</span>}{wengineSelections[id]?.id === "wengine:14131" && <label className="check-field">玲珑妆匣增伤已触发<input type="checkbox" checked={wengineConditions["condition:wengine:14131:damage-buff-active"] ?? false} onChange={(event) => setWengineConditions((current) => ({ ...current, "condition:wengine:14131:damage-buff-active": event.target.checked }))} /></label>}</div>}</div>)}</div>
+          <div className="form-grid three-columns">{teamIds.filter((id) => buildModes[id] === "equipment-build" && wengineSelections[id]?.id === "wengine:14131").map((id) => <label key={`wengine-stack-${id}`}>玲珑妆匣增伤层数<input type="number" min="0" max="2" value={wengineStackCounts["rule:wengine:14131:team-damage"] ?? 2} onChange={(event) => setWengineStackCounts((current) => ({ ...current, "rule:wengine:14131:team-damage": Number(event.target.value) }))} /></label>)}</div>
+          {calculation && calculation.build_provenance.length > 0 && <div className="trace-list"><p className="eyebrow">BUILD PROVENANCE</p>{calculation.build_provenance.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.character_id}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.source_label} · {trace.stat} · {trace.layer}</small></div>)}</div>}
           <div className="section-heading compact"><div><p className="eyebrow">TARGET</p><h2>敌人</h2></div></div>
           <div className="form-grid three-columns"><label>等级<input type="number" min="1" max="80" value={enemyLevel} onChange={(event) => setEnemyLevel(Number(event.target.value))} /></label><label>防御力<input type="number" value={enemyDefense} onChange={(event) => setEnemyDefense(Number(event.target.value))} /></label><label>物理抗性<input type="number" step="0.01" value={enemyPhysicalResistance} onChange={(event) => setEnemyPhysicalResistance(Number(event.target.value))} /></label><label>以太抗性<input type="number" step="0.01" value={enemyEtherResistance} onChange={(event) => setEnemyEtherResistance(Number(event.target.value))} /></label><label>失衡易伤<input type="number" step="0.01" value={stunVulnerability} onChange={(event) => setStunVulnerability(Number(event.target.value))} /></label><label>减易伤<input type="number" step="0.01" value={enemyDamageReduction} onChange={(event) => setEnemyDamageReduction(Number(event.target.value))} /></label><label className="check-field">当前处于失衡<input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label></div>
         </section>

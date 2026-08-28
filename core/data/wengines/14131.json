@@ -1,0 +1,89 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14131.json",
+  "id": "14131",
+  "name": "玲珑妆匣",
+  "rarity": "S",
+  "specialty": "support",
+  "catalog": {
+    "icon": "Weapon_S_1311",
+    "atk": 713,
+    "sub": "ATK"
+  },
+  "nanoka_detail_fields": {
+    "base_property": {
+      "name": "基础攻击力",
+      "name2": "基础攻击力",
+      "format": "{0:0.#}",
+      "value": 48
+    },
+    "rand_property": {
+      "name": "攻击力",
+      "name2": "攻击力百分比",
+      "format": "{0:0.#%}",
+      "value": 1200
+    },
+    "level_60": {
+      "rate": 94090,
+      "rate2": 4000
+    },
+    "stars_5": {
+      "star_rate": 44610,
+      "rand_rate": 15000
+    }
+  },
+  "resolved_level_60": {
+    "base_attack": 713.0,
+    "advanced_stat_key": "attack_percent",
+    "advanced_stat_value": 0.30
+  },
+  "talents": {
+    "1": {
+      "name": "卓卓千华",
+      "text": "队伍中任意角色通过<color=#FFFFFF>[快速支援]</color>、<color=#FFFFFF>[连携技]</color>、<color=#FFFFFF>[招架支援]</color>、<color=#FFFFFF>[回避支援]</color>入场时，为装备者回复<color=#2BAD00>5</color>点能量，5秒内最多触发一次；装备者消耗25点或以上能量时，全队角色造成的伤害提升<color=#2BAD00>10%</color>，最多叠加2层，持续20秒，重复触发时刷新持续时间，该效果全队唯一。",
+      "numeric_values": {
+        "energy_restore": 5.0,
+        "team_damage_bonus": 0.10,
+        "max_stacks": 2
+      }
+    },
+    "2": {
+      "name": "卓卓千华",
+      "text": "队伍中任意角色通过<color=#FFFFFF>[快速支援]</color>、<color=#FFFFFF>[连携技]</color>、<color=#FFFFFF>[招架支援]</color>、<color=#FFFFFF>[回避支援]</color>入场时，为装备者回复<color=#2BAD00>5.5</color>点能量，5秒内最多触发一次；装备者消耗25点或以上能量时，全队角色造成的伤害提升<color=#2BAD00>11.5%</color>，最多叠加2层，持续20秒，重复触发时刷新持续时间，该效果全队唯一。",
+      "numeric_values": {
+        "energy_restore": 5.5,
+        "team_damage_bonus": 0.115,
+        "max_stacks": 2
+      }
+    },
+    "3": {
+      "name": "卓卓千华",
+      "text": "队伍中任意角色通过<color=#FFFFFF>[快速支援]</color>、<color=#FFFFFF>[连携技]</color>、<color=#FFFFFF>[招架支援]</color>、<color=#FFFFFF>[回避支援]</color>入场时，为装备者回复<color=#2BAD00>6</color>点能量，5秒内最多触发一次；装备者消耗25点或以上能量时，全队角色造成的伤害提升<color=#2BAD00>13%</color>，最多叠加2层，持续20秒，重复触发时刷新持续时间，该效果全队唯一。",
+      "numeric_values": {
+        "energy_restore": 6.0,
+        "team_damage_bonus": 0.13,
+        "max_stacks": 2
+      }
+    },
+    "4": {
+      "name": "卓卓千华",
+      "text": "队伍中任意角色通过<color=#FFFFFF>[快速支援]</color>、<color=#FFFFFF>[连携技]</color>、<color=#FFFFFF>[招架支援]</color>、<color=#FFFFFF>[回避支援]</color>入场时，为装备者回复<color=#2BAD00>6.5</color>点能量，5秒内最多触发一次；装备者消耗25点或以上能量时，全队角色造成的伤害提升<color=#2BAD00>14.5%</color>，最多叠加2层，持续20秒，重复触发时刷新持续时间，该效果全队唯一。",
+      "numeric_values": {
+        "energy_restore": 6.5,
+        "team_damage_bonus": 0.145,
+        "max_stacks": 2
+      }
+    },
+    "5": {
+      "name": "卓卓千华",
+      "text": "队伍中任意角色通过<color=#FFFFFF>[快速支援]</color>、<color=#FFFFFF>[连携技]</color>、<color=#FFFFFF>[招架支援]</color>、<color=#FFFFFF>[回避支援]</color>入场时，为装备者回复<color=#2BAD00>7</color>点能量，5秒内最多触发一次；装备者消耗25点或以上能量时，全队角色造成的伤害提升<color=#2BAD00>16%</color>，最多叠加2层，持续20秒，重复触发时刷新持续时间，该效果全队唯一。",
+      "numeric_values": {
+        "energy_restore": 7.0,
+        "team_damage_bonus": 0.16,
+        "max_stacks": 2
+      }
+    }
+  }
+}

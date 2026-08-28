@@ -619,13 +619,16 @@ def _event_stat_modifier(
             )
         )
         return None
-    if effect.result.modifier_path is not CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
+    if effect.result.modifier_path not in {
+        CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+        CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+    }:
         diagnostics.append(
             _diagnostic(
                 str(effect.rule.effect_id),
                 "event-stat-node",
                 DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                "Stage-016 only supports event-level current crit-rate modifiers",
+                "Stage-018 only supports event-level current crit-rate and crit-damage modifiers",
             )
         )
         return None
@@ -635,7 +638,7 @@ def _event_stat_modifier(
                 str(effect.rule.effect_id),
                 "event-stat-operation",
                 DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                "event-level crit-rate modifiers support ADD only",
+                "event-level crit-rate and crit-damage modifiers support ADD only",
             )
         )
         return None

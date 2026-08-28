@@ -103,7 +103,10 @@ def assemble_build(
             definition.manual_panel_stats,
             definition.character_id,
         )
-        provenance = _manual_provenance(definition.manual_panel_stats)
+        provenance = _manual_provenance(
+            definition.character_id,
+            definition.manual_panel_stats,
+        )
         return ResolvedBuild(
             character_id=definition.character_id,
             level=definition.level,
@@ -238,7 +241,9 @@ def _assemble_scalar(
     if base_numeric is None:
         final: Resolvable[float] = base_value
         for contribution in contributions:
-            traces.append(_trace(contribution, contribution.value))
+            traces.append(
+                _trace(character_id, contribution, contribution.value)
+            )
             if isinstance(contribution.value, Unresolved):
                 unresolved.append(contribution.value)
                 diagnostics.append(_missing_contribution_diagnostic(contribution))
@@ -256,7 +261,9 @@ def _assemble_scalar(
             unresolved,
             diagnostics,
         )
-        traces.append(_trace(contribution, contribution.value))
+        traces.append(
+            _trace(character_id, contribution, contribution.value)
+        )
         if numeric is None:
             failed = True
             continue
@@ -321,7 +328,9 @@ def _assemble_ratio(
             unresolved,
             diagnostics,
         )
-        traces.append(_trace(contribution, contribution.value))
+        traces.append(
+            _trace(character_id, contribution, contribution.value)
+        )
         if numeric is None:
             failed = True
         else:
@@ -365,10 +374,12 @@ def _numeric_or_unresolved(
 
 
 def _trace(
+    character_id: CharacterId,
     contribution: BuildStatContribution,
     applied_value: Resolvable[float],
 ) -> BuildContributionTrace:
     return BuildContributionTrace(
+        character_id=character_id,
         contribution_id=contribution.contribution_id,
         source=contribution.source,
         stat=contribution.stat,
@@ -444,7 +455,10 @@ def _validate_stats(
     return tuple(diagnostics), tuple(unresolved)
 
 
-def _manual_provenance(stats: CharacterStats) -> tuple[BuildContributionTrace, ...]:
+def _manual_provenance(
+    character_id: CharacterId,
+    stats: CharacterStats,
+) -> tuple[BuildContributionTrace, ...]:
     source = BuildSource(
         source_id="build:manual-panel",
         source_type=BuildSourceType.MANUAL_PANEL,
@@ -455,6 +469,7 @@ def _manual_provenance(stats: CharacterStats) -> tuple[BuildContributionTrace, .
         value = getattr(stats, field_name)
         traces.append(
             BuildContributionTrace(
+                character_id=character_id,
                 contribution_id=f"manual:{stat.value}",
                 source=source,
                 stat=stat,
@@ -466,6 +481,7 @@ def _manual_provenance(stats: CharacterStats) -> tuple[BuildContributionTrace, .
     for element, value in stats.element_damage_bonus.items():
         traces.append(
             BuildContributionTrace(
+                character_id=character_id,
                 contribution_id=f"manual:element:{element.value}",
                 source=source,
                 stat=CharacterStat.ELEMENT_DAMAGE_BONUS,
