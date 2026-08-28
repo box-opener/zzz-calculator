@@ -1,6 +1,7 @@
 """Application contracts between parsed rules, scenarios, and calculators."""
 
 from .diagnostics import CalculationDiagnostic, DiagnosticKind
+from .build import ResolvedBuild, assemble_build
 from .element_scope import element_scope_filter
 from .execution import (
     CalculationRouter,
@@ -70,6 +71,8 @@ from .matching import (
 
 __all__ = [
     "CalculationDiagnostic",
+    "ResolvedBuild",
+    "assemble_build",
     "CalculationRuleItem",
     "CalculationScenario",
     "CharacterMatchProfile",

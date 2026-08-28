@@ -14,6 +14,15 @@ from .anomaly_gauge import (
     AnomalyTriggerSnapshot,
 )
 from .battle_state import BattleState, CharacterCombatState, EnemyCombatState
+from .build import (
+    BuildContributionLayer,
+    BuildContributionTrace,
+    BuildMode,
+    BuildSource,
+    BuildSourceType,
+    BuildStatContribution,
+    CharacterBuildDefinition,
+)
 from .battle_event import (
     AnomalyBuildupEvent,
     AnomalyBuildupOutcome,
