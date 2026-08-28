@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
@@ -150,6 +150,44 @@ def test_element_damage_bonus_keeps_element_identity_and_ratio_units() -> None:
     assert result.provenance[0].element is Element.PHYSICAL
 
 
+@pytest.mark.parametrize(
+    ("stat", "field_name", "base", "percent", "expected"),
+    (
+        (CharacterStat.HP, "hp", 10000.0, 0.30, 13000.0),
+        (CharacterStat.DEFENSE, "defense", 500.0, 0.48, 740.0),
+        (CharacterStat.IMPACT, "impact", 100.0, 0.18, 118.0),
+        (CharacterStat.ANOMALY_MASTERY, "anomaly_mastery", 100.0, 0.30, 130.0),
+        (CharacterStat.ENERGY_REGEN, "energy_regen", 1.2, 0.60, 1.92),
+    ),
+)
+def test_out_of_combat_percent_supports_all_current_white_value_stats(
+    stat: CharacterStat,
+    field_name: str,
+    base: float,
+    percent: float,
+    expected: float,
+) -> None:
+    stats = replace(_base_stats(), **{field_name: Resolved(base)})
+    result = assemble_build(
+        CharacterBuildDefinition(
+            character_id=CharacterId("character:test"),
+            level=60,
+            mode=BuildMode.EQUIPMENT_BUILD,
+            base_stats=stats,
+            contributions=(
+                _contribution(
+                    f"disc:{stat.value}-percent",
+                    stat,
+                    BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+                    percent,
+                ),
+            ),
+        )
+    )
+
+    assert getattr(result.initial_stats, field_name) == Resolved(expected)
+
+
 def test_manual_panel_mode_bypasses_equipment_aggregation() -> None:
     manual = _base_stats(attack=2844.0)
     result = assemble_build(
@@ -172,7 +210,6 @@ def test_manual_panel_mode_bypasses_equipment_aggregation() -> None:
     assert all(
         item.layer is BuildContributionLayer.MANUAL_PANEL
         for item in result.provenance
-        if item.element is None
     )
 
 
@@ -212,6 +249,17 @@ def test_build_contract_rejects_element_missing_from_element_bonus() -> None:
         )
 
 
+def test_drive_disc_attack_white_value_is_rejected() -> None:
+    with pytest.raises(ValueError, match="must come from a WENGINE"):
+        BuildStatContribution(
+            contribution_id="disc:attack-white",
+            source=_source(),
+            stat=CharacterStat.ATTACK,
+            layer=BuildContributionLayer.WHITE_VALUE,
+            value=Resolved(316.0),
+        )
+
+
 def test_only_attack_accepts_an_equipment_white_value_in_stage18_1() -> None:
     with pytest.raises(ValueError, match="does not support stat hp"):
         BuildStatContribution(
@@ -225,6 +273,33 @@ def test_only_attack_accepts_an_equipment_white_value_in_stage18_1() -> None:
             layer=BuildContributionLayer.WHITE_VALUE,
             value=Resolved(100.0),
         )
+
+
+def test_drive_flat_attack_is_not_added_to_white_value() -> None:
+    result = assemble_build(
+        CharacterBuildDefinition(
+            character_id=CharacterId("character:test"),
+            level=60,
+            mode=BuildMode.EQUIPMENT_BUILD,
+            base_stats=_base_stats(),
+            contributions=(
+                _contribution(
+                    "disc:attack-flat",
+                    CharacterStat.ATTACK,
+                    BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+                    316.0,
+                ),
+                _contribution(
+                    "disc:attack-percent",
+                    CharacterStat.ATTACK,
+                    BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+                    0.60,
+                ),
+            ),
+        )
+    )
+
+    assert result.initial_stats.attack == Resolved(1916.0)
 
 
 def test_build_contract_rejects_duplicate_contribution_ids() -> None:

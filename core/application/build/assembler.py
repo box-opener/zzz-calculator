@@ -469,7 +469,7 @@ def _manual_provenance(stats: CharacterStats) -> tuple[BuildContributionTrace, .
                 contribution_id=f"manual:element:{element.value}",
                 source=source,
                 stat=CharacterStat.ELEMENT_DAMAGE_BONUS,
-                layer=BuildContributionLayer.DIRECT_RATIO,
+                layer=BuildContributionLayer.MANUAL_PANEL,
                 input_value=value,
                 applied_value=value,
                 element=element,

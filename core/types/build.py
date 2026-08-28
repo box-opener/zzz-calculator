@@ -66,7 +66,17 @@ _WHITE_VALUE_STATS = frozenset(
     }
 )
 
-_OUT_OF_COMBAT_PERCENT_STATS = _WHITE_VALUE_STATS
+_OUT_OF_COMBAT_PERCENT_STATS = frozenset(
+    {
+        CharacterStat.HP,
+        CharacterStat.ATTACK,
+        CharacterStat.DEFENSE,
+        CharacterStat.IMPACT,
+        CharacterStat.ANOMALY_MASTERY,
+        CharacterStat.ANOMALY_PROFICIENCY,
+        CharacterStat.ENERGY_REGEN,
+    }
+)
 
 _OUT_OF_COMBAT_FLAT_STATS = frozenset(
     {
@@ -121,6 +131,13 @@ class BuildStatContribution:
         if self.stat not in allowed_stats:
             raise ValueError(
                 f"{self.layer.value} does not support stat {self.stat.value}"
+            )
+        if (
+            self.layer is BuildContributionLayer.WHITE_VALUE
+            and self.source.source_type is not BuildSourceType.WENGINE
+        ):
+            raise ValueError(
+                "WHITE_VALUE attack contributions must come from a WENGINE"
             )
         if self.stat is CharacterStat.ELEMENT_DAMAGE_BONUS:
             if self.element is None:
