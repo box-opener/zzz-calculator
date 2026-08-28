@@ -333,7 +333,7 @@ Scenario、Character、Enemy 或 Buff 数据。
 
 派生伤害模板有两种合法归属：招式自身的
 `MoveCalculationEntry.derived_damage_events`，以及 Definition 级的
-`independent_derived_damage_events`。后者用于由支援入场、队伍条件或其他不属于某个本角色
+`independent_derived_damage_events`。后者用于由队伍条件或其他不属于某个本角色
 MoveEntry 的 RuleItem 创建的独立事件。两种归属中的模板和倍率均只能注册一次；不得为了满足
 MoveEntry 结构伪造不存在的来源招式。
 
@@ -377,11 +377,6 @@ settlement snapshot。该正式快照应保存在 Application 输出中。非暴
 Panel Effect 写入其 `Effect.owner` 的角色快照，即使该角色不是当前操作角色；它仍必须通过
 RuleItem 的启用、资格、场景条件和叠层校验。这样支援角色的自身面板变化可以影响其随后创建的
 派生事件，同时不会把自身事件增伤误当成全局面板。
-
-应用层可以额外识别一种明确的 recipient Panel Effect：`target=TEAM`，触发事实为
-`SUPPORT_ENTRY`，并且 Filter 仅用于匹配 `SUPPORT_ENTRY_CHARACTER`。该 Effect 只写入
-当前场景声明的入场角色；不得因为 `target=TEAM` 让其他队友获得该面板效果。其他带有
-招式、属性、伤害类型或伤害标签 Filter 的 Panel Effect 不得伪装成全局 settlement panel。
 
 事件专属面板属性必须进入独立的 event-stat lane，不得污染正式 settlement snapshot。第一版
 只支持 `CHARACTER_CURRENT_CRIT_RATE + ADD`，其 recipient 从当前 DamageEvent 的
