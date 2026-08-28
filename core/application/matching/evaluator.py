@@ -25,6 +25,7 @@ from core.types import (
     NotFilter,
     OperationStateFilter,
     StatePresentCondition,
+    RuleStackCondition,
     SkillGroupFilter,
     Unresolved,
 )
@@ -212,6 +213,34 @@ def match_condition(
             (
                 EffectMatchStatus.MATCHED
                 if any(condition.state_id in profile.states for profile in profiles)
+                else EffectMatchStatus.NOT_MATCHED
+            ),
+            (),
+        )
+    if isinstance(condition, RuleStackCondition):
+        if (
+            condition.requires_rule_enabled
+            and condition.rule_item_id not in context.scenario.enabled_rule_item_ids
+        ):
+            return EffectMatchStatus.NOT_MATCHED, ()
+        selected = context.scenario.selected_stack(condition.rule_item_id)
+        if selected is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    diagnostic(
+                        effect_id,
+                        "missing-rule-stack",
+                        DiagnosticKind.MISSING_DATA,
+                        f"missing resolved RuleItem stack: {condition.rule_item_id}",
+                        blocking=True,
+                    ),
+                ),
+            )
+        return (
+            (
+                EffectMatchStatus.MATCHED
+                if selected == condition.required_value
                 else EffectMatchStatus.NOT_MATCHED
             ),
             (),

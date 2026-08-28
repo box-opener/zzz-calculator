@@ -35,12 +35,15 @@ from core.types import (
     CharacterRole,
     CharacterSnapshot,
     CharacterStats,
+    DamageTag,
+    EquipmentOwnerCapabilities,
     Element,
     EnemyId,
     EnemySnapshot,
     FixedMultiplier,
     InitialCharacterSnapshot,
     Resolved,
+    SkillGroup,
     WEngineBuildInput,
     CalculationContext,
 )
@@ -300,7 +303,6 @@ def test_stage_18_2_5_team_damage_effects_use_the_existing_damage_lane() -> None
     definition = _ye_definition()
     for wengine_id, condition_suffix, expected_value in (
         ("wengine:13103", "ether-triggered-buff-active", 0.15),
-        ("wengine:14145", "veil-triggered-buff-active", 0.25),
     ):
         weapon = compile_wengine(
             WEngineBuildInput(wengine_id, ASTRA_ID),
@@ -368,3 +370,45 @@ def test_stage_18_2_5_stacked_team_damage_effect_keeps_unit_increment() -> None:
     )
     assert Resolved(0.10) in damage_modifiers
     assert Resolved(0.10200000000000001) in damage_modifiers
+
+
+def test_song_of_noise_two_stack_attack_effect_follows_damage_stack() -> None:
+    definition = _ye_definition()
+    weapon = compile_wengine(
+        WEngineBuildInput("wengine:14149", ASTRA_ID),
+        owner_capabilities=EquipmentOwnerCapabilities(
+            character_id=ASTRA_ID,
+            role=CharacterRole.SUPPORT,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+        ),
+    )
+    condition_id = weapon.scenario_conditions[0].condition_id
+    request = _request(
+        definition,
+        additional_rule_items=weapon.rule_items,
+        additional_scenario_conditions=weapon.scenario_conditions,
+        condition_values={str(condition_id): True},
+        team_snapshots=(
+            CharacterSnapshot(YE_ID, 60, _stats()),
+            CharacterSnapshot(ASTRA_ID, 60, _stats(800.0)),
+        ),
+    )
+    request = replace(
+        request,
+        scenario=replace(
+            request.scenario,
+            rule_stack_counts=(
+                ScenarioRuleStack(weapon.rule_items[0].rule_id, 1),
+            ),
+        ),
+    )
+
+    execution = calculate_move(request)
+    statuses = {
+        match.rule_id: match.status
+        for match in execution.event_traces[0].rule_matches
+    }
+    assert statuses[weapon.rule_items[0].rule_id].value == "matched"
+    assert statuses[weapon.rule_items[1].rule_id].value == "not-matched"

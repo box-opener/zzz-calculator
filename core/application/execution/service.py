@@ -31,6 +31,8 @@ from ..characters.templates import DirectDamageEventTemplate
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId, MoveEntryId
 from ..moves import DerivedDamageEventTemplateRef, MoveCalculationEntry
+from ..scenario import ScenarioRuleStack
+from ..rules import CalculationRuleItem
 from ..output import (
     CritDisplayMode,
     DamageEventCalculationOutput,
@@ -80,6 +82,13 @@ class DirectMoveApplicationService:
             )
             return _execution_without_events(request, diagnostic)
 
+        definitions = _all_definitions(request)
+        rule_items = _all_rule_items(request)
+        request = replace(
+            request,
+            scenario=_materialize_rule_stack_defaults(request.scenario, rule_items),
+        )
+
         multiplier = resolve_move_multiplier(entry, request.scenario)
         if multiplier.status is not MultiplierResolutionStatus.RESOLVED:
             return _execution_without_events(
@@ -87,9 +96,6 @@ class DirectMoveApplicationService:
                 *multiplier.diagnostics,
             )
         assert multiplier.multiplier is not None
-
-        definitions = _all_definitions(request)
-        rule_items = _all_rule_items(request)
 
         main_template = _find_template(
             definitions,
@@ -504,6 +510,28 @@ def _all_rule_items(
     return tuple(
         rule for definition in definitions for rule in definition.rule_items
     ) + tuple(request.additional_rule_items)
+
+
+def _materialize_rule_stack_defaults(
+    scenario,
+    rule_items: tuple[CalculationRuleItem, ...],
+):
+    """Make compiled defaults explicit before matcher predicates run."""
+
+    selected = {
+        item.rule_item_id for item in scenario.rule_stack_counts
+    }
+    defaults = tuple(
+        ScenarioRuleStack(rule.rule_id, rule.stack_count)
+        for rule in rule_items
+        if rule.stack_count is not None and rule.rule_id not in selected
+    )
+    if not defaults:
+        return scenario
+    return replace(
+        scenario,
+        rule_stack_counts=(*scenario.rule_stack_counts, *defaults),
+    )
 
 
 def _merge_modifier_applications(

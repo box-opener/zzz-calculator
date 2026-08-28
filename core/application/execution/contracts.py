@@ -20,6 +20,7 @@ from core.types import (
     Modifier,
     Resolvable,
     SnapshotRule,
+    RuleStackCondition,
 )
 
 from ..characters.definition import CharacterCalculationDefinition
@@ -172,6 +173,14 @@ class MoveCalculationRequest:
             raise ValueError(
                 "primary and supporting definitions must have unique Effect IDs"
             )
+        for effect in effects:
+            condition = effect.rule.condition
+            if isinstance(condition, RuleStackCondition) and condition.rule_item_id not in {
+                str(rule_id) for rule_id in rule_map
+            }:
+                raise ValueError(
+                    "Effect RuleStackCondition references an unknown RuleItem"
+                )
         templates = tuple(
             template
             for definition in definitions

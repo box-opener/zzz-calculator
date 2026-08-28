@@ -144,6 +144,33 @@ def test_wengine_preview_uses_resolved_external_static_condition_context() -> No
     )
 
 
+def test_wengine_preview_marks_impossible_owner_mechanics_ineligible() -> None:
+    deep_sea = client.post(
+        "/api/v1/wengines/preview",
+        json={
+            "wengine_id": "wengine:14119",
+            "equipped_character_id": "character:1431",
+            "team_character_ids": ["character:1431"],
+        },
+    ).json()
+    dash_rule = next(
+        item
+        for item in deep_sea["rule_items"]
+        if item["rule_id"].endswith(":dash-crit-buff")
+    )
+    assert dash_rule["eligibility"] == "ineligible"
+
+    dream = client.post(
+        "/api/v1/wengines/preview",
+        json={
+            "wengine_id": "wengine:14145",
+            "equipped_character_id": "character:1311",
+            "team_character_ids": ["character:1311"],
+        },
+    ).json()
+    assert dream["rule_items"][0]["eligibility"] == "ineligible"
+
+
 def test_definition_preview_returns_versioned_editor_view() -> None:
     response = client.post(
         "/api/v1/definitions/preview",

@@ -12,6 +12,7 @@ from core.application import (
     RuleItemId,
     ScenarioCondition,
     ScenarioConditionId,
+    ScenarioRuleStack,
     ScenarioTriggerFact,
 )
 from core.application.matching import (
@@ -91,6 +92,7 @@ from core.types import (
     SkillGroupFilter,
     SnapshotRule,
     StateId,
+    RuleStackCondition,
     StatePresentCondition,
     StandardCritRule,
     TurbulenceDamageEvent,
@@ -313,6 +315,31 @@ def test_target_and_current_event_filters_are_separate() -> None:
         _context(event, _scenario()),
     )
     assert result.status is EffectMatchStatus.MATCHED
+
+
+def test_rule_stack_condition_follows_the_resolved_stack_not_a_second_boolean() -> None:
+    effect = _effect(
+        "stacked",
+        owner=CharacterId("character:operator"),
+        target=EffectTarget.SELF,
+        condition=RuleStackCondition("rule:stacked", 2),
+    )
+    event = _event()
+    scenario = _scenario(enabled=("stacked",))
+    rule = _rule(effect, scenario)
+    scenario = replace(
+        scenario,
+        rule_stack_counts=(ScenarioRuleStack(rule_item_id=rule.rule_id, value=1),),
+    )
+    result = EffectMatcher().match_rule_item(rule, _context(event, scenario))
+    assert result.status is EffectMatchStatus.NOT_MATCHED
+
+    scenario = replace(
+        scenario,
+        rule_stack_counts=(ScenarioRuleStack(rule_item_id=rule.rule_id, value=2),),
+    )
+    result = EffectMatcher().match_rule_item(rule, _context(event, scenario))
+    assert result.status is EffectMatchStatus.MATCHED
     assert len(result.matched_effects) == 1
 
     self_effect = _effect("effect:self", target=EffectTarget.SELF)
@@ -321,6 +348,24 @@ def test_target_and_current_event_filters_are_separate() -> None:
         _context(event, _scenario(enabled=("effect:self",))),
     )
     assert self_result.status is EffectMatchStatus.NOT_MATCHED
+
+
+def test_rule_stack_condition_does_not_survive_when_source_rule_is_disabled() -> None:
+    effect = _effect(
+        "stack-dependent",
+        owner=CharacterId("character:operator"),
+        target=EffectTarget.SELF,
+        condition=RuleStackCondition("rule:stack-source", 2),
+    )
+    rule = replace(_rule(effect, _scenario()), rule_id=RuleItemId("rule:stack-dependent"))
+    scenario = replace(
+        _scenario(enabled=("stack-dependent",)),
+        rule_stack_counts=(ScenarioRuleStack(RuleItemId("rule:stack-source"), 2),),
+    )
+
+    result = EffectMatcher().match_rule_item(rule, _context(_event(), scenario))
+
+    assert result.status is EffectMatchStatus.NOT_MATCHED
 
 
 def test_move_id_filter_matches_semantic_move_identity_only() -> None:

@@ -449,7 +449,7 @@ def _build_records(
                     level=build.wengine_level,
                     refinement=build.wengine_refinement,
                 ),
-                equipped_character_role=registration.role,
+                owner_capabilities=registration.equipment_capabilities,
             )
             if not wengine.complete:
                 messages = "; ".join(item.message for item in wengine.diagnostics)

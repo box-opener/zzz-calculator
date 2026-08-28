@@ -14,6 +14,7 @@ from core.application.equipment.wengine_ids import (
     WENGINE_ATTACK_SAMPLE_IDS,
     WENGINE_SUPPORT_SAMPLE_IDS,
 )
+from core.presentation.registry import registration_for
 from core.application.rules import RuleEligibility
 from core.types import (
     BuildContributionLayer,
@@ -28,6 +29,7 @@ from core.types import (
     ElementFilter,
     AnyFilter,
     Resolved,
+    RuleStackCondition,
     CalculationNode,
     WEngineBuildInput,
     WEngineId,
@@ -273,3 +275,69 @@ def test_stage_18_2_5_reviewed_effects_keep_damage_filters_and_stack_bounds() ->
     )
     assert cradle.rule_items[1].stack_count == 6
     assert cradle.rule_items[1].effects[0].result.value == Resolved(0.017)
+
+
+def test_equipment_effect_eligibility_uses_owner_capabilities_not_only_role() -> None:
+    ye_capabilities = registration_for("character:1431").equipment_capabilities
+    deep_sea = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14119"), CharacterId("character:1431")),
+        owner_capabilities=ye_capabilities,
+    )
+    dash_rule = next(
+        item for item in deep_sea.rule_items if str(item.rule_id).endswith("dash-crit-buff")
+    )
+    assert dash_rule.eligibility is RuleEligibility.INELIGIBLE
+
+    astra_capabilities = registration_for("character:1311").equipment_capabilities
+    dream = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14145"), CharacterId("character:1311")),
+        owner_capabilities=astra_capabilities,
+    )
+    assert dream.rule_items[0].eligibility is RuleEligibility.INELIGIBLE
+
+    song = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14149"), CharacterId("character:1311")),
+        owner_capabilities=astra_capabilities,
+    )
+    assert all(item.eligibility is RuleEligibility.INELIGIBLE for item in song.rule_items)
+
+    song_owner = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14149"), CharacterId("character:1311")),
+        equipped_character_role=CharacterRole.SUPPORT,
+    )
+    assert len(song_owner.scenario_conditions) == 1
+    assert isinstance(
+        song_owner.rule_items[1].effects[0].rule.condition,
+        RuleStackCondition,
+    )
+    dream_owner = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14145"), CharacterId("character:1311")),
+        equipped_character_role=CharacterRole.SUPPORT,
+    )
+    assert dream_owner.rule_items[0].effects[0].rule.target.value == "team"
+    assert all(
+        effect.rule.target.value == "team"
+        for rule in song_owner.rule_items
+        for effect in rule.effects
+    )
+
+
+def test_wengine_element_filters_expand_base_elements_to_variants() -> None:
+    for wengine_id, suffix, expected in (
+        ("wengine:14119", "ice-damage", {Element.ICE, Element.LIESHUANG}),
+        ("wengine:14124", "charged-ether-damage", {Element.ETHER, Element.XUANMO}),
+    ):
+        result = compile_wengine(
+            WEngineBuildInput(WEngineId(wengine_id), CharacterId("character:1431")),
+            equipped_character_role=CharacterRole.ATTACK,
+        )
+        rule = next(item for item in result.rule_items if str(item.rule_id).endswith(suffix))
+        element_scope = next(
+            item
+            for item in rule.effects[0].rule.filters
+            if isinstance(item, AnyFilter)
+            and all(isinstance(child, ElementFilter) for child in item.filters)
+        )
+        assert {
+            item.element for item in element_scope.filters if isinstance(item, ElementFilter)
+        } == expected

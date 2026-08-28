@@ -7,6 +7,7 @@ import math
 from typing import Mapping
 
 from core.application.diagnostics import CalculationDiagnostic, DiagnosticKind
+from core.application.element_scope import element_scope_filter
 from core.application.ids import DiagnosticId, RuleItemId, ScenarioConditionId
 from core.application.rules import CalculationRuleItem, RuleEligibility
 from core.application.scenario import ConditionResolution, ScenarioCondition
@@ -30,13 +31,16 @@ from core.types import (
     EffectRule,
     EffectSourceType,
     EffectTarget,
+    EquipmentOwnerCapabilities,
     Element,
     ElementFilter,
     ModifierEffect,
     ModifierResult,
     Resolved,
+    RuleStackCondition,
     RuleSource,
     RuleSourceId,
+    SkillGroup,
     SnapshotRule,
     WEngineBuildInput,
     WEngineId,
@@ -165,8 +169,32 @@ def load_wengine_raw_record(wengine_id: str) -> WEngineRawRecord:
 def compile_wengine(
     build_input: WEngineBuildInput,
     *,
-    equipped_character_role: CharacterRole,
+    equipped_character_role: CharacterRole | None = None,
+    owner_capabilities: EquipmentOwnerCapabilities | None = None,
 ) -> WEngineBuildResolution:
+    """Compile one equipped instance with reviewed owner capabilities.
+
+    ``equipped_character_role`` remains a compatibility input for the early
+    signature slice; capability-dependent effects are conservatively
+    ineligible when only that legacy role is supplied.
+    """
+
+    if owner_capabilities is None:
+        if equipped_character_role is None:
+            raise ValueError(
+                "compile_wengine requires equipped_character_role or owner_capabilities"
+            )
+        owner_capabilities = EquipmentOwnerCapabilities(
+            character_id=build_input.equipped_character_id,
+            role=equipped_character_role,
+        )
+    elif owner_capabilities.character_id != build_input.equipped_character_id:
+        raise ValueError("owner capabilities must match equipped character")
+    if (
+        equipped_character_role is not None
+        and owner_capabilities.role is not equipped_character_role
+    ):
+        raise ValueError("equipped character role disagrees with owner capabilities")
     raw = load_wengine_raw_record(str(build_input.wengine_id))
     if raw.wengine_id != build_input.wengine_id:
         raise ValueError("W-Engine build input and raw record IDs do not match")
@@ -186,7 +214,7 @@ def compile_wengine(
         rules, conditions = _reviewed_rules(
             raw,
             build_input,
-            equipped_character_role,
+            owner_capabilities,
         )
         diagnostics = ()
     return WEngineBuildResolution(
@@ -263,9 +291,9 @@ def _advanced_stat(
 def _reviewed_rules(
     raw: WEngineRawRecord,
     build_input: WEngineBuildInput,
-    equipped_character_role: CharacterRole,
+    owner_capabilities: EquipmentOwnerCapabilities,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
-    eligible = raw.specialty is equipped_character_role
+    eligible = raw.specialty is owner_capabilities.role
     eligibility = RuleEligibility.ELIGIBLE if eligible else RuleEligibility.INELIGIBLE
     talent = raw.talents[build_input.refinement - 1]
     source = RuleSource(
@@ -302,11 +330,17 @@ def _reviewed_rules(
     if effect_family == "attack-brimstone":
         return _brimstone_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "attack-deep-sea-visitor":
-        return _deep_sea_visitor_rules(raw, build_input, talent, source, eligibility)
+        return _deep_sea_visitor_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     if effect_family == "attack-heart-of-sword":
-        return _heart_of_sword_rules(raw, build_input, talent, source, eligibility)
+        return _heart_of_sword_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     if effect_family == "attack-defense-patrol":
-        return _defense_patrol_rules(raw, build_input, talent, source, eligibility)
+        return _defense_patrol_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     if effect_family == "support-resonab-3":
         return _resonab_three_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "support-treasure-chest":
@@ -314,9 +348,13 @@ def _reviewed_rules(
     if effect_family == "support-crying-cradle":
         return _crying_cradle_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "support-dream-forge":
-        return _dream_forge_rules(raw, build_input, talent, source, eligibility)
+        return _dream_forge_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     if effect_family == "support-song-of-noise":
-        return _song_of_noise_rules(raw, build_input, talent, source, eligibility)
+        return _song_of_noise_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     raise ValueError(f"no reviewed W-Engine rule mapping for {raw.wengine_id}")
 
 
@@ -329,12 +367,7 @@ def _ye_rules(
 ) -> tuple[CalculationRuleItem, ...]:
     values = talent.numeric_values
     owner = build_input.equipped_character_id
-    physical_scope = AnyFilter(
-        (
-            ElementFilter(Element.PHYSICAL),
-            ElementFilter(Element.LINREN),
-        )
-    )
+    physical_scope = element_scope_filter(Element.PHYSICAL)
     resistance_effect = ModifierEffect(
         rule=_effect_rule(
             effect_id=_instance_effect_id(
@@ -434,6 +467,28 @@ def _condition(
     )
 
 
+def _capability_eligibility(
+    base_eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+    *,
+    element: Element | None = None,
+    skill_group: SkillGroup | None = None,
+    tags: tuple[DamageTag, ...] = (),
+    mechanism: str | None = None,
+) -> RuleEligibility:
+    if base_eligibility is RuleEligibility.INELIGIBLE:
+        return RuleEligibility.INELIGIBLE
+    if element is not None and not capabilities.can_produce_element(element):
+        return RuleEligibility.INELIGIBLE
+    if skill_group is not None and not capabilities.can_use_skill_group(skill_group):
+        return RuleEligibility.INELIGIBLE
+    if any(not capabilities.can_produce_tag(tag) for tag in tags):
+        return RuleEligibility.INELIGIBLE
+    if mechanism is not None and not capabilities.has_mechanism(mechanism):
+        return RuleEligibility.INELIGIBLE
+    return base_eligibility
+
+
 def _wearer_modifier(
     *,
     raw: WEngineRawRecord,
@@ -470,6 +525,7 @@ def _panel_modifier(
     path: CalculationNode,
     value: float,
     target: EffectTarget = EffectTarget.SELF,
+    condition=None,
 ) -> ModifierEffect:
     return ModifierEffect(
         rule=_effect_rule(
@@ -477,6 +533,7 @@ def _panel_modifier(
             source=source,
             owner=owner,
             target=target,
+            condition=condition,
         ),
         result=ModifierResult(
             modifier_path=path,
@@ -493,13 +550,14 @@ def _team_damage_modifier(
     source: RuleSource,
     suffix: str,
     value: float,
+    target: EffectTarget = EffectTarget.ENEMY,
 ) -> ModifierEffect:
     return ModifierEffect(
         rule=_effect_rule(
             effect_id=_instance_effect_id(raw.wengine_id, owner, suffix),
             source=source,
             owner=owner,
-            target=EffectTarget.ENEMY,
+            target=target,
         ),
         result=ModifierResult(
             modifier_path=CalculationNode.DAMAGE_NORMAL_BONUS,
@@ -554,14 +612,7 @@ def _steel_cushion_rules(
         "钢铁肉垫：从背后攻击已成立",
         "从背后攻击命中敌人",
     )
-    physical_scope = (
-        AnyFilter(
-            (
-                ElementFilter(Element.PHYSICAL),
-                ElementFilter(Element.LINREN),
-            )
-        ),
-    )
+    physical_scope = (element_scope_filter(Element.PHYSICAL),)
     rules = (
         _rule(
             raw=raw,
@@ -651,6 +702,7 @@ def _deep_sea_visitor_rules(
     talent: WEngineRawTalent,
     source: RuleSource,
     eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
     values = talent.numeric_values
@@ -668,9 +720,7 @@ def _deep_sea_visitor_rules(
         "深海访客：冲刺攻击暴击率增益已触发",
         "冲刺攻击造成冰属性伤害时",
     )
-    ice_scope = (
-        AnyFilter((ElementFilter(Element.ICE),)),
-    )
+    ice_scope = (element_scope_filter(Element.ICE),)
     rules = (
         _rule(
             raw=raw,
@@ -678,7 +728,11 @@ def _deep_sea_visitor_rules(
             source=source,
             suffix="ice-damage",
             label=f"{raw.name}·冰属性伤害提升",
-            eligibility=eligibility,
+            eligibility=_capability_eligibility(
+                eligibility,
+                capabilities,
+                element=Element.ICE,
+            ),
             effects=(
                 _wearer_modifier(
                     raw=raw,
@@ -697,7 +751,12 @@ def _deep_sea_visitor_rules(
             source=source,
             suffix="basic-crit-buff",
             label=f"{raw.name}·普通攻击暴击率增益",
-            eligibility=eligibility,
+            eligibility=_capability_eligibility(
+                eligibility,
+                capabilities,
+                skill_group=SkillGroup.BASIC_ATTACK,
+                tags=(DamageTag.BASIC_ATTACK,),
+            ),
             condition_ids=(basic_id,),
             effects=(
                 _panel_modifier(
@@ -716,7 +775,13 @@ def _deep_sea_visitor_rules(
             source=source,
             suffix="dash-crit-buff",
             label=f"{raw.name}·冲刺攻击暴击率增益",
-            eligibility=eligibility,
+            eligibility=_capability_eligibility(
+                eligibility,
+                capabilities,
+                element=Element.ICE,
+                skill_group=SkillGroup.DODGE,
+                tags=(DamageTag.DASH_ATTACK,),
+            ),
             condition_ids=(dash_id,),
             effects=(
                 _panel_modifier(
@@ -739,6 +804,7 @@ def _heart_of_sword_rules(
     talent: WEngineRawTalent,
     source: RuleSource,
     eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
     values = talent.numeric_values
@@ -778,7 +844,13 @@ def _heart_of_sword_rules(
             source=source,
             suffix="electric-dash-damage",
             label=f"{raw.name}·冲刺攻击电属性伤害提升",
-            eligibility=eligibility,
+            eligibility=_capability_eligibility(
+                eligibility,
+                capabilities,
+                element=Element.ELECTRIC,
+                skill_group=SkillGroup.DODGE,
+                tags=(DamageTag.DASH_ATTACK,),
+            ),
             effects=(
                 _wearer_modifier(
                     raw=raw,
@@ -819,6 +891,7 @@ def _defense_patrol_rules(
     talent: WEngineRawTalent,
     source: RuleSource,
     eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
     values = talent.numeric_values
@@ -836,7 +909,7 @@ def _defense_patrol_rules(
                 DamageTagFilter(DamageTag.DASH_ATTACK),
             )
         ),
-        ElementFilter(Element.ETHER),
+        element_scope_filter(Element.ETHER),
     )
     return (
         _rule(
@@ -863,7 +936,12 @@ def _defense_patrol_rules(
             source=source,
             suffix="charged-ether-damage",
             label=f"{raw.name}·充能以太伤害提升",
-            eligibility=eligibility,
+            eligibility=_capability_eligibility(
+                eligibility,
+                capabilities,
+                element=Element.ETHER,
+                tags=(DamageTag.BASIC_ATTACK, DamageTag.DASH_ATTACK),
+            ),
             condition_ids=(charge_id,),
             effects=(
                 _wearer_modifier(
@@ -1017,6 +1095,7 @@ def _dream_forge_rules(
     talent: WEngineRawTalent,
     source: RuleSource,
     eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
     condition_id, condition = _condition(
@@ -1032,6 +1111,7 @@ def _dream_forge_rules(
         source=source,
         suffix="team-damage-buff",
         value=float(talent.numeric_values["team_damage_bonus"]),
+        target=EffectTarget.TEAM,
     )
     return (
         _rule(
@@ -1040,7 +1120,11 @@ def _dream_forge_rules(
             source=source,
             suffix="team-damage-buff",
             label=f"{raw.name}·全队伤害提升",
-            eligibility=eligibility,
+            eligibility=_capability_eligibility(
+                eligibility,
+                capabilities,
+                mechanism="ether-veil",
+            ),
             condition_ids=(condition_id,),
             effects=(effect,),
         ),
@@ -1053,6 +1137,7 @@ def _song_of_noise_rules(
     talent: WEngineRawTalent,
     source: RuleSource,
     eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
     values = talent.numeric_values
@@ -1063,19 +1148,13 @@ def _song_of_noise_rules(
         "思络成歌：全队伤害增益已生效",
         "装备者发动强化特殊技造成物理伤害时",
     )
-    full_id, full_condition = _condition(
-        raw,
-        owner,
-        "full-stacks-attack-buff-active",
-        "思络成歌：2层时全队攻击力增益已生效",
-        "拥有2层效果时",
-    )
     damage_effect = _team_damage_modifier(
         raw=raw,
         owner=owner,
         source=source,
         suffix="team-damage-buff",
         value=float(values["team_damage_per_stack"]),
+        target=EffectTarget.TEAM,
     )
     attack_effect = _panel_modifier(
         raw=raw,
@@ -1085,32 +1164,47 @@ def _song_of_noise_rules(
         path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
         value=float(values["team_attack_at_max"]),
         target=EffectTarget.TEAM,
+        condition=RuleStackCondition(
+            _instance_rule_id(raw.wengine_id, owner, "team-damage-buff"),
+            int(values["max_stacks"]),
+        ),
     )
-    return (
-        _rule(
-            raw=raw,
-            owner=owner,
-            source=source,
-            suffix="team-damage-buff",
-            label=f"{raw.name}·全队伤害提升",
-            eligibility=eligibility,
-            condition_ids=(active_id,),
-            effects=(damage_effect,),
-            stack_count=int(values["max_stacks"]),
-            stack_min=0,
-            stack_max=int(values["max_stacks"]),
+    damage_rule = _rule(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="team-damage-buff",
+        label=f"{raw.name}·全队伤害提升",
+        eligibility=_capability_eligibility(
+            eligibility,
+            capabilities,
+            element=Element.PHYSICAL,
+            skill_group=SkillGroup.SPECIAL_ATTACK,
+            tags=(DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK),
         ),
-        _rule(
-            raw=raw,
-            owner=owner,
-            source=source,
-            suffix="team-attack-buff",
-            label=f"{raw.name}·2层全队攻击力提升",
-            eligibility=eligibility,
-            condition_ids=(full_id,),
-            effects=(attack_effect,),
+        condition_ids=(active_id,),
+        effects=(damage_effect,),
+        stack_count=int(values["max_stacks"]),
+        stack_min=0,
+        stack_max=int(values["max_stacks"]),
+    )
+    attack_rule = _rule(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="team-attack-buff",
+        label=f"{raw.name}·2层全队攻击力提升",
+        eligibility=_capability_eligibility(
+            eligibility,
+            capabilities,
+            element=Element.PHYSICAL,
+            skill_group=SkillGroup.SPECIAL_ATTACK,
+            tags=(DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK),
         ),
-    ), (active_condition, full_condition)
+        condition_ids=(active_id,),
+        effects=(attack_effect,),
+    )
+    return (damage_rule, attack_rule), (active_condition,)
 
 
 def _astra_rules(

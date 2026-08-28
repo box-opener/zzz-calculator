@@ -18,7 +18,14 @@ from core.application.characters.ye_shunguang import (
     load_raw_record as load_ye_raw_record,
 )
 from core.application.characters.config import CharacterSkillLevel
-from core.types import CharacterId, CharacterRole, Element, SkillGroup
+from core.types import (
+    CharacterId,
+    CharacterRole,
+    DamageTag,
+    Element,
+    EquipmentOwnerCapabilities,
+    SkillGroup,
+)
 from core.application.scenario import CalculationScenario
 from core.application.equipment import compile_wengine, load_wengine_raw_record
 from core.types import WEngineBuildInput, WEngineId
@@ -41,6 +48,7 @@ class CharacterPresentationRegistration:
     config_fields: Callable[
         [Mapping[str, Any], Sequence[CharacterId]], tuple[CompileConfigFieldView, ...]
     ]
+    equipment_capabilities: EquipmentOwnerCapabilities
 
 
 def _integer_field(
@@ -309,6 +317,13 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
         base_element=Element.ETHER,
         compile_definition=_compile_astra,
         config_fields=_astra_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1311"),
+            role=CharacterRole.SUPPORT,
+            possible_elements=frozenset({Element.ETHER}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+        ),
     ),
     CharacterId("character:1431"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1431"),
@@ -325,6 +340,14 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
         base_element=Element.PHYSICAL,
         compile_definition=_compile_ye,
         config_fields=_ye_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1431"),
+            role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.PHYSICAL, Element.LINREN}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"ether-veil"}),
+        ),
     ),
 }
 
@@ -453,7 +476,7 @@ def build_registered_wengine_editor_view(
             level=level,
             refinement=refinement,
         ),
-        equipped_character_role=registration.role,
+        owner_capabilities=registration.equipment_capabilities,
     )
     known_conditions = {item.condition_id for item in resolution.scenario_conditions}
     selected_values = {

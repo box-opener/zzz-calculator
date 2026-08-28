@@ -96,6 +96,10 @@ Effect 条件首先尝试由当前角色、小队、装备、影画和敌人配�
 计算规则项本身只保存规则定义、合法性和 Effect 结果。某次计算是否启用的唯一来源是 `CalculationScenario.enabled_rule_item_ids`；不得同时读取规则项自身的 enabled 字段作为第二个启用状态。
 
 `CalculationRuleItem.condition_ids` 控制整个规则项的场景成立条件；`EffectRule.condition` 只控制规则项内部的单个 Effect。二者不得互相替代。
+若某个 Effect 只有在另一个叠层规则达到指定层数时才成立，应使用显式的
+`RuleStackCondition` 读取已解析的 `ScenarioRuleStack`；不得再增加一个独立布尔条件表达
+“已满层”。该条件同时要求被引用规则项在本次场景中启用；应用层在匹配前将规则默认层数
+物化为有效场景输入，保证该条件没有第二个真值来源。
 
 `EffectRule.trigger` 匹配的是 `CalculationScenario` 中按 `effect_id` 保存的 `ScenarioTriggerFact`，表示此前触发该 Effect 的事件；它不得与当前正在结算的 DamageEvent 直接比较。当前 DamageEvent 的属性、技能归属、伤害标签和伤害类型只由 `EffectRule.filters` 匹配。
 
@@ -456,11 +460,17 @@ STATIC 条件不得由音擎预览重复声明为 USER_SELECTED 条件。
 音擎来源的规则匹配/Modifier 追踪必须保留 `source_type=weapon`，以便与角色事件级
 加成和正式局内面板来源区分。
 
+装备特效的结构资格不能只检查音擎职业。装备编译器还必须接收装备者的已审核能力集合，
+至少包括可产生的属性、技能分类、伤害标签和明确机制身份；当特效要求装备者不具备的
+能力时，对应 RuleItem 必须为 `INELIGIBLE`，不能通过用户场景条件强行开启。
+
 Stage18-2.5 用额外的 5 把强攻音擎（14102、14104、14119、14120、14124）和 5 把支援
 音擎（12006、13103、14121、14145、14149）验证该契约。该切片保留 Nanoka 原始五档
 文本与满级静态字段（包含 B/A/S 不同稀有度），并将文本中明确影响伤害的效果编译为 reviewed RuleItem；能量、喧响
 值等当前计算器不消费的结果不进入伤害计算。需要场景声明的背后攻击、已触发增益、充能或
 持续叠层均使用显式用户场景条件/合法叠层输入，不以数组顺序或隐含默认值猜测。
+其中“所有单位对目标造成的伤害提升”经人工确认归入 `DAMAGE_NORMAL_BONUS` 普通增伤区，
+不解释为 `ENEMY_NORMAL_VULNERABILITY` 常态易伤。
 
 ## 多倍率参数处理
 

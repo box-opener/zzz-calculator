@@ -133,6 +133,7 @@ from .effect import (
     NotFilter,
     OperationStateFilter,
     PanelStatDerivedValue,
+    RuleStackCondition,
     SkillGroupFilter,
     StateChangeEffect,
     StateChangeResult,
@@ -173,4 +174,4 @@ from .vulnerability import (
     VeilVulnerabilityPolicy,
     VulnerabilitySettlementPolicy,
 )
-from .wengine import WEngineBuildInput
+from .wengine import EquipmentOwnerCapabilities, WEngineBuildInput

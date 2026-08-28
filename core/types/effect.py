@@ -80,6 +80,24 @@ class DynamicIdentityCondition:
     kind: Literal["dynamic-identity"] = field(default="dynamic-identity", init=False)
 
 
+@dataclass(frozen=True, slots=True)
+class RuleStackCondition:
+    """A predicate over an already-resolved RuleItem stack selection."""
+
+    rule_item_id: str
+    required_value: int
+    requires_rule_enabled: bool = True
+    kind: Literal["rule-stack"] = field(default="rule-stack", init=False)
+
+    def __post_init__(self) -> None:
+        if not self.rule_item_id.strip():
+            raise ValueError("rule stack condition requires a rule item ID")
+        if self.required_value < 0:
+            raise ValueError("rule stack condition value must be non-negative")
+        if not isinstance(self.requires_rule_enabled, bool):
+            raise ValueError("rule stack condition enabled flag must be boolean")
+
+
 Condition: TypeAlias = (
     AlwaysCondition
     | AllCondition
@@ -87,6 +105,7 @@ Condition: TypeAlias = (
     | NotCondition
     | StatePresentCondition
     | DynamicIdentityCondition
+    | RuleStackCondition
     | Unresolved
 )
 
