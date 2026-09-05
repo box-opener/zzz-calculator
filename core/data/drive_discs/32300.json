@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/32300.json",
+  "id": 32300,
+  "name": "混沌重金属",
+  "desc2": "<color=#FE437E>以太伤害</color>+10%。",
+  "desc4": "装备者的暴击伤害提升20%，队伍中任意角色触发<color=#FE437E>[侵蚀]</color>伤害时，该增益效果额外提升5.5%，最多叠加6层，持续8秒，重复触发时刷新持续时间。",
+  "story": "使用特定以太技术刻录出的驱动盘，能够针对性地为装配者提供属性增幅。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitChaosMetal.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitChaosMetal.png"
+}

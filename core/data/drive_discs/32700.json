@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/32700.json",
+  "id": 32700,
+  "name": "折枝剑歌",
+  "desc2": "暴击伤害+16%。",
+  "desc4": "异常掌控大于等于115点时，装备者的暴击伤害提升30%；队伍中任意角色对敌人施加<color=#98EFF0>[冻结]</color>或触发<color=#98EFF0>[碎冰]</color>效果时，装备者的暴击率提升12%，持续15秒。",
+  "story": "以流传坊间的《折枝剑行记》为灵感所制作的曲目，描绘了一个剑术高超的少年四处除恶的故事，也有人说这是星见家某个天才剑士的经历。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitBranch&BladeSong.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitBranch&BladeSong.png"
+}

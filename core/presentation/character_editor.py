@@ -133,9 +133,45 @@ class WEngineEditorView:
     diagnostics: tuple[DiagnosticView, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class DriveDiscStatOptionView:
+    stat_key: str
+    label: str
+    value_per_roll: float
+
+
+@dataclass(frozen=True, slots=True)
+class DriveDiscSlotSchemaView:
+    slot: int
+    main_stat_options: tuple[DriveDiscStatOptionView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DriveDiscSetCountView:
+    set_id: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class DriveDiscEditorView:
+    schema_version: str
+    equipped_character_id: str
+    set_counts: tuple[DriveDiscSetCountView, ...]
+    slot_schemas: tuple[DriveDiscSlotSchemaView, ...]
+    substat_options: tuple[DriveDiscStatOptionView, ...]
+    rule_items: tuple[RuleItemView, ...]
+    scenario_conditions: tuple[ScenarioConditionView, ...]
+    scenario_trigger_inputs: tuple[ScenarioTriggerInputView, ...]
+    diagnostics: tuple[DiagnosticView, ...]
+
+
 __all__ = [
     "CharacterEditorView",
     "CompileConfigFieldView",
+    "DriveDiscEditorView",
+    "DriveDiscSetCountView",
+    "DriveDiscSlotSchemaView",
+    "DriveDiscStatOptionView",
     "MoveVariantView",
     "MoveView",
     "RuleItemView",

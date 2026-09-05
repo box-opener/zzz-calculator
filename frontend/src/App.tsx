@@ -5,6 +5,14 @@ import {
   resolveAuthoritativeConditionContext,
   type EditorState,
 } from "./state/editorState";
+import {
+  replaceDriveDiscSubstat,
+  selectDriveDiscSetValue,
+  updateDriveDiscMainValue,
+  type DriveDiscConfig,
+  type DriveDiscStatOption,
+  type DriveDiscSubstat,
+} from "./state/driveDiscState";
 
 type Character = {
   character_id: string;
@@ -24,6 +32,19 @@ type WEngine = {
   icon_key: string;
   signature_character_id: string | null;
 };
+
+type DriveDiscSet = {
+  set_id: string;
+  display_name: string;
+  icon_path: string;
+  two_piece_text: string;
+  four_piece_text: string;
+  two_piece_disposition: string;
+  four_piece_disposition: string;
+  ignored_two_piece_reason: string | null;
+  ignored_four_piece_reason: string | null;
+};
+
 
 type Condition = {
   condition_id: string;
@@ -110,6 +131,23 @@ type WEngineEditorView = {
   diagnostics: { message: string; blocking: boolean }[];
 };
 
+type DriveDiscEditorView = {
+  schema_version: string;
+  equipped_character_id: string;
+  set_counts: { set_id: string; count: number }[];
+  slot_schemas: { slot: number; main_stat_options: DriveDiscStatOption[] }[];
+  substat_options: DriveDiscStatOption[];
+  rule_items: Rule[];
+  scenario_conditions: Condition[];
+  scenario_trigger_inputs: {
+    input_id: string;
+    label: string;
+    actor_options: string[];
+    selected_actor: string | null;
+  }[];
+  diagnostics: { message: string; blocking: boolean }[];
+};
+
 type CalculationView = {
   move_entry_id: string;
   events: {
@@ -143,10 +181,12 @@ async function jsonRequest<T>(path: string, options?: RequestInit): Promise<T> {
 function App() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [wengines, setWengines] = useState<WEngine[]>([]);
+  const [driveDiscSets, setDriveDiscSets] = useState<DriveDiscSet[]>([]);
   const [{ primaryId, supportId }, dispatchTeam] = useReducer(teamReducer, { primaryId: YE_ID, supportId: ASTRA_ID });
   const [primaryView, setPrimaryView] = useState<EditorView | null>(null);
   const [supportView, setSupportView] = useState<EditorView | null>(null);
   const [wengineViews, setWengineViews] = useState<Record<string, WEngineEditorView | null>>({});
+  const [driveDiscViews, setDriveDiscViews] = useState<Record<string, DriveDiscEditorView | null>>({});
   const [moveEntryId, setMoveEntryId] = useState("");
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
@@ -162,6 +202,7 @@ function App() {
   const [characterLevels, setCharacterLevels] = useState<Record<string, number>>({ [YE_ID]: 60, [ASTRA_ID]: 60 });
   const [buildModes, setBuildModes] = useState<Record<string, "manual-panel" | "equipment-build">>({ [YE_ID]: "manual-panel", [ASTRA_ID]: "manual-panel" });
   const [wengineSelections, setWengineSelections] = useState<Record<string, { id: string; level: number; refinement: number }>>({});
+  const [driveDiscSelections, setDriveDiscSelections] = useState<Record<string, DriveDiscConfig[]>>({});
   const [enemyLevel, setEnemyLevel] = useState(60);
   const [enemyDamageReduction, setEnemyDamageReduction] = useState(0);
   const [enemyIsStunned, setEnemyIsStunned] = useState(false);
@@ -179,16 +220,22 @@ function App() {
     () => teamIds.map((id) => wengineViews[id]).filter((view): view is WEngineEditorView => Boolean(view)),
     [teamIds, wengineViews],
   );
+  const activeDriveDiscViews = useMemo(
+    () => teamIds.map((id) => driveDiscViews[id]).filter((view): view is DriveDiscEditorView => Boolean(view)),
+    [teamIds, driveDiscViews],
+  );
   const allRules = useMemo(() => [
     ...(primaryView?.rule_items ?? []),
     ...(supportView?.rule_items ?? []),
     ...activeWengineViews.flatMap((view) => view.rule_items),
-  ], [primaryView, supportView, activeWengineViews]);
+    ...activeDriveDiscViews.flatMap((view) => view.rule_items),
+  ], [primaryView, supportView, activeWengineViews, activeDriveDiscViews]);
   const allConditions = useMemo(() => [
     ...(primaryView?.scenario_conditions ?? []),
     ...(supportView?.scenario_conditions ?? []),
     ...activeWengineViews.flatMap((view) => view.scenario_conditions),
-  ], [primaryView, supportView, activeWengineViews]);
+    ...activeDriveDiscViews.flatMap((view) => view.scenario_conditions),
+  ], [primaryView, supportView, activeWengineViews, activeDriveDiscViews]);
   const allParameters = useMemo(() => [
     ...(primaryView?.scenario_parameters ?? []),
     ...(supportView?.scenario_parameters ?? []),
@@ -198,7 +245,8 @@ function App() {
     ...(primaryView?.scenario_trigger_inputs ?? []),
     ...(supportView?.scenario_trigger_inputs ?? []),
     ...activeWengineViews.flatMap((view) => view.scenario_trigger_inputs),
-  ], [primaryView, supportView, activeWengineViews]);
+    ...activeDriveDiscViews.flatMap((view) => view.scenario_trigger_inputs),
+  ], [primaryView, supportView, activeWengineViews, activeDriveDiscViews]);
   const allConfigFields = useMemo(() => [
     ...(primaryView?.compile_config_fields ?? []).map((field) => ({ owner: primaryId, field })),
     ...(supportView?.compile_config_fields ?? []).map((field) => ({ owner: supportId, field })),
@@ -213,6 +261,7 @@ function App() {
     stateOverride: Partial<EditorState> = {},
     wengineSource = wengineSelections,
     buildModesSource = buildModes,
+    driveDiscSource = driveDiscSelections,
   ) => {
     setLoading(true);
     try {
@@ -249,9 +298,26 @@ function App() {
           });
         }),
       );
+      const nextDriveDiscViews = await Promise.all(
+        nextTeam.map((owner) => {
+          if ((buildModesSource[owner] ?? "manual-panel") !== "equipment-build") {
+            return Promise.resolve(null);
+          }
+          return jsonRequest<DriveDiscEditorView>("/api/v1/drive-discs/preview", {
+            method: "POST",
+            body: JSON.stringify({
+              equipped_character_id: owner,
+              team_character_ids: nextTeam,
+              discs: driveDiscSource[owner] ?? [],
+              condition_context: authoritativeConditionContext,
+            }),
+          });
+        }),
+      );
       setPrimaryView(main);
       setSupportView(support);
       setWengineViews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextWengineViews[index] ?? null])));
+      setDriveDiscViews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextDriveDiscViews[index] ?? null])));
       setMoveEntryId((current) => main.moves.some((move) => move.entry_id === current) ? current : (main.moves[0]?.entry_id || ""));
       const nextConfigs = { ...configSource };
       ([{ owner: nextPrimary, fields: main.compile_config_fields }, ...(support ? [{ owner: nextSupport, fields: support.compile_config_fields }] : [])]).forEach(({ owner, fields }) => {
@@ -282,6 +348,7 @@ function App() {
               ...main.scenario_conditions,
               ...(support?.scenario_conditions ?? []),
               ...nextWengineViews.flatMap((view) => view?.scenario_conditions ?? []),
+              ...nextDriveDiscViews.flatMap((view) => view?.scenario_conditions ?? []),
             ],
             parameters: [
               ...main.scenario_parameters,
@@ -292,11 +359,13 @@ function App() {
               ...main.rule_items,
               ...(support?.rule_items ?? []),
               ...nextWengineViews.flatMap((view) => view?.rule_items ?? []),
+              ...nextDriveDiscViews.flatMap((view) => view?.rule_items ?? []),
             ],
             triggers: [
               ...main.scenario_trigger_inputs,
               ...(support?.scenario_trigger_inputs ?? []),
               ...nextWengineViews.flatMap((view) => view?.scenario_trigger_inputs ?? []),
+              ...nextDriveDiscViews.flatMap((view) => view?.scenario_trigger_inputs ?? []),
             ],
           },
         nextTeam,
@@ -318,10 +387,12 @@ function App() {
     Promise.all([
       jsonRequest<Character[]>("/api/v1/characters"),
       jsonRequest<WEngine[]>("/api/v1/wengines"),
+      jsonRequest<DriveDiscSet[]>("/api/v1/drive-discs"),
     ])
-      .then(([loadedCharacters, loadedWengines]) => {
+      .then(([loadedCharacters, loadedWengines, loadedDriveDiscSets]) => {
         setCharacters(loadedCharacters);
         setWengines(loadedWengines);
+        setDriveDiscSets(loadedDriveDiscSets);
         const nextSelections = loadedWengines.reduce<Record<string, { id: string; level: number; refinement: number }>>((current, item) => {
           const owner = item.signature_character_id;
           if (owner && !current[owner]) {
@@ -393,6 +464,66 @@ function App() {
     void loadEditors(primaryId, supportId, configs, conditionValues, {}, wengineSelections, nextModes);
   };
 
+  const updateDriveDisc = (owner: string, slot: number, nextDisc: DriveDiscConfig | null) => {
+    const current = driveDiscSelections[owner] ?? [];
+    const nextForOwner = nextDisc
+      ? [...current.filter((item) => item.slot !== slot), nextDisc].sort((a, b) => a.slot - b.slot)
+      : current.filter((item) => item.slot !== slot);
+    const nextSelections = { ...driveDiscSelections, [owner]: nextForOwner };
+    setDriveDiscSelections(nextSelections);
+    void loadEditors(
+      primaryId,
+      supportId,
+      configs,
+      conditionValues,
+      {},
+      wengineSelections,
+      buildModes,
+      nextSelections,
+    );
+  };
+
+  const selectDriveDiscSet = (owner: string, slot: number, setId: string) => {
+    if (!setId) {
+      updateDriveDisc(owner, slot, null);
+      return;
+    }
+    const schema = driveDiscViews[owner]?.slot_schemas.find((item) => item.slot === slot);
+    if (!schema) return;
+    const current = driveDiscSelections[owner]?.find((item) => item.slot === slot);
+    updateDriveDisc(
+      owner,
+      slot,
+      selectDriveDiscSetValue(
+        current,
+        slot,
+        setId,
+        schema,
+        driveDiscViews[owner]?.substat_options ?? [],
+      ),
+    );
+  };
+
+  const updateDriveDiscMain = (owner: string, slot: number, mainStat: string) => {
+    const current = driveDiscSelections[owner]?.find((item) => item.slot === slot);
+    if (!current) return;
+    updateDriveDisc(
+      owner,
+      slot,
+      updateDriveDiscMainValue(
+        current,
+        mainStat,
+        driveDiscViews[owner]?.substat_options ?? [],
+      ),
+    );
+  };
+
+  const updateDriveDiscSubstat = (owner: string, slot: number, index: number, next: DriveDiscSubstat) => {
+    const current = driveDiscSelections[owner]?.find((item) => item.slot === slot);
+    if (!current) return;
+    updateDriveDisc(owner, slot, replaceDriveDiscSubstat(current, index, next));
+  };
+
   const buildPayloads = () => Object.fromEntries(teamIds.map((id) => {
     const mode = buildModes[id] ?? "manual-panel";
     const selection = wengineSelections[id];
@@ -402,6 +533,7 @@ function App() {
         build_mode: mode,
         base_stats: { ...buildStats[id], element_damage_bonus: { ...buildStats[id]?.element_damage_bonus } },
         ...(selection?.id ? { wengine_id: selection.id, wengine_level: selection.level, wengine_refinement: selection.refinement } : {}),
+        drive_discs: driveDiscSelections[id] ?? [],
       }];
     }
     return [id, { level: characterLevels[id] ?? 60, out_of_combat_stats: { ...buildStats[id], element_damage_bonus: { ...buildStats[id]?.element_damage_bonus } } }];
@@ -477,7 +609,61 @@ function App() {
 
         <section className="glass-card build-panel">
           <div className="section-heading"><div><p className="eyebrow">BUILD INPUT</p><h2>局外面板</h2></div><span className="muted">每个角色独立</span></div>
-          <div className="build-character-fields">{teamIds.map((id) => <div className="build-character" key={id}><strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong><div className="form-grid three-columns"><label>面板模式<select value={buildModes[id] ?? "manual-panel"} onChange={(event) => updateBuildMode(id, event.target.value as "manual-panel" | "equipment-build")}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label><label>等级<input type="number" min="1" max="60" value={characterLevels[id] ?? 60} onChange={(event) => setCharacterLevels((current) => ({ ...current, [id]: Number(event.target.value) }))} /></label><label>攻击力<input type="number" value={buildStats[id]?.attack ?? 1000} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label><label>暴击率<input type="number" step="0.01" value={buildStats[id]?.crit_rate ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label><label>暴击伤害<input type="number" step="0.01" value={buildStats[id]?.crit_damage ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label><label>穿透率<input type="number" step="0.01" value={buildStats[id]?.penetration_rate ?? 0} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label><label>穿透值<input type="number" value={buildStats[id]?.penetration_flat ?? 0} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label><label>物理伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.physical ?? 0} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label><label>以太伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.ether ?? 0} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label></div>{(buildModes[id] ?? "manual-panel") === "equipment-build" && <div className="form-grid three-columns"><label>音擎<select value={wengineSelections[id]?.id ?? ""} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { level: 60, refinement: 1 }), id: event.target.value })}><option value="">无</option>{wengines.filter((item) => item.specialty === characters.find((character) => character.character_id === id)?.specialty).map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label><label>音擎等级<input type="number" min="60" max="60" value={wengineSelections[id]?.level ?? 60} readOnly /></label><label>精炼<input type="number" min="1" max="5" value={wengineSelections[id]?.refinement ?? 1} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: Number(event.target.value) })} /></label></div>}</div>)}</div>
+          <div className="build-character-fields">
+            {teamIds.map((id) => {
+              const equipmentMode = (buildModes[id] ?? "manual-panel") === "equipment-build";
+              const driveView = driveDiscViews[id];
+              const selectedDiscs = driveDiscSelections[id] ?? [];
+              return (
+                <div className="build-character" key={id}>
+                  <strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong>
+                  <div className="form-grid three-columns">
+                    <label>面板模式<select value={buildModes[id] ?? "manual-panel"} onChange={(event) => updateBuildMode(id, event.target.value as "manual-panel" | "equipment-build")}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label>
+                    <label>等级<input type="number" min="1" max="60" value={characterLevels[id] ?? 60} onChange={(event) => setCharacterLevels((current) => ({ ...current, [id]: Number(event.target.value) }))} /></label>
+                    <label>{equipmentMode ? "角色无装备基础攻击力" : "攻击力"}<input type="number" value={buildStats[id]?.attack ?? 1000} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label>
+                    <label>暴击率<input type="number" step="0.01" value={buildStats[id]?.crit_rate ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label>
+                    <label>暴击伤害<input type="number" step="0.01" value={buildStats[id]?.crit_damage ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label>
+                    <label>穿透率<input type="number" step="0.01" value={buildStats[id]?.penetration_rate ?? 0} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label>
+                    <label>穿透值<input type="number" value={buildStats[id]?.penetration_flat ?? 0} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label>
+                    <label>物理伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.physical ?? 0} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label>
+                    <label>以太伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.ether ?? 0} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label>
+                  </div>
+                  {equipmentMode && <>
+                    <div className="form-grid three-columns">
+                      <label>音擎<select value={wengineSelections[id]?.id ?? ""} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { level: 60, refinement: 1 }), id: event.target.value })}><option value="">无</option>{wengines.filter((item) => item.specialty === characters.find((character) => character.character_id === id)?.specialty).map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label>
+                      <label>音擎等级<input type="number" min="60" max="60" value={wengineSelections[id]?.level ?? 60} readOnly /></label>
+                      <label>精炼<input type="number" min="1" max="5" value={wengineSelections[id]?.refinement ?? 1} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: Number(event.target.value) })} /></label>
+                    </div>
+                    <div className="drive-disc-grid">
+                      {(driveView?.slot_schemas ?? []).map((schema) => {
+                        const disc = selectedDiscs.find((item) => item.slot === schema.slot);
+                        const set = driveDiscSets.find((item) => item.set_id === disc?.set_id);
+                        return <article className="drive-disc-card" key={`${id}-disc-${schema.slot}`} title={set ? `2件套：${set.two_piece_text}\n4件套：${set.four_piece_text}` : undefined}>
+                          <div className="drive-disc-heading">
+                            {set ? <img alt={set.display_name} src={set.icon_path} /> : <span className="drive-disc-placeholder">{schema.slot}</span>}
+                            <div><strong>{schema.slot}号位</strong><small>{set?.display_name ?? "未装备"}</small></div>
+                          </div>
+                          <label>套装<select value={disc?.set_id ?? ""} onChange={(event) => selectDriveDiscSet(id, schema.slot, event.target.value)}><option value="">空槽</option>{driveDiscSets.map((item) => <option key={item.set_id} value={item.set_id}>{item.display_name}</option>)}</select></label>
+                          {disc && <>
+                            <label>主词条<select value={disc.main_stat} onChange={(event) => updateDriveDiscMain(id, schema.slot, event.target.value)}>{schema.main_stat_options.map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label} +{formatNumber(item.value_per_roll)}</option>)}</select></label>
+                            <div className="drive-substats">{disc.substats.map((substat, index) => {
+                              const used = new Set(disc.substats.filter((_, itemIndex) => itemIndex !== index).map((item) => item.stat));
+                              return <div className="drive-substat-row" key={`${schema.slot}-${index}`}>
+                                <select value={substat.stat} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, stat: event.target.value })}>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !used.has(item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select>
+                                <input aria-label={`${schema.slot}号位副词条${index + 1}次数`} type="number" min="1" max="6" value={substat.roll_count} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, roll_count: Number(event.target.value) })} />
+                              </div>;
+                            })}</div>
+                            <small className={disc.substats.reduce((sum, item) => sum + item.roll_count, 0) === 8 || disc.substats.reduce((sum, item) => sum + item.roll_count, 0) === 9 ? "complete" : "incomplete"}>总词条次数 {disc.substats.reduce((sum, item) => sum + item.roll_count, 0)}</small>
+                          </>}
+                        </article>;
+                      })}
+                    </div>
+                    {driveView && driveView.set_counts.length > 0 && <div className="drive-set-summary">{driveView.set_counts.map((item) => <span key={item.set_id}>{driveDiscSets.find((set) => set.set_id === item.set_id)?.display_name ?? item.set_id} ×{item.count}</span>)}</div>}
+                  </>}
+                </div>
+              );
+            })}
+          </div>
           {calculation && calculation.build_provenance.length > 0 && <div className="trace-list"><p className="eyebrow">BUILD PROVENANCE</p>{calculation.build_provenance.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.character_id}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.source_label} · {trace.stat} · {trace.layer}</small></div>)}</div>}
           <div className="section-heading compact"><div><p className="eyebrow">TARGET</p><h2>敌人</h2></div></div>
           <div className="form-grid three-columns"><label>等级<input type="number" min="1" max="80" value={enemyLevel} onChange={(event) => setEnemyLevel(Number(event.target.value))} /></label><label>防御力<input type="number" value={enemyDefense} onChange={(event) => setEnemyDefense(Number(event.target.value))} /></label><label>物理抗性<input type="number" step="0.01" value={enemyPhysicalResistance} onChange={(event) => setEnemyPhysicalResistance(Number(event.target.value))} /></label><label>以太抗性<input type="number" step="0.01" value={enemyEtherResistance} onChange={(event) => setEnemyEtherResistance(Number(event.target.value))} /></label><label>失衡易伤<input type="number" step="0.01" value={stunVulnerability} onChange={(event) => setStunVulnerability(Number(event.target.value))} /></label><label>减易伤<input type="number" step="0.01" value={enemyDamageReduction} onChange={(event) => setEnemyDamageReduction(Number(event.target.value))} /></label><label className="check-field">当前处于失衡<input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label></div>
@@ -498,7 +684,7 @@ function App() {
         <section className="glass-card result-panel">
           <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={calculating || loading || !moveEntryId} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
           <label className="move-select">招式<select value={moveEntryId} onChange={(event) => setMoveEntryId(event.target.value)}>{(primaryView?.moves ?? []).map((move) => <option key={move.entry_id} value={move.entry_id}>{move.label}</option>)}</select></label>
-          {calculation ? <div className="calculation-output"><div className="totals-grid">{["non-crit", "expected", "full-crit"].map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{["non-crit", "expected", "full-crit"].map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div>{event.common_application_trace && <div className="application-trace"><p className="eyebrow">RULE / EFFECT TRACE</p>{event.common_application_trace.rule_matches.filter((match) => match.status !== "not-matched").map((match) => <div className="trace-match" key={match.rule_id}><strong>{match.source_label ?? match.rule_id}</strong><span>{match.status}</span>{match.effects.filter((effect) => effect.status === "matched").map((effect) => <small key={effect.effect_id}>{effect.source_label ?? effect.effect_id}</small>)}</div>)}{[...event.common_application_trace.applied_modifiers, ...event.common_application_trace.event_stat_modifiers, ...event.common_application_trace.event_multiplier_modifiers].map((modifier) => <div className="trace-match" key={modifier.effect_id}><strong>{modifier.source_label ?? modifier.effect_id}</strong><span>{modifier.modifier_path}</span><small>{formatNumber(modifier.value)}</small></div>)}</div>}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div>{calculation.panel_traces.length > 0 && <div className="trace-list"><p className="eyebrow">PANEL PROVENANCE</p>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</div>}{calculation.resolved_character_snapshots.length > 0 && <div className="trace-list"><p className="eyebrow">RESOLVED PANELS</p>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性加成 {formatElementBonuses(snapshot.stats.element_damage_bonus)}</span></div>)}</div>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
+          {calculation ? <div className="calculation-output"><div className="totals-grid">{["non-crit", "expected", "full-crit"].map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{["non-crit", "expected", "full-crit"].map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div>{event.common_application_trace && <div className="application-trace"><p className="eyebrow">RULE / EFFECT TRACE</p>{event.common_application_trace.rule_matches.filter((match) => match.status !== "not-matched").map((match) => <div className="trace-match" key={match.rule_id}><strong className={isEquipmentSource(match.source_type) ? "equipment-source" : undefined}>{match.source_label ?? match.rule_id}</strong><span>{match.status}</span>{match.effects.filter((effect) => effect.status === "matched").map((effect) => <small key={effect.effect_id}>{effect.source_label ?? effect.effect_id}</small>)}</div>)}{[...event.common_application_trace.applied_modifiers, ...event.common_application_trace.event_stat_modifiers, ...event.common_application_trace.event_multiplier_modifiers].map((modifier) => <div className="trace-match" key={modifier.effect_id}><strong className={isEquipmentSource(modifier.source_type) ? "equipment-source" : undefined}>{modifier.source_label ?? modifier.effect_id}</strong><span>{modifier.modifier_path}</span><small>{formatNumber(modifier.value)}</small></div>)}</div>}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div>{calculation.panel_traces.length > 0 && <div className="trace-list"><p className="eyebrow">PANEL PROVENANCE</p>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</div>}{calculation.resolved_character_snapshots.length > 0 && <div className="trace-list"><p className="eyebrow">RESOLVED PANELS</p>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性加成 {formatElementBonuses(snapshot.stats.element_damage_bonus)}</span></div>)}</div>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
         </section>
       </section>
 
@@ -514,6 +700,10 @@ function formatNumber(value: number | null | undefined) {
 function formatElementBonuses(value: number | Record<string, number | null> | null) {
   if (!value || typeof value !== "object") return "—";
   return Object.entries(value).map(([element, amount]) => `${element} ${formatNumber(amount)}`).join(" · ") || "—";
+}
+
+function isEquipmentSource(sourceType: string | null | undefined) {
+  return sourceType === "weapon" || sourceType === "drive-disc";
 }
 
 export default App;

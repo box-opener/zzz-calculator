@@ -18,6 +18,18 @@ from .wengine_ids import (
     WENGINE_SUPPORT_SAMPLE_IDS,
     WENGINE_STAGE_18_2_5_IDS,
 )
+from .drive_disc import (
+    DriveDiscBuildResolution,
+    DriveDiscRawRecord,
+    compile_drive_discs,
+    load_drive_disc_raw_record,
+    stable_set_id,
+)
+from .drive_disc_reviewed import (
+    DRIVE_DISC_REVIEWED_MAPPINGS,
+    DriveDiscClauseDisposition,
+    DriveDiscReviewedMapping,
+)
 
 __all__ = [
     "WEngineBuildResolution",
@@ -34,4 +46,12 @@ __all__ = [
     "WENGINE_ATTACK_SAMPLE_IDS",
     "WENGINE_SUPPORT_SAMPLE_IDS",
     "WENGINE_STAGE_18_2_5_IDS",
+    "DRIVE_DISC_REVIEWED_MAPPINGS",
+    "DriveDiscBuildResolution",
+    "DriveDiscClauseDisposition",
+    "DriveDiscRawRecord",
+    "DriveDiscReviewedMapping",
+    "compile_drive_discs",
+    "load_drive_disc_raw_record",
+    "stable_set_id",
 ]

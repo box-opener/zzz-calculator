@@ -3,6 +3,9 @@
 from .diagnostics import CalculationDiagnostic, DiagnosticKind
 from .build import ResolvedBuild, assemble_build
 from .equipment import (
+    DriveDiscBuildResolution,
+    compile_drive_discs,
+    stable_set_id,
     WEngineBuildResolution,
     WEngineRawRecord,
     compile_wengine,
@@ -82,10 +85,13 @@ from .matching import (
 __all__ = [
     "CalculationDiagnostic",
     "ResolvedBuild",
+    "DriveDiscBuildResolution",
     "assemble_build",
     "WEngineBuildResolution",
     "WEngineRawRecord",
     "compile_wengine",
+    "compile_drive_discs",
+    "stable_set_id",
     "load_wengine_raw_record",
     "signature_wengine_id_for",
     "WEngineReviewedMapping",

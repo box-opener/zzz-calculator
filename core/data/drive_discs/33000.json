@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/33000.json",
+  "id": 33000,
+  "name": "法厄同之歌",
+  "desc2": "异常掌控+8%。",
+  "desc4": "队伍中任意角色发动<color=#FFFFFF>[强化特殊技]</color>时，装备者的异常精通提升45点，持续8秒；如果发动<color=#FFFFFF>[强化特殊技]</color>的角色不是装备者本人时，装备者造成的<color=#FE437E>以太伤害</color>提升25%。",
+  "story": "法厄同的狂热粉丝所制作的古怪驱动盘，古怪的歌唱者用古怪的声线循环唱着古怪的旋律，力图宣扬「法厄同大人」的传奇事迹。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitSavior.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitSavior.png"
+}

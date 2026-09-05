@@ -22,6 +22,7 @@ HitId = NewType("HitId", str)
 EventTemplateId = NewType("EventTemplateId", str)
 ResourceId = NewType("ResourceId", str)
 WEngineId = NewType("WEngineId", str)
+DriveDiscSetId = NewType("DriveDiscSetId", str)
 
 Ratio: TypeAlias = float
 Multiplier: TypeAlias = float

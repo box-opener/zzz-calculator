@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from web.api import app
@@ -87,8 +88,178 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
         "wengine:14149",
     }
     assert {item["specialty"] for item in catalog} == {"attack", "support"}
-    assert next(item for item in catalog if item["wengine_id"] == "wengine:14131")["signature_character_id"] == "character:1311"
+    assert (
+        next(item for item in catalog if item["wengine_id"] == "wengine:14131")[
+            "signature_character_id"
+        ]
+        == "character:1311"
+    )
     assert all("rule_item_ids" not in item for item in catalog)
+
+
+def test_drive_disc_catalog_and_editor_cover_the_frozen_thirty_sets() -> None:
+    catalog_response = client.get("/api/v1/drive-discs")
+    assert catalog_response.status_code == 200
+    catalog = catalog_response.json()
+    assert len(catalog) == 30
+    assert {item["set_id"] for item in catalog} >= {
+        "drive-disc:31000",
+        "drive-disc:34100",
+        "drive-disc:34200",
+    }
+    assert all(
+        item["two_piece_disposition"]
+        in {"static-contribution", "calculation-rule", "ignored-non-damage"}
+        and item["four_piece_disposition"] in {"calculation-rule", "ignored-non-damage"}
+        for item in catalog
+    )
+    proto = next(item for item in catalog if item["set_id"] == "drive-disc:31900")
+    assert proto["two_piece_disposition"] == "ignored-non-damage"
+    assert "护盾" in proto["ignored_two_piece_reason"]
+    asset_root = Path(__file__).parents[2] / "frontend" / "public" / "drive-discs"
+    assert all(
+        (asset_root / Path(item["icon_path"]).name).is_file() for item in catalog
+    )
+
+    preview = client.post(
+        "/api/v1/drive-discs/preview",
+        json={
+            "equipped_character_id": "character:1431",
+            "team_character_ids": ["character:1431"],
+            "discs": [],
+            "condition_context": {},
+        },
+    )
+    assert preview.status_code == 200
+    payload = preview.json()
+    assert [item["slot"] for item in payload["slot_schemas"]] == [1, 2, 3, 4, 5, 6]
+    attack_flat = next(
+        item for item in payload["substat_options"] if item["stat_key"] == "attack-flat"
+    )
+    assert attack_flat["value_per_roll"] == 19.0
+
+
+def test_drive_disc_preview_exposes_owner_qualified_four_piece_rules() -> None:
+    substats = [
+        {"stat": "attack-flat", "roll_count": 2},
+        {"stat": "crit-rate", "roll_count": 2},
+        {"stat": "crit-damage", "roll_count": 2},
+        {"stat": "penetration-flat", "roll_count": 2},
+    ]
+    response = client.post(
+        "/api/v1/drive-discs/preview",
+        json={
+            "equipped_character_id": "character:1431",
+            "team_character_ids": ["character:1431"],
+            "discs": [
+                {
+                    "slot": 1,
+                    "set_id": "drive-disc:31000",
+                    "main_stat": "hp-flat",
+                    "substats": substats,
+                },
+                {
+                    "slot": 2,
+                    "set_id": "drive-disc:31000",
+                    "main_stat": "attack-flat",
+                    "substats": substats,
+                },
+                {
+                    "slot": 3,
+                    "set_id": "drive-disc:31000",
+                    "main_stat": "defense-flat",
+                    "substats": substats,
+                },
+                {
+                    "slot": 4,
+                    "set_id": "drive-disc:31000",
+                    "main_stat": "attack-percent",
+                    "substats": substats,
+                },
+            ],
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["set_counts"] == [{"set_id": "drive-disc:31000", "count": 4}]
+    rule = payload["rule_items"][0]
+    assert rule["source_type"] == "drive-disc"
+    assert "owner:character_1431" in rule["rule_id"]
+    assert rule["stack"] == {"default": 3, "minimum": 0, "maximum": 3}
+
+
+def test_drive_disc_static_and_four_piece_rules_reach_move_execution() -> None:
+    payload = _valid_calculation_payload()
+    stats = {
+        "hp": 10000.0,
+        "attack": 1200.0,
+        "defense": 500.0,
+        "impact": 100.0,
+        "anomaly_mastery": 100.0,
+        "anomaly_proficiency": 100.0,
+        "energy_regen": 1.2,
+        "crit_rate": 0.65,
+        "crit_damage": 0.5,
+        "penetration_rate": 0.0,
+        "penetration_flat": 0.0,
+        "element_damage_bonus": {"physical": 0.0},
+    }
+    substats = [
+        {"stat": "attack-flat", "roll_count": 2},
+        {"stat": "crit-rate", "roll_count": 2},
+        {"stat": "crit-damage", "roll_count": 2},
+        {"stat": "penetration-flat", "roll_count": 2},
+    ]
+    payload["character_builds"]["character:1431"] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "base_stats": stats,
+        "drive_discs": [
+            {
+                "slot": 1,
+                "set_id": "drive-disc:31000",
+                "main_stat": "hp-flat",
+                "substats": substats,
+            },
+            {
+                "slot": 2,
+                "set_id": "drive-disc:31000",
+                "main_stat": "attack-flat",
+                "substats": substats,
+            },
+            {
+                "slot": 3,
+                "set_id": "drive-disc:31000",
+                "main_stat": "defense-flat",
+                "substats": substats,
+            },
+            {
+                "slot": 4,
+                "set_id": "drive-disc:31000",
+                "main_stat": "attack-percent",
+                "substats": substats,
+            },
+        ],
+    }
+    rule_id = "rule:drive-disc:31000:owner:character_1431:4pc:attack-stacks"
+    payload["enabled_rule_item_ids"] = [rule_id]
+    payload["rule_stack_counts"] = {rule_id: 2}
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    snapshot = result["resolved_character_snapshots"][0]
+    assert snapshot["stats"]["attack"] == pytest.approx(2393.04)
+    assert snapshot["stats"]["crit_rate"] == pytest.approx(0.922)
+    assert any(
+        item["source_type"] == "drive-disc-set"
+        and item["contribution_id"].endswith(":2pc")
+        for item in result["build_provenance"]
+    )
+    assert any(
+        item["effect_id"].endswith(":attack") and item["source_type"] == "drive-disc"
+        for item in result["panel_traces"]
+    )
 
 
 def test_wengine_preview_exposes_owner_qualified_rules_for_the_editor() -> None:
@@ -198,7 +369,9 @@ def test_definition_preview_returns_versioned_editor_view() -> None:
 
 
 def test_invalid_requests_are_structured() -> None:
-    invalid = client.post("/api/v1/definitions/preview", json={"character_id": "unknown"})
+    invalid = client.post(
+        "/api/v1/definitions/preview", json={"character_id": "unknown"}
+    )
     assert invalid.status_code == 400
     assert invalid.json()["diagnostics"][0]["blocking"] is True
 
@@ -265,8 +438,7 @@ def test_move_calculation_executes_all_three_display_modes() -> None:
     }
     assert payload["build_provenance"]
     assert all(
-        item["source_type"] == "manual-panel"
-        for item in payload["build_provenance"]
+        item["source_type"] == "manual-panel" for item in payload["build_provenance"]
     )
 
 
@@ -294,8 +466,28 @@ def test_move_calculation_accepts_astra_as_cross_character_support() -> None:
                 "condition:astra:core-attack-buff-active": True,
             },
             "character_builds": {
-                "character:1431": {"level": 60, "out_of_combat_stats": {"attack": 1200.0, "crit_rate": 0.5, "crit_damage": 0.5, "penetration_rate": 0.0, "penetration_flat": 0.0, "element_damage_bonus": {"physical": 0.0}}},
-                "character:1311": {"level": 60, "out_of_combat_stats": {"attack": 1500.0, "crit_rate": 0.5, "crit_damage": 0.5, "penetration_rate": 0.0, "penetration_flat": 0.0, "element_damage_bonus": {"ether": 0.0}}},
+                "character:1431": {
+                    "level": 60,
+                    "out_of_combat_stats": {
+                        "attack": 1200.0,
+                        "crit_rate": 0.5,
+                        "crit_damage": 0.5,
+                        "penetration_rate": 0.0,
+                        "penetration_flat": 0.0,
+                        "element_damage_bonus": {"physical": 0.0},
+                    },
+                },
+                "character:1311": {
+                    "level": 60,
+                    "out_of_combat_stats": {
+                        "attack": 1500.0,
+                        "crit_rate": 0.5,
+                        "crit_damage": 0.5,
+                        "penetration_rate": 0.0,
+                        "penetration_flat": 0.0,
+                        "element_damage_bonus": {"ether": 0.0},
+                    },
+                },
             },
             "enemy": {
                 "enemy_id": "enemy:ui",
@@ -334,7 +526,9 @@ def test_calculation_api_does_not_fill_missing_formal_inputs() -> None:
     assert "is_stunned" in response.json()["diagnostics"][0]["message"]
 
     missing_attack = _valid_calculation_payload()
-    del missing_attack["character_builds"]["character:1431"]["out_of_combat_stats"]["attack"]
+    del missing_attack["character_builds"]["character:1431"]["out_of_combat_stats"][
+        "attack"
+    ]
     response = client.post("/api/v1/moves/calculate", json=missing_attack)
     assert response.status_code == 400
     assert "attack" in response.json()["diagnostics"][0]["message"]
@@ -402,10 +596,14 @@ def test_wengine_equipment_build_reaches_build_assembly_and_execution() -> None:
     disabled_response = client.post("/api/v1/moves/calculate", json=payload)
     assert disabled_response.status_code == 200
     disabled_payload = disabled_response.json()
-    assert disabled_payload["resolved_character_snapshots"][0]["stats"]["attack"] == 1743.0
+    assert (
+        disabled_payload["resolved_character_snapshots"][0]["stats"]["attack"] == 1743.0
+    )
     assert not any(
         item["effect_id"].endswith("resistance-ignore")
-        for item in disabled_payload["events"][0]["common_application_trace"]["applied_modifiers"]
+        for item in disabled_payload["events"][0]["common_application_trace"][
+            "applied_modifiers"
+        ]
     )
 
 
@@ -456,7 +654,9 @@ def test_astra_signature_wengine_adds_team_damage_from_equipment_build() -> None
     )
 
 
-def test_ye_signature_wengine_uses_the_existing_mingxin_condition_for_veil_effects() -> None:
+def test_ye_signature_wengine_uses_the_existing_mingxin_condition_for_veil_effects() -> (
+    None
+):
     payload = _valid_calculation_payload()
     payload["compile_configs"]["character:1431"]["mingxin_active"] = True
     payload["character_builds"]["character:1431"] = {

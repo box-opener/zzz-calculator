@@ -16,8 +16,10 @@ from fastapi.staticfiles import StaticFiles
 
 from core.presentation import (
     build_registered_editor_view,
+    build_registered_drive_disc_editor_view,
     build_registered_wengine_editor_view,
     supported_character_catalog,
+    supported_drive_disc_catalog,
     supported_wengine_catalog,
 )
 from core.presentation.serialization import to_jsonable
@@ -43,6 +45,50 @@ def list_characters() -> list[dict[str, Any]]:
 @app.get("/api/v1/wengines")
 def list_wengines() -> list[dict[str, Any]]:
     return [to_jsonable(item) for item in supported_wengine_catalog()]
+
+
+@app.get("/api/v1/drive-discs")
+def list_drive_discs() -> list[dict[str, Any]]:
+    return [to_jsonable(item) for item in supported_drive_disc_catalog()]
+
+
+@app.post("/api/v1/drive-discs/preview")
+def preview_drive_discs(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    try:
+        owner = str(payload.get("equipped_character_id", ""))
+        discs = payload.get("discs", ())
+        conditions = payload.get("condition_context", {})
+        team_values = payload.get("team_character_ids", [owner])
+        if not owner:
+            raise ValueError("equipped_character_id is required")
+        if not isinstance(discs, (list, tuple)):
+            raise ValueError("discs must be an array")
+        if not isinstance(conditions, dict):
+            raise ValueError("condition_context must be an object")
+        if not isinstance(team_values, (list, tuple)):
+            raise ValueError("team_character_ids must be an array")
+        view = build_registered_drive_disc_editor_view(
+            owner,
+            tuple(discs),
+            team_character_ids=tuple(str(item) for item in team_values),
+            condition_context=conditions,
+        )
+        return JSONResponse(to_jsonable(view))
+    except (TypeError, ValueError, KeyError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "schema_version": "presentation-v1",
+                "diagnostics": [
+                    {
+                        "diagnostic_id": "api:drive-disc-preview:invalid-request",
+                        "kind": "missing-data",
+                        "message": str(exc),
+                        "blocking": True,
+                    }
+                ],
+            },
+        )
 
 
 @app.post("/api/v1/wengines/preview")

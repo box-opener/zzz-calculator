@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/34200.json",
+  "id": 34200,
+  "name": "荆棘玫瑰",
+  "desc2": "防御力+16%。",
+  "desc4": "装备者造成的伤害提升15%，装备者初始防御力大于等于1000/1800点时，暴击率提升8/16%",
+  "story": "流传于维尔乌姆的歌谣，发端自有关弗林特的诸多传说与异闻。即便岁月缄默不言，人们仍在孜孜不倦地挖掘着那隐秘血脉中流淌着的诸多谜题。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitThornedRose.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitThornedRose.png"
+}

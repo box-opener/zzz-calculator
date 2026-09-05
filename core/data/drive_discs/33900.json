@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/33900.json",
+  "id": 33900,
+  "name": "呼啸沙龙",
+  "desc2": "<color=#A6C5FD>风属性伤害</color>+10%。",
+  "desc4": "装备者发动<color=#FFFFFF>[强化特殊技]</color>时，装备者异常精通提升25点，最多叠加2层，持续40秒，重复触发时刷新持续时间；装备者触发<color=#A6C5FD>[风化]</color>效果后，装备者造成的伤害提升18%，持续40秒，重复触发时刷新持续时间。",
+  "story": "焦点剧场的早期戏剧，据说不仅引用了一位邦布先知的启示，还糅合了当下罗斯凯利法名流的逸闻。横跨两个时代的剧目，充斥着邦布世界对人类社会的遐想。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitWutheringSalon.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitWutheringSalon.png"
+}

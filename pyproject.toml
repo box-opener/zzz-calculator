@@ -19,6 +19,7 @@ include = ["core*", "web*"]
 [tool.setuptools.package-data]
 "core.data.characters" = ["*.json"]
 "core.data.wengines" = ["*.json"]
+"core.data.drive_discs" = ["*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]

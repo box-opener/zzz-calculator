@@ -36,7 +36,7 @@ from ..output import (
     MoveCalculationOutput,
 )
 from ..scenario import CalculationScenario, ConditionResolution, ScenarioCondition
-from ..rules import CalculationRuleItem
+from ..rules import CalculationRuleItem, RuleEligibility
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,9 +61,7 @@ class MoveCalculationRequest:
     def __post_init__(self) -> None:
         self.definition.validate_scenario(self.scenario)
         definitions = (self.definition, *self.supporting_definitions)
-        definition_character_ids = tuple(
-            item.character_id for item in definitions
-        )
+        definition_character_ids = tuple(item.character_id for item in definitions)
         if len(set(definition_character_ids)) != len(definition_character_ids):
             raise ValueError(
                 "primary and supporting definitions must have unique character IDs"
@@ -124,9 +122,7 @@ class MoveCalculationRequest:
             raise ValueError("scenario current_operator must be a team member")
 
         rule_items = tuple(
-            rule
-            for definition in definitions
-            for rule in definition.rule_items
+            rule for definition in definitions for rule in definition.rule_items
         ) + tuple(self.additional_rule_items)
         rule_ids = tuple(item.rule_id for item in rule_items)
         if len(set(rule_ids)) != len(rule_ids):
@@ -148,34 +144,68 @@ class MoveCalculationRequest:
                 "scenario enables unknown RuleItems: "
                 f"{sorted(map(str, unknown_enabled))}"
             )
+        scenario_condition_values = {
+            item.condition_id: item.value for item in self.scenario.conditions
+        }
+        non_stacking_groups: dict[str, list[CalculationRuleItem]] = {}
+        for rule in rule_items:
+            if (
+                rule.non_stacking_group_id is None
+                or rule.rule_id not in self.scenario.enabled_rule_item_ids
+                or rule.eligibility is RuleEligibility.INELIGIBLE
+                or any(
+                    scenario_condition_values.get(condition_id) is not True
+                    for condition_id in rule.condition_ids
+                )
+            ):
+                continue
+            non_stacking_groups.setdefault(rule.non_stacking_group_id, []).append(rule)
+        for group_id, group_rules in non_stacking_groups.items():
+            selected_stacks = {
+                (
+                    (selected if selected is not None else rule.stack_count)
+                    if rule.stack_count is not None
+                    else 1
+                )
+                for rule in group_rules
+                for selected in (self.scenario.selected_stack(rule.rule_id),)
+            }
+            if len(group_rules) > 1 and len(selected_stacks) > 1:
+                raise ValueError(
+                    f"non-stacking rule group has conflicting active stacks: {group_id}"
+                )
         for selection in self.scenario.rule_stack_counts:
-            rule = rule_map.get(selection.rule_item_id)
-            if rule is None:
+            selected_rule = rule_map.get(selection.rule_item_id)
+            if selected_rule is None:
                 raise ValueError(
                     "scenario stack selection references an unknown RuleItem"
                 )
-            if rule.stack_count is None:
+            if selected_rule.stack_count is None:
                 raise ValueError(
                     "scenario stack selection references a non-stacked RuleItem"
                 )
-            if rule.stack_min is not None and selection.value < rule.stack_min:
+            if (
+                selected_rule.stack_min is not None
+                and selection.value < selected_rule.stack_min
+            ):
                 raise ValueError("scenario stack selection is below the rule minimum")
-            if rule.stack_max is not None and selection.value > rule.stack_max:
+            if (
+                selected_rule.stack_max is not None
+                and selection.value > selected_rule.stack_max
+            ):
                 raise ValueError("scenario stack selection exceeds the rule maximum")
 
-        effects = tuple(
-            effect
-            for rule in rule_items
-            for effect in rule.effects
-        )
+        effects = tuple(effect for rule in rule_items for effect in rule.effects)
         effect_ids = tuple(effect.rule.effect_id for effect in effects)
         if len(set(effect_ids)) != len(effect_ids):
             raise ValueError(
                 "primary and supporting definitions must have unique Effect IDs"
             )
         for effect in effects:
-            condition = effect.rule.condition
-            if isinstance(condition, RuleStackCondition) and condition.rule_item_id not in {
+            effect_condition = effect.rule.condition
+            if isinstance(
+                effect_condition, RuleStackCondition
+            ) and effect_condition.rule_item_id not in {
                 str(rule_id) for rule_id in rule_map
             }:
                 raise ValueError(

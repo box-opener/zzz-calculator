@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/34000.json",
+  "id": 34000,
+  "name": "拂晓行纪",
+  "desc2": "<color=#FE437E>以太伤害</color>+10%。",
+  "desc4": "装备者为<color=#FE437E>以太属性</color>代理人时，暴击伤害提升30%；装备者发动<color=#FFFFFF>[强化特殊技]</color>或<color=#FFFFFF>[终结技]</color>时，装备者的攻击力提升10%，持续30秒，重复触发时刷新持续时间。",
+  "story": "罗斯凯利法未具名的音乐家在空洞中目睹天空燃烧的奇观所作。烈阳在以太中升起，焚尽白昼的金焰自天空中坠落——作曲者于封底如是记述。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitTheSkyAblaze.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitTheSkyAblaze.png"
+}

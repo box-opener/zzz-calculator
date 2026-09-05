@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/34100.json",
+  "id": 34100,
+  "name": "谶羽之誓",
+  "desc2": "异常精通+30点。",
+  "desc4": "装备者进入战场时，或被切换为当前操作中角色时，获得增益效果：异常精通提升50点，若装备者为<color=#FFA9DD>流明属性</color>，造成的属性异常伤害提升15%，持续15秒；\n当装备者为非操作中角色时，则始终持有该增益效果。",
+  "story": "一首古老的歌谣，有人称其自艾利都建城时期传唱至今，但并无史料能够予以证实。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitFeatheredFate.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitFeatheredFate.png"
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/32900.json",
+  "id": 32900,
+  "name": "如影相随",
+  "desc2": "<color=#FFFFFF>[追加攻击]</color>和<color=#FFFFFF>[冲刺攻击]</color>造成的伤害提升15%。",
+  "desc4": "<color=#FFFFFF>[追加攻击]</color>或<color=#FFFFFF>[冲刺攻击]</color>命中敌人时，若造成的伤害与装备者的属性一致，则获得1层增益效果，同一招式内最多触发一次；每拥有1层增益效果，装备者的攻击力提升4%，暴击率提升4%，最多叠加3层，持续15秒，重复触发时刷新持续时间。",
+  "story": "在盗洞客中极具话题性的神秘驱动盘。其中的曲目似乎是「影子唱给本人的歌谣」。作者不详，但大部分人支持「作者不是一个人」这种说法。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitShadow.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitShadow.png"
+}

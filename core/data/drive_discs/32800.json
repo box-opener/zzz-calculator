@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/32800.json",
+  "id": 32800,
+  "name": "静听嘉音",
+  "desc2": "攻击力+10%。",
+  "desc4": "队伍中任意角色通过<color=#FFFFFF>[快速支援]</color>入场时，全队角色获得1层<color=#FFFFFF>[嘉音]</color>，最多叠加3层，持续15秒，重复触发时刷新持续时间，每拥有1层<color=#FFFFFF>[嘉音]</color>，通过<color=#FFFFFF>[快速支援]</color>入场的角色造成的伤害提升8%，同名被动效果之间不可叠加。",
+  "story": "一名盗洞客兼耀嘉音粉丝所制作的驱动盘 ，盘中收录了嘉音作品中的标志性旋律。而在包装盒的背面，印着盗洞客自己的一段小故事。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitAstralVoice.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitAstralVoice.png"
+}

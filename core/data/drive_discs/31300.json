@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/31300.json",
+  "id": 31300,
+  "name": "自由蓝调",
+  "desc2": "异常精通+30点。",
+  "desc4": "<color=#FFFFFF>[强化特殊技]</color>命中敌人时，根据装备者的属性类型，使目标对应属性异常积蓄抗性降低20%，持续8秒，相同属性类型的效果不可叠加。",
+  "story": "不论调查员还是盗洞客都对其评价颇高，口碑出奇统一的驱动盘系列，",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitFreedomBlues.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitFreedomBlues.png"
+}

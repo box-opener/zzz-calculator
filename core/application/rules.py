@@ -30,19 +30,22 @@ class CalculationRuleItem:
     stack_min: int | None = None
     stack_max: int | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
+    non_stacking_group_id: str | None = None
 
     def __post_init__(self) -> None:
         if not str(self.rule_id):
             raise ValueError("rule_id must not be empty")
         if not self.display_name.strip():
             raise ValueError("rule display_name must not be empty")
+        if (
+            self.non_stacking_group_id is not None
+            and not self.non_stacking_group_id.strip()
+        ):
+            raise ValueError("non-stacking group ID must not be empty")
         condition_ids = tuple(self.condition_ids)
         if len(set(condition_ids)) != len(condition_ids):
             raise ValueError("rule condition IDs must be unique")
-        if (
-            self.eligibility is RuleEligibility.SCENARIO_REQUIRED
-            and not condition_ids
-        ):
+        if self.eligibility is RuleEligibility.SCENARIO_REQUIRED and not condition_ids:
             raise ValueError(
                 "scenario-required rules must reference at least one condition"
             )

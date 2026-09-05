@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.execution.contracts import MoveCalculationExecution
 from core.application.equipment.wengine import WEngineBuildResolution
+from core.application.equipment.drive_disc import DriveDiscBuildResolution
 from core.application.ids import DamageEventSemanticId
 from core.application.output import CritDisplayMode
 from core.application.rules import CalculationRuleItem, RuleEligibility
@@ -14,6 +15,9 @@ from core.application.scenario import CalculationScenario
 from core.types import (
     BattleEventKind,
     CharacterId,
+    DRIVE_DISC_MAIN_STATS_BY_SLOT,
+    DRIVE_DISC_MAIN_STAT_VALUES,
+    DRIVE_DISC_SUBSTAT_VALUES,
     FixedMultiplier,
     Resolved,
 )
@@ -42,11 +46,109 @@ from .character_editor import (
     ScenarioParameterView,
     ScenarioTriggerInputView,
     WEngineEditorView,
+    DriveDiscEditorView,
+    DriveDiscSetCountView,
+    DriveDiscSlotSchemaView,
+    DriveDiscStatOptionView,
 )
 from .diagnostics import DiagnosticView, diagnostic_view
 
 
 SCHEMA_VERSION = "presentation-v1"
+
+_DRIVE_STAT_LABELS = {
+    "hp-flat": "生命值",
+    "attack-flat": "攻击力",
+    "defense-flat": "防御力",
+    "penetration-flat": "穿透值",
+    "anomaly-proficiency-flat": "异常精通",
+    "crit-rate": "暴击率",
+    "crit-damage": "暴击伤害",
+    "hp-percent": "生命值%",
+    "attack-percent": "攻击力%",
+    "defense-percent": "防御力%",
+    "impact-percent": "冲击力%",
+    "anomaly-mastery-percent": "异常掌控%",
+    "energy-regen-percent": "能量自动回复%",
+    "penetration-rate": "穿透率",
+    "fire-damage-bonus": "火属性伤害",
+    "ice-damage-bonus": "冰属性伤害",
+    "wind-damage-bonus": "风属性伤害",
+    "electric-damage-bonus": "电属性伤害",
+    "physical-damage-bonus": "物理属性伤害",
+    "ether-damage-bonus": "以太属性伤害",
+}
+
+
+def _drive_stat_view(stat, value: float) -> DriveDiscStatOptionView:
+    return DriveDiscStatOptionView(
+        stat_key=stat.value,
+        label=_DRIVE_STAT_LABELS[stat.value],
+        value_per_roll=value,
+    )
+
+
+def build_drive_disc_editor_view(
+    resolution: DriveDiscBuildResolution,
+    scenario: CalculationScenario | None = None,
+    team_character_ids: Sequence[CharacterId] = (),
+    condition_context: Mapping[str, bool | None] | None = None,
+) -> DriveDiscEditorView:
+    selected_conditions = (
+        {item.condition_id: item for item in scenario.conditions} if scenario else {}
+    )
+    scenario_conditions = tuple(
+        selected_conditions.get(item.condition_id, item)
+        for item in resolution.scenario_conditions
+    )
+    return DriveDiscEditorView(
+        schema_version=SCHEMA_VERSION,
+        equipped_character_id=str(resolution.build_input.equipped_character_id),
+        set_counts=tuple(
+            DriveDiscSetCountView(str(set_id), count)
+            for set_id, count in resolution.set_counts
+        ),
+        slot_schemas=tuple(
+            DriveDiscSlotSchemaView(
+                slot=int(slot),
+                main_stat_options=tuple(
+                    _drive_stat_view(stat, DRIVE_DISC_MAIN_STAT_VALUES[stat])
+                    for stat in sorted(stats, key=lambda item: item.value)
+                ),
+            )
+            for slot, stats in DRIVE_DISC_MAIN_STATS_BY_SLOT.items()
+        ),
+        substat_options=tuple(
+            _drive_stat_view(stat, value)
+            for stat, value in DRIVE_DISC_SUBSTAT_VALUES.items()
+        ),
+        rule_items=tuple(
+            _rule_view(
+                rule,
+                scenario,
+                resolution.scenario_conditions,
+                condition_values=condition_context,
+            )
+            for rule in resolution.rule_items
+        ),
+        scenario_conditions=tuple(
+            ScenarioConditionView(
+                condition_id=str(item.condition_id),
+                label=item.label,
+                resolution=item.resolution.value,
+                value=item.value,
+                editable=item.resolution.value == "user-selected",
+                original_text=item.original_text,
+            )
+            for item in scenario_conditions
+        ),
+        scenario_trigger_inputs=_trigger_inputs_for_rules(
+            resolution.rule_items,
+            scenario,
+            tuple(str(item) for item in team_character_ids),
+        ),
+        diagnostics=tuple(diagnostic_view(item) for item in resolution.diagnostics),
+    )
 
 
 def build_wengine_editor_view(
@@ -63,9 +165,7 @@ def build_wengine_editor_view(
     """
 
     selected_conditions = (
-        {item.condition_id: item for item in scenario.conditions}
-        if scenario
-        else {}
+        {item.condition_id: item for item in scenario.conditions} if scenario else {}
     )
     scenario_conditions = tuple(
         selected_conditions.get(item.condition_id, item)
@@ -121,18 +221,14 @@ def build_character_editor_view(
     )
     display_name = catalog.display_name if catalog else definition.source.label
     selected_conditions = (
-        {item.condition_id: item for item in scenario.conditions}
-        if scenario
-        else {}
+        {item.condition_id: item for item in scenario.conditions} if scenario else {}
     )
     scenario_conditions = tuple(
         selected_conditions.get(item.condition_id, item)
         for item in definition.scenario_conditions
     )
     selected_parameters = (
-        {item.parameter_id: item for item in scenario.parameters}
-        if scenario
-        else {}
+        {item.parameter_id: item for item in scenario.parameters} if scenario else {}
     )
     scenario_parameters = tuple(
         selected_parameters.get(item.parameter_id, item)
@@ -252,18 +348,20 @@ def build_move_calculation_view(
             for mode in required_modes
         }
         traces = tuple(
-                event_trace_view(
-                    next(
+            event_trace_view(
+                next(
                     trace
                     for trace in executions[mode].event_traces
                     if trace.semantic_id == semantic_id
-                    ),
-                    source_labels=dict(source_labels or {}),
-                    source_types=dict(source_types or {}),
-                )
+                ),
+                source_labels=dict(source_labels or {}),
+                source_types=dict(source_types or {}),
+            )
             for mode in required_modes
         )
-        common_trace = traces[0] if all(item == traces[0] for item in traces[1:]) else None
+        common_trace = (
+            traces[0] if all(item == traces[0] for item in traces[1:]) else None
+        )
         if common_trace is None:
             diagnostics.append(
                 _presentation_diagnostic(
@@ -328,8 +426,7 @@ def build_move_calculation_view(
             )
         )
     snapshots = tuple(
-        panel_snapshot_view(item)
-        for item in expected.resolved_character_snapshots
+        panel_snapshot_view(item) for item in expected.resolved_character_snapshots
     )
     if any(
         executions[mode].resolved_character_snapshots
@@ -438,12 +535,27 @@ def _trigger_inputs(
     scenario: CalculationScenario | None,
     team_ids: tuple[str, ...],
 ) -> tuple[ScenarioTriggerInputView, ...]:
+    return _trigger_inputs_for_rules(
+        definition.rule_items,
+        scenario,
+        team_ids,
+    )
+
+
+def _trigger_inputs_for_rules(
+    rules: Sequence[CalculationRuleItem],
+    scenario: CalculationScenario | None,
+    team_ids: tuple[str, ...],
+) -> tuple[ScenarioTriggerInputView, ...]:
     facts = scenario.trigger_facts if scenario else ()
     inputs: list[ScenarioTriggerInputView] = []
-    for rule in definition.rule_items:
+    for rule in rules:
         for effect in rule.effects:
             trigger = effect.rule.trigger
-            if trigger is None or trigger.event_kind is not BattleEventKind.SUPPORT_ENTRY:
+            if (
+                trigger is None
+                or trigger.event_kind is not BattleEventKind.SUPPORT_ENTRY
+            ):
                 continue
             selected = next(
                 (
@@ -476,4 +588,9 @@ def _presentation_diagnostic(subject: str, message: str) -> DiagnosticView:
     )
 
 
-__all__ = ["build_character_editor_view", "build_move_calculation_view"]
+__all__ = [
+    "build_character_editor_view",
+    "build_drive_disc_editor_view",
+    "build_move_calculation_view",
+    "build_wengine_editor_view",
+]

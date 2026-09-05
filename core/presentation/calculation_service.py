@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -17,6 +17,8 @@ from core.application import (
     assemble_build,
     calculate_move,
     compile_wengine,
+    compile_drive_discs,
+    stable_set_id,
 )
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.ids import MoveEntryId, RuleItemId
@@ -26,6 +28,7 @@ from core.types import (
     BattleEventKind,
     BattleStateId,
     BuildMode,
+    BuildStatContribution,
     CharacterBuildDefinition,
     CharacterId,
     BuildContributionTrace,
@@ -45,6 +48,11 @@ from core.types import (
     UnresolvedReason,
     WEngineBuildInput,
     WEngineId,
+    DriveDiscBuildInput,
+    DriveDiscSlot,
+    DriveDiscStatKey,
+    DriveDiscSubstatRoll,
+    EquippedDriveDisc,
 )
 
 from core.presentation.assembler import build_move_calculation_view
@@ -77,21 +85,25 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     definitions = _compile_definitions(payload)
     primary = definitions[0]
     supplied_operator = payload.get("current_operator")
-    if supplied_operator is not None and str(supplied_operator) != str(primary.character_id):
-        raise ValueError("current_operator must equal primary_character_id for Direct UI")
+    if supplied_operator is not None and str(supplied_operator) != str(
+        primary.character_id
+    ):
+        raise ValueError(
+            "current_operator must equal primary_character_id for Direct UI"
+        )
     raw_team_ids = payload.get("team_character_ids")
     if not isinstance(raw_team_ids, (list, tuple)):
         raise ValueError("team_character_ids is required")
-    team_ids = tuple(
-        CharacterId(str(item))
-        for item in raw_team_ids
-    )
+    team_ids = tuple(CharacterId(str(item)) for item in raw_team_ids)
     if not team_ids or len(set(team_ids)) != len(team_ids):
         raise ValueError("team_character_ids must be a non-empty unique array")
-    expected_team_ids = (primary.character_id, *tuple(
-        CharacterId(str(item))
-        for item in payload.get("supporting_character_ids", ())
-    ))
+    expected_team_ids = (
+        primary.character_id,
+        *tuple(
+            CharacterId(str(item))
+            for item in payload.get("supporting_character_ids", ())
+        ),
+    )
     if team_ids != expected_team_ids:
         raise ValueError(
             "team_character_ids must exactly equal primary plus supporting character IDs"
@@ -120,9 +132,7 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
 
     build_records = _build_records(view_request.character_builds)
     additional_rule_items = tuple(
-        rule
-        for record in build_records
-        for rule in record.rule_items
+        rule for record in build_records for rule in record.rule_items
     )
     additional_scenario_conditions = tuple(
         condition
@@ -130,9 +140,7 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         for condition in record.scenario_conditions
     )
     build_provenance = tuple(
-        trace
-        for record in build_records
-        for trace in record.provenance
+        trace for record in build_records for trace in record.provenance
     )
     enemy_snapshot, enemy_profile, base_modifiers = _enemy_inputs(view_request.enemy)
     scenario = _scenario(
@@ -164,7 +172,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             supporting_definitions=definitions[1:],
             move_entry_id=MoveEntryId(move_entry_id),
             scenario=scenario,
-            battle_state_id=BattleStateId(str(payload.get("battle_state_id", "battle:ui"))),
+            battle_state_id=BattleStateId(
+                str(payload.get("battle_state_id", "battle:ui"))
+            ),
             battle_time=float(payload.get("battle_time", 0.0)),
             base_character_snapshots=base_snapshots,
             initial_character_snapshots=initial_snapshots,
@@ -183,10 +193,7 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         for rule in definition.rule_items
     }
     source_labels.update(
-        {
-            str(rule.rule_id): rule.display_name
-            for rule in additional_rule_items
-        }
+        {str(rule.rule_id): rule.display_name for rule in additional_rule_items}
     )
     source_labels.update(
         {
@@ -239,11 +246,15 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
-def _compile_definitions(payload: Mapping[str, Any]) -> tuple[CharacterCalculationDefinition, ...]:
+def _compile_definitions(
+    payload: Mapping[str, Any]
+) -> tuple[CharacterCalculationDefinition, ...]:
     primary_id = str(payload.get("primary_character_id", ""))
     if not primary_id:
         raise ValueError("primary_character_id is required")
-    supporting = tuple(str(item) for item in payload.get("supporting_character_ids", ()))
+    supporting = tuple(
+        str(item) for item in payload.get("supporting_character_ids", ())
+    )
     ids = (primary_id, *supporting)
     if len(set(ids)) != len(ids):
         raise ValueError("primary and supporting character IDs must be unique")
@@ -267,7 +278,9 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
     primary_id = str(payload.get("primary_character_id", ""))
     if not primary_id:
         raise ValueError("primary_character_id is required")
-    supporting_ids = tuple(str(item) for item in payload.get("supporting_character_ids", ()))
+    supporting_ids = tuple(
+        str(item) for item in payload.get("supporting_character_ids", ())
+    )
     team_ids = (primary_id, *supporting_ids)
     supplied_team_ids = payload.get("team_character_ids")
     if not isinstance(supplied_team_ids, (list, tuple)):
@@ -338,6 +351,7 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
                 ),
                 wengine_level=int(raw.get("wengine_level", 60)),
                 wengine_refinement=int(raw.get("wengine_refinement", 1)),
+                drive_discs=_parse_drive_discs(raw.get("drive_discs", ())),
             )
         )
     raw_enemy = payload.get("enemy")
@@ -357,9 +371,7 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
     }
     missing_enemy_fields = required_enemy_fields - set(raw_enemy)
     if missing_enemy_fields:
-        raise ValueError(
-            f"enemy fields are missing: {sorted(missing_enemy_fields)}"
-        )
+        raise ValueError(f"enemy fields are missing: {sorted(missing_enemy_fields)}")
     if not isinstance(raw_enemy["is_stunned"], bool):
         raise ValueError("enemy is_stunned must be a boolean")
     enemy = EnemyInput(
@@ -377,20 +389,26 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
     selected_inputs = tuple(
         SelectedTriggerInput(
             input_id=str(item.get("input_id", "")),
-            actor_id=(str(item["actor_id"]) if item.get("actor_id") is not None else None),
+            actor_id=(
+                str(item["actor_id"]) if item.get("actor_id") is not None else None
+            ),
         )
         for item in selected
         if isinstance(item, Mapping)
     )
     if len(selected_inputs) != len(selected):
         raise ValueError("selected trigger input must be an object")
-    if any(item.actor_id is None or not item.actor_id.strip() for item in selected_inputs):
+    if any(
+        item.actor_id is None or not item.actor_id.strip() for item in selected_inputs
+    ):
         raise ValueError(
             "an unspecified trigger must be omitted instead of sending an empty actor"
         )
     selected_conditions = payload.get("condition_values", {})
     selected_parameters = payload.get("parameter_values", {})
-    if not isinstance(selected_conditions, Mapping) or not isinstance(selected_parameters, Mapping):
+    if not isinstance(selected_conditions, Mapping) or not isinstance(
+        selected_parameters, Mapping
+    ):
         raise ValueError("condition_values and parameter_values must be objects")
     move_entry_id = str(payload.get("move_entry_id", ""))
     if not move_entry_id.strip():
@@ -403,10 +421,55 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
         enemy=enemy,
         selected_condition_values=selected_conditions,
         selected_parameter_values=selected_parameters,
-        enabled_rule_item_ids=frozenset(str(item) for item in payload.get("enabled_rule_item_ids", ())),
+        enabled_rule_item_ids=frozenset(
+            str(item) for item in payload.get("enabled_rule_item_ids", ())
+        ),
         selected_trigger_inputs=selected_inputs,
-        rule_stack_counts={str(key): int(value) for key, value in payload.get("rule_stack_counts", {}).items()} if isinstance(payload.get("rule_stack_counts", {}), Mapping) else {},
+        rule_stack_counts=(
+            {
+                str(key): int(value)
+                for key, value in payload.get("rule_stack_counts", {}).items()
+            }
+            if isinstance(payload.get("rule_stack_counts", {}), Mapping)
+            else {}
+        ),
     )
+
+
+def _parse_drive_discs(raw_value: object) -> tuple[EquippedDriveDisc, ...]:
+    if not isinstance(raw_value, Sequence) or isinstance(raw_value, (str, bytes)):
+        raise ValueError("drive_discs must be an array")
+    discs = []
+    for raw in raw_value:
+        if not isinstance(raw, Mapping):
+            raise ValueError("Drive Disc must be an object")
+        raw_substats = raw.get("substats", ())
+        if not isinstance(raw_substats, Sequence) or isinstance(
+            raw_substats,
+            (str, bytes),
+        ):
+            raise ValueError("Drive Disc substats must be an array")
+        substats = []
+        for item in raw_substats:
+            if not isinstance(item, Mapping):
+                raise ValueError("Drive Disc substat must be an object")
+            substats.append(
+                DriveDiscSubstatRoll(
+                    DriveDiscStatKey(str(item.get("stat", ""))),
+                    int(item.get("roll_count", 0)),
+                )
+            )
+        discs.append(
+            EquippedDriveDisc(
+                slot=DriveDiscSlot(int(raw.get("slot", 0))),
+                set_id=stable_set_id(
+                    str(raw.get("set_id", "")).removeprefix("drive-disc:")
+                ),
+                main_stat=DriveDiscStatKey(str(raw.get("main_stat", ""))),
+                substats=tuple(substats),
+            )
+        )
+    return tuple(discs)
 
 
 def _build_records(
@@ -438,9 +501,9 @@ def _build_records(
         if build.base_stats is None:
             raise ValueError(f"equipment build base_stats is missing: {character_id}")
         base_stats = _character_stats(build.base_stats, character_id)
-        rule_items = ()
-        conditions = ()
-        contributions = ()
+        rule_items: tuple[CalculationRuleItem, ...] = ()
+        conditions: tuple[ScenarioCondition, ...] = ()
+        contributions: tuple[BuildStatContribution, ...] = ()
         if build.wengine_id is not None:
             wengine = compile_wengine(
                 WEngineBuildInput(
@@ -457,6 +520,17 @@ def _build_records(
             contributions = wengine.contributions
             rule_items = wengine.rule_items
             conditions = wengine.scenario_conditions
+        if build.drive_discs:
+            drive = compile_drive_discs(
+                DriveDiscBuildInput(character_id, build.drive_discs),
+                owner_capabilities=registration.equipment_capabilities,
+            )
+            if not drive.complete:
+                messages = "; ".join(item.message for item in drive.diagnostics)
+                raise ValueError(messages)
+            contributions = (*contributions, *drive.contributions)
+            rule_items = (*rule_items, *drive.rule_items)
+            conditions = (*conditions, *drive.scenario_conditions)
         resolved_build = assemble_build(
             CharacterBuildDefinition(
                 character_id=character_id,
@@ -469,7 +543,9 @@ def _build_records(
         )
         if not resolved_build.complete:
             messages = "; ".join(item.message for item in resolved_build.diagnostics)
-            raise ValueError(messages or f"equipment build is unresolved: {character_id}")
+            raise ValueError(
+                messages or f"equipment build is unresolved: {character_id}"
+            )
         records.append(
             _BuiltCharacterRecord(
                 snapshot=resolved_build.character_snapshot,
@@ -482,16 +558,18 @@ def _build_records(
     return tuple(records)
 
 
-def _character_stats(raw: Mapping[str, Any], character_id: CharacterId) -> CharacterStats:
+def _character_stats(
+    raw: Mapping[str, Any], character_id: CharacterId
+) -> CharacterStats:
     values = dict(raw)
     element_bonus = raw.get("element_damage_bonus", {})
     if not isinstance(element_bonus, Mapping):
         raise ValueError(f"element_damage_bonus must be an object: {character_id}")
     bonuses = {
-        _element(key): Resolved(float(value))
-        for key, value in element_bonus.items()
+        _element(key): Resolved(float(value)) for key, value in element_bonus.items()
     }
     bonuses.setdefault(registration_for(character_id).base_element, Resolved(0.0))
+
     def stat(name: str):
         if name in values:
             return Resolved(float(values[name]))
@@ -556,7 +634,9 @@ def _scenario(
 ) -> CalculationScenario:
     condition_values = payload.get("condition_values", {})
     parameter_values = payload.get("parameter_values", {})
-    if not isinstance(condition_values, Mapping) or not isinstance(parameter_values, Mapping):
+    if not isinstance(condition_values, Mapping) or not isinstance(
+        parameter_values, Mapping
+    ):
         raise ValueError("condition_values and parameter_values must be objects")
     known_condition_ids = {
         condition.condition_id
@@ -571,10 +651,14 @@ def _scenario(
         for definition in definitions
         for parameter in definition.scenario_parameters
     }
-    unknown_conditions = set(condition_values) - {str(item) for item in known_condition_ids}
+    unknown_conditions = set(condition_values) - {
+        str(item) for item in known_condition_ids
+    }
     if unknown_conditions:
         raise ValueError(f"unknown scenario conditions: {sorted(unknown_conditions)}")
-    unknown_parameters = set(parameter_values) - {str(item) for item in known_parameter_ids}
+    unknown_parameters = set(parameter_values) - {
+        str(item) for item in known_parameter_ids
+    }
     if unknown_parameters:
         raise ValueError(f"unknown scenario parameters: {sorted(unknown_parameters)}")
     static_condition_values = {
@@ -608,7 +692,9 @@ def _scenario(
                 conditions.append(
                     replace(
                         condition,
-                        value=condition_values.get(str(condition.condition_id), condition.value),
+                        value=condition_values.get(
+                            str(condition.condition_id), condition.value
+                        ),
                     )
                 )
         for parameter in definition.scenario_parameters:
@@ -617,7 +703,9 @@ def _scenario(
             parameters.append(
                 replace(
                     parameter,
-                    value=parameter_values.get(str(parameter.parameter_id), parameter.value),
+                    value=parameter_values.get(
+                        str(parameter.parameter_id), parameter.value
+                    ),
                 )
             )
     for condition in additional_scenario_conditions:
@@ -636,10 +724,16 @@ def _scenario(
             )
     for condition_id, value in condition_values.items():
         if value is not None and not isinstance(value, bool):
-            raise ValueError(f"scenario condition must be boolean or null: {condition_id}")
+            raise ValueError(
+                f"scenario condition must be boolean or null: {condition_id}"
+            )
     for parameter_id, value in parameter_values.items():
-        if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-            raise ValueError(f"scenario parameter must be integer or null: {parameter_id}")
+        if value is not None and (
+            isinstance(value, bool) or not isinstance(value, int)
+        ):
+            raise ValueError(
+                f"scenario parameter must be integer or null: {parameter_id}"
+            )
     trigger_facts = []
     trigger_inputs = payload.get("selected_trigger_inputs", ())
     if not isinstance(trigger_inputs, (list, tuple)):

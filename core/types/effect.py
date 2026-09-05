@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from .calculation_node import CalculationNode
@@ -98,6 +99,31 @@ class RuleStackCondition:
             raise ValueError("rule stack condition enabled flag must be boolean")
 
 
+@dataclass(frozen=True, slots=True)
+class PanelStatThresholdCondition:
+    """Compare one explicit initial/current panel node with a threshold."""
+
+    source_character_id: CharacterId
+    source_node: CalculationNode
+    minimum: float
+    kind: Literal["panel-stat-threshold"] = field(
+        default="panel-stat-threshold",
+        init=False,
+    )
+
+    def __post_init__(self) -> None:
+        if not str(self.source_character_id):
+            raise ValueError("panel threshold source character is required")
+        if self.source_node not in {
+            CalculationNode.CHARACTER_INITIAL_DEFENSE,
+            CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
+            CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+        }:
+            raise ValueError("unsupported panel threshold node")
+        if not math.isfinite(self.minimum):
+            raise ValueError("panel threshold minimum must be finite")
+
+
 Condition: TypeAlias = (
     AlwaysCondition
     | AllCondition
@@ -106,6 +132,7 @@ Condition: TypeAlias = (
     | StatePresentCondition
     | DynamicIdentityCondition
     | RuleStackCondition
+    | PanelStatThresholdCondition
     | Unresolved
 )
 

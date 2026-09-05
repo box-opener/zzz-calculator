@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/32200.json",
+  "id": 32200,
+  "name": "炎狱重金属",
+  "desc2": "<color=#FF5521>火属性伤害</color>+10%。",
+  "desc4": "攻击命中处于<color=#FF5521>[灼烧]</color>状态下的敌人时，装备者的暴击率提升28%，持续8秒。",
+  "story": "使用特定以太技术刻录出的驱动盘，能够针对性地为装配者提供属性增幅。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitInfernoMetal.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitInfernoMetal.png"
+}

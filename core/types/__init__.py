@@ -58,6 +58,7 @@ from .common import (
     CharacterId,
     CharacterRef,
     DamageEventId,
+    DriveDiscSetId,
     EffectId,
     EnemyId,
     EnemyRef,
@@ -133,6 +134,7 @@ from .effect import (
     NotFilter,
     OperationStateFilter,
     PanelStatDerivedValue,
+    PanelStatThresholdCondition,
     RuleStackCondition,
     SkillGroupFilter,
     StateChangeEffect,
@@ -175,3 +177,13 @@ from .vulnerability import (
     VulnerabilitySettlementPolicy,
 )
 from .wengine import EquipmentOwnerCapabilities, WEngineBuildInput
+from .drive_disc import (
+    DRIVE_DISC_MAIN_STATS_BY_SLOT,
+    DRIVE_DISC_MAIN_STAT_VALUES,
+    DRIVE_DISC_SUBSTAT_VALUES,
+    DriveDiscBuildInput,
+    DriveDiscSlot,
+    DriveDiscStatKey,
+    DriveDiscSubstatRoll,
+    EquippedDriveDisc,
+)

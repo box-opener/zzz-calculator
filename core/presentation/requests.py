@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 import math
 
-from core.types import BuildMode
+from core.types import BuildMode, EquippedDriveDisc
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +19,7 @@ class CharacterBuildInput:
     wengine_id: str | None = None
     wengine_level: int = 60
     wengine_refinement: int = 1
+    drive_discs: tuple[EquippedDriveDisc, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.character_id.strip():
@@ -29,9 +30,12 @@ class CharacterBuildInput:
             raise ValueError("W-Engine level must be between 1 and 60")
         if not 1 <= self.wengine_refinement <= 5:
             raise ValueError("W-Engine refinement must be between 1 and 5")
-        if self.build_mode is BuildMode.MANUAL_PANEL and self.wengine_id is not None:
-            raise ValueError("manual panel build cannot define a W-Engine")
+        if self.build_mode is BuildMode.MANUAL_PANEL and (
+            self.wengine_id is not None or self.drive_discs
+        ):
+            raise ValueError("manual panel build cannot define equipment")
         for key, value in self.out_of_combat_stats.items():
+            values: Iterable[object]
             if key == "element_damage_bonus":
                 if not isinstance(value, Mapping):
                     raise ValueError("element_damage_bonus must be an object")
@@ -45,15 +49,16 @@ class CharacterBuildInput:
                 raise ValueError("character build stats must be finite numbers")
         if self.base_stats is not None:
             for key, value in self.base_stats.items():
+                base_values: Iterable[object]
                 if key == "element_damage_bonus":
                     if not isinstance(value, Mapping):
                         raise ValueError("base element_damage_bonus must be an object")
-                    values = value.values()
+                    base_values = value.values()
                 else:
-                    values = (value,)
+                    base_values = (value,)
                 if any(
                     not isinstance(item, (int, float)) or not math.isfinite(float(item))
-                    for item in values
+                    for item in base_values
                 ):
                     raise ValueError("base character stats must be finite numbers")
 
@@ -75,7 +80,11 @@ class EnemyInput:
             raise ValueError("enemy level must be between 1 and 80")
         if self.initial_defense < 0:
             raise ValueError("initial_defense must be non-negative")
-        numeric_values = (*self.damage_resistance.values(), self.damage_reduction, self.stun_vulnerability_bonus)
+        numeric_values = (
+            *self.damage_resistance.values(),
+            self.damage_reduction,
+            self.stun_vulnerability_bonus,
+        )
         if any(not math.isfinite(float(value)) for value in numeric_values):
             raise ValueError("enemy values must be finite numbers")
 

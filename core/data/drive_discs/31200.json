@@ -1,0 +1,13 @@
+{
+  "schema_version": "nanoka-drive-disc-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/equipment/31200.json",
+  "id": 31200,
+  "name": "震星迪斯科",
+  "desc2": "冲击力+6%。",
+  "desc4": "<color=#FFFFFF>[普通攻击]</color>、<color=#FFFFFF>[冲刺攻击]</color>、<color=#FFFFFF>[闪避反击]</color>对主要攻击目标造成的失衡值提升20%。",
+  "story": "专门在与音擎的兼容性上做了算法优化的驱动盘，能够更好地发挥辅助功能。",
+  "icon": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitShockstarDisco.png",
+  "icon2": "UI/Sprite/A1DynamicLoad/IconSuit/UnPacker/SuitShockstarDisco.png"
+}

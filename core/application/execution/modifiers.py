@@ -23,6 +23,7 @@ from core.types import (
     EffectTarget,
     InitialCharacterSnapshot,
     PanelStatDerivedValue,
+    PanelStatThresholdCondition,
     Resolved,
     RuleStackCondition,
     NotCondition,
@@ -305,6 +306,7 @@ def apply_global_panel_effects(
     snapshots = tuple(base_character_snapshots)
     applied_ids: set[EffectId] = set()
     traces: list[PanelModifierExecutionTrace] = []
+    applied_non_stacking_groups: set[str] = set()
     for rule in rule_items:
         if rule.rule_id not in scenario.enabled_rule_item_ids:
             continue
@@ -322,6 +324,10 @@ def apply_global_panel_effects(
         if trigger_status is not EffectMatchStatus.MATCHED:
             continue
         stack_count = _resolved_rule_stack(rule, scenario)
+        if rule.non_stacking_group_id is not None:
+            if rule.non_stacking_group_id in applied_non_stacking_groups:
+                continue
+            applied_non_stacking_groups.add(rule.non_stacking_group_id)
         for effect in rule.effects:
             if not isinstance(effect, ModifierEffect):
                 continue
@@ -332,6 +338,8 @@ def apply_global_panel_effects(
             effect_status, effect_diagnostics = _resolve_panel_effect_condition(
                 effect,
                 scenario,
+                initial_character_snapshots,
+                snapshots,
             )
             diagnostics.extend(effect_diagnostics)
             if effect_status is not EffectMatchStatus.MATCHED:
@@ -404,13 +412,21 @@ def _resolve_rule_trigger(
 def _resolve_panel_effect_condition(
     effect: ModifierEffect,
     scenario: CalculationScenario,
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...],
+    current_character_snapshots: tuple[CharacterSnapshot, ...],
 ) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
     condition = effect.rule.condition
     if condition is None or isinstance(condition, AlwaysCondition):
         return EffectMatchStatus.MATCHED, ()
     if isinstance(condition, AllCondition):
         evaluations = tuple(
-            _resolve_panel_condition(item, effect.rule.effect_id, scenario)
+            _resolve_panel_condition(
+                item,
+                effect.rule.effect_id,
+                scenario,
+                initial_character_snapshots,
+                current_character_snapshots,
+            )
             for item in condition.conditions
         )
         if any(status is EffectMatchStatus.NOT_MATCHED for status, _ in evaluations):
@@ -424,7 +440,13 @@ def _resolve_panel_effect_condition(
         return EffectMatchStatus.MATCHED, ()
     if isinstance(condition, AnyCondition):
         evaluations = tuple(
-            _resolve_panel_condition(item, effect.rule.effect_id, scenario)
+            _resolve_panel_condition(
+                item,
+                effect.rule.effect_id,
+                scenario,
+                initial_character_snapshots,
+                current_character_snapshots,
+            )
             for item in condition.conditions
         )
         if any(status is EffectMatchStatus.MATCHED for status, _ in evaluations):
@@ -441,29 +463,39 @@ def _resolve_panel_effect_condition(
             condition.condition,
             effect.rule.effect_id,
             scenario,
+            initial_character_snapshots,
+            current_character_snapshots,
         )
         if status is EffectMatchStatus.MATCHED:
             return EffectMatchStatus.NOT_MATCHED, diagnostics
         if status is EffectMatchStatus.NOT_MATCHED:
             return EffectMatchStatus.MATCHED, diagnostics
         return status, diagnostics
-    return _resolve_panel_condition(condition, effect.rule.effect_id, scenario)
+    return _resolve_panel_condition(
+        condition,
+        effect.rule.effect_id,
+        scenario,
+        initial_character_snapshots,
+        current_character_snapshots,
+    )
 
 
 def _resolve_panel_condition(
     condition,
     effect_id: EffectId,
     scenario: CalculationScenario,
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = (),
+    current_character_snapshots: tuple[CharacterSnapshot, ...] = (),
 ) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
     if condition is None or isinstance(condition, AlwaysCondition):
         return EffectMatchStatus.MATCHED, ()
     if isinstance(condition, RuleStackCondition):
         if (
             condition.requires_rule_enabled
-            and condition.rule_item_id not in scenario.enabled_rule_item_ids
+            and RuleItemId(condition.rule_item_id) not in scenario.enabled_rule_item_ids
         ):
             return EffectMatchStatus.NOT_MATCHED, ()
-        selected = scenario.selected_stack(condition.rule_item_id)
+        selected = scenario.selected_stack(RuleItemId(condition.rule_item_id))
         if selected is None:
             return (
                 EffectMatchStatus.BLOCKED,
@@ -477,9 +509,61 @@ def _resolve_panel_condition(
                 ),
             )
         return (
-            EffectMatchStatus.MATCHED
-            if selected == condition.required_value
-            else EffectMatchStatus.NOT_MATCHED,
+            (
+                EffectMatchStatus.MATCHED
+                if selected == condition.required_value
+                else EffectMatchStatus.NOT_MATCHED
+            ),
+            (),
+        )
+    if isinstance(condition, PanelStatThresholdCondition):
+        if condition.source_node is CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
+            current_snapshot = next(
+                (
+                    item
+                    for item in current_character_snapshots
+                    if item.character_id == condition.source_character_id
+                ),
+                None,
+            )
+            value = (
+                current_snapshot.settlement_stats.crit_rate
+                if current_snapshot is not None
+                else None
+            )
+        else:
+            initial_snapshot = next(
+                (
+                    item
+                    for item in initial_character_snapshots
+                    if item.character_id == condition.source_character_id
+                ),
+                None,
+            )
+            if initial_snapshot is None:
+                value = None
+            elif condition.source_node is CalculationNode.CHARACTER_INITIAL_DEFENSE:
+                value = initial_snapshot.initial_stats.defense
+            else:
+                value = initial_snapshot.initial_stats.anomaly_mastery
+        if not isinstance(value, Resolved):
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    _diagnostic(
+                        str(effect_id),
+                        "missing-panel-threshold-value",
+                        DiagnosticKind.MISSING_DATA,
+                        f"missing resolved panel value for {condition.source_node.value}",
+                    ),
+                ),
+            )
+        return (
+            (
+                EffectMatchStatus.MATCHED
+                if float(value.value) >= condition.minimum
+                else EffectMatchStatus.NOT_MATCHED
+            ),
             (),
         )
     return (
@@ -579,8 +663,7 @@ def _panel_recipients(
         return tuple(
             item.character_id
             for item in snapshots
-            if team_character_ids is None
-            or item.character_id in team_character_ids
+            if team_character_ids is None or item.character_id in team_character_ids
         )
     return ()
 
@@ -665,10 +748,15 @@ def _is_recipient_panel_effect(effect: ModifierEffect) -> bool:
 
 
 def _is_event_independent_condition(condition) -> bool:
-    if condition is None or isinstance(condition, (AlwaysCondition, RuleStackCondition)):
+    if condition is None or isinstance(
+        condition,
+        (AlwaysCondition, RuleStackCondition, PanelStatThresholdCondition),
+    ):
         return True
     if isinstance(condition, (AllCondition, AnyCondition)):
-        return all(_is_event_independent_condition(item) for item in condition.conditions)
+        return all(
+            _is_event_independent_condition(item) for item in condition.conditions
+        )
     if isinstance(condition, NotCondition):
         return _is_event_independent_condition(condition.condition)
     return False
@@ -935,7 +1023,9 @@ def _apply_panel_effects(
                 effect.result.modifier_path
                 is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
             )
-            current = updated_stats.crit_rate if is_crit_rate else updated_stats.crit_damage
+            current = (
+                updated_stats.crit_rate if is_crit_rate else updated_stats.crit_damage
+            )
             if isinstance(current, Unresolved):
                 diagnostics.append(
                     _diagnostic(
@@ -953,11 +1043,7 @@ def _apply_panel_effects(
             updated_stats = replace(
                 updated_stats,
                 **(
-                    {
-                        "crit_rate": Resolved(
-                            current.value + value.value * stack_count
-                        )
-                    }
+                    {"crit_rate": Resolved(current.value + value.value * stack_count)}
                     if is_crit_rate
                     else {
                         "crit_damage": Resolved(
@@ -971,7 +1057,9 @@ def _apply_panel_effects(
                 PanelModifierExecutionTrace(
                     recipient_character_id=recipient,
                     owner_character_id=effect.rule.owner,
-                    rule_item_id=(rule_item_id_by_effect or {}).get(effect.rule.effect_id),
+                    rule_item_id=(rule_item_id_by_effect or {}).get(
+                        effect.rule.effect_id
+                    ),
                     effect_id=effect.rule.effect_id,
                     modifier_path=effect.result.modifier_path,
                     operation=effect.result.operation,
@@ -979,7 +1067,10 @@ def _apply_panel_effects(
                     stack_count=stack_count,
                 )
             )
-        elif effect.result.modifier_path is CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS:
+        elif (
+            effect.result.modifier_path
+            is CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS
+        ):
             current = updated_stats.attack
             if isinstance(current, Unresolved):
                 diagnostics.append(
@@ -1000,7 +1091,9 @@ def _apply_panel_effects(
                 PanelModifierExecutionTrace(
                     recipient_character_id=recipient,
                     owner_character_id=effect.rule.owner,
-                    rule_item_id=(rule_item_id_by_effect or {}).get(effect.rule.effect_id),
+                    rule_item_id=(rule_item_id_by_effect or {}).get(
+                        effect.rule.effect_id
+                    ),
                     effect_id=effect.rule.effect_id,
                     modifier_path=effect.result.modifier_path,
                     operation=effect.result.operation,
@@ -1008,7 +1101,10 @@ def _apply_panel_effects(
                     stack_count=stack_count,
                 )
             )
-        elif effect.result.modifier_path is CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS:
+        elif (
+            effect.result.modifier_path
+            is CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS
+        ):
             initial = next(
                 (
                     item
@@ -1050,7 +1146,9 @@ def _apply_panel_effects(
                 PanelModifierExecutionTrace(
                     recipient_character_id=recipient,
                     owner_character_id=effect.rule.owner,
-                    rule_item_id=(rule_item_id_by_effect or {}).get(effect.rule.effect_id),
+                    rule_item_id=(rule_item_id_by_effect or {}).get(
+                        effect.rule.effect_id
+                    ),
                     effect_id=effect.rule.effect_id,
                     modifier_path=effect.result.modifier_path,
                     operation=effect.result.operation,

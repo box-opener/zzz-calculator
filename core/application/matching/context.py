@@ -12,6 +12,7 @@ from core.types import (
     EffectId,
     EnemyId,
     FieldPosition,
+    InitialCharacterSnapshot,
     MoveId,
     OperationState,
     StateId,
@@ -52,6 +53,7 @@ class EffectMatchContext:
     scenario: CalculationScenario
     team: tuple[CharacterMatchProfile, ...]
     target: EnemyMatchProfile
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = ()
     created_by_effect_id: EffectId | None = None
 
     def __post_init__(self) -> None:
@@ -71,6 +73,15 @@ class EffectMatchContext:
             raise ValueError("team character IDs must be unique")
         if self.scenario.current_operator not in set(character_ids):
             raise ValueError("current_operator must be a team member")
+        initial_ids = tuple(
+            item.character_id for item in self.initial_character_snapshots
+        )
+        if len(set(initial_ids)) != len(initial_ids):
+            raise ValueError("initial character snapshot IDs must be unique")
+        if not set(initial_ids).issubset(set(character_ids)):
+            raise ValueError(
+                "initial character snapshots must belong to the active team"
+            )
 
     @property
     def current_operator(self) -> CharacterId:

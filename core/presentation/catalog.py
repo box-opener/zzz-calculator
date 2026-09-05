@@ -42,6 +42,48 @@ class WEngineCatalogItem:
             raise ValueError("catalog W-Engine icon_key is required")
 
 
+@dataclass(frozen=True, slots=True)
+class DriveDiscCatalogItem:
+    set_id: str
+    display_name: str
+    icon_path: str
+    two_piece_text: str
+    four_piece_text: str
+    two_piece_disposition: str
+    four_piece_disposition: str
+    ignored_two_piece_reason: str | None = None
+    ignored_four_piece_reason: str | None = None
+
+
+def supported_drive_disc_catalog() -> tuple[DriveDiscCatalogItem, ...]:
+    from core.application.equipment import (
+        DRIVE_DISC_REVIEWED_MAPPINGS,
+        load_drive_disc_raw_record,
+        stable_set_id,
+    )
+    from core.data.drive_discs.loader import DRIVE_DISC_SET_IDS
+
+    items = []
+    for raw_id in DRIVE_DISC_SET_IDS:
+        raw = load_drive_disc_raw_record(stable_set_id(raw_id))
+        reviewed = DRIVE_DISC_REVIEWED_MAPPINGS[raw_id]
+        icon_name = raw.icon.rsplit("/", 1)[-1].removesuffix(".png")
+        items.append(
+            DriveDiscCatalogItem(
+                set_id=str(raw.set_id),
+                display_name=raw.name,
+                icon_path=f"/drive-discs/{icon_name}.webp",
+                two_piece_text=raw.two_piece_text,
+                four_piece_text=raw.four_piece_text,
+                two_piece_disposition=reviewed.two_piece_disposition.value,
+                four_piece_disposition=reviewed.four_piece_disposition.value,
+                ignored_two_piece_reason=reviewed.ignored_two_piece_reason,
+                ignored_four_piece_reason=reviewed.ignored_four_piece_reason,
+            )
+        )
+    return tuple(items)
+
+
 def supported_character_catalog() -> tuple[CharacterCatalogItem, ...]:
     from .registry import supported_character_registrations
 
@@ -83,7 +125,9 @@ def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:
 
 __all__ = [
     "CharacterCatalogItem",
+    "DriveDiscCatalogItem",
     "WEngineCatalogItem",
     "supported_character_catalog",
+    "supported_drive_disc_catalog",
     "supported_wengine_catalog",
 ]

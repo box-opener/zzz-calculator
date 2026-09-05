@@ -2,19 +2,23 @@
 
 from .assembler import (
     build_character_editor_view,
+    build_drive_disc_editor_view,
     build_move_calculation_view,
     build_wengine_editor_view,
 )
 from .catalog import (
     CharacterCatalogItem,
+    DriveDiscCatalogItem,
     WEngineCatalogItem,
     supported_character_catalog,
+    supported_drive_disc_catalog,
     supported_wengine_catalog,
 )
 from .character_editor import (
     CharacterEditorView,
     CompileConfigFieldView,
     WEngineEditorView,
+    DriveDiscEditorView,
 )
 from .calculation import (
     CalculationView,
@@ -26,6 +30,7 @@ from .requests import CharacterBuildInput, EnemyInput, MoveCalculationViewReques
 from .registry import (
     CharacterPresentationRegistration,
     build_registered_editor_view,
+    build_registered_drive_disc_editor_view,
     build_registered_wengine_editor_view,
     compile_registered_definition,
     config_fields_for,
@@ -37,25 +42,30 @@ __all__ = [
     "CalculationView",
     "CharacterBuildInput",
     "CharacterCatalogItem",
+    "DriveDiscCatalogItem",
     "WEngineCatalogItem",
     "CharacterEditorView",
     "CompileConfigFieldView",
     "WEngineEditorView",
+    "DriveDiscEditorView",
     "DamageEventModeView",
     "DamageEventView",
     "EnemyInput",
     "MoveCalculationView",
     "MoveCalculationViewRequest",
     "build_character_editor_view",
+    "build_drive_disc_editor_view",
     "build_move_calculation_view",
     "build_wengine_editor_view",
     "CharacterPresentationRegistration",
     "build_registered_editor_view",
+    "build_registered_drive_disc_editor_view",
     "build_registered_wengine_editor_view",
     "compile_registered_definition",
     "config_fields_for",
     "registration_for",
     "supported_character_registrations",
     "supported_character_catalog",
+    "supported_drive_disc_catalog",
     "supported_wengine_catalog",
 ]

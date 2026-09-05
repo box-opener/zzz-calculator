@@ -474,15 +474,24 @@ def _matched_effects(
     scenario,
 ) -> tuple[MatchedEffectApplication, ...]:
     rules = {item.rule_id: item for item in rule_items}
-    return tuple(
-        MatchedEffectApplication(
-            effect=effect,
-            rule_item_id=item.rule_id,
-            stack_count=_resolved_stack_count(rules[item.rule_id], scenario),
+    applications: list[MatchedEffectApplication] = []
+    seen_non_stacking_groups: set[str] = set()
+    for item in matches:
+        rule = rules[item.rule_id]
+        group_id = rule.non_stacking_group_id
+        if item.matched_effects and group_id is not None:
+            if group_id in seen_non_stacking_groups:
+                continue
+            seen_non_stacking_groups.add(group_id)
+        applications.extend(
+            MatchedEffectApplication(
+                effect=effect,
+                rule_item_id=item.rule_id,
+                stack_count=_resolved_stack_count(rule, scenario),
+            )
+            for effect in item.matched_effects
         )
-        for item in matches
-        for effect in item.matched_effects
-    )
+    return tuple(applications)
 
 
 def _matched_event_creations(
@@ -518,9 +527,7 @@ def _materialize_rule_stack_defaults(
 ):
     """Make compiled defaults explicit before matcher predicates run."""
 
-    selected = {
-        item.rule_item_id for item in scenario.rule_stack_counts
-    }
+    selected = {item.rule_item_id for item in scenario.rule_stack_counts}
     defaults = tuple(
         ScenarioRuleStack(rule.rule_id, rule.stack_count)
         for rule in rule_items
@@ -588,6 +595,7 @@ def _match_context(
         scenario=request.scenario,
         team=request.team_profiles,
         target=request.target_profile,
+        initial_character_snapshots=request.initial_character_snapshots,
         created_by_effect_id=created_by_effect_id,
     )
 
@@ -686,13 +694,10 @@ def _apply_event_stat_modifiers(
             settlement_stats=replace(
                 target.settlement_stats,
                 **(
-                    {
-                        "crit_rate": Resolved(current.value + modifier.value.value)
-                    }
-                    if modifier.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
-                    else {
-                        "crit_damage": Resolved(current.value + modifier.value.value)
-                    }
+                    {"crit_rate": Resolved(current.value + modifier.value.value)}
+                    if modifier.modifier_path
+                    is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
+                    else {"crit_damage": Resolved(current.value + modifier.value.value)}
                 ),
             ),
         )

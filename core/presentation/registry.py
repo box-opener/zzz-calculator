@@ -27,8 +27,21 @@ from core.types import (
     SkillGroup,
 )
 from core.application.scenario import CalculationScenario
-from core.application.equipment import compile_wengine, load_wengine_raw_record
-from core.types import WEngineBuildInput, WEngineId
+from core.application.equipment import (
+    compile_drive_discs,
+    compile_wengine,
+    load_wengine_raw_record,
+    stable_set_id,
+)
+from core.types import (
+    DriveDiscBuildInput,
+    DriveDiscSlot,
+    DriveDiscStatKey,
+    DriveDiscSubstatRoll,
+    EquippedDriveDisc,
+    WEngineBuildInput,
+    WEngineId,
+)
 
 from core.data.loader import load_character_record
 
@@ -160,7 +173,9 @@ _SKILL_GROUP_LABELS = {
 }
 
 
-def _skill_level_fields(values: Mapping[str, Any]) -> tuple[CompileConfigFieldView, ...]:
+def _skill_level_fields(
+    values: Mapping[str, Any]
+) -> tuple[CompileConfigFieldView, ...]:
     selected = values.get("skill_levels", {})
     if selected is None:
         selected = {}
@@ -235,13 +250,21 @@ def _boolean(values: Mapping[str, Any], field_id: str) -> bool:
 def _integer_with_default(
     values: Mapping[str, Any], field_id: str, default: int, strict: bool
 ) -> int:
-    return _integer(values, field_id) if strict else _integer({field_id: values.get(field_id, default)}, field_id)
+    return (
+        _integer(values, field_id)
+        if strict
+        else _integer({field_id: values.get(field_id, default)}, field_id)
+    )
 
 
 def _boolean_with_default(
     values: Mapping[str, Any], field_id: str, default: bool, strict: bool
 ) -> bool:
-    return _boolean(values, field_id) if strict else _boolean({field_id: values.get(field_id, default)}, field_id)
+    return (
+        _boolean(values, field_id)
+        if strict
+        else _boolean({field_id: values.get(field_id, default)}, field_id)
+    )
 
 
 def _compile_ye(
@@ -251,20 +274,39 @@ def _compile_ye(
 ) -> CharacterCalculationDefinition:
     _allowed(
         values,
-        frozenset({"core_level", "cinema_level", "mingxin_active", "entry_move_uses_linren", "skill_levels"}),
+        frozenset(
+            {
+                "core_level",
+                "cinema_level",
+                "mingxin_active",
+                "entry_move_uses_linren",
+                "skill_levels",
+            }
+        ),
     )
     if strict:
         _required(
             values,
-            frozenset({"core_level", "cinema_level", "mingxin_active", "entry_move_uses_linren"}),
+            frozenset(
+                {
+                    "core_level",
+                    "cinema_level",
+                    "mingxin_active",
+                    "entry_move_uses_linren",
+                }
+            ),
         )
     return compile_ye_shunguang(
         YeShunguangCompileConfig(
             skill_levels=_skill_levels(values),
             core_level=_integer_with_default(values, "core_level", 1, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
-            mingxin_active=_boolean_with_default(values, "mingxin_active", False, strict),
-            entry_move_uses_linren=_boolean_with_default(values, "entry_move_uses_linren", False, strict),
+            mingxin_active=_boolean_with_default(
+                values, "mingxin_active", False, strict
+            ),
+            entry_move_uses_linren=_boolean_with_default(
+                values, "entry_move_uses_linren", False, strict
+            ),
         ),
         load_ye_raw_record(load_character_record("character:1431")),
     )
@@ -352,11 +394,15 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
 }
 
 
-def supported_character_registrations() -> tuple[CharacterPresentationRegistration, ...]:
+def supported_character_registrations() -> (
+    tuple[CharacterPresentationRegistration, ...]
+):
     return tuple(_REGISTRATIONS.values())
 
 
-def registration_for(character_id: str | CharacterId) -> CharacterPresentationRegistration:
+def registration_for(
+    character_id: str | CharacterId,
+) -> CharacterPresentationRegistration:
     try:
         return _REGISTRATIONS[CharacterId(str(character_id))]
     except KeyError as exc:
@@ -408,11 +454,13 @@ def build_registered_editor_view(
         raise ValueError("condition_values must be an object")
     selected = condition_values or {}
     scenario_conditions = tuple(
-        condition
-        if condition.resolution.value == "static"
-        else replace(
-            condition,
-            value=selected.get(str(condition.condition_id), condition.value),
+        (
+            condition
+            if condition.resolution.value == "static"
+            else replace(
+                condition,
+                value=selected.get(str(condition.condition_id), condition.value),
+            )
         )
         for condition in definition.scenario_conditions
     )
@@ -459,9 +507,7 @@ def build_registered_wengine_editor_view(
         if dict(condition_context) != dict(condition_values):
             raise ValueError("condition_context and condition_values disagree")
     supplied_context = (
-        condition_context
-        if condition_context is not None
-        else condition_values
+        condition_context if condition_context is not None else condition_values
     )
     if supplied_context is None:
         raw_values: Mapping[str, bool | None] = {}
@@ -490,11 +536,13 @@ def build_registered_wengine_editor_view(
     ):
         raise ValueError("W-Engine scenario conditions must be boolean or null")
     conditions = tuple(
-        condition
-        if condition.resolution.value == "static"
-        else replace(
-            condition,
-            value=selected_values.get(str(condition.condition_id), condition.value),
+        (
+            condition
+            if condition.resolution.value == "static"
+            else replace(
+                condition,
+                value=selected_values.get(str(condition.condition_id), condition.value),
+            )
         )
         for condition in resolution.scenario_conditions
     )
@@ -513,11 +561,84 @@ def build_registered_wengine_editor_view(
     )
 
 
+def build_registered_drive_disc_editor_view(
+    equipped_character_id: str | CharacterId,
+    discs: Sequence[Mapping[str, object]],
+    *,
+    team_character_ids: Sequence[str | CharacterId] = (),
+    condition_context: Mapping[str, bool | None] | None = None,
+):
+    """Build an owner-qualified editor view for one six-slot configuration."""
+
+    owner = CharacterId(str(equipped_character_id))
+    registration = registration_for(owner)
+    team_ids = tuple(CharacterId(str(item)) for item in team_character_ids) or (owner,)
+    if owner not in team_ids or len(set(team_ids)) != len(team_ids):
+        raise ValueError("Drive Disc owner must belong to a unique active team")
+    parsed = []
+    for raw in discs:
+        substats = raw.get("substats", ())
+        if not isinstance(substats, Sequence) or isinstance(substats, (str, bytes)):
+            raise ValueError("Drive Disc substats must be an array")
+        parsed.append(
+            EquippedDriveDisc(
+                slot=DriveDiscSlot(int(str(raw["slot"]))),
+                set_id=stable_set_id(str(raw["set_id"]).removeprefix("drive-disc:")),
+                main_stat=DriveDiscStatKey(str(raw["main_stat"])),
+                substats=tuple(
+                    DriveDiscSubstatRoll(
+                        DriveDiscStatKey(str(item["stat"])),
+                        int(str(item["roll_count"])),
+                    )
+                    for item in substats
+                    if isinstance(item, Mapping)
+                ),
+            )
+        )
+        if len(parsed[-1].substats) != len(substats):
+            raise ValueError("Drive Disc substat must be an object")
+    resolution = compile_drive_discs(
+        DriveDiscBuildInput(owner, tuple(parsed)),
+        owner_capabilities=registration.equipment_capabilities,
+    )
+    raw_context = dict(condition_context or {})
+    if any(
+        value is not None and not isinstance(value, bool)
+        for value in raw_context.values()
+    ):
+        raise ValueError("Drive Disc scenario conditions must be boolean or null")
+    conditions = tuple(
+        (
+            replace(
+                item,
+                value=raw_context.get(str(item.condition_id), item.value),
+            )
+            if item.resolution.value == "user-selected"
+            else item
+        )
+        for item in resolution.scenario_conditions
+    )
+    scenario = CalculationScenario(
+        scenario_id="drive-disc-preview",
+        current_operator=owner,
+        conditions=conditions,
+    )
+    from .assembler import build_drive_disc_editor_view
+
+    return build_drive_disc_editor_view(
+        resolution,
+        scenario=scenario,
+        team_character_ids=team_ids,
+        condition_context=raw_context,
+    )
+
+
 __all__ = [
     "CharacterPresentationRegistration",
     "compile_registered_definition",
     "config_fields_for",
     "build_registered_editor_view",
+    "build_registered_drive_disc_editor_view",
     "build_registered_wengine_editor_view",
     "registration_for",
     "supported_character_registrations",

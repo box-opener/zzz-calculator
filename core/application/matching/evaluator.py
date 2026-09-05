@@ -9,6 +9,7 @@ from core.types import (
     AnyFilter,
     CharacterFilter,
     CharacterRoleFilter,
+    CalculationNode,
     CreatedByEffectFilter,
     DamageSubtypeFilter,
     DamageTagFilter,
@@ -24,6 +25,8 @@ from core.types import (
     NotCondition,
     NotFilter,
     OperationStateFilter,
+    PanelStatThresholdCondition,
+    Resolved,
     StatePresentCondition,
     RuleStackCondition,
     SkillGroupFilter,
@@ -32,6 +35,7 @@ from core.types import (
 
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId
+from ..ids import RuleItemId
 from .context import EffectMatchContext
 from .identity import DynamicIdentityResolver
 from .result import EffectMatchStatus
@@ -220,10 +224,11 @@ def match_condition(
     if isinstance(condition, RuleStackCondition):
         if (
             condition.requires_rule_enabled
-            and condition.rule_item_id not in context.scenario.enabled_rule_item_ids
+            and RuleItemId(condition.rule_item_id)
+            not in context.scenario.enabled_rule_item_ids
         ):
             return EffectMatchStatus.NOT_MATCHED, ()
-        selected = context.scenario.selected_stack(condition.rule_item_id)
+        selected = context.scenario.selected_stack(RuleItemId(condition.rule_item_id))
         if selected is None:
             return (
                 EffectMatchStatus.BLOCKED,
@@ -241,6 +246,29 @@ def match_condition(
             (
                 EffectMatchStatus.MATCHED
                 if selected == condition.required_value
+                else EffectMatchStatus.NOT_MATCHED
+            ),
+            (),
+        )
+    if isinstance(condition, PanelStatThresholdCondition):
+        value = _panel_threshold_value(condition, context)
+        if value is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    diagnostic(
+                        effect_id,
+                        "missing-panel-threshold-value",
+                        DiagnosticKind.MISSING_DATA,
+                        f"missing resolved panel value for {condition.source_node.value}",
+                        blocking=True,
+                    ),
+                ),
+            )
+        return (
+            (
+                EffectMatchStatus.MATCHED
+                if value >= condition.minimum
                 else EffectMatchStatus.NOT_MATCHED
             ),
             (),
@@ -265,6 +293,42 @@ def match_condition(
             (),
         )
     raise TypeError(f"unsupported condition type: {type(condition).__name__}")
+
+
+def _panel_threshold_value(
+    condition: PanelStatThresholdCondition,
+    context: EffectMatchContext,
+) -> float | None:
+    if condition.source_node is CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
+        current_snapshot = next(
+            (
+                item
+                for item in context.calculation_context.character_snapshots
+                if item.character_id == condition.source_character_id
+            ),
+            None,
+        )
+        value = (
+            current_snapshot.settlement_stats.crit_rate
+            if current_snapshot is not None
+            else None
+        )
+    else:
+        initial_snapshot = next(
+            (
+                item
+                for item in context.initial_character_snapshots
+                if item.character_id == condition.source_character_id
+            ),
+            None,
+        )
+        if initial_snapshot is None:
+            value = None
+        elif condition.source_node is CalculationNode.CHARACTER_INITIAL_DEFENSE:
+            value = initial_snapshot.initial_stats.defense
+        else:
+            value = initial_snapshot.initial_stats.anomaly_mastery
+    return float(value.value) if isinstance(value, Resolved) else None
 
 
 def match_filters(
