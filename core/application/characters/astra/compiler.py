@@ -613,11 +613,11 @@ def compile_astra(
         coefficient=Resolved(coefficient),
         cap_max=Resolved(cap),
     )
-    core_self_rule = CalculationRuleItem(
+    core_team_rule = CalculationRuleItem(
         rule_id=RuleItemId("rule:astra:1311:core-passive-self"),
         owner=ASTRA_ID,
         source=core_source,
-        display_name="核心被动：《如歌的行板》（耀嘉音自身）",
+        display_name="核心被动：《如歌的行板》（全队攻击力）",
         original_text=level.description,
         eligibility=RuleEligibility.ELIGIBLE,
         condition_ids=(CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID,),
@@ -627,30 +627,11 @@ def compile_astra(
                 core_source,
                 CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
                 core_value,
-                target=EffectTarget.SELF,
-            ),
-        ),
-    )
-    core_entry_rule = CalculationRuleItem(
-        rule_id=RuleItemId("rule:astra:1311:core-passive-entry"),
-        owner=ASTRA_ID,
-        source=core_source,
-        display_name="核心被动：《如歌的行板》（入场角色）",
-        original_text=level.description,
-        eligibility=RuleEligibility.ELIGIBLE,
-        condition_ids=(CORE_ATTACK_BUFF_ACTIVE_CONDITION_ID,),
-        effects=(
-            _modifier(
-                "effect:astra:1311:core-entry-attack",
-                core_source,
-                CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
-                core_value,
                 target=EffectTarget.TEAM,
-                trigger=EventSelector(BattleEventKind.SUPPORT_ENTRY),
             ),
         ),
     )
-    rule_items: list[CalculationRuleItem] = [core_self_rule, core_entry_rule]
+    rule_items: list[CalculationRuleItem] = [core_team_rule]
 
     c1_source = _mindscape_source(raw_record, 1)
     rule_items.append(

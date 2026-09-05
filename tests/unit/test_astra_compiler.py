@@ -57,6 +57,7 @@ from core.types import (
     DamageTag,
     DamageType,
     EffectId,
+    EffectTarget,
     Element,
     EnemyId,
     EnemySnapshot,
@@ -365,6 +366,13 @@ def test_core_and_cinema_values_are_compiled_without_fixed_build_attack() -> Non
     assert base_effect.result.value.cap_max.value == pytest.approx(1200.0)  # type: ignore[union-attr]
     assert c2_effect.result.value.coefficient.value == pytest.approx(0.41)  # type: ignore[union-attr]
     assert c2_effect.result.value.cap_max.value == pytest.approx(1600.0)  # type: ignore[union-attr]
+    assert base_effect.rule.target is EffectTarget.TEAM
+    assert base_effect.rule.trigger is None
+    assert base_effect.rule.filters == ()
+    assert not any(
+        item.rule_id == RuleItemId("rule:astra:1311:core-passive-entry")
+        for item in base.rule_items
+    )
     assert not hasattr(base_effect.result.value, "resolved_value")
 
 
@@ -782,17 +790,9 @@ def test_astra_supporting_definition_changes_ye_settlement() -> None:
             for condition in astra.scenario_conditions
         ),
         parameters=tuple(ye.scenario_parameters) + tuple(astra.scenario_parameters),
-        trigger_facts=(
-            ScenarioTriggerFact(
-                effect_id=EffectId("effect:astra:1311:core-entry-attack"),
-                event_kind=BattleEventKind.SUPPORT_ENTRY,
-                actor=ye.character_id,
-            ),
-        ),
         enabled_rule_item_ids=frozenset(
             {
                 RuleItemId("rule:astra:1311:core-passive-self"),
-                RuleItemId("rule:astra:1311:core-passive-entry"),
             }
         ),
     )
@@ -834,5 +834,16 @@ def test_astra_supporting_definition_changes_ye_settlement() -> None:
     snapshots = {
         item.character_id: item for item in execution.resolved_character_snapshots
     }
-    assert snapshots[astra.character_id].settlement_stats.attack == Resolved(4000.0)
+    assert snapshots[astra.character_id].settlement_stats.attack == Resolved(2400.0)
     assert snapshots[ye.character_id].settlement_stats.attack == Resolved(2600.0)
+    core_traces = tuple(
+        trace
+        for trace in execution.panel_traces
+        if trace.effect_id == EffectId("effect:astra:1311:core-self-attack")
+    )
+    assert len(core_traces) == 2
+    assert {trace.recipient_character_id for trace in core_traces} == {
+        astra.character_id,
+        ye.character_id,
+    }
+    assert all(trace.resolved_value == pytest.approx(1600.0) for trace in core_traces)

@@ -308,13 +308,6 @@ def test_move_calculation_accepts_astra_as_cross_character_support() -> None:
             },
             "enabled_rule_item_ids": [
                 "rule:astra:1311:core-passive-self",
-                "rule:astra:1311:core-passive-entry",
-            ],
-            "selected_trigger_inputs": [
-                {
-                    "input_id": "scenario-trigger:effect:astra:1311:core-entry-attack:actor",
-                    "actor_id": "character:1431",
-                }
             ],
         },
     )
@@ -322,6 +315,12 @@ def test_move_calculation_accepts_astra_as_cross_character_support() -> None:
     payload = response.json()
     recipients = {item["recipient_character_id"] for item in payload["panel_traces"]}
     assert recipients == {"character:1431", "character:1311"}
+    core_traces = [
+        item
+        for item in payload["panel_traces"]
+        if item["effect_id"] == "effect:astra:1311:core-self-attack"
+    ]
+    assert len(core_traces) == 2
     assert payload["resolved_character_snapshots"]
 
 
