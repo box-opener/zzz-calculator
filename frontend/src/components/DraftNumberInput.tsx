@@ -15,6 +15,10 @@ export type DraftNumberInputProps = Omit<
 > & NumberDraftOptions & {
   value: number | null | undefined;
   onCommit: (value: number) => void;
+  /** Called when the input receives or leaves focus. Useful for a visual field wrapper. */
+  onFocusChange?: (focused: boolean) => void;
+  /** Called after a commit attempt with a human-readable validation message. */
+  onValidationChange?: (message: string | null) => void;
 };
 
 /**
@@ -30,6 +34,8 @@ export function DraftNumberInput({
   min,
   max,
   inputMode,
+  onFocusChange,
+  onValidationChange,
   ...inputProps
 }: DraftNumberInputProps) {
   const normalizedExternalValue = value === null || value === undefined ? null : value;
@@ -50,11 +56,31 @@ export function DraftNumberInput({
 
   const commit = () => {
     const result = commitNumberDraft(stateRef.current, { integer, min, max });
+    const attemptedDraft = stateRef.current.draft.trim();
+    const parsedAttempt = Number(attemptedDraft);
+    const validAttempt = Boolean(attemptedDraft)
+      && /^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(attemptedDraft)
+      && Number.isFinite(parsedAttempt)
+      && (!integer || Number.isInteger(parsedAttempt))
+      && (min === undefined || parsedAttempt >= min)
+      && (max === undefined || parsedAttempt <= max);
+    if (attemptedDraft && !validAttempt) {
+      onValidationChange?.(
+        integer
+          ? "请输入范围内的整数"
+          : "请输入范围内的数字",
+      );
+    } else {
+      onValidationChange?.(null);
+    }
     replaceState(result.state);
     if (result.changed && result.value !== null) onCommit(result.value);
   };
 
-  const cancel = () => replaceState(cancelNumberDraft(stateRef.current));
+  const cancel = () => {
+    onValidationChange?.(null);
+    replaceState(cancelNumberDraft(stateRef.current));
+  };
 
   return (
     <input
@@ -65,7 +91,11 @@ export function DraftNumberInput({
       max={max}
       value={state.draft}
       onChange={(event) => replaceState(updateNumberDraft(stateRef.current, event.target.value))}
-      onBlur={commit}
+      onFocus={() => onFocusChange?.(true)}
+      onBlur={() => {
+        commit();
+        onFocusChange?.(false);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter") {
           event.preventDefault();

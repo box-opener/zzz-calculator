@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import DraftNumberInput from "./components/DraftNumberInput";
+import DriveDiscCard from "./components/DriveDiscCard";
+import NumberField from "./components/NumberField";
 import { teamReducer } from "./state/teamReducer";
 import {
   reconcileEditorState,
@@ -8,7 +9,6 @@ import {
 } from "./state/editorState";
 import {
   addDriveDiscSubstat,
-  isDriveDiscComplete,
   removeDriveDiscSubstat,
   replaceDriveDiscSubstat,
   selectDriveDiscSetValue,
@@ -280,6 +280,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
+  const [equipmentFeedback, setEquipmentFeedback] = useState<Record<string, { kind: "success" | "error"; message: string }>>({});
   const editorGeneration = useRef(0);
   const editorAbortController = useRef<AbortController | null>(null);
   const equipmentImportInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -599,6 +600,10 @@ function App() {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+    setEquipmentFeedback((current) => ({
+      ...current,
+      [owner]: { kind: "success", message: "配置已导出为 JSON，可随时重新导入。" },
+    }));
   };
 
   const importEquipmentConfig = async (owner: string, file: File) => {
@@ -615,6 +620,10 @@ function App() {
         },
       );
       if (!result.ok) {
+        setEquipmentFeedback((current) => ({
+          ...current,
+          [owner]: { kind: "error", message: `导入失败：${result.message}` },
+        }));
         setDiagnostics([`装备配置导入失败：${result.message}`]);
         return;
       }
@@ -638,6 +647,10 @@ function App() {
       setDriveDiscSelections(nextDriveDiscSelections);
       setBuildModes(nextBuildModes);
       setCharacterLevels(nextCharacterLevels);
+      setEquipmentFeedback((current) => ({
+        ...current,
+        [owner]: { kind: "success", message: `已导入 ${result.config.drive_discs.length} 个驱动盘${result.config.wengine ? "与 1 把音擎" : ""}。` },
+      }));
       setDiagnostics([]);
       void loadEditors(
         primaryId,
@@ -651,6 +664,10 @@ function App() {
         nextCharacterLevels,
       );
     } catch (error) {
+      setEquipmentFeedback((current) => ({
+        ...current,
+        [owner]: { kind: "error", message: `导入失败：${(error as Error).message}` },
+      }));
       setDiagnostics([`装备配置导入失败：${(error as Error).message}`]);
     }
   };
@@ -842,27 +859,42 @@ function App() {
         </section>
 
         <section className="glass-card build-panel">
-          <div className="section-heading"><div><p className="eyebrow">BUILD INPUT</p><h2>局外面板</h2></div><span className="muted">每个角色独立</span></div>
+          <div className="section-heading build-panel-heading"><div><p className="eyebrow">BUILD INPUT</p><h2>角色装备配置</h2></div><span className="muted">每个角色独立保存</span></div>
           <div className="build-character-fields">
-            {teamIds.map((id) => {
+            {teamIds.map((id, teamIndex) => {
               const equipmentMode = (buildModes[id] ?? "manual-panel") === "equipment-build";
               const driveView = driveDiscViews[id];
               const selectedDiscs = driveDiscSelections[id] ?? [];
               const preview = buildPreviews[id];
               const basePanel = preview?.base_stats;
+              const character = characters.find((item) => item.character_id === id);
+              const feedback = equipmentFeedback[id];
+              const roleLabel = teamIndex === 0 ? "主控角色" : "支援角色";
               return (
-                <div className="build-character" key={id}>
-                  <div className="build-character-heading">
-                    <strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong>
-                    <div className="equipment-config-actions">
-                      <button className="secondary-button" type="button" onClick={() => exportEquipmentConfig(id)}>导出装备配置</button>
-                      <button className="secondary-button" type="button" onClick={() => equipmentImportInputRefs.current[id]?.click()}>导入装备配置</button>
+                <article className={`build-character ${equipmentMode ? "build-character-equipment" : "build-character-manual"}`} key={id}>
+                  <header className="build-character-heading">
+                    <div className="build-character-identity">
+                      {character ? <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} /> : <span className="build-character-avatar">?</span>}
+                      <div>
+                        <span className="build-character-role">{roleLabel}</span>
+                        <strong>{character?.display_name ?? id}</strong>
+                        <small>{character ? `${character.specialty} · ${character.element}` : id}</small>
+                      </div>
+                    </div>
+                    <div className="equipment-tools">
+                      <span className="equipment-schema-note">JSON · schema v1</span>
+                      <button className="toolbar-button" type="button" onClick={() => equipmentImportInputRefs.current[id]?.click()}>
+                        <span aria-hidden="true">↑</span> 导入配置
+                      </button>
+                      <button className="toolbar-button" type="button" onClick={() => exportEquipmentConfig(id)}>
+                        <span aria-hidden="true">↓</span> 导出配置
+                      </button>
                       <input
                         ref={(element) => { equipmentImportInputRefs.current[id] = element; }}
-                        className="equipment-import-input"
+                        className="sr-only"
                         type="file"
                         accept="application/json,.json"
-                        aria-label={`${characters.find((item) => item.character_id === id)?.display_name ?? id}装备配置文件`}
+                        aria-label={`${character?.display_name ?? id}装备配置文件`}
                         onChange={(event) => {
                           const file = event.currentTarget.files?.[0];
                           event.currentTarget.value = "";
@@ -870,78 +902,109 @@ function App() {
                         }}
                       />
                     </div>
+                  </header>
+                  <div className="equipment-schema-copy">导入或导出当前角色的音擎与 1–6 号位驱动盘；文件会校验角色、槽位、套装和词条。</div>
+                  {feedback && <p className={`equipment-feedback ${feedback.kind}`}>{feedback.kind === "success" ? "✓" : "!"} {feedback.message}</p>}
+
+                  <div className="build-mode-strip">
+                    <label className="select-field"><span>面板模式</span><select value={buildModes[id] ?? "manual-panel"} onChange={(event) => updateBuildMode(id, event.target.value as "manual-panel" | "equipment-build")}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label>
+                    <NumberField
+                      label="角色等级"
+                      value={characterLevels[id] ?? 60}
+                      integer
+                      min={equipmentMode ? 60 : 1}
+                      max={60}
+                      unit="级"
+                      helper={equipmentMode ? "装备构筑固定为 60 级" : "可编辑范围 1–60"}
+                      readOnly={equipmentMode}
+                      onCommit={(value) => updateCharacterLevel(id, value)}
+                    />
                   </div>
-                  <div className="form-grid three-columns">
-                    <label>面板模式<select value={buildModes[id] ?? "manual-panel"} onChange={(event) => updateBuildMode(id, event.target.value as "manual-panel" | "equipment-build")}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label>
-                    <label>等级{equipmentMode ? <input readOnly type="number" min="60" max="60" value={characterLevels[id] ?? 60} /> : <DraftNumberInput integer min={1} max={60} value={characterLevels[id] ?? 60} onCommit={(value) => updateCharacterLevel(id, value)} />}</label>
-                    <label>{equipmentMode ? "角色无装备基础攻击力" : "攻击力"}{equipmentMode ? <input readOnly type="number" value={numericPreviewStat(basePanel?.attack)} /> : <DraftNumberInput min={0} value={buildStats[id]?.attack ?? 1000} onCommit={(value) => updateBuildStat(id, "attack", value)} />}</label>
-                    <label>暴击率{equipmentMode ? <input readOnly type="text" value={previewRatioText(basePanel?.crit_rate)} /> : <DraftNumberInput min={0} value={buildStats[id]?.crit_rate ?? 0.5} onCommit={(value) => updateBuildStat(id, "crit_rate", value)} />}</label>
-                    <label>暴击伤害{equipmentMode ? <input readOnly type="text" value={previewRatioText(basePanel?.crit_damage)} /> : <DraftNumberInput min={0} value={buildStats[id]?.crit_damage ?? 0.5} onCommit={(value) => updateBuildStat(id, "crit_damage", value)} />}</label>
-                    <label>穿透率{equipmentMode ? <input readOnly type="text" value={previewRatioText(basePanel?.penetration_rate)} /> : <DraftNumberInput min={0} value={buildStats[id]?.penetration_rate ?? 0} onCommit={(value) => updateBuildStat(id, "penetration_rate", value)} />}</label>
-                    <label>穿透值{equipmentMode ? <input readOnly type="number" value={numericPreviewStat(basePanel?.penetration_flat)} /> : <DraftNumberInput min={0} value={buildStats[id]?.penetration_flat ?? 0} onCommit={(value) => updateBuildStat(id, "penetration_flat", value)} />}</label>
-                    <label>物理伤害加成{equipmentMode ? <input readOnly type="text" value={previewElementRatioText(basePanel?.element_damage_bonus, "physical")} /> : <DraftNumberInput min={0} value={buildStats[id]?.element_damage_bonus.physical ?? 0} onCommit={(value) => updateElementBonus(id, "physical", value)} />}</label>
-                    <label>以太伤害加成{equipmentMode ? <input readOnly type="text" value={previewElementRatioText(basePanel?.element_damage_bonus, "ether")} /> : <DraftNumberInput min={0} value={buildStats[id]?.element_damage_bonus.ether ?? 0} onCommit={(value) => updateElementBonus(id, "ether", value)} />}</label>
-                  </div>
-                  {equipmentMode && <>
-                    <div className="form-grid three-columns">
-                      <label>音擎<select value={wengineSelections[id]?.id ?? ""} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { level: 60, refinement: 1 }), id: event.target.value })}><option value="">无</option>{wengines.filter((item) => item.specialty === characters.find((character) => character.character_id === id)?.specialty).map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label>
-                      <label>音擎等级<input type="number" min="60" max="60" value={wengineSelections[id]?.level ?? 60} readOnly /></label>
-                      <label>精炼<DraftNumberInput integer min={1} max={5} value={wengineSelections[id]?.refinement ?? 1} onCommit={(value) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: value })} /></label>
+
+                  <div className="build-stats-section">
+                    <div className="subsection-heading"><div><span className="eyebrow">PANEL SNAPSHOT</span><h3>{equipmentMode ? "装备后面板预览" : "手工局外面板"}</h3></div><span className="subsection-badge">{equipmentMode ? "只读预览" : "可编辑"}</span></div>
+                    <div className="number-field-grid">
+                      <NumberField label={equipmentMode ? "无装备基础攻击力" : "攻击力"} value={equipmentMode ? numericPreviewStat(basePanel?.attack) : (buildStats[id]?.attack ?? 1000)} min={0} helper={equipmentMode ? "来自角色基础属性" : "内核值 · 直接攻击力"} readOnly={equipmentMode} displayValue={equipmentMode ? formatPanelDisplay(basePanel?.attack) : undefined} onCommit={(value) => updateBuildStat(id, "attack", value)} />
+                      <NumberField label="暴击率" value={equipmentMode ? numericPreviewStat(basePanel?.crit_rate) : (buildStats[id]?.crit_rate ?? 0.5)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewRatioText(basePanel?.crit_rate) || "—" : undefined} onCommit={(value) => updateBuildStat(id, "crit_rate", value)} />
+                      <NumberField label="暴击伤害" value={equipmentMode ? numericPreviewStat(basePanel?.crit_damage) : (buildStats[id]?.crit_damage ?? 0.5)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewRatioText(basePanel?.crit_damage) || "—" : undefined} onCommit={(value) => updateBuildStat(id, "crit_damage", value)} />
+                      <NumberField label="穿透率" value={equipmentMode ? numericPreviewStat(basePanel?.penetration_rate) : (buildStats[id]?.penetration_rate ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewRatioText(basePanel?.penetration_rate) || "—" : undefined} onCommit={(value) => updateBuildStat(id, "penetration_rate", value)} />
+                      <NumberField label="穿透值" value={equipmentMode ? numericPreviewStat(basePanel?.penetration_flat) : (buildStats[id]?.penetration_flat ?? 0)} min={0} helper={equipmentMode ? "装备解析结果" : "内核值 · 固定数值"} readOnly={equipmentMode} displayValue={equipmentMode ? formatPanelDisplay(basePanel?.penetration_flat) : undefined} onCommit={(value) => updateBuildStat(id, "penetration_flat", value)} />
+                      <NumberField label="物理伤害加成" value={equipmentMode ? numericPreviewStat((basePanel?.element_damage_bonus as Record<string, number | null> | undefined)?.physical) : (buildStats[id]?.element_damage_bonus.physical ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "physical") || "—" : undefined} onCommit={(value) => updateElementBonus(id, "physical", value)} />
+                      <NumberField label="以太伤害加成" value={equipmentMode ? numericPreviewStat((basePanel?.element_damage_bonus as Record<string, number | null> | undefined)?.ether) : (buildStats[id]?.element_damage_bonus.ether ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "ether") || "—" : undefined} onCommit={(value) => updateElementBonus(id, "ether", value)} />
                     </div>
+                  </div>
+
+                  {equipmentMode && <div className="equipment-build-details">
+                    <div className="subsection-heading"><div><span className="eyebrow">W-ENGINE</span><h3>音擎</h3></div><span className="subsection-badge">专精匹配</span></div>
+                    <div className="wengine-fields">
+                      <label className="select-field wengine-select"><span>音擎</span><select value={wengineSelections[id]?.id ?? ""} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { level: 60, refinement: 1 }), id: event.target.value })}><option value="">无</option>{wengines.filter((item) => item.specialty === character?.specialty).map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label>
+                      <NumberField label="音擎等级" value={wengineSelections[id]?.level ?? 60} integer min={60} max={60} unit="级" helper="当前构筑等级上限" readOnly />
+                      <NumberField label="精炼" value={wengineSelections[id]?.refinement ?? 1} integer min={1} max={5} unit="阶" helper="范围 1–5 阶" onCommit={(value) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: value })} />
+                    </div>
+                  </div>}
+
+                  {equipmentMode && <div className="drive-disc-section-wrap">
+                    <div className="subsection-heading drive-disc-area-heading"><div><span className="eyebrow">DRIVE DISCS</span><h3>驱动盘</h3></div><span className="subsection-badge">6 个槽位</span></div>
                     <div className="drive-disc-grid">
                       {(driveView?.slot_schemas ?? []).map((schema) => {
                         const disc = selectedDiscs.find((item) => item.slot === schema.slot);
                         const discPreview = preview?.drive_discs.find((item) => item.slot === schema.slot);
-                        const set = driveDiscSets.find((item) => item.set_id === disc?.set_id);
-                        return <article className="drive-disc-card" key={`${id}-disc-${schema.slot}`} title={set ? `2件套：${set.two_piece_text}\n4件套：${set.four_piece_text}` : undefined}>
-                          <div className="drive-disc-heading">
-                            {set ? <img alt={set.display_name} src={set.icon_path} /> : <span className="drive-disc-placeholder">{schema.slot}</span>}
-                            <div><strong>{schema.slot}号位</strong><small>{set?.display_name ?? "未装备"}</small></div>
-                          </div>
-                          <label>套装<select value={disc?.set_id ?? ""} onChange={(event) => selectDriveDiscSet(id, schema.slot, event.target.value)}><option value="">空槽</option>{driveDiscSets.map((item) => <option key={item.set_id} value={item.set_id}>{item.display_name}</option>)}</select></label>
-                          {disc && <>
-                            <label>主词条<select value={disc.main_stat ?? ""} disabled={schema.main_stat_options.length === 1} onChange={(event) => updateDriveDiscMain(id, schema.slot, event.target.value)}>{schema.main_stat_options.length > 1 && <option value="">未选择</option>}{schema.main_stat_options.map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label} +{formatDriveValue(item.stat_key, item.value_per_roll)}</option>)}</select>{discPreview?.main_stat && <small className="drive-stat-value">{discPreview.main_stat.label} +{discPreview.main_stat.display_total_value}</small>}</label>
-                            <div className="drive-substats">{disc.substats.map((substat, index) => {
-                              const used = new Set(disc.substats.filter((_, itemIndex) => itemIndex !== index).map((item) => item.stat));
-                              const substatPreview = discPreview?.substats.find((item) => item.stat_key === substat.stat);
-                              return <div className="drive-substat-row" key={`${schema.slot}-${index}`}>
-                                <select value={substat.stat} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, stat: event.target.value })}>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !used.has(item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select>
-                                <div className="drive-roll-stepper" role="group" aria-label={`${schema.slot}号位副词条${index + 1}次数`}>
-                                  <button className="stepper-button" type="button" aria-label="减少次数" disabled={substat.roll_count <= 1} onClick={() => updateDriveDiscSubstatRoll(id, schema.slot, index, -1)}>−</button>
-                                  <span aria-live="polite">{substat.roll_count}</span>
-                                  <button className="stepper-button" type="button" aria-label="增加次数" disabled={substat.roll_count >= 6} onClick={() => updateDriveDiscSubstatRoll(id, schema.slot, index, 1)}>＋</button>
-                                </div>
-                                <button className="secondary-button" aria-label={`删除${schema.slot}号位副词条${index + 1}`} type="button" onClick={() => removeDriveDiscSubstatRow(id, schema.slot, index)}>删除</button>
-                                <small className="drive-stat-value">{substatPreview ? `${substatPreview.label}｜单次+${substatPreview.display_value_per_roll}｜×${substatPreview.roll_count}｜总计+${substatPreview.display_total_value}` : "等待预览…"}</small>
-                              </div>;
-                            })}</div>
-                            {disc.substats.length < 4 && <label>增加副词条<select value="" onChange={(event) => addDriveDiscSubstatRow(id, schema.slot, event.target.value)}><option value="">请选择词条</option>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !disc.substats.some((substat) => substat.stat === item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select></label>}
-                            <small className={isDriveDiscComplete(disc) ? "complete" : "incomplete"}>总词条次数 {disc.substats.reduce((sum, item) => sum + item.roll_count, 0)}</small>
-                            {driveView?.diagnostics.filter((item) => item.blocking && item.diagnostic_id.includes(`slot-${schema.slot}-`)).map((item) => <small className="incomplete" key={item.diagnostic_id}>{item.message}</small>)}
-                          </>}
-                        </article>;
+                        return <DriveDiscCard
+                          key={`${id}-disc-${schema.slot}`}
+                          schema={schema}
+                          disc={disc}
+                          preview={discPreview}
+                          driveDiscSets={driveDiscSets}
+                          substatOptions={driveView?.substat_options ?? []}
+                          diagnostics={driveView?.diagnostics ?? []}
+                          onSelectSet={(setId) => selectDriveDiscSet(id, schema.slot, setId)}
+                          onUpdateMain={(mainStat) => updateDriveDiscMain(id, schema.slot, mainStat)}
+                          onUpdateSubstat={(index, next) => updateDriveDiscSubstat(id, schema.slot, index, next)}
+                          onUpdateRoll={(index, delta) => updateDriveDiscSubstatRoll(id, schema.slot, index, delta)}
+                          onRemoveSubstat={(index) => removeDriveDiscSubstatRow(id, schema.slot, index)}
+                          onAddSubstat={(stat) => addDriveDiscSubstatRow(id, schema.slot, stat)}
+                          formatValue={formatDriveValue}
+                        />;
                       })}
                     </div>
-                    {driveView && driveView.set_counts.length > 0 && <div className="drive-set-summary">{driveView.set_counts.map((item) => <span key={item.set_id}>{driveDiscSets.find((set) => set.set_id === item.set_id)?.display_name ?? item.set_id} ×{item.count}</span>)}</div>}
-                  </>}
-                </div>
+                    {driveView && driveView.set_counts.length > 0 && <div className="drive-set-summary"><span className="drive-set-summary-label">套装统计</span>{driveView.set_counts.map((item) => <span key={item.set_id}>{driveDiscSets.find((set) => set.set_id === item.set_id)?.display_name ?? item.set_id} ×{item.count}</span>)}</div>}
+                  </div>}
+                </article>
               );
             })}
           </div>
           {calculation && calculation.build_provenance.length > 0 && <div className="trace-list"><p className="eyebrow">BUILD PROVENANCE</p>{calculation.build_provenance.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.character_id}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.source_label} · {trace.stat} · {trace.layer}</small></div>)}</div>}
           <div className="section-heading compact"><div><p className="eyebrow">TARGET</p><h2>敌人</h2></div></div>
-          <div className="form-grid three-columns"><label>等级<DraftNumberInput integer min={1} max={80} value={enemyLevel} onCommit={setEnemyLevel} /></label><label>防御力<DraftNumberInput min={0} value={enemyDefense} onCommit={setEnemyDefense} /></label><label>物理抗性<DraftNumberInput value={enemyPhysicalResistance} onCommit={setEnemyPhysicalResistance} /></label><label>以太抗性<DraftNumberInput value={enemyEtherResistance} onCommit={setEnemyEtherResistance} /></label><label>失衡易伤<DraftNumberInput value={stunVulnerability} onCommit={setStunVulnerability} /></label><label>减易伤<DraftNumberInput value={enemyDamageReduction} onCommit={setEnemyDamageReduction} /></label><label className="check-field">当前处于失衡<input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label></div>
+          <div className="target-fields">
+            <NumberField label="等级" value={enemyLevel} integer min={1} max={80} unit="级" helper="敌人等级 1–80" onCommit={setEnemyLevel} />
+            <NumberField label="防御力" value={enemyDefense} min={0} helper="敌方初始防御力" onCommit={setEnemyDefense} />
+            <NumberField label="物理抗性" value={enemyPhysicalResistance} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyPhysicalResistance} />
+            <NumberField label="以太抗性" value={enemyEtherResistance} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyEtherResistance} />
+            <NumberField label="失衡易伤" value={stunVulnerability} unit="×" helper="伤害倍率，例如 1.5×" onCommit={setStunVulnerability} />
+            <NumberField label="减易伤" value={enemyDamageReduction} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyDamageReduction} />
+            <label className="check-field"><span>当前处于失衡</span><input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label>
+          </div>
         </section>
       </section>
 
       <section className="workspace-grid">
         <section className="glass-card controls-panel">
           <div className="section-heading"><div><p className="eyebrow">SCENARIO</p><h2>场景与规则</h2></div>{loading && <span className="muted">读取中…</span>}</div>
-          <div className="form-grid two-columns config-fields">{allConfigFields.map(({ owner, field }) => <label className={field.field_type === "boolean" ? "check-field" : ""} key={`${owner}-${field.field_id}`}>{field.label}{field.field_type === "boolean" ? <input disabled={!field.editable} type="checkbox" checked={Boolean(configFieldValue(owner, field))} onChange={(event) => updateConfigField(owner, field, event.target.checked)} /> : field.field_type === "select" ? <select disabled={!field.editable} value={String(configFieldValue(owner, field))} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select> : <DraftNumberInput disabled={!field.editable} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} value={Number(configFieldValue(owner, field))} onCommit={(value) => updateConfigField(owner, field, value)} />}</label>)}</div>
+          <div className="config-field-grid">{allConfigFields.map(({ owner, field }) => {
+            const fieldValue = configFieldValue(owner, field);
+            const unit = field.field_id.includes("level") ? "级" : field.field_id.includes("stack") ? "层" : undefined;
+            if (field.field_type === "boolean") {
+              return <label className="check-field" key={`${owner}-${field.field_id}`}><span><strong>{field.label}</strong><small>{field.help_text ?? "编译期配置"}</small></span><input disabled={!field.editable} type="checkbox" checked={Boolean(fieldValue)} onChange={(event) => updateConfigField(owner, field, event.target.checked)} /></label>;
+            }
+            if (field.field_type === "select") {
+              return <label className="select-field" key={`${owner}-${field.field_id}`}><span>{field.label}</span><select disabled={!field.editable} value={String(fieldValue)} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+            }
+            return <NumberField key={`${owner}-${field.field_id}`} label={field.label} value={Number(fieldValue)} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} unit={unit} helper={field.help_text ?? "整数配置"} disabled={!field.editable} onCommit={(value) => updateConfigField(owner, field, value)} />;
+          })}</div>
           <div className="control-list">{allConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution}{condition.editable ? " · 可选" : " · 编译期"}</small></span><input disabled={!condition.editable} type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValues, [condition.condition_id]: event.target.checked }; setConditionValues(next); void loadEditors(primaryId, supportId, configs, next, { conditionValues: next }); }} /></label>)}</div>
-          {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div>{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <label key={parameter.parameter_id}>{parameter.label}<DraftNumberInput integer min={parameter.minimum} max={parameter.maximum ?? undefined} placeholder={currentValue === null ? "未指定" : undefined} value={currentValue} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} /></label>; })}</div>}
+          {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={parameter.maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} />; })}</div></div>}
           {selectedMove && selectedMove.multiplier_relation === "mutually-exclusive-variant" && <div className="variant-control"><div className="section-heading compact"><div><p className="eyebrow">MULTIPLIER VARIANT</p><h2>倍率版本</h2></div></div>{selectedMove.variants.map((variant, index) => <label className="variant-option" key={`${selectedMove.entry_id}-${index}`}><input name="move-variant" type="radio" checked={variant.condition_ids.length > 0 && variant.condition_ids.every((conditionId) => conditionValues[conditionId] === true)} onChange={() => selectVariant(index)} /><span>{variant.label}</span></label>)}</div>}
-          <div className="rule-list">{allRules.map((rule) => <label className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <DraftNumberInput className="stack-input" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</label>)}</div>
+          <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>
           {allTriggers.length > 0 && <><div className="section-heading compact"><div><p className="eyebrow">TRIGGER FACTS</p><h2>场景触发</h2></div></div><div className="form-grid two-columns">{allTriggers.map((trigger) => <label key={trigger.input_id}>{trigger.label}<select value={triggerActors[trigger.input_id] ?? ""} onChange={(event) => setTriggerActors((current) => { const next = { ...current }; if (event.target.value) next[trigger.input_id] = event.target.value; else delete next[trigger.input_id]; return next; })}><option value="">未指定</option>{trigger.actor_options.map((actor) => <option key={actor} value={actor}>{characters.find((item) => item.character_id === actor)?.display_name ?? actor}</option>)}</select></label>)}</div></>}
         </section>
 
@@ -987,40 +1050,49 @@ const LIVE_PANEL_STATS: { key: string; label: string; ratio?: boolean }[] = [
 function LivePanel({ teamIds, characters, previews, manualStats, buildModes, loading }: LivePanelProps) {
   return <section className="live-panel" aria-label="实时局外面板">
     <div className="section-heading compact live-panel-heading">
-      <div><p className="eyebrow">LIVE OUT-OF-COMBAT PANEL</p><h2>实时局外面板</h2></div>
-      {loading && <span className="muted">更新中…</span>}
+      <div><p className="eyebrow">LIVE OUT-OF-COMBAT PANEL</p><h2>实时局外面板</h2><p className="live-panel-subtitle">当前队伍的最终局外属性与来源</p></div>
+      <span className={`live-update-status ${loading ? "updating" : "synced"}`} aria-live="polite">{loading ? "更新中…" : "已同步"}</span>
     </div>
     <div className="live-panel-list">
-      {teamIds.map((id) => {
+      {teamIds.map((id, teamIndex) => {
         const preview = buildModes[id] === "equipment-build" ? previews[id] : null;
         const manual = manualStats[id] ?? DEFAULT_STATS;
         const stats = preview?.out_of_combat_stats;
         const character = characters.find((item) => item.character_id === id);
-        return <article className="live-panel-card" key={id}>
+        const status = preview
+          ? (preview.complete ? "已解析" : "配置未完成")
+          : buildModes[id] === "equipment-build" ? "等待解析" : "手工面板";
+        const statusClass = preview?.complete === false ? "incomplete" : preview ? "complete" : "neutral";
+        const readStat = (key: string, ratio = false) => {
+          const value = preview ? numericPreviewStat(stats?.[key]) : manual[key as keyof typeof manual] as number;
+          return formatPanelValue(value, ratio);
+        };
+        const elementValue = preview ? stats?.element_damage_bonus : manual.element_damage_bonus;
+        return <article className={`live-panel-card live-panel-card-${teamIndex} ${preview?.complete === false ? "live-panel-card-incomplete" : ""}`} key={id}>
           <div className="live-panel-card-heading">
-            <strong>{character?.display_name ?? id}</strong>
-            <span className={preview?.complete === false ? "incomplete" : "complete"}>{preview ? (preview.complete ? "已解析" : "部分配置") : buildModes[id] === "equipment-build" ? "等待预览" : "手工面板"}</span>
-          </div>
-          <div className="live-panel-stats">
-            {LIVE_PANEL_STATS.map(({ key, label, ratio }) => {
-              const value = preview ? numericPreviewStat(stats?.[key]) : manual[key as keyof typeof manual] as number;
-              return <div className="live-panel-stat" key={key}><span>{label}</span><strong>{formatPanelValue(value, ratio)}</strong></div>;
-            })}
-            {(() => {
-              const value = preview
-                ? stats?.element_damage_bonus
-                : manual.element_damage_bonus;
-              return <div className="live-panel-stat live-panel-element-bonuses"><span>基础元素增伤</span><strong>{formatElementBonuses(value as Record<string, number | null> | null)}</strong></div>;
-            })()}
-          </div>
-          {preview && <details className="live-panel-provenance">
-            <summary>查看来源明细</summary>
-            <div className="provenance-list">
-              {preview.provenance.map((item) => <div className="provenance-row" key={item.contribution_id}>
-                <span>{item.source_label}</span><strong>{formatBuildContributionValue(item)}</strong><small>{item.stat}{item.element ? ` · ${item.element}` : ""}</small>
-              </div>)}
+            <div className="live-panel-character">
+              {character ? <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} /> : <span className="live-panel-avatar">?</span>}
+              <div><strong>{character?.display_name ?? id}</strong><small>{teamIndex === 0 ? "主控角色" : "支援角色"}{character ? ` · ${character.element}` : ""}</small></div>
             </div>
-          </details>}
+            <span className={`live-panel-status ${statusClass}`}>{status}</span>
+          </div>
+          <div className="live-panel-featured-grid">
+            <div className="live-panel-stat live-panel-featured-stat"><span>攻击力</span><strong>{readStat("attack")}</strong><small>ATK</small></div>
+            <div className="live-panel-stat live-panel-featured-stat"><span>暴击率</span><strong>{readStat("crit_rate", true)}</strong><small>CRIT RATE</small></div>
+            <div className="live-panel-stat live-panel-featured-stat"><span>暴击伤害</span><strong>{readStat("crit_damage", true)}</strong><small>CRIT DMG</small></div>
+            <div className="live-panel-stat live-panel-featured-stat live-panel-element-bonuses"><span>元素增伤</span><strong>{formatElementBonuses(elementValue as Record<string, number | null> | null)}</strong><small>ELEMENT BONUS</small></div>
+          </div>
+          <div className="live-panel-secondary-grid">
+            {LIVE_PANEL_STATS.filter(({ key }) => !["attack", "crit_rate", "crit_damage"].includes(key)).map(({ key, label, ratio }) => <div className="live-panel-stat" key={key}><span>{label}</span><strong>{readStat(key, ratio)}</strong></div>)}
+          </div>
+          <details className="live-panel-provenance" open={Boolean(preview)}>
+            <summary><span>来源明细</span><small>{preview ? `${preview.provenance.length} 项装备/基础贡献` : "手工输入值"}</small></summary>
+            <div className="provenance-list">
+              {preview ? preview.provenance.map((item) => <div className="provenance-row" key={item.contribution_id}>
+                <span>{item.source_label}</span><strong>{formatBuildContributionValue(item)}</strong><small>{item.stat}{item.element ? ` · ${item.element}` : ""}</small>
+              </div>) : <div className="provenance-row provenance-manual"><span>手工局外面板</span><strong>已应用</strong><small>攻击、双暴与元素增伤来自左侧可编辑面板</small></div>}
+            </div>
+          </details>
         </article>;
       })}
     </div>
@@ -1029,6 +1101,10 @@ function LivePanel({ teamIds, characters, previews, manualStats, buildModes, loa
 
 function numericPreviewStat(value: BuildPreviewStat | undefined): number | "" {
   return typeof value === "number" ? value : "";
+}
+
+function formatPanelDisplay(value: BuildPreviewStat | undefined): string {
+  return typeof value === "number" ? formatNumber(value) : "—";
 }
 
 function previewRatioText(value: BuildPreviewStat | undefined): string {
