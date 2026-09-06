@@ -6,6 +6,7 @@ import {
   replaceDriveDiscSubstat,
   selectDriveDiscSetValue,
   updateDriveDiscMainValue,
+  updateDriveDiscSubstatRollCount,
   type DriveDiscSlotSchema,
 } from "./driveDiscState";
 const schema: DriveDiscSlotSchema = {
@@ -77,5 +78,15 @@ describe("Drive Disc editor state", () => {
     };
     expect(isDriveDiscComplete(partial)).toBe(false);
     expect(isDriveDiscComplete({ ...partial, main_stat: "attack-percent" })).toBe(true);
+  });
+
+  it("steps substat rolls one at a time and clamps at one and six", () => {
+    const disc = {
+      ...selectDriveDiscSetValue(undefined, 4, "drive-disc:31000", schema),
+      substats: [{ stat: "crit-rate", roll_count: 2 }],
+    };
+    expect(updateDriveDiscSubstatRollCount(disc, 0, 1).substats[0].roll_count).toBe(3);
+    expect(updateDriveDiscSubstatRollCount({ ...disc, substats: [{ stat: "crit-rate", roll_count: 6 }] }, 0, 1)).toEqual({ ...disc, substats: [{ stat: "crit-rate", roll_count: 6 }] });
+    expect(updateDriveDiscSubstatRollCount({ ...disc, substats: [{ stat: "crit-rate", roll_count: 1 }] }, 0, -1)).toEqual({ ...disc, substats: [{ stat: "crit-rate", roll_count: 1 }] });
   });
 });

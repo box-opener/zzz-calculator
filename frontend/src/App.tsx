@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import DraftNumberInput from "./components/DraftNumberInput";
 import { teamReducer } from "./state/teamReducer";
 import {
   reconcileEditorState,
@@ -12,6 +13,7 @@ import {
   replaceDriveDiscSubstat,
   selectDriveDiscSetValue,
   updateDriveDiscMainValue,
+  updateDriveDiscSubstatRollCount,
   type DriveDiscConfig,
   type DriveDiscStatOption,
   type DriveDiscSubstat,
@@ -21,6 +23,11 @@ import {
   formatDriveStatValue,
   formatPreviewRatio,
 } from "./state/buildPreview";
+import {
+  createEquipmentConfig,
+  parseEquipmentConfig,
+  serializeEquipmentConfig,
+} from "./state/equipmentConfig";
 
 type Character = {
   character_id: string;
@@ -275,6 +282,7 @@ function App() {
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const editorGeneration = useRef(0);
   const editorAbortController = useRef<AbortController | null>(null);
+  const equipmentImportInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const teamIds = useMemo(() => [primaryId, ...(supportId ? [supportId] : [])], [primaryId, supportId]);
   const activeWengineViews = useMemo(
@@ -570,6 +578,83 @@ function App() {
     void loadEditors(primaryId, supportId, configs, conditionValues, {}, nextSelections);
   };
 
+  const exportEquipmentConfig = (owner: string) => {
+    const selection = wengineSelections[owner];
+    const config = createEquipmentConfig(
+      owner,
+      selection?.id
+        ? { id: selection.id, level: selection.level, refinement: selection.refinement }
+        : null,
+      driveDiscSelections[owner] ?? [],
+    );
+    const blob = new Blob([serializeEquipmentConfig(config)], {
+      type: "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const safeCharacterId = owner.replace(/[^a-z0-9._-]+/gi, "_");
+    anchor.href = url;
+    anchor.download = `zzz-equipment-${safeCharacterId}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importEquipmentConfig = async (owner: string, file: File) => {
+    try {
+      const result = parseEquipmentConfig(
+        await file.text(),
+        owner,
+        {
+          wengines,
+          driveDiscSets,
+          slotSchemas: driveDiscViews[owner]?.slot_schemas,
+          substatOptions: driveDiscViews[owner]?.substat_options,
+          characterSpecialty: characters.find((item) => item.character_id === owner)?.specialty,
+        },
+      );
+      if (!result.ok) {
+        setDiagnostics([`装备配置导入失败：${result.message}`]);
+        return;
+      }
+
+      const nextWengineSelections = { ...wengineSelections };
+      if (result.config.wengine) {
+        nextWengineSelections[owner] = { ...result.config.wengine };
+      } else {
+        delete nextWengineSelections[owner];
+      }
+      const nextDriveDiscSelections = {
+        ...driveDiscSelections,
+        [owner]: result.config.drive_discs,
+      };
+      const nextBuildModes = { ...buildModes, [owner]: "equipment-build" as const };
+      const nextCharacterLevels = { ...characterLevels, [owner]: 60 };
+
+      // Commit all imported values together, then issue one authoritative
+      // editor/build refresh using the complete next state.
+      setWengineSelections(nextWengineSelections);
+      setDriveDiscSelections(nextDriveDiscSelections);
+      setBuildModes(nextBuildModes);
+      setCharacterLevels(nextCharacterLevels);
+      setDiagnostics([]);
+      void loadEditors(
+        primaryId,
+        supportId,
+        configs,
+        conditionValues,
+        {},
+        nextWengineSelections,
+        nextBuildModes,
+        nextDriveDiscSelections,
+        nextCharacterLevels,
+      );
+    } catch (error) {
+      setDiagnostics([`装备配置导入失败：${(error as Error).message}`]);
+    }
+  };
+
   const updateBuildMode = (owner: string, mode: "manual-panel" | "equipment-build") => {
     const nextModes = { ...buildModes, [owner]: mode };
     const nextLevels = mode === "equipment-build"
@@ -646,6 +731,12 @@ function App() {
     const current = driveDiscSelections[owner]?.find((item) => item.slot === slot);
     if (!current) return;
     updateDriveDisc(owner, slot, replaceDriveDiscSubstat(current, index, next));
+  };
+
+  const updateDriveDiscSubstatRoll = (owner: string, slot: number, index: number, delta: number) => {
+    const current = driveDiscSelections[owner]?.find((item) => item.slot === slot);
+    if (!current) return;
+    updateDriveDisc(owner, slot, updateDriveDiscSubstatRollCount(current, index, delta));
   };
 
   const addDriveDiscSubstatRow = (owner: string, slot: number, stat: string) => {
@@ -761,23 +852,41 @@ function App() {
               const basePanel = preview?.base_stats;
               return (
                 <div className="build-character" key={id}>
-                  <strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong>
+                  <div className="build-character-heading">
+                    <strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong>
+                    <div className="equipment-config-actions">
+                      <button className="secondary-button" type="button" onClick={() => exportEquipmentConfig(id)}>导出装备配置</button>
+                      <button className="secondary-button" type="button" onClick={() => equipmentImportInputRefs.current[id]?.click()}>导入装备配置</button>
+                      <input
+                        ref={(element) => { equipmentImportInputRefs.current[id] = element; }}
+                        className="equipment-import-input"
+                        type="file"
+                        accept="application/json,.json"
+                        aria-label={`${characters.find((item) => item.character_id === id)?.display_name ?? id}装备配置文件`}
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0];
+                          event.currentTarget.value = "";
+                          if (file) void importEquipmentConfig(id, file);
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div className="form-grid three-columns">
                     <label>面板模式<select value={buildModes[id] ?? "manual-panel"} onChange={(event) => updateBuildMode(id, event.target.value as "manual-panel" | "equipment-build")}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label>
-                    <label>等级<input readOnly={equipmentMode} type="number" min={equipmentMode ? 60 : 1} max="60" value={characterLevels[id] ?? 60} onChange={(event) => updateCharacterLevel(id, Number(event.target.value))} /></label>
-                    <label>{equipmentMode ? "角色无装备基础攻击力" : "攻击力"}<input readOnly={equipmentMode} type="number" value={equipmentMode ? numericPreviewStat(basePanel?.attack) : (buildStats[id]?.attack ?? 1000)} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label>
-                    <label>暴击率<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewRatioText(basePanel?.crit_rate) : (buildStats[id]?.crit_rate ?? 0.5)} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label>
-                    <label>暴击伤害<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewRatioText(basePanel?.crit_damage) : (buildStats[id]?.crit_damage ?? 0.5)} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label>
-                    <label>穿透率<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewRatioText(basePanel?.penetration_rate) : (buildStats[id]?.penetration_rate ?? 0)} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label>
-                    <label>穿透值<input readOnly={equipmentMode} type="number" value={equipmentMode ? numericPreviewStat(basePanel?.penetration_flat) : (buildStats[id]?.penetration_flat ?? 0)} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label>
-                    <label>物理伤害加成<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "physical") : (buildStats[id]?.element_damage_bonus.physical ?? 0)} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label>
-                    <label>以太伤害加成<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "ether") : (buildStats[id]?.element_damage_bonus.ether ?? 0)} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label>
+                    <label>等级{equipmentMode ? <input readOnly type="number" min="60" max="60" value={characterLevels[id] ?? 60} /> : <DraftNumberInput integer min={1} max={60} value={characterLevels[id] ?? 60} onCommit={(value) => updateCharacterLevel(id, value)} />}</label>
+                    <label>{equipmentMode ? "角色无装备基础攻击力" : "攻击力"}{equipmentMode ? <input readOnly type="number" value={numericPreviewStat(basePanel?.attack)} /> : <DraftNumberInput min={0} value={buildStats[id]?.attack ?? 1000} onCommit={(value) => updateBuildStat(id, "attack", value)} />}</label>
+                    <label>暴击率{equipmentMode ? <input readOnly type="text" value={previewRatioText(basePanel?.crit_rate)} /> : <DraftNumberInput min={0} value={buildStats[id]?.crit_rate ?? 0.5} onCommit={(value) => updateBuildStat(id, "crit_rate", value)} />}</label>
+                    <label>暴击伤害{equipmentMode ? <input readOnly type="text" value={previewRatioText(basePanel?.crit_damage)} /> : <DraftNumberInput min={0} value={buildStats[id]?.crit_damage ?? 0.5} onCommit={(value) => updateBuildStat(id, "crit_damage", value)} />}</label>
+                    <label>穿透率{equipmentMode ? <input readOnly type="text" value={previewRatioText(basePanel?.penetration_rate)} /> : <DraftNumberInput min={0} value={buildStats[id]?.penetration_rate ?? 0} onCommit={(value) => updateBuildStat(id, "penetration_rate", value)} />}</label>
+                    <label>穿透值{equipmentMode ? <input readOnly type="number" value={numericPreviewStat(basePanel?.penetration_flat)} /> : <DraftNumberInput min={0} value={buildStats[id]?.penetration_flat ?? 0} onCommit={(value) => updateBuildStat(id, "penetration_flat", value)} />}</label>
+                    <label>物理伤害加成{equipmentMode ? <input readOnly type="text" value={previewElementRatioText(basePanel?.element_damage_bonus, "physical")} /> : <DraftNumberInput min={0} value={buildStats[id]?.element_damage_bonus.physical ?? 0} onCommit={(value) => updateElementBonus(id, "physical", value)} />}</label>
+                    <label>以太伤害加成{equipmentMode ? <input readOnly type="text" value={previewElementRatioText(basePanel?.element_damage_bonus, "ether")} /> : <DraftNumberInput min={0} value={buildStats[id]?.element_damage_bonus.ether ?? 0} onCommit={(value) => updateElementBonus(id, "ether", value)} />}</label>
                   </div>
                   {equipmentMode && <>
                     <div className="form-grid three-columns">
                       <label>音擎<select value={wengineSelections[id]?.id ?? ""} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { level: 60, refinement: 1 }), id: event.target.value })}><option value="">无</option>{wengines.filter((item) => item.specialty === characters.find((character) => character.character_id === id)?.specialty).map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label>
                       <label>音擎等级<input type="number" min="60" max="60" value={wengineSelections[id]?.level ?? 60} readOnly /></label>
-                      <label>精炼<input type="number" min="1" max="5" value={wengineSelections[id]?.refinement ?? 1} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: Number(event.target.value) })} /></label>
+                      <label>精炼<DraftNumberInput integer min={1} max={5} value={wengineSelections[id]?.refinement ?? 1} onCommit={(value) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: value })} /></label>
                     </div>
                     <div className="drive-disc-grid">
                       {(driveView?.slot_schemas ?? []).map((schema) => {
@@ -797,9 +906,13 @@ function App() {
                               const substatPreview = discPreview?.substats.find((item) => item.stat_key === substat.stat);
                               return <div className="drive-substat-row" key={`${schema.slot}-${index}`}>
                                 <select value={substat.stat} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, stat: event.target.value })}>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !used.has(item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select>
-                                <input aria-label={`${schema.slot}号位副词条${index + 1}次数`} type="number" min="1" max="6" value={substat.roll_count} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, roll_count: Number(event.target.value) })} />
+                                <div className="drive-roll-stepper" role="group" aria-label={`${schema.slot}号位副词条${index + 1}次数`}>
+                                  <button className="stepper-button" type="button" aria-label="减少次数" disabled={substat.roll_count <= 1} onClick={() => updateDriveDiscSubstatRoll(id, schema.slot, index, -1)}>−</button>
+                                  <span aria-live="polite">{substat.roll_count}</span>
+                                  <button className="stepper-button" type="button" aria-label="增加次数" disabled={substat.roll_count >= 6} onClick={() => updateDriveDiscSubstatRoll(id, schema.slot, index, 1)}>＋</button>
+                                </div>
                                 <button className="secondary-button" aria-label={`删除${schema.slot}号位副词条${index + 1}`} type="button" onClick={() => removeDriveDiscSubstatRow(id, schema.slot, index)}>删除</button>
-                                <small className="drive-stat-value">{substatPreview ? `${substatPreview.label} +${substatPreview.display_value_per_roll} ×${substatPreview.roll_count} = +${substatPreview.display_total_value}` : "等待预览…"}</small>
+                                <small className="drive-stat-value">{substatPreview ? `${substatPreview.label}｜单次+${substatPreview.display_value_per_roll}｜×${substatPreview.roll_count}｜总计+${substatPreview.display_total_value}` : "等待预览…"}</small>
                               </div>;
                             })}</div>
                             {disc.substats.length < 4 && <label>增加副词条<select value="" onChange={(event) => addDriveDiscSubstatRow(id, schema.slot, event.target.value)}><option value="">请选择词条</option>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !disc.substats.some((substat) => substat.stat === item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select></label>}
@@ -817,18 +930,18 @@ function App() {
           </div>
           {calculation && calculation.build_provenance.length > 0 && <div className="trace-list"><p className="eyebrow">BUILD PROVENANCE</p>{calculation.build_provenance.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.character_id}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.source_label} · {trace.stat} · {trace.layer}</small></div>)}</div>}
           <div className="section-heading compact"><div><p className="eyebrow">TARGET</p><h2>敌人</h2></div></div>
-          <div className="form-grid three-columns"><label>等级<input type="number" min="1" max="80" value={enemyLevel} onChange={(event) => setEnemyLevel(Number(event.target.value))} /></label><label>防御力<input type="number" value={enemyDefense} onChange={(event) => setEnemyDefense(Number(event.target.value))} /></label><label>物理抗性<input type="number" step="0.01" value={enemyPhysicalResistance} onChange={(event) => setEnemyPhysicalResistance(Number(event.target.value))} /></label><label>以太抗性<input type="number" step="0.01" value={enemyEtherResistance} onChange={(event) => setEnemyEtherResistance(Number(event.target.value))} /></label><label>失衡易伤<input type="number" step="0.01" value={stunVulnerability} onChange={(event) => setStunVulnerability(Number(event.target.value))} /></label><label>减易伤<input type="number" step="0.01" value={enemyDamageReduction} onChange={(event) => setEnemyDamageReduction(Number(event.target.value))} /></label><label className="check-field">当前处于失衡<input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label></div>
+          <div className="form-grid three-columns"><label>等级<DraftNumberInput integer min={1} max={80} value={enemyLevel} onCommit={setEnemyLevel} /></label><label>防御力<DraftNumberInput min={0} value={enemyDefense} onCommit={setEnemyDefense} /></label><label>物理抗性<DraftNumberInput value={enemyPhysicalResistance} onCommit={setEnemyPhysicalResistance} /></label><label>以太抗性<DraftNumberInput value={enemyEtherResistance} onCommit={setEnemyEtherResistance} /></label><label>失衡易伤<DraftNumberInput value={stunVulnerability} onCommit={setStunVulnerability} /></label><label>减易伤<DraftNumberInput value={enemyDamageReduction} onCommit={setEnemyDamageReduction} /></label><label className="check-field">当前处于失衡<input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label></div>
         </section>
       </section>
 
       <section className="workspace-grid">
         <section className="glass-card controls-panel">
           <div className="section-heading"><div><p className="eyebrow">SCENARIO</p><h2>场景与规则</h2></div>{loading && <span className="muted">读取中…</span>}</div>
-          <div className="form-grid two-columns config-fields">{allConfigFields.map(({ owner, field }) => <label className={field.field_type === "boolean" ? "check-field" : ""} key={`${owner}-${field.field_id}`}>{field.label}{field.field_type === "boolean" ? <input disabled={!field.editable} type="checkbox" checked={Boolean(configFieldValue(owner, field))} onChange={(event) => updateConfigField(owner, field, event.target.checked)} /> : field.field_type === "select" ? <select disabled={!field.editable} value={String(configFieldValue(owner, field))} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select> : <input disabled={!field.editable} type="number" min={field.minimum ?? undefined} max={field.maximum ?? undefined} value={Number(configFieldValue(owner, field))} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))} />}</label>)}</div>
+          <div className="form-grid two-columns config-fields">{allConfigFields.map(({ owner, field }) => <label className={field.field_type === "boolean" ? "check-field" : ""} key={`${owner}-${field.field_id}`}>{field.label}{field.field_type === "boolean" ? <input disabled={!field.editable} type="checkbox" checked={Boolean(configFieldValue(owner, field))} onChange={(event) => updateConfigField(owner, field, event.target.checked)} /> : field.field_type === "select" ? <select disabled={!field.editable} value={String(configFieldValue(owner, field))} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select> : <DraftNumberInput disabled={!field.editable} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} value={Number(configFieldValue(owner, field))} onCommit={(value) => updateConfigField(owner, field, value)} />}</label>)}</div>
           <div className="control-list">{allConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution}{condition.editable ? " · 可选" : " · 编译期"}</small></span><input disabled={!condition.editable} type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValues, [condition.condition_id]: event.target.checked }; setConditionValues(next); void loadEditors(primaryId, supportId, configs, next, { conditionValues: next }); }} /></label>)}</div>
-          {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div>{allParameters.map((parameter) => <label key={parameter.parameter_id}>{parameter.label}<input type="number" min={parameter.minimum} max={parameter.maximum ?? undefined} placeholder={parameter.value === null ? "未指定" : undefined} value={parameterValues[parameter.parameter_id] ?? parameter.value ?? ""} onChange={(event) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: event.target.value === "" ? null : Number(event.target.value) }))} /></label>)}</div>}
+          {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div>{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <label key={parameter.parameter_id}>{parameter.label}<DraftNumberInput integer min={parameter.minimum} max={parameter.maximum ?? undefined} placeholder={currentValue === null ? "未指定" : undefined} value={currentValue} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} /></label>; })}</div>}
           {selectedMove && selectedMove.multiplier_relation === "mutually-exclusive-variant" && <div className="variant-control"><div className="section-heading compact"><div><p className="eyebrow">MULTIPLIER VARIANT</p><h2>倍率版本</h2></div></div>{selectedMove.variants.map((variant, index) => <label className="variant-option" key={`${selectedMove.entry_id}-${index}`}><input name="move-variant" type="radio" checked={variant.condition_ids.length > 0 && variant.condition_ids.every((conditionId) => conditionValues[conditionId] === true)} onChange={() => selectVariant(index)} /><span>{variant.label}</span></label>)}</div>}
-          <div className="rule-list">{allRules.map((rule) => <label className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <input className="stack-input" type="number" min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} onChange={(event) => setStacks((current) => ({ ...current, [rule.rule_id]: Number(event.target.value) }))} />}</label>)}</div>
+          <div className="rule-list">{allRules.map((rule) => <label className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <DraftNumberInput className="stack-input" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</label>)}</div>
           {allTriggers.length > 0 && <><div className="section-heading compact"><div><p className="eyebrow">TRIGGER FACTS</p><h2>场景触发</h2></div></div><div className="form-grid two-columns">{allTriggers.map((trigger) => <label key={trigger.input_id}>{trigger.label}<select value={triggerActors[trigger.input_id] ?? ""} onChange={(event) => setTriggerActors((current) => { const next = { ...current }; if (event.target.value) next[trigger.input_id] = event.target.value; else delete next[trigger.input_id]; return next; })}><option value="">未指定</option>{trigger.actor_options.map((actor) => <option key={actor} value={actor}>{characters.find((item) => item.character_id === actor)?.display_name ?? actor}</option>)}</select></label>)}</div></>}
         </section>
 

@@ -78,8 +78,12 @@ h2 { margin-bottom: 0; font-size: 22px; letter-spacing: -.03em; }
 .check-field input { width: 18px; min-height: 18px; accent-color: var(--accent); }
 .build-character-fields { display: grid; gap: 14px; }
 .build-character { padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.025); }
-.build-character > strong { color: #e8e9f1; font-size: 13px; }
-.drive-disc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.build-character-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.build-character-heading > strong { min-width: 0; color: #e8e9f1; font-size: 13px; }
+.equipment-config-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.equipment-config-actions .secondary-button { white-space: nowrap; }
+.equipment-import-input { display: none; }
+.drive-disc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
 .drive-disc-card { display: grid; gap: 9px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: rgba(10, 12, 21, .42); }
 .drive-disc-heading { display: flex; align-items: center; gap: 9px; }
 .drive-disc-heading img, .drive-disc-placeholder { width: 42px; height: 42px; border-radius: 50%; background: var(--accent-soft); object-fit: contain; }
@@ -87,8 +91,12 @@ h2 { margin-bottom: 0; font-size: 22px; letter-spacing: -.03em; }
 .drive-disc-heading div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .drive-disc-heading small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .drive-substats { display: grid; gap: 5px; }
-.drive-substat-row { display: grid; grid-template-columns: minmax(0, 1fr) 54px auto; gap: 5px; align-items: center; }
-.drive-substat-row input, .drive-substat-row select { min-height: 30px; padding: 4px 6px; }
+.drive-substat-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px; align-items: center; }
+.drive-substat-row > select { grid-column: 1 / -1; min-width: 0; min-height: 30px; padding: 4px 6px; }
+.drive-roll-stepper { display: inline-flex; min-height: 30px; align-items: center; border: 1px solid var(--border); border-radius: 7px; background: rgba(7, 9, 16, .5); }
+.drive-roll-stepper span { min-width: 25px; color: #f4f5fb; font-size: 12px; text-align: center; }
+.stepper-button { width: 27px; height: 28px; padding: 0; border: 0; color: #c9c1ff; background: transparent; cursor: pointer; font-size: 17px; line-height: 1; }
+.stepper-button:disabled { color: #5d6173; cursor: not-allowed; }
 .drive-stat-value { grid-column: 1 / -1; color: #c9c1ff; font-size: 10px; line-height: 1.35; }
 .drive-disc-card label > .drive-stat-value { display: block; }
 .drive-set-summary { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
@@ -131,6 +139,6 @@ select option { color: #11131d; }
 .diagnostics { margin-top: 18px; }
 .diagnostic { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); color: #ffb7b7; font-size: 13px; }
 .diagnostic strong { color: #ff8c8c; }
-@media (max-width: 900px) { .workspace-grid { grid-template-columns: 1fr; } .drive-disc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .workspace-grid { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .dashboard-grid { grid-template-columns: 1fr; } .app-header { align-items: flex-start; flex-direction: column; } .selection-summary { flex-wrap: wrap; } .selection-summary .muted { margin-left: 0; width: 100%; } .event-card { align-items: flex-start; flex-direction: column; } .event-values { width: 100%; justify-content: space-between; text-align: left; } }
 @media (max-width: 460px) { .app-shell { width: min(100% - 20px, 1180px); padding-top: 10px; } .character-grid, .drive-disc-grid { grid-template-columns: 1fr; } .form-grid.two-columns, .form-grid.three-columns { grid-template-columns: 1fr; } .roster-panel, .contract-panel, .build-panel, .controls-panel, .result-panel, .diagnostics { padding: 18px; } }

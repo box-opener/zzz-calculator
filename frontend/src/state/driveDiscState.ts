@@ -96,6 +96,18 @@ export function replaceDriveDiscSubstat(
   };
 }
 
+export function updateDriveDiscSubstatRollCount(
+  current: DriveDiscConfig,
+  index: number,
+  delta: number,
+): DriveDiscConfig {
+  const substat = current.substats[index];
+  if (!substat || !Number.isFinite(delta) || !Number.isInteger(delta)) return current;
+  const rollCount = Math.min(6, Math.max(1, substat.roll_count + delta));
+  if (rollCount === substat.roll_count) return current;
+  return replaceDriveDiscSubstat(current, index, { ...substat, roll_count: rollCount });
+}
+
 export function isDriveDiscComplete(current: DriveDiscConfig): boolean {
   const totalRolls = current.substats.reduce(
     (sum, item) => sum + item.roll_count,
