@@ -61,13 +61,17 @@ class DriveDiscSubstatRoll:
 class EquippedDriveDisc:
     slot: DriveDiscSlot
     set_id: DriveDiscSetId
-    main_stat: DriveDiscStatKey
+    main_stat: DriveDiscStatKey | None
     substats: tuple[DriveDiscSubstatRoll, ...] = ()
 
     def __post_init__(self) -> None:
         if not str(self.set_id):
             raise ValueError("Drive Disc set_id must not be empty")
-        if self.main_stat not in DRIVE_DISC_MAIN_STATS_BY_SLOT[self.slot]:
+        if (
+            self.main_stat is not None
+            and self.main_stat not in DRIVE_DISC_MAIN_STATS_BY_SLOT[self.slot]
+        ):
+            assert self.main_stat is not None
             raise ValueError(
                 f"invalid main stat {self.main_stat.value} for slot {int(self.slot)}"
             )
@@ -76,9 +80,9 @@ class EquippedDriveDisc:
         keys = tuple(item.stat for item in self.substats)
         if len(set(keys)) != len(keys):
             raise ValueError("Drive Disc substats must be unique")
-        if self.slot in {DriveDiscSlot.FOUR, DriveDiscSlot.FIVE, DriveDiscSlot.SIX}:
+        if self.main_stat is not None:
             if self.main_stat in keys:
-                raise ValueError("slot 4-6 main stat cannot also be a substat")
+                raise ValueError("Drive Disc main stat cannot also be a substat")
 
     @property
     def total_roll_count(self) -> int:
@@ -86,7 +90,11 @@ class EquippedDriveDisc:
 
     @property
     def complete(self) -> bool:
-        return len(self.substats) == 4 and self.total_roll_count in {8, 9}
+        return (
+            self.main_stat is not None
+            and len(self.substats) == 4
+            and self.total_roll_count in {8, 9}
+        )
 
 
 @dataclass(frozen=True, slots=True)

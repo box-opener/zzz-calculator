@@ -6,6 +6,9 @@ import {
   type EditorState,
 } from "./state/editorState";
 import {
+  addDriveDiscSubstat,
+  isDriveDiscComplete,
+  removeDriveDiscSubstat,
   replaceDriveDiscSubstat,
   selectDriveDiscSetValue,
   updateDriveDiscMainValue,
@@ -128,7 +131,7 @@ type WEngineEditorView = {
     actor_options: string[];
     selected_actor: string | null;
   }[];
-  diagnostics: { message: string; blocking: boolean }[];
+  diagnostics: { diagnostic_id: string; message: string; blocking: boolean }[];
 };
 
 type DriveDiscEditorView = {
@@ -145,7 +148,7 @@ type DriveDiscEditorView = {
     actor_options: string[];
     selected_actor: string | null;
   }[];
-  diagnostics: { message: string; blocking: boolean }[];
+  diagnostics: { diagnostic_id: string; message: string; blocking: boolean }[];
 };
 
 type CalculationView = {
@@ -499,7 +502,6 @@ function App() {
         slot,
         setId,
         schema,
-        driveDiscViews[owner]?.substat_options ?? [],
       ),
     );
   };
@@ -512,8 +514,7 @@ function App() {
       slot,
       updateDriveDiscMainValue(
         current,
-        mainStat,
-        driveDiscViews[owner]?.substat_options ?? [],
+        mainStat || null,
       ),
     );
   };
@@ -522,6 +523,18 @@ function App() {
     const current = driveDiscSelections[owner]?.find((item) => item.slot === slot);
     if (!current) return;
     updateDriveDisc(owner, slot, replaceDriveDiscSubstat(current, index, next));
+  };
+
+  const addDriveDiscSubstatRow = (owner: string, slot: number, stat: string) => {
+    const current = driveDiscSelections[owner]?.find((item) => item.slot === slot);
+    if (!current || !stat) return;
+    updateDriveDisc(owner, slot, addDriveDiscSubstat(current, stat));
+  };
+
+  const removeDriveDiscSubstatRow = (owner: string, slot: number, index: number) => {
+    const current = driveDiscSelections[owner]?.find((item) => item.slot === slot);
+    if (!current) return;
+    updateDriveDisc(owner, slot, removeDriveDiscSubstat(current, index));
   };
 
   const buildPayloads = () => Object.fromEntries(teamIds.map((id) => {
@@ -645,15 +658,18 @@ function App() {
                           </div>
                           <label>套装<select value={disc?.set_id ?? ""} onChange={(event) => selectDriveDiscSet(id, schema.slot, event.target.value)}><option value="">空槽</option>{driveDiscSets.map((item) => <option key={item.set_id} value={item.set_id}>{item.display_name}</option>)}</select></label>
                           {disc && <>
-                            <label>主词条<select value={disc.main_stat} onChange={(event) => updateDriveDiscMain(id, schema.slot, event.target.value)}>{schema.main_stat_options.map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label} +{formatNumber(item.value_per_roll)}</option>)}</select></label>
+                            <label>主词条<select value={disc.main_stat ?? ""} disabled={schema.main_stat_options.length === 1} onChange={(event) => updateDriveDiscMain(id, schema.slot, event.target.value)}>{schema.main_stat_options.length > 1 && <option value="">未选择</option>}{schema.main_stat_options.map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label} +{formatNumber(item.value_per_roll)}</option>)}</select></label>
                             <div className="drive-substats">{disc.substats.map((substat, index) => {
                               const used = new Set(disc.substats.filter((_, itemIndex) => itemIndex !== index).map((item) => item.stat));
                               return <div className="drive-substat-row" key={`${schema.slot}-${index}`}>
                                 <select value={substat.stat} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, stat: event.target.value })}>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !used.has(item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select>
                                 <input aria-label={`${schema.slot}号位副词条${index + 1}次数`} type="number" min="1" max="6" value={substat.roll_count} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, roll_count: Number(event.target.value) })} />
+                                <button className="secondary-button" aria-label={`删除${schema.slot}号位副词条${index + 1}`} type="button" onClick={() => removeDriveDiscSubstatRow(id, schema.slot, index)}>删除</button>
                               </div>;
                             })}</div>
-                            <small className={disc.substats.reduce((sum, item) => sum + item.roll_count, 0) === 8 || disc.substats.reduce((sum, item) => sum + item.roll_count, 0) === 9 ? "complete" : "incomplete"}>总词条次数 {disc.substats.reduce((sum, item) => sum + item.roll_count, 0)}</small>
+                            {disc.substats.length < 4 && <label>增加副词条<select value="" onChange={(event) => addDriveDiscSubstatRow(id, schema.slot, event.target.value)}><option value="">请选择词条</option>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !disc.substats.some((substat) => substat.stat === item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select></label>}
+                            <small className={isDriveDiscComplete(disc) ? "complete" : "incomplete"}>总词条次数 {disc.substats.reduce((sum, item) => sum + item.roll_count, 0)}</small>
+                            {driveView?.diagnostics.filter((item) => item.blocking && item.diagnostic_id.includes(`slot-${schema.slot}-`)).map((item) => <small className="incomplete" key={item.diagnostic_id}>{item.message}</small>)}
                           </>}
                         </article>;
                       })}

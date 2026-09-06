@@ -600,7 +600,7 @@ def compile_reviewed_drive_disc_rules(
                     CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
                     0.30,
                     condition=PanelStatThresholdCondition(
-                        owner, CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY, 115
+                        owner, CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY, 115
                     ),
                 ),
             ),
@@ -623,26 +623,20 @@ def compile_reviewed_drive_disc_rules(
             condition_ids=(active,),
         )
     elif family == "astral-voice":
-        active = condition(
-            "quick-assist-entry-active", "静听嘉音：快速支援入场增伤已触发"
-        )
         effect = _effect(
             raw,
             owner,
             four_source,
-            "entry-damage",
+            "team-damage",
             CalculationNode.DAMAGE_NORMAL_BONUS,
             0.08,
             target=EffectTarget.TEAM,
-            filters=(DynamicIdentityFilter(DynamicIdentity.SUPPORT_ENTRY_CHARACTER),),
-            trigger=EventSelector(BattleEventKind.SUPPORT_ENTRY),
         )
         add(
             4,
-            "entry-damage",
-            "快速支援入场角色伤害",
+            "team-damage",
+            "全队伤害",
             (effect,),
-            condition_ids=(active,),
             stack=(3, 0, 3),
             non_stacking=True,
         )
@@ -1068,8 +1062,6 @@ def compile_reviewed_drive_disc_rules(
                     "ether-crit",
                     CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
                     0.30,
-                    filters=(element_scope_filter(Element.ETHER),),
-                    wearer_damage=True,
                 ),
             ),
             eligibility=eligibility,

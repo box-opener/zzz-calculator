@@ -246,14 +246,15 @@ def compile_drive_discs(
         )
         from core.types import DRIVE_DISC_MAIN_STAT_VALUES, DRIVE_DISC_SUBSTAT_VALUES
 
-        contributions.append(
-            _contribution(
-                source,
-                f"{source.source_id}:main:{disc.main_stat.value}",
-                disc.main_stat,
-                DRIVE_DISC_MAIN_STAT_VALUES[disc.main_stat],
+        if disc.main_stat is not None:
+            contributions.append(
+                _contribution(
+                    source,
+                    f"{source.source_id}:main:{disc.main_stat.value}",
+                    disc.main_stat,
+                    DRIVE_DISC_MAIN_STAT_VALUES[disc.main_stat],
+                )
             )
-        )
         for substat in disc.substats:
             contributions.append(
                 _contribution(

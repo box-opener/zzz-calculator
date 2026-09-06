@@ -580,11 +580,17 @@ def build_registered_drive_disc_editor_view(
         substats = raw.get("substats", ())
         if not isinstance(substats, Sequence) or isinstance(substats, (str, bytes)):
             raise ValueError("Drive Disc substats must be an array")
+        raw_main_stat = raw.get("main_stat")
+        main_stat = (
+            None
+            if raw_main_stat is None or str(raw_main_stat) == ""
+            else DriveDiscStatKey(str(raw_main_stat))
+        )
         parsed.append(
             EquippedDriveDisc(
                 slot=DriveDiscSlot(int(str(raw["slot"]))),
                 set_id=stable_set_id(str(raw["set_id"]).removeprefix("drive-disc:")),
-                main_stat=DriveDiscStatKey(str(raw["main_stat"])),
+                main_stat=main_stat,
                 substats=tuple(
                     DriveDiscSubstatRoll(
                         DriveDiscStatKey(str(item["stat"])),

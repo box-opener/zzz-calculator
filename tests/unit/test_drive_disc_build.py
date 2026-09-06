@@ -43,12 +43,17 @@ def _capabilities() -> EquipmentOwnerCapabilities:
 def _disc(
     slot: DriveDiscSlot, set_id: str, main: DriveDiscStatKey, *, attack_rolls: int = 2
 ) -> EquippedDriveDisc:
+    attack_substat = (
+        DriveDiscStatKey.ATTACK_PERCENT
+        if main is DriveDiscStatKey.ATTACK_FLAT
+        else DriveDiscStatKey.ATTACK_FLAT
+    )
     return EquippedDriveDisc(
         slot=slot,
         set_id=stable_set_id(set_id),
         main_stat=main,
         substats=(
-            DriveDiscSubstatRoll(DriveDiscStatKey.ATTACK_FLAT, attack_rolls),
+            DriveDiscSubstatRoll(attack_substat, attack_rolls),
             DriveDiscSubstatRoll(DriveDiscStatKey.CRIT_RATE, 2),
             DriveDiscSubstatRoll(DriveDiscStatKey.CRIT_DAMAGE, 2),
             DriveDiscSubstatRoll(DriveDiscStatKey.PENETRATION_FLAT, 2),
@@ -173,15 +178,66 @@ def test_slot_main_stat_and_substat_invariants() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("slot", "main"),
+    (
+        (DriveDiscSlot.ONE, DriveDiscStatKey.HP_FLAT),
+        (DriveDiscSlot.TWO, DriveDiscStatKey.ATTACK_FLAT),
+        (DriveDiscSlot.THREE, DriveDiscStatKey.DEFENSE_FLAT),
+        (DriveDiscSlot.FOUR, DriveDiscStatKey.CRIT_RATE),
+        (DriveDiscSlot.FIVE, DriveDiscStatKey.ATTACK_PERCENT),
+        (DriveDiscSlot.SIX, DriveDiscStatKey.ATTACK_PERCENT),
+    ),
+)
+def test_exact_main_stat_is_rejected_as_a_substat_for_every_slot(
+    slot: DriveDiscSlot, main: DriveDiscStatKey
+) -> None:
+    with pytest.raises(ValueError, match="main stat cannot also be a substat"):
+        EquippedDriveDisc(
+            slot=slot,
+            set_id=stable_set_id("31000"),
+            main_stat=main,
+            substats=(DriveDiscSubstatRoll(main, 1),),
+        )
+
+
+def test_flat_and_percent_attack_are_distinct_legal_stats() -> None:
+    disc = EquippedDriveDisc(
+        slot=DriveDiscSlot.TWO,
+        set_id=stable_set_id("31000"),
+        main_stat=DriveDiscStatKey.ATTACK_FLAT,
+        substats=(DriveDiscSubstatRoll(DriveDiscStatKey.ATTACK_PERCENT, 1),),
+    )
+    assert disc.complete is False
+
+
+def test_missing_main_stat_is_a_partial_disc_without_main_contribution() -> None:
+    disc = EquippedDriveDisc(
+        slot=DriveDiscSlot.FOUR,
+        set_id=stable_set_id("31000"),
+        main_stat=None,
+        substats=(),
+    )
+    resolution = compile_drive_discs(
+        DriveDiscBuildInput(OWNER, (disc,)),
+        owner_capabilities=_capabilities(),
+    )
+    assert disc.complete is False
+    assert not any(
+        ":main:" in item.contribution_id for item in resolution.contributions
+    )
+    assert any(item.blocking for item in resolution.diagnostics)
+
+
 def test_attack_substat_is_nineteen_per_roll_and_incomplete_disc_blocks() -> None:
     complete = compile_drive_discs(
         DriveDiscBuildInput(
             OWNER,
             (
                 _disc(
-                    DriveDiscSlot.TWO,
+                    DriveDiscSlot.FOUR,
                     "31000",
-                    DriveDiscStatKey.ATTACK_FLAT,
+                    DriveDiscStatKey.ATTACK_PERCENT,
                     attack_rolls=3,
                 ),
             ),
@@ -247,6 +303,7 @@ def test_four_plus_two_and_static_two_piece_contributions_assemble_once() -> Non
             contributions=resolution.contributions,
         )
     )
-    # 1000 * (1 + slot4 30% + Hormone Punk 10%) + slot2 316 + six 2-roll ATK subs.
-    assert build.initial_stats.attack == Resolved(1944.0)
+    # Slot 2's fixed ATK main stat cannot repeat as a substat, so its fixture
+    # uses ATK% while the other five ATK-flat substat rolls remain unchanged.
+    assert build.initial_stats.attack == Resolved(1966.0)
     assert build.initial_stats.crit_rate.value == pytest.approx(0.418)

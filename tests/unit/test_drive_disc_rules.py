@@ -4,11 +4,19 @@ from dataclasses import replace
 
 import pytest
 
-from core.application import CalculationScenario, RuleItemId, ScenarioRuleStack
+from core.application import (
+    CalculationScenario,
+    RuleEligibility,
+    RuleItemId,
+    ScenarioRuleStack,
+)
 from core.application.equipment import compile_drive_discs, stable_set_id
-from core.application.execution import apply_global_panel_effects
+from core.application.execution import (
+    MatchedEffectApplication,
+    apply_global_panel_effects,
+    apply_matched_modifiers,
+)
 from core.types import (
-    AnyFilter,
     CalculationNode,
     CharacterId,
     CharacterRole,
@@ -21,7 +29,6 @@ from core.types import (
     DriveDiscSubstatRoll,
     EffectTarget,
     Element,
-    ElementFilter,
     EquipmentOwnerCapabilities,
     EquippedDriveDisc,
     InitialCharacterSnapshot,
@@ -52,12 +59,17 @@ def _stats(
 
 
 def _disc(slot: int, set_id: str, main: DriveDiscStatKey):
+    attack_substat = (
+        DriveDiscStatKey.ATTACK_PERCENT
+        if main is DriveDiscStatKey.ATTACK_FLAT
+        else DriveDiscStatKey.ATTACK_FLAT
+    )
     return EquippedDriveDisc(
         DriveDiscSlot(slot),
         stable_set_id(set_id),
         main,
         (
-            DriveDiscSubstatRoll(DriveDiscStatKey.ATTACK_FLAT, 2),
+            DriveDiscSubstatRoll(attack_substat, 2),
             DriveDiscSubstatRoll(DriveDiscStatKey.CRIT_RATE, 2),
             DriveDiscSubstatRoll(DriveDiscStatKey.CRIT_DAMAGE, 2),
             DriveDiscSubstatRoll(DriveDiscStatKey.PENETRATION_FLAT, 2),
@@ -110,23 +122,28 @@ def test_initial_mastery_threshold_is_automatic_not_a_user_boolean() -> None:
     )
     effect = rule.effects[0]
     assert isinstance(effect.rule.condition, PanelStatThresholdCondition)
+    assert (
+        effect.rule.condition.source_node
+        is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY
+    )
     assert not rule.condition_ids
 
-    def result(mastery: float):
-        stats = _stats(mastery=mastery)
+    def result(initial_mastery: float, current_mastery: float):
+        initial_stats = _stats(mastery=initial_mastery)
+        current_stats = _stats(mastery=current_mastery)
         return apply_global_panel_effects(
-            (CharacterSnapshot(owner, 60, stats),),
-            (InitialCharacterSnapshot(owner, 60, stats),),
+            (CharacterSnapshot(owner, 60, current_stats),),
+            (InitialCharacterSnapshot(owner, 60, initial_stats),),
             resolution.rule_items,
             _scenario(owner, resolution, enabled=(rule.rule_id,)),
         )
 
-    assert result(114).character_snapshots[0].settlement_stats.crit_damage == Resolved(
-        0.50
-    )
-    assert result(115).character_snapshots[0].settlement_stats.crit_damage == Resolved(
-        0.80
-    )
+    assert result(115, 114).character_snapshots[
+        0
+    ].settlement_stats.crit_damage == Resolved(0.50)
+    assert result(100, 115).character_snapshots[
+        0
+    ].settlement_stats.crit_damage == Resolved(0.80)
 
 
 def test_thorned_rose_threshold_tiers_add_eight_then_sixteen_percent() -> None:
@@ -176,26 +193,107 @@ def test_yunkui_full_stack_effect_reuses_the_same_rule_stack_truth() -> None:
 def test_base_element_scopes_explicitly_include_variant_elements() -> None:
     owner = CharacterId("character:scope")
     resolution = _resolution("34000", owner)
-    scoped_effect = next(
-        effect
-        for rule in resolution.rule_items
-        for effect in rule.effects
-        if effect.rule.filters
+    ether_rule = next(
+        item
+        for item in resolution.rule_items
+        if item.rule_id.endswith("ether-crit-damage")
     )
-    scope = scoped_effect.rule.filters[0]
-    assert isinstance(scope, AnyFilter)
-    assert {
-        item.element for item in scope.filters if isinstance(item, ElementFilter)
-    } == {
-        Element.ETHER,
-        Element.XUANMO,
-    }
+    ether_effect = ether_rule.effects[0]
+    assert ether_effect.rule.target is EffectTarget.SELF
+    assert ether_effect.rule.filters == ()
+    assert ether_effect.rule.condition is None
+    assert ether_effect.rule.trigger is None
 
     physical = _resolution("33500", owner)
     set_bonus = next(
         item for item in physical.contributions if item.contribution_id.endswith(":2pc")
     )
     assert set_bonus.element is Element.PHYSICAL
+
+
+def test_astral_voice_stack_is_a_static_team_damage_bonus() -> None:
+    owner = CharacterId("character:astral")
+    teammate = CharacterId("character:ally")
+    resolution = _resolution("32800", owner)
+    rule = next(
+        item for item in resolution.rule_items if item.rule_id.endswith("team-damage")
+    )
+    effect = rule.effects[0]
+    assert effect.rule.target is EffectTarget.TEAM
+    assert effect.rule.filters == ()
+    assert effect.rule.trigger is None
+    assert effect.rule.condition is None
+    assert not resolution.scenario_conditions
+
+    def team_damage(stack: int):
+        result = apply_matched_modifiers(
+            (
+                CharacterSnapshot(owner, 60, _stats()),
+                CharacterSnapshot(teammate, 60, _stats()),
+            ),
+            (),
+            (
+                MatchedEffectApplication(
+                    effect=effect,
+                    rule_item_id=rule.rule_id,
+                    stack_count=stack,
+                ),
+            ),
+            owner,
+        )
+        return result
+
+    assert team_damage(0).event_modifiers[0].value == Resolved(0.0)
+    assert team_damage(1).event_modifiers[0].value == Resolved(0.08)
+    assert team_damage(3).event_modifiers[0].value == Resolved(0.24)
+
+
+def test_sky_ablaze_ether_eligibility_grants_a_global_self_crit_damage_panel_buff() -> (
+    None
+):
+    owner = CharacterId("character:sky")
+    resolution = _resolution("34000", owner)
+    rule = next(
+        item
+        for item in resolution.rule_items
+        if item.rule_id.endswith("ether-crit-damage")
+    )
+    stats = _stats(crit_damage=0.50)
+    result = apply_global_panel_effects(
+        (CharacterSnapshot(owner, 60, stats),),
+        (InitialCharacterSnapshot(owner, 60, stats),),
+        (rule,),
+        _scenario(owner, resolution, enabled=(rule.rule_id,)),
+    )
+    assert not result.diagnostics
+    assert result.character_snapshots[0].settlement_stats.crit_damage == Resolved(0.80)
+    assert len(result.panel_traces) == 1
+    assert result.panel_traces[0].resolved_value == pytest.approx(0.30)
+
+    physical_only = compile_drive_discs(
+        DriveDiscBuildInput(
+            owner,
+            (
+                _disc(1, "34000", DriveDiscStatKey.HP_FLAT),
+                _disc(2, "34000", DriveDiscStatKey.ATTACK_FLAT),
+                _disc(3, "34000", DriveDiscStatKey.DEFENSE_FLAT),
+                _disc(4, "34000", DriveDiscStatKey.ATTACK_PERCENT),
+            ),
+        ),
+        owner_capabilities=EquipmentOwnerCapabilities(
+            owner,
+            CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+        ),
+    )
+    physical_rule = next(
+        item
+        for item in physical_only.rule_items
+        if item.rule_id.endswith("ether-crit-damage")
+    )
+    assert physical_rule.eligibility is RuleEligibility.INELIGIBLE
 
 
 def test_same_set_on_two_owners_has_unique_instances_and_shared_non_stack_group() -> (

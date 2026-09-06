@@ -146,6 +146,12 @@ def test_drive_disc_preview_exposes_owner_qualified_four_piece_rules() -> None:
         {"stat": "crit-damage", "roll_count": 2},
         {"stat": "penetration-flat", "roll_count": 2},
     ]
+    slot_two_substats = [
+        {"stat": "attack-percent", "roll_count": 2},
+        {"stat": "crit-rate", "roll_count": 2},
+        {"stat": "crit-damage", "roll_count": 2},
+        {"stat": "penetration-flat", "roll_count": 2},
+    ]
     response = client.post(
         "/api/v1/drive-discs/preview",
         json={
@@ -162,7 +168,7 @@ def test_drive_disc_preview_exposes_owner_qualified_four_piece_rules() -> None:
                     "slot": 2,
                     "set_id": "drive-disc:31000",
                     "main_stat": "attack-flat",
-                    "substats": substats,
+                    "substats": slot_two_substats,
                 },
                 {
                     "slot": 3,
@@ -188,6 +194,61 @@ def test_drive_disc_preview_exposes_owner_qualified_four_piece_rules() -> None:
     assert rule["stack"] == {"default": 3, "minimum": 0, "maximum": 3}
 
 
+def test_drive_disc_preview_preserves_partial_input_as_a_blocking_diagnostic() -> None:
+    response = client.post(
+        "/api/v1/drive-discs/preview",
+        json={
+            "equipped_character_id": "character:1431",
+            "team_character_ids": ["character:1431"],
+            "discs": [
+                {
+                    "slot": 4,
+                    "set_id": "drive-disc:31000",
+                    "main_stat": None,
+                    "substats": [],
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["diagnostics"]
+    assert all(item["blocking"] for item in payload["diagnostics"])
+
+
+def test_drive_disc_incomplete_input_blocks_formal_calculation() -> None:
+    payload = _valid_calculation_payload()
+    payload["character_builds"]["character:1431"] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "base_stats": {
+            "hp": 10000.0,
+            "attack": 1200.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "energy_regen": 1.2,
+            "crit_rate": 0.65,
+            "crit_damage": 0.5,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "element_damage_bonus": {"physical": 0.0},
+        },
+        "drive_discs": [
+            {
+                "slot": 4,
+                "set_id": "drive-disc:31000",
+                "main_stat": None,
+                "substats": [],
+            }
+        ],
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 400
+    assert "requires four substats" in response.json()["diagnostics"][0]["message"]
+
+
 def test_drive_disc_static_and_four_piece_rules_reach_move_execution() -> None:
     payload = _valid_calculation_payload()
     stats = {
@@ -210,6 +271,12 @@ def test_drive_disc_static_and_four_piece_rules_reach_move_execution() -> None:
         {"stat": "crit-damage", "roll_count": 2},
         {"stat": "penetration-flat", "roll_count": 2},
     ]
+    slot_two_substats = [
+        {"stat": "attack-percent", "roll_count": 2},
+        {"stat": "crit-rate", "roll_count": 2},
+        {"stat": "crit-damage", "roll_count": 2},
+        {"stat": "penetration-flat", "roll_count": 2},
+    ]
     payload["character_builds"]["character:1431"] = {
         "level": 60,
         "build_mode": "equipment-build",
@@ -225,7 +292,7 @@ def test_drive_disc_static_and_four_piece_rules_reach_move_execution() -> None:
                 "slot": 2,
                 "set_id": "drive-disc:31000",
                 "main_stat": "attack-flat",
-                "substats": substats,
+                "substats": slot_two_substats,
             },
             {
                 "slot": 3,
@@ -249,7 +316,7 @@ def test_drive_disc_static_and_four_piece_rules_reach_move_execution() -> None:
     assert response.status_code == 200, response.text
     result = response.json()
     snapshot = result["resolved_character_snapshots"][0]
-    assert snapshot["stats"]["attack"] == pytest.approx(2393.04)
+    assert snapshot["stats"]["attack"] == pytest.approx(2433.16)
     assert snapshot["stats"]["crit_rate"] == pytest.approx(0.922)
     assert any(
         item["source_type"] == "drive-disc-set"

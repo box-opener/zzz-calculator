@@ -299,7 +299,10 @@ def _panel_threshold_value(
     condition: PanelStatThresholdCondition,
     context: EffectMatchContext,
 ) -> float | None:
-    if condition.source_node is CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
+    if condition.source_node in {
+        CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+        CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+    }:
         current_snapshot = next(
             (
                 item
@@ -308,11 +311,12 @@ def _panel_threshold_value(
             ),
             None,
         )
-        value = (
-            current_snapshot.settlement_stats.crit_rate
-            if current_snapshot is not None
-            else None
-        )
+        if current_snapshot is None:
+            value = None
+        elif condition.source_node is CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
+            value = current_snapshot.settlement_stats.crit_rate
+        else:
+            value = current_snapshot.settlement_stats.anomaly_mastery
     else:
         initial_snapshot = next(
             (

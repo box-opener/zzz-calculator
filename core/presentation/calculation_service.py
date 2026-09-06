@@ -459,13 +459,19 @@ def _parse_drive_discs(raw_value: object) -> tuple[EquippedDriveDisc, ...]:
                     int(item.get("roll_count", 0)),
                 )
             )
+        raw_main_stat = raw.get("main_stat")
+        main_stat = (
+            None
+            if raw_main_stat is None or str(raw_main_stat) == ""
+            else DriveDiscStatKey(str(raw_main_stat))
+        )
         discs.append(
             EquippedDriveDisc(
                 slot=DriveDiscSlot(int(raw.get("slot", 0))),
                 set_id=stable_set_id(
                     str(raw.get("set_id", "")).removeprefix("drive-disc:")
                 ),
-                main_stat=DriveDiscStatKey(str(raw.get("main_stat", ""))),
+                main_stat=main_stat,
                 substats=tuple(substats),
             )
         )

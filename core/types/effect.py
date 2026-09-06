@@ -118,6 +118,7 @@ class PanelStatThresholdCondition:
             CalculationNode.CHARACTER_INITIAL_DEFENSE,
             CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
         }:
             raise ValueError("unsupported panel threshold node")
         if not math.isfinite(self.minimum):

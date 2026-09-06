@@ -2,7 +2,7 @@ export type DriveDiscSubstat = { stat: string; roll_count: number };
 export type DriveDiscConfig = {
   slot: number;
   set_id: string;
-  main_stat: string;
+  main_stat: string | null;
   substats: DriveDiscSubstat[];
 };
 
@@ -17,22 +17,13 @@ export type DriveDiscSlotSchema = {
   main_stat_options: DriveDiscStatOption[];
 };
 
-function fillSubstats(
+function removeMainStatConflict(
   current: DriveDiscSubstat[],
-  mainStat: string,
-  substatOptions: DriveDiscStatOption[],
+  mainStat: string | null,
 ): DriveDiscSubstat[] {
-  const retained = current.filter(
-    (item, index, values) => item.stat !== mainStat
-      && values.findIndex((value) => value.stat === item.stat) === index,
-  );
-  for (const option of substatOptions) {
-    if (retained.length >= 4) break;
-    if (option.stat_key !== mainStat && !retained.some((item) => item.stat === option.stat_key)) {
-      retained.push({ stat: option.stat_key, roll_count: 2 });
-    }
-  }
-  return retained.slice(0, 4);
+  return mainStat === null
+    ? [...current]
+    : current.filter((item) => item.stat !== mainStat);
 }
 
 export function selectDriveDiscSetValue(
@@ -40,28 +31,57 @@ export function selectDriveDiscSetValue(
   slot: number,
   setId: string,
   schema: DriveDiscSlotSchema,
-  substatOptions: DriveDiscStatOption[],
 ): DriveDiscConfig {
-  const main = schema.main_stat_options.some((item) => item.stat_key === current?.main_stat)
-    ? current!.main_stat
-    : (schema.main_stat_options[0]?.stat_key ?? "");
+  const main = schema.main_stat_options.length === 1
+    ? schema.main_stat_options[0].stat_key
+    : (schema.main_stat_options.some((item) => item.stat_key === current?.main_stat)
+      ? current?.main_stat ?? null
+      : null);
   return {
     slot,
     set_id: setId,
     main_stat: main,
-    substats: fillSubstats(current?.substats ?? [], main, substatOptions),
+    substats: removeMainStatConflict(current?.substats ?? [], main),
   };
 }
 
 export function updateDriveDiscMainValue(
   current: DriveDiscConfig,
-  mainStat: string,
-  substatOptions: DriveDiscStatOption[],
+  mainStat: string | null,
 ): DriveDiscConfig {
   return {
     ...current,
     main_stat: mainStat,
-    substats: fillSubstats(current.substats, mainStat, substatOptions),
+    substats: removeMainStatConflict(current.substats, mainStat),
+  };
+}
+
+export function addDriveDiscSubstat(
+  current: DriveDiscConfig,
+  stat: string,
+  rollCount = 1,
+): DriveDiscConfig {
+  if (
+    current.substats.length >= 4
+    || !stat
+    || stat === current.main_stat
+    || current.substats.some((item) => item.stat === stat)
+  ) {
+    return current;
+  }
+  return {
+    ...current,
+    substats: [...current.substats, { stat, roll_count: rollCount }],
+  };
+}
+
+export function removeDriveDiscSubstat(
+  current: DriveDiscConfig,
+  index: number,
+): DriveDiscConfig {
+  return {
+    ...current,
+    substats: current.substats.filter((_, itemIndex) => itemIndex !== index),
   };
 }
 
@@ -74,4 +94,14 @@ export function replaceDriveDiscSubstat(
     ...current,
     substats: current.substats.map((item, itemIndex) => itemIndex === index ? next : item),
   };
+}
+
+export function isDriveDiscComplete(current: DriveDiscConfig): boolean {
+  const totalRolls = current.substats.reduce(
+    (sum, item) => sum + item.roll_count,
+    0,
+  );
+  return current.main_stat !== null
+    && current.substats.length === 4
+    && (totalRolls === 8 || totalRolls === 9);
 }
