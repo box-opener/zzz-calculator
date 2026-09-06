@@ -54,6 +54,76 @@ def _valid_calculation_payload() -> dict:
     }
 
 
+def _ye_primary_astra_support_payload(*, aria: bool) -> dict:
+    ye_stats = {
+        "hp": 10000.0,
+        "attack": 1000.0,
+        "defense": 500.0,
+        "impact": 100.0,
+        "anomaly_mastery": 100.0,
+        "anomaly_proficiency": 100.0,
+        "energy_regen": 1.2,
+        "crit_rate": 0.5,
+        "crit_damage": 0.5,
+        "penetration_rate": 0.0,
+        "penetration_flat": 0.0,
+        "element_damage_bonus": {"physical": 0.0},
+    }
+    astra_stats = {**ye_stats, "element_damage_bonus": {"ether": 0.0}}
+    return {
+        "primary_character_id": "character:1431",
+        "supporting_character_ids": ["character:1311"],
+        "team_character_ids": ["character:1431", "character:1311"],
+        "move_entry_id": "move-entry:ye:1431:assist-yuanshou",
+        "compile_configs": {
+            "character:1431": {
+                "core_level": 1,
+                "cinema_level": 0,
+                "mingxin_active": False,
+                "entry_move_uses_linren": False,
+            },
+            "character:1311": {"core_level": 1, "cinema_level": 0},
+        },
+        # Energy is intentionally explicit here so the comparison isolates
+        # ARIA. The trigger actor is also explicit because this is a support
+        # entry event, not a free-standing toggle.
+        "condition_values": {
+            "condition:astra:aria-active": aria,
+            "condition:astra:energy-derived-active": True,
+        },
+        "parameter_values": {},
+        "character_builds": {
+            "character:1431": {"level": 60, "out_of_combat_stats": ye_stats},
+            "character:1311": {"level": 60, "out_of_combat_stats": astra_stats},
+        },
+        "enemy": {
+            "enemy_id": "enemy:ui",
+            "level": 60,
+            "initial_defense": 1000.0,
+            "damage_resistance": {"physical": 0.2, "ether": 0.2},
+            "damage_reduction": 0.0,
+            "stun_vulnerability_bonus": 1.5,
+            "is_stunned": False,
+        },
+        "enabled_rule_item_ids": (
+            ["rule:astra:1311:extra-ability-entry"] if aria else []
+        ),
+        "selected_trigger_inputs": [
+            {
+                "input_id": "scenario-trigger:effect:astra:1311:extra-entry-tremolo:actor",
+                "actor_id": "character:1431",
+            },
+            {
+                "input_id": "scenario-trigger:effect:astra:1311:extra-entry-cluster:actor",
+                "actor_id": "character:1431",
+            },
+        ]
+        if aria
+        else [],
+        "rule_stack_counts": {},
+    }
+
+
 def _astra_aria_payload(*, aria: bool, cinema_level: int = 0) -> dict:
     return {
         "primary_character_id": "character:1311",
@@ -623,6 +693,66 @@ def test_unrelated_character_preview_does_not_gain_astra_aria_condition() -> Non
     assert all(
         item["condition_id"] != "condition:astra:aria-active"
         for item in response.json()["scenario_conditions"]
+    )
+
+
+def test_production_ye_primary_astra_support_aria_changes_entry_trace_and_events() -> None:
+    inactive = client.post(
+        "/api/v1/moves/calculate",
+        json=_ye_primary_astra_support_payload(aria=False),
+    )
+    active = client.post(
+        "/api/v1/moves/calculate",
+        json=_ye_primary_astra_support_payload(aria=True),
+    )
+    assert inactive.status_code == active.status_code == 200
+
+    inactive_payload = inactive.json()
+    active_payload = active.json()
+    assert [item["semantic_id"] for item in inactive_payload["events"]] == [
+        "damage:ye:1431:assist-yuanshou:main"
+    ]
+    assert [item["semantic_id"] for item in active_payload["events"]] == [
+        "damage:ye:1431:assist-yuanshou:main",
+        "event:astra:1311:entry-tremolo",
+        "event:astra:1311:entry-cluster",
+    ]
+    entry_trace = active_payload["events"][0]["common_application_trace"]
+    aria_rule = next(
+        item
+        for item in entry_trace["rule_matches"]
+        if item["rule_id"] == "rule:astra:1311:extra-ability-entry"
+    )
+    assert aria_rule["status"] == "matched"
+    assert {item["status"] for item in aria_rule["effects"]} == {"matched"}
+    assert {item["effect_id"] for item in aria_rule["effects"]} == {
+        "effect:astra:1311:extra-entry-tremolo",
+        "effect:astra:1311:extra-entry-cluster",
+    }
+    assert active_payload["totals"]["expected"]["value"] != inactive_payload[
+        "totals"
+    ]["expected"]["value"]
+
+
+def test_production_aria_trace_explains_missing_trigger_without_faking_a_match() -> None:
+    payload = _ye_primary_astra_support_payload(aria=True)
+    payload["selected_trigger_inputs"] = []
+    response = client.post("/api/v1/moves/calculate", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()
+    trace = result["events"][0]["common_application_trace"]
+    aria_rule = next(
+        item
+        for item in trace["rule_matches"]
+        if item["rule_id"] == "rule:astra:1311:extra-ability-entry"
+    )
+    assert aria_rule["status"] == "blocked"
+    assert all(item["status"] == "blocked" for item in aria_rule["effects"])
+    assert any(
+        "no scenario trigger fact" in diagnostic["message"]
+        for effect in aria_rule["effects"]
+        for diagnostic in effect["diagnostics"]
     )
 
 
