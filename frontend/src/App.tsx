@@ -3,6 +3,7 @@ import DriveDiscCard from "./components/DriveDiscCard";
 import NumberField from "./components/NumberField";
 import { teamReducer } from "./state/teamReducer";
 import {
+  conditionValuesForViews,
   reconcileEditorState,
   resolveAuthoritativeConditionContext,
   type EditorState,
@@ -256,6 +257,7 @@ function App() {
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
   const [parameterValues, setParameterValues] = useState<Record<string, number | null>>({});
+  const conditionValuesRef = useRef<Record<string, boolean | null>>({});
   const [enabledRules, setEnabledRules] = useState<Set<string>>(new Set());
   const [disabledRules, setDisabledRules] = useState<Set<string>>(new Set());
   const [triggerActors, setTriggerActors] = useState<Record<string, string>>({});
@@ -284,6 +286,11 @@ function App() {
   const editorGeneration = useRef(0);
   const editorAbortController = useRef<AbortController | null>(null);
   const equipmentImportInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const commitConditionValues = (next: Record<string, boolean | null>) => {
+    conditionValuesRef.current = next;
+    setConditionValues(next);
+  };
 
   const teamIds = useMemo(() => [primaryId, ...(supportId ? [supportId] : [])], [primaryId, supportId]);
   const activeWengineViews = useMemo(
@@ -327,7 +334,7 @@ function App() {
     nextPrimary = primaryId,
     nextSupport = supportId,
     configSource = configs,
-    conditionSource = conditionValues,
+    conditionSource = conditionValuesRef.current,
     stateOverride: Partial<EditorState> = {},
     wengineSource = wengineSelections,
     buildModesSource = buildModes,
@@ -472,7 +479,7 @@ function App() {
           },
         nextTeam,
       );
-      setConditionValues(reconciled.conditionValues);
+      commitConditionValues(reconciled.conditionValues);
       setParameterValues(reconciled.parameterValues);
       setEnabledRules(reconciled.enabledRules);
       setDisabledRules(reconciled.disabledRules);
@@ -512,7 +519,7 @@ function App() {
           });
           return next;
         });
-        return loadEditors(primaryId, supportId, configs, conditionValues, {}, nextSelections);
+        return loadEditors(primaryId, supportId, configs, conditionValuesRef.current, {}, nextSelections);
       })
       .catch((error: Error) => setDiagnostics([error.message]));
     // The catalog is the only initial network request; editor loading follows it.
@@ -522,7 +529,7 @@ function App() {
   const updateConfig = (characterId: string, key: string, value: unknown) => {
     const nextConfigs = { ...configs, [characterId]: { ...configs[characterId], [key]: value } };
     setConfigs(nextConfigs);
-    void loadEditors(primaryId, supportId, nextConfigs, conditionValues, {}, wengineSelections);
+    void loadEditors(primaryId, supportId, nextConfigs, conditionValuesRef.current, {}, wengineSelections);
   };
 
   const updateBuildStat = (characterId: string, key: "attack" | "crit_rate" | "crit_damage" | "penetration_rate" | "penetration_flat", value: number) => {
@@ -537,7 +544,7 @@ function App() {
         primaryId,
         supportId,
         configs,
-        conditionValues,
+        conditionValuesRef.current,
         {},
         wengineSelections,
         buildModes,
@@ -556,7 +563,7 @@ function App() {
       const group = field.field_id.slice("skill_level:".length);
       const nextConfigs = { ...configs, [owner]: { ...configs[owner], skill_levels: { ...((configs[owner]?.skill_levels as Record<string, number> | undefined) ?? {}), [group]: Number(value) } } };
       setConfigs(nextConfigs);
-      void loadEditors(primaryId, supportId, nextConfigs, conditionValues, {}, wengineSelections);
+      void loadEditors(primaryId, supportId, nextConfigs, conditionValuesRef.current, {}, wengineSelections);
       return;
     }
     updateConfig(owner, field.field_id, value);
@@ -564,9 +571,9 @@ function App() {
 
   const selectVariant = (variantIndex: number) => {
     if (!selectedMove) return;
-    const next = { ...conditionValues };
+    const next = { ...conditionValuesRef.current };
     selectedMove.variants.forEach((variant, index) => variant.condition_ids.forEach((conditionId) => { next[conditionId] = index === variantIndex; }));
-    setConditionValues(next);
+    commitConditionValues(next);
     void loadEditors(primaryId, supportId, configs, next, { conditionValues: next }, wengineSelections);
   };
 
@@ -576,7 +583,7 @@ function App() {
   ) => {
     const nextSelections = { ...wengineSelections, [owner]: selection };
     setWengineSelections(nextSelections);
-    void loadEditors(primaryId, supportId, configs, conditionValues, {}, nextSelections);
+    void loadEditors(primaryId, supportId, configs, conditionValuesRef.current, {}, nextSelections);
   };
 
   const exportEquipmentConfig = (owner: string) => {
@@ -656,7 +663,7 @@ function App() {
         primaryId,
         supportId,
         configs,
-        conditionValues,
+        conditionValuesRef.current,
         {},
         nextWengineSelections,
         nextBuildModes,
@@ -683,7 +690,7 @@ function App() {
       primaryId,
       supportId,
       configs,
-      conditionValues,
+      conditionValuesRef.current,
       {},
       wengineSelections,
       nextModes,
@@ -703,7 +710,7 @@ function App() {
       primaryId,
       supportId,
       configs,
-      conditionValues,
+      conditionValuesRef.current,
       {},
       wengineSelections,
       buildModes,
@@ -787,6 +794,10 @@ function App() {
     setCalculating(true);
     setDiagnostics([]);
     try {
+      const scenarioConditionValues = conditionValuesForViews(
+        conditionValuesRef.current,
+        allConditions,
+      );
       const result = await jsonRequest<CalculationView>("/api/v1/moves/calculate", {
         method: "POST",
         body: JSON.stringify({
@@ -795,11 +806,7 @@ function App() {
           team_character_ids: teamIds,
           move_entry_id: moveEntryId,
           compile_configs: configs,
-          condition_values: Object.fromEntries(
-            allConditions
-              .filter((condition) => condition.editable)
-              .map((condition) => [condition.condition_id, conditionValues[condition.condition_id] ?? null]),
-          ),
+          condition_values: scenarioConditionValues,
           parameter_values: parameterValues,
           character_builds: buildPayloads(),
           enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: { physical: enemyPhysicalResistance, ether: enemyEtherResistance }, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
@@ -1001,7 +1008,7 @@ function App() {
             }
             return <NumberField key={`${owner}-${field.field_id}`} label={field.label} value={Number(fieldValue)} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} unit={unit} helper={field.help_text ?? "整数配置"} disabled={!field.editable} onCommit={(value) => updateConfigField(owner, field, value)} />;
           })}</div>
-          <div className="control-list">{allConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution}{condition.editable ? " · 可选" : " · 编译期"}</small></span><input disabled={!condition.editable} type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValues, [condition.condition_id]: event.target.checked }; setConditionValues(next); void loadEditors(primaryId, supportId, configs, next, { conditionValues: next }); }} /></label>)}</div>
+          <div className="control-list">{allConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution}{condition.editable ? " · 可选" : " · 编译期"}</small></span><input disabled={!condition.editable} type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(primaryId, supportId, configs, next, { conditionValues: next }); }} /></label>)}</div>
           {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={parameter.maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} />; })}</div></div>}
           {selectedMove && selectedMove.multiplier_relation === "mutually-exclusive-variant" && <div className="variant-control"><div className="section-heading compact"><div><p className="eyebrow">MULTIPLIER VARIANT</p><h2>倍率版本</h2></div></div>{selectedMove.variants.map((variant, index) => <label className="variant-option" key={`${selectedMove.entry_id}-${index}`}><input name="move-variant" type="radio" checked={variant.condition_ids.length > 0 && variant.condition_ids.every((conditionId) => conditionValues[conditionId] === true)} onChange={() => selectVariant(index)} /><span>{variant.label}</span></label>)}</div>}
           <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>

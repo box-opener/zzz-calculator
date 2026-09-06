@@ -59,6 +59,29 @@ export type EditorStateViews = {
   triggers: TriggerView[];
 };
 
+/**
+ * Select the latest known condition values for a calculation request.
+ *
+ * Editor responses are allowed to arrive with a default value while a user
+ * selection is in flight. The local selection is authoritative for editable
+ * conditions; static values continue to come from the response. Filtering to
+ * the current view also prevents a condition from a previous team from being
+ * sent to the API.
+ */
+export function conditionValuesForViews(
+  selected: Record<string, boolean | null>,
+  conditions: ConditionView[],
+): Record<string, boolean | null> {
+  const values: Record<string, boolean | null> = {};
+  for (const condition of conditions) {
+    if (!condition.editable) continue;
+    values[condition.condition_id] = condition.condition_id in selected
+      ? selected[condition.condition_id]
+      : condition.value;
+  }
+  return values;
+}
+
 export function reconcileEditorState(
   previous: EditorState,
   views: EditorStateViews,
@@ -87,7 +110,16 @@ export function reconcileEditorState(
   const disabledRules = new Set<string>();
   for (const rule of views.rules) {
     const available = rule.availability === "available" && rule.toggleable;
-    if (!available) continue;
+    // Keep an explicit user-off choice even while a prerequisite condition
+    // temporarily makes the rule unavailable. Without this, toggling ARIA (or
+    // another prerequisite) back on silently re-enables a rule the user had
+    // deliberately disabled.
+    if (!available) {
+      if (previous.disabledRules.has(rule.rule_id)) {
+        disabledRules.add(rule.rule_id);
+      }
+      continue;
+    }
     if (previous.enabledRules.has(rule.rule_id)) {
       enabledRules.add(rule.rule_id);
     } else if (!previous.disabledRules.has(rule.rule_id) && rule.enabled_by_default) {

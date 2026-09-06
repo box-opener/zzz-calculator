@@ -54,6 +54,53 @@ def _valid_calculation_payload() -> dict:
     }
 
 
+def _astra_aria_payload(*, aria: bool, cinema_level: int = 0) -> dict:
+    return {
+        "primary_character_id": "character:1311",
+        "team_character_ids": ["character:1311"],
+        "move_entry_id": "move-entry:astra:1311:basic-interlude-1",
+        "compile_configs": {
+            "character:1311": {
+                "core_level": 1,
+                "cinema_level": cinema_level,
+            }
+        },
+        "condition_values": {"condition:astra:aria-active": aria},
+        "parameter_values": {},
+        "character_builds": {
+            "character:1311": {
+                "level": 60,
+                "out_of_combat_stats": {
+                    "hp": 10000.0,
+                    "attack": 1000.0,
+                    "defense": 500.0,
+                    "impact": 100.0,
+                    "anomaly_mastery": 100.0,
+                    "anomaly_proficiency": 100.0,
+                    "energy_regen": 1.2,
+                    "crit_rate": 0.5,
+                    "crit_damage": 0.5,
+                    "penetration_rate": 0.0,
+                    "penetration_flat": 0.0,
+                    "element_damage_bonus": {"ether": 0.0},
+                },
+            }
+        },
+        "enemy": {
+            "enemy_id": "enemy:ui",
+            "level": 60,
+            "initial_defense": 1000.0,
+            "damage_resistance": {"ether": 0.2},
+            "damage_reduction": 0.0,
+            "stun_vulnerability_bonus": 1.5,
+            "is_stunned": False,
+        },
+        "enabled_rule_item_ids": [],
+        "selected_trigger_inputs": [],
+        "rule_stack_counts": {},
+    }
+
+
 def test_catalog_uses_production_ids_and_assets() -> None:
     response = client.get("/api/v1/characters")
     assert response.status_code == 200
@@ -454,6 +501,129 @@ def test_definition_preview_returns_versioned_editor_view() -> None:
     field_ids = {item["field_id"] for item in payload["compile_config_fields"]}
     assert {"core_level", "cinema_level"}.issubset(field_ids)
     assert "additional_ability_eligible" not in field_ids
+
+
+def test_astra_aria_condition_controls_preview_availability_and_move_execution() -> None:
+    previews = {
+        aria: client.post(
+            "/api/v1/definitions/preview",
+            json={
+                "character_id": "character:1311",
+                "team_character_ids": ["character:1311", "character:1431"],
+                "compile_config": {"core_level": 1, "cinema_level": 6},
+                "condition_values": {"condition:astra:aria-active": aria},
+            },
+        ).json()
+        for aria in (False, True)
+    }
+    false_rules = {item["rule_id"]: item for item in previews[False]["rule_items"]}
+    true_rules = {item["rule_id"]: item for item in previews[True]["rule_items"]}
+    aria_rule_ids = {
+        "rule:astra:1311:finale-derived",
+        "rule:astra:1311:extra-ability",
+        "rule:astra:1311:extra-ability-entry",
+        "rule:astra:1311:cinema2",
+        "rule:astra:1311:cinema4",
+        "rule:astra:1311:cinema6",
+    }
+    assert all(false_rules[item]["availability"] == "unavailable" for item in aria_rule_ids)
+    assert all(
+        true_rules[item]["availability"] == "available"
+        for item in {
+            "rule:astra:1311:cinema2",
+            "rule:astra:1311:cinema4",
+            "rule:astra:1311:cinema6",
+        }
+    )
+    # ARIA is a separate prerequisite from energy: an ARIA-only RuleItem is
+    # available, while an ARIA+energy RuleItem remains blocked until energy is
+    # explicitly selected.
+    assert true_rules["rule:astra:1311:finale-derived"]["availability"] == "blocked"
+    assert true_rules["rule:astra:1311:extra-ability"]["availability"] == "blocked"
+    assert true_rules["rule:astra:1311:extra-ability-entry"]["availability"] == "blocked"
+    assert all(
+        item["condition_id"] == "condition:astra:aria-active"
+        for item in previews[True]["scenario_conditions"][:1]
+    )
+
+    false_result = client.post(
+        "/api/v1/moves/calculate",
+        json=_astra_aria_payload(aria=False),
+    )
+    true_result = client.post(
+        "/api/v1/moves/calculate",
+        json=_astra_aria_payload(aria=True),
+    )
+    assert false_result.status_code == true_result.status_code == 200
+    assert false_result.json()["events"] == []
+    assert true_result.json()["events"][0]["semantic_id"].endswith(
+        "basic-interlude-1:main"
+    )
+
+
+def test_astra_aria_calculation_keeps_independent_rule_switch_and_trace_lanes() -> None:
+    from core.presentation.calculation_service import _presentation_request, _scenario
+    from core.presentation.registry import compile_registered_definition
+
+    payload = _astra_aria_payload(aria=True, cinema_level=6)
+    request_view = _presentation_request(payload)
+    assert request_view.selected_condition_values["condition:astra:aria-active"] is True
+    definition = compile_registered_definition(
+        "character:1311",
+        {"core_level": 1, "cinema_level": 6},
+        ("character:1311",),
+    )
+    scenario = _scenario(
+        payload,
+        (definition,),
+        definition.character_id,
+        (definition.character_id,),
+    )
+    assert next(
+        item for item in scenario.conditions
+        if str(item.condition_id) == "condition:astra:aria-active"
+    ).value is True
+
+    enabled = "rule:astra:1311:cinema6"
+    payload["enabled_rule_item_ids"] = [enabled]
+    with_rule = client.post("/api/v1/moves/calculate", json=payload)
+    assert with_rule.status_code == 200, with_rule.text
+    with_trace = with_rule.json()["events"][0]["common_application_trace"]
+    assert any(
+        item["effect_id"] == "effect:astra:1311:cinema6:multiplier"
+        for item in with_trace["event_multiplier_modifiers"]
+    )
+
+    payload["enabled_rule_item_ids"] = []
+    without_rule = client.post("/api/v1/moves/calculate", json=payload)
+    assert without_rule.status_code == 200, without_rule.text
+    without_trace = without_rule.json()["events"][0]["common_application_trace"]
+    assert not any(
+        item["effect_id"] == "effect:astra:1311:cinema6:multiplier"
+        for item in without_trace["event_multiplier_modifiers"]
+    )
+
+
+def test_unrelated_character_preview_does_not_gain_astra_aria_condition() -> None:
+    response = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1431",
+            "team_character_ids": ["character:1431"],
+            "compile_config": {
+                "core_level": 1,
+                "cinema_level": 0,
+                "mingxin_active": False,
+                "entry_move_uses_linren": False,
+            },
+            "condition_values": {"condition:astra:aria-active": True},
+        },
+    )
+    assert response.status_code == 200
+    assert all(
+        item["condition_id"] != "condition:astra:aria-active"
+        for item in response.json()["scenario_conditions"]
+    )
 
 
 def test_invalid_requests_are_structured() -> None:

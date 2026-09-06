@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reconcileEditorState, resolveAuthoritativeConditionContext } from "./editorState";
+import { conditionValuesForViews, reconcileEditorState, resolveAuthoritativeConditionContext } from "./editorState";
 
 const previous = {
   conditionValues: { active: true },
@@ -48,6 +48,30 @@ describe("reconcileEditorState", () => {
     }, ["character:ye"]);
     expect(next.triggerActors).toEqual({});
   });
+
+  it("keeps an explicitly disabled rule off when ARIA makes it temporarily unavailable", () => {
+    const blocked = reconcileEditorState({
+      ...previous,
+      conditionValues: { "condition:astra:aria-active": false },
+      enabledRules: new Set(),
+      disabledRules: new Set(["rule:astra:1311:cinema2"]),
+    }, {
+      conditions: [{ condition_id: "condition:astra:aria-active", value: false, editable: true }],
+      parameters: [],
+      rules: [{ rule_id: "rule:astra:1311:cinema2", availability: "unavailable", enabled_by_default: false, toggleable: false, stack: { default: null, minimum: null, maximum: null } }],
+      triggers: [],
+    }, ["character:1311"]);
+    const restored = reconcileEditorState(blocked, {
+      conditions: [{ condition_id: "condition:astra:aria-active", value: true, editable: true }],
+      parameters: [],
+      rules: [{ rule_id: "rule:astra:1311:cinema2", availability: "available", enabled_by_default: true, toggleable: true, stack: { default: null, minimum: null, maximum: null } }],
+      triggers: [],
+    }, ["character:1311"]);
+
+    expect(blocked.disabledRules.has("rule:astra:1311:cinema2")).toBe(true);
+    expect(restored.enabledRules.has("rule:astra:1311:cinema2")).toBe(false);
+    expect(restored.disabledRules.has("rule:astra:1311:cinema2")).toBe(true);
+  });
 });
 
 describe("resolveAuthoritativeConditionContext", () => {
@@ -66,5 +90,25 @@ describe("resolveAuthoritativeConditionContext", () => {
       { selected: true, "wengine:active": true },
       [{ condition_id: "selected", value: false, editable: true }],
     )).toEqual({ selected: true, "wengine:active": true });
+  });
+
+  it("keeps ARIA true through a refresh whose response still carries the old default", () => {
+    const selected = resolveAuthoritativeConditionContext(
+      { "condition:astra:aria-active": true },
+      [{ condition_id: "condition:astra:aria-active", value: false, editable: true }],
+    );
+    expect(selected["condition:astra:aria-active"]).toBe(true);
+  });
+});
+
+describe("conditionValuesForViews", () => {
+  it("emits editable ARIA values and excludes static response-only conditions", () => {
+    expect(conditionValuesForViews(
+      { "condition:astra:aria-active": true, "condition:static": false },
+      [
+        { condition_id: "condition:astra:aria-active", value: false, editable: true },
+        { condition_id: "condition:static", value: true, editable: false },
+      ],
+    )).toEqual({ "condition:astra:aria-active": true });
   });
 });
