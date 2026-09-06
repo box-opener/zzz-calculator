@@ -329,6 +329,27 @@ def test_drive_disc_static_and_four_piece_rules_reach_move_execution() -> None:
     )
 
 
+def test_equipment_calculation_uses_reviewed_character_base_stats_when_omitted() -> (
+    None
+):
+    payload = _valid_calculation_payload()
+    payload["character_builds"]["character:1431"] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": "wengine:14143",
+        "wengine_level": 60,
+        "wengine_refinement": 1,
+        "drive_discs": [],
+    }
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    stats = response.json()["resolved_character_snapshots"][0]["stats"]
+    assert stats["attack"] == pytest.approx(1681.2102)
+    assert stats["crit_rate"] == pytest.approx(0.194)
+    assert stats["crit_damage"] == pytest.approx(0.98)
+
+
 def test_wengine_preview_exposes_owner_qualified_rules_for_the_editor() -> None:
     response = client.post(
         "/api/v1/wengines/preview",

@@ -67,6 +67,7 @@ from core.presentation.registry import (
     registration_for,
     compile_registered_definition,
 )
+from core.presentation.base_stats import character_base_stats
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,7 +310,11 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
             raise ValueError(f"unsupported build_mode: {character_id}") from exc
         if build_mode is BuildMode.EQUIPMENT_BUILD:
             base_stats = raw.get("base_stats")
-            if not isinstance(base_stats, Mapping):
+            if base_stats is None:
+                base_stats = _stats_mapping(
+                    character_base_stats(character_id, level=int(raw["level"]))
+                )
+            elif not isinstance(base_stats, Mapping):
                 raise ValueError(f"base_stats must be an object: {character_id}")
             stats = raw.get("out_of_combat_stats", base_stats)
         else:
@@ -505,8 +510,9 @@ def _build_records(
             continue
 
         if build.base_stats is None:
-            raise ValueError(f"equipment build base_stats is missing: {character_id}")
-        base_stats = _character_stats(build.base_stats, character_id)
+            base_stats = character_base_stats(character_id, level=build.level)
+        else:
+            base_stats = _character_stats(build.base_stats, character_id)
         rule_items: tuple[CalculationRuleItem, ...] = ()
         conditions: tuple[ScenarioCondition, ...] = ()
         contributions: tuple[BuildStatContribution, ...] = ()
@@ -598,6 +604,33 @@ def _character_stats(
         energy_regen=stat("energy_regen"),
         element_damage_bonus=bonuses,
     )
+
+
+def _stats_mapping(stats: CharacterStats) -> dict[str, object]:
+    """Convert reviewed domain stats to the browser/build input shape."""
+
+    def value(item):
+        if isinstance(item, Resolved):
+            return float(item.value)
+        raise ValueError(f"reviewed character base stat is unresolved: {item.notes}")
+
+    return {
+        "hp": value(stats.hp),
+        "attack": value(stats.attack),
+        "defense": value(stats.defense),
+        "impact": value(stats.impact),
+        "crit_rate": value(stats.crit_rate),
+        "crit_damage": value(stats.crit_damage),
+        "anomaly_mastery": value(stats.anomaly_mastery),
+        "anomaly_proficiency": value(stats.anomaly_proficiency),
+        "penetration_rate": value(stats.penetration_rate),
+        "penetration_flat": value(stats.penetration_flat),
+        "energy_regen": value(stats.energy_regen),
+        "element_damage_bonus": {
+            element.value: value(item)
+            for element, item in stats.element_damage_bonus.items()
+        },
+    }
 
 
 def _enemy_inputs(enemy: EnemyInput):

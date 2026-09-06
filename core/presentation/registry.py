@@ -30,15 +30,23 @@ from core.application.scenario import CalculationScenario
 from core.application.equipment import (
     compile_drive_discs,
     compile_wengine,
+    load_drive_disc_raw_record,
     load_wengine_raw_record,
     stable_set_id,
 )
+from core.application.build.assembler import assemble_build
 from core.types import (
+    BuildMode,
     DriveDiscBuildInput,
     DriveDiscSlot,
     DriveDiscStatKey,
     DriveDiscSubstatRoll,
     EquippedDriveDisc,
+    CharacterBuildDefinition,
+    CharacterSnapshot,
+    Resolved,
+    DRIVE_DISC_MAIN_STAT_VALUES,
+    DRIVE_DISC_SUBSTAT_VALUES,
     WEngineBuildInput,
     WEngineId,
 )
@@ -47,6 +55,17 @@ from core.data.loader import load_character_record
 
 from .catalog import CharacterCatalogItem
 from .character_editor import CompileConfigFieldView
+from .base_stats import character_base_stats
+from .build_preview import (
+    BuildPreviewView,
+    DriveDiscPreviewView,
+    DriveDiscStatPreviewView,
+)
+from .calculation import BuildContributionView, panel_snapshot_view
+from .calculation import build_contribution_view
+from .diagnostics import diagnostic_view
+from .assembler import SCHEMA_VERSION
+from .drive_disc_display import display_drive_disc_value, drive_disc_stat_label
 
 
 @dataclass(frozen=True, slots=True)
@@ -394,6 +413,117 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
 }
 
 
+def _drive_stat_preview(
+    stat: DriveDiscStatKey,
+    value_per_roll: float,
+    roll_count: int,
+) -> DriveDiscStatPreviewView:
+    total = value_per_roll * roll_count
+    return DriveDiscStatPreviewView(
+        stat_key=stat.value,
+        label=drive_disc_stat_label(stat),
+        value_per_roll=value_per_roll,
+        display_value_per_roll=display_drive_disc_value(stat, value_per_roll),
+        roll_count=roll_count,
+        total_value=total,
+        display_total_value=display_drive_disc_value(stat, total),
+    )
+
+
+def _base_provenance(
+    character_id: CharacterId,
+    display_name: str,
+    base_stats,
+) -> tuple[BuildContributionView, ...]:
+    source_id = f"{character_id}:base-stats"
+    values = {
+        "hp": base_stats.hp,
+        "attack": base_stats.attack,
+        "defense": base_stats.defense,
+        "impact": base_stats.impact,
+        "crit_rate": base_stats.crit_rate,
+        "crit_damage": base_stats.crit_damage,
+        "anomaly_mastery": base_stats.anomaly_mastery,
+        "anomaly_proficiency": base_stats.anomaly_proficiency,
+        "penetration_rate": base_stats.penetration_rate,
+        "penetration_flat": base_stats.penetration_flat,
+        "energy_regen": base_stats.energy_regen,
+    }
+    result = []
+    for stat, value in values.items():
+        numeric = float(value.value) if isinstance(value, Resolved) else None
+        unresolved = value.notes if hasattr(value, "notes") else None
+        result.append(
+            BuildContributionView(
+                character_id=str(character_id),
+                contribution_id=f"{source_id}:{stat}",
+                source_id=source_id,
+                source_type="character",
+                source_label=f"{display_name}·角色基础",
+                stat=stat,
+                layer="base-value",
+                value=numeric,
+                element=None,
+                unresolved=unresolved,
+            )
+        )
+    for element, value in base_stats.element_damage_bonus.items():
+        numeric = float(value.value) if isinstance(value, Resolved) else None
+        unresolved = value.notes if hasattr(value, "notes") else None
+        result.append(
+            BuildContributionView(
+                character_id=str(character_id),
+                contribution_id=f"{source_id}:element-damage:{element.value}",
+                source_id=source_id,
+                source_type="character",
+                source_label=f"{display_name}·角色基础",
+                stat="element_damage_bonus",
+                layer="base-value",
+                value=numeric,
+                element=element.value,
+                unresolved=unresolved,
+            )
+        )
+    return tuple(result)
+
+
+def _drive_disc_preview_views(
+    resolution,
+) -> tuple[DriveDiscPreviewView, ...]:
+    result = []
+    for disc in sorted(resolution.build_input.discs, key=lambda item: int(item.slot)):
+        raw = load_drive_disc_raw_record(disc.set_id)
+        main = (
+            _drive_stat_preview(
+                disc.main_stat,
+                DRIVE_DISC_MAIN_STAT_VALUES[disc.main_stat],
+                1,
+            )
+            if disc.main_stat is not None
+            else None
+        )
+        substats = tuple(
+            _drive_stat_preview(
+                item.stat,
+                DRIVE_DISC_SUBSTAT_VALUES[item.stat],
+                item.roll_count,
+            )
+            for item in disc.substats
+        )
+        result.append(
+            DriveDiscPreviewView(
+                slot=int(disc.slot),
+                set_id=str(disc.set_id),
+                set_name=raw.name,
+                main_stat=main,
+                substats=substats,
+                total_rolls=disc.total_roll_count,
+                complete=disc.complete,
+            )
+        )
+    return tuple(result)
+
+
 def supported_character_registrations() -> (
     tuple[CharacterPresentationRegistration, ...]
 ):
@@ -575,36 +705,9 @@ def build_registered_drive_disc_editor_view(
     team_ids = tuple(CharacterId(str(item)) for item in team_character_ids) or (owner,)
     if owner not in team_ids or len(set(team_ids)) != len(team_ids):
         raise ValueError("Drive Disc owner must belong to a unique active team")
-    parsed = []
-    for raw in discs:
-        substats = raw.get("substats", ())
-        if not isinstance(substats, Sequence) or isinstance(substats, (str, bytes)):
-            raise ValueError("Drive Disc substats must be an array")
-        raw_main_stat = raw.get("main_stat")
-        main_stat = (
-            None
-            if raw_main_stat is None or str(raw_main_stat) == ""
-            else DriveDiscStatKey(str(raw_main_stat))
-        )
-        parsed.append(
-            EquippedDriveDisc(
-                slot=DriveDiscSlot(int(str(raw["slot"]))),
-                set_id=stable_set_id(str(raw["set_id"]).removeprefix("drive-disc:")),
-                main_stat=main_stat,
-                substats=tuple(
-                    DriveDiscSubstatRoll(
-                        DriveDiscStatKey(str(item["stat"])),
-                        int(str(item["roll_count"])),
-                    )
-                    for item in substats
-                    if isinstance(item, Mapping)
-                ),
-            )
-        )
-        if len(parsed[-1].substats) != len(substats):
-            raise ValueError("Drive Disc substat must be an object")
+    parsed = _parse_drive_disc_inputs(discs)
     resolution = compile_drive_discs(
-        DriveDiscBuildInput(owner, tuple(parsed)),
+        DriveDiscBuildInput(owner, parsed),
         owner_capabilities=registration.equipment_capabilities,
     )
     raw_context = dict(condition_context or {})
@@ -639,12 +742,141 @@ def build_registered_drive_disc_editor_view(
     )
 
 
+def build_registered_build_preview(
+    character_id: str | CharacterId,
+    *,
+    level: int = 60,
+    wengine_id: str | None = None,
+    wengine_level: int = 60,
+    wengine_refinement: int = 1,
+    discs: Sequence[Mapping[str, object]] = (),
+):
+    """Assemble one live equipment panel through the production pipeline.
+
+    This is deliberately the only presentation entry point that knows how a
+    character, W-Engine, and partial Drive Disc input become a panel.  It
+    never executes combat rules: conditional rule items are returned by the
+    existing equipment editor endpoints and remain separate from this static
+    panel preview.
+    """
+
+    owner = CharacterId(str(character_id))
+    registration = registration_for(owner)
+    base_stats = character_base_stats(owner, level=level)
+    contributions: list[BuildStatContribution] = []
+    diagnostics = []
+    if wengine_id:
+        wengine = compile_wengine(
+            WEngineBuildInput(
+                WEngineId(str(wengine_id)),
+                owner,
+                level=int(wengine_level),
+                refinement=int(wengine_refinement),
+            ),
+            owner_capabilities=registration.equipment_capabilities,
+        )
+        contributions.extend(wengine.contributions)
+        diagnostics.extend(wengine.diagnostics)
+
+    parsed_discs = _parse_drive_disc_inputs(discs)
+    drive_resolution = compile_drive_discs(
+        DriveDiscBuildInput(owner, parsed_discs),
+        owner_capabilities=registration.equipment_capabilities,
+    )
+    contributions.extend(drive_resolution.contributions)
+    diagnostics.extend(drive_resolution.diagnostics)
+
+    assembled = assemble_build(
+        CharacterBuildDefinition(
+            character_id=owner,
+            level=level,
+            mode=BuildMode.EQUIPMENT_BUILD,
+            base_stats=base_stats,
+            contributions=tuple(contributions),
+        ),
+    )
+    diagnostics.extend(assembled.diagnostics)
+    diagnostic_views = tuple(
+        diagnostic_view(item) for item in dict.fromkeys(diagnostics)
+    )
+    display_name = registration.catalog.display_name
+    base_snapshot = panel_snapshot_view(CharacterSnapshot(owner, level, base_stats))
+    current_snapshot = panel_snapshot_view(assembled.character_snapshot)
+    provenance = (
+        *_base_provenance(owner, display_name, base_stats),
+        *(build_contribution_view(item) for item in assembled.provenance),
+    )
+    complete = (
+        assembled.complete
+        and drive_resolution.complete
+        and not any(item.blocking for item in diagnostics)
+    )
+    return BuildPreviewView(
+        schema_version=SCHEMA_VERSION,
+        character_id=str(owner),
+        display_name=display_name,
+        level=level,
+        build_mode=BuildMode.EQUIPMENT_BUILD.value,
+        base_stats=base_snapshot.stats,
+        out_of_combat_stats=current_snapshot.stats,
+        provenance=provenance,
+        drive_discs=_drive_disc_preview_views(drive_resolution),
+        set_counts=tuple(
+            {"set_id": str(set_id), "count": count}
+            for set_id, count in drive_resolution.set_counts
+        ),
+        diagnostics=diagnostic_views,
+        complete=complete,
+    )
+
+
+def _parse_drive_disc_inputs(
+    raw_value: Sequence[Mapping[str, object]],
+) -> tuple[EquippedDriveDisc, ...]:
+    parsed = []
+    for raw in raw_value:
+        raw_substats = raw.get("substats", ())
+        if not isinstance(raw_substats, Sequence) or isinstance(
+            raw_substats,
+            (str, bytes),
+        ):
+            raise ValueError("Drive Disc substats must be an array")
+        substats = []
+        for item in raw_substats:
+            if not isinstance(item, Mapping):
+                raise ValueError("Drive Disc substat must be an object")
+            substats.append(
+                DriveDiscSubstatRoll(
+                    DriveDiscStatKey(str(item.get("stat", ""))),
+                    int(str(item.get("roll_count", 0))),
+                )
+            )
+        raw_main_stat = raw.get("main_stat")
+        main_stat = (
+            None
+            if raw_main_stat is None or str(raw_main_stat) == ""
+            else DriveDiscStatKey(str(raw_main_stat))
+        )
+        parsed.append(
+            EquippedDriveDisc(
+                slot=DriveDiscSlot(int(str(raw.get("slot", 0)))),
+                set_id=stable_set_id(
+                    str(raw.get("set_id", "")).removeprefix("drive-disc:")
+                ),
+                main_stat=main_stat,
+                substats=tuple(substats),
+            )
+        )
+    return tuple(parsed)
+
+
 __all__ = [
     "CharacterPresentationRegistration",
     "compile_registered_definition",
     "config_fields_for",
     "build_registered_editor_view",
     "build_registered_drive_disc_editor_view",
+    "build_registered_build_preview",
     "build_registered_wengine_editor_view",
     "registration_for",
     "supported_character_registrations",

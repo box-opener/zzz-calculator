@@ -20,6 +20,11 @@ from .character_editor import (
     WEngineEditorView,
     DriveDiscEditorView,
 )
+from .build_preview import (
+    BuildPreviewView,
+    DriveDiscPreviewView,
+    DriveDiscStatPreviewView,
+)
 from .calculation import (
     CalculationView,
     DamageEventModeView,
@@ -30,6 +35,7 @@ from .requests import CharacterBuildInput, EnemyInput, MoveCalculationViewReques
 from .registry import (
     CharacterPresentationRegistration,
     build_registered_editor_view,
+    build_registered_build_preview,
     build_registered_drive_disc_editor_view,
     build_registered_wengine_editor_view,
     compile_registered_definition,
@@ -48,6 +54,9 @@ __all__ = [
     "CompileConfigFieldView",
     "WEngineEditorView",
     "DriveDiscEditorView",
+    "BuildPreviewView",
+    "DriveDiscPreviewView",
+    "DriveDiscStatPreviewView",
     "DamageEventModeView",
     "DamageEventView",
     "EnemyInput",
@@ -59,6 +68,7 @@ __all__ = [
     "build_wengine_editor_view",
     "CharacterPresentationRegistration",
     "build_registered_editor_view",
+    "build_registered_build_preview",
     "build_registered_drive_disc_editor_view",
     "build_registered_wengine_editor_view",
     "compile_registered_definition",

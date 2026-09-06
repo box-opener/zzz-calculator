@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.presentation import (
+    build_registered_build_preview,
     build_registered_editor_view,
     build_registered_drive_disc_editor_view,
     build_registered_wengine_editor_view,
@@ -82,6 +83,55 @@ def preview_drive_discs(payload: dict[str, Any] = Body(default={})) -> JSONRespo
                 "diagnostics": [
                     {
                         "diagnostic_id": "api:drive-disc-preview:invalid-request",
+                        "kind": "missing-data",
+                        "message": str(exc),
+                        "blocking": True,
+                    }
+                ],
+            },
+        )
+
+
+@app.post("/api/v1/builds/preview")
+def preview_build(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    """Return the authoritative live panel for one equipment build.
+
+    The endpoint accepts partial Drive Disc input and intentionally returns a
+    200 response with known static contributions plus blocking diagnostics.
+    Formal move calculation keeps its stricter completeness gate.
+    """
+
+    try:
+        character_id = str(
+            payload.get("character_id", payload.get("equipped_character_id", ""))
+        )
+        if not character_id:
+            raise ValueError("character_id is required")
+        raw_discs = payload.get("drive_discs", payload.get("discs", ()))
+        if not isinstance(raw_discs, (list, tuple)):
+            raise ValueError("drive_discs must be an array")
+        wengine_id = payload.get("wengine_id")
+        if wengine_id is not None and not str(wengine_id).strip():
+            wengine_id = None
+        view = build_registered_build_preview(
+            character_id,
+            level=int(payload.get("level", 60)),
+            wengine_id=str(wengine_id) if wengine_id is not None else None,
+            wengine_level=int(payload.get("wengine_level", 60)),
+            wengine_refinement=int(payload.get("wengine_refinement", 1)),
+            discs=tuple(item for item in raw_discs if isinstance(item, dict)),
+        )
+        if len(view.drive_discs) != len(raw_discs):
+            raise ValueError("drive_disc must be an object")
+        return JSONResponse(to_jsonable(view))
+    except (TypeError, ValueError, KeyError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "schema_version": "presentation-v1",
+                "diagnostics": [
+                    {
+                        "diagnostic_id": "api:build-preview:invalid-request",
                         "kind": "missing-data",
                         "message": str(exc),
                         "blocking": True,

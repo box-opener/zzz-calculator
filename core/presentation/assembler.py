@@ -52,38 +52,16 @@ from .character_editor import (
     DriveDiscStatOptionView,
 )
 from .diagnostics import DiagnosticView, diagnostic_view
+from .drive_disc_display import drive_disc_stat_label
 
 
 SCHEMA_VERSION = "presentation-v1"
-
-_DRIVE_STAT_LABELS = {
-    "hp-flat": "生命值",
-    "attack-flat": "攻击力",
-    "defense-flat": "防御力",
-    "penetration-flat": "穿透值",
-    "anomaly-proficiency-flat": "异常精通",
-    "crit-rate": "暴击率",
-    "crit-damage": "暴击伤害",
-    "hp-percent": "生命值%",
-    "attack-percent": "攻击力%",
-    "defense-percent": "防御力%",
-    "impact-percent": "冲击力%",
-    "anomaly-mastery-percent": "异常掌控%",
-    "energy-regen-percent": "能量自动回复%",
-    "penetration-rate": "穿透率",
-    "fire-damage-bonus": "火属性伤害",
-    "ice-damage-bonus": "冰属性伤害",
-    "wind-damage-bonus": "风属性伤害",
-    "electric-damage-bonus": "电属性伤害",
-    "physical-damage-bonus": "物理属性伤害",
-    "ether-damage-bonus": "以太属性伤害",
-}
 
 
 def _drive_stat_view(stat, value: float) -> DriveDiscStatOptionView:
     return DriveDiscStatOptionView(
         stat_key=stat.value,
-        label=_DRIVE_STAT_LABELS[stat.value],
+        label=drive_disc_stat_label(stat),
         value_per_roll=value,
     )
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { teamReducer } from "./state/teamReducer";
 import {
   reconcileEditorState,
@@ -16,6 +16,11 @@ import {
   type DriveDiscStatOption,
   type DriveDiscSubstat,
 } from "./state/driveDiscState";
+import {
+  formatBuildContributionValue,
+  formatDriveStatValue,
+  formatPreviewRatio,
+} from "./state/buildPreview";
 
 type Character = {
   character_id: string;
@@ -151,6 +156,56 @@ type DriveDiscEditorView = {
   diagnostics: { diagnostic_id: string; message: string; blocking: boolean }[];
 };
 
+type BuildPreviewStat = number | null | Record<string, number | null>;
+
+type BuildPreviewContribution = {
+  character_id: string;
+  contribution_id: string;
+  source_id: string;
+  source_type: string;
+  source_label: string;
+  stat: string;
+  layer: string;
+  value: number | null;
+  element: string | null;
+  unresolved: string | null;
+};
+
+type DriveDiscStatPreview = {
+  stat_key: string;
+  label: string;
+  value_per_roll: number;
+  display_value_per_roll: string;
+  roll_count: number;
+  total_value: number;
+  display_total_value: string;
+};
+
+type BuildPreviewDisc = {
+  slot: number;
+  set_id: string;
+  set_name: string;
+  main_stat: DriveDiscStatPreview | null;
+  substats: DriveDiscStatPreview[];
+  total_rolls: number;
+  complete: boolean;
+};
+
+type BuildPreview = {
+  schema_version: string;
+  character_id: string;
+  display_name: string;
+  level: number;
+  build_mode: "equipment-build";
+  base_stats: Record<string, BuildPreviewStat>;
+  out_of_combat_stats: Record<string, BuildPreviewStat>;
+  provenance: BuildPreviewContribution[];
+  drive_discs: BuildPreviewDisc[];
+  set_counts: { set_id: string; count: number }[];
+  diagnostics: { diagnostic_id: string; message: string; blocking: boolean }[];
+  complete: boolean;
+};
+
 type CalculationView = {
   move_entry_id: string;
   events: {
@@ -206,6 +261,7 @@ function App() {
   const [buildModes, setBuildModes] = useState<Record<string, "manual-panel" | "equipment-build">>({ [YE_ID]: "manual-panel", [ASTRA_ID]: "manual-panel" });
   const [wengineSelections, setWengineSelections] = useState<Record<string, { id: string; level: number; refinement: number }>>({});
   const [driveDiscSelections, setDriveDiscSelections] = useState<Record<string, DriveDiscConfig[]>>({});
+  const [buildPreviews, setBuildPreviews] = useState<Record<string, BuildPreview | null>>({});
   const [enemyLevel, setEnemyLevel] = useState(60);
   const [enemyDamageReduction, setEnemyDamageReduction] = useState(0);
   const [enemyIsStunned, setEnemyIsStunned] = useState(false);
@@ -217,6 +273,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
+  const editorGeneration = useRef(0);
+  const editorAbortController = useRef<AbortController | null>(null);
 
   const teamIds = useMemo(() => [primaryId, ...(supportId ? [supportId] : [])], [primaryId, supportId]);
   const activeWengineViews = useMemo(
@@ -265,14 +323,20 @@ function App() {
     wengineSource = wengineSelections,
     buildModesSource = buildModes,
     driveDiscSource = driveDiscSelections,
+    characterLevelsSource = characterLevels,
   ) => {
+    const generation = editorGeneration.current + 1;
+    editorGeneration.current = generation;
+    editorAbortController.current?.abort();
+    const abortController = new AbortController();
+    editorAbortController.current = abortController;
     setLoading(true);
     try {
       const nextTeam = [nextPrimary, ...(nextSupport ? [nextSupport] : [])];
       const [main, support] = await Promise.all([
-        jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextPrimary, team_character_ids: [nextPrimary, ...(nextSupport ? [nextSupport] : [])], condition_values: conditionSource, compile_config: configSource[nextPrimary] ?? {} }) }),
+        jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextPrimary, team_character_ids: [nextPrimary, ...(nextSupport ? [nextSupport] : [])], condition_values: conditionSource, compile_config: configSource[nextPrimary] ?? {} }), signal: abortController.signal }),
         nextSupport
-          ? jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextSupport, team_character_ids: [nextPrimary, nextSupport], condition_values: conditionSource, compile_config: configSource[nextSupport] ?? {} }) })
+          ? jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextSupport, team_character_ids: [nextPrimary, nextSupport], condition_values: conditionSource, compile_config: configSource[nextSupport] ?? {} }), signal: abortController.signal })
           : Promise.resolve(null),
       ]);
       const authoritativeConditionContext = resolveAuthoritativeConditionContext(
@@ -298,6 +362,7 @@ function App() {
               refinement: selection.refinement,
               condition_context: authoritativeConditionContext,
             }),
+            signal: abortController.signal,
           });
         }),
       );
@@ -314,13 +379,38 @@ function App() {
               discs: driveDiscSource[owner] ?? [],
               condition_context: authoritativeConditionContext,
             }),
+            signal: abortController.signal,
           });
         }),
       );
+      const nextBuildPreviews = await Promise.all(
+        nextTeam.map((owner) => {
+          if ((buildModesSource[owner] ?? "manual-panel") !== "equipment-build") {
+            return Promise.resolve(null);
+          }
+          const selection = wengineSource[owner];
+          return jsonRequest<BuildPreview>("/api/v1/builds/preview", {
+            method: "POST",
+            body: JSON.stringify({
+              character_id: owner,
+              level: characterLevelsSource[owner] ?? 60,
+              ...(selection?.id ? {
+                wengine_id: selection.id,
+                wengine_level: selection.level,
+                wengine_refinement: selection.refinement,
+              } : {}),
+              drive_discs: driveDiscSource[owner] ?? [],
+            }),
+            signal: abortController.signal,
+          });
+        }),
+      );
+      if (generation !== editorGeneration.current) return;
       setPrimaryView(main);
       setSupportView(support);
       setWengineViews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextWengineViews[index] ?? null])));
       setDriveDiscViews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextDriveDiscViews[index] ?? null])));
+      setBuildPreviews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextBuildPreviews[index] ?? null])));
       setMoveEntryId((current) => main.moves.some((move) => move.entry_id === current) ? current : (main.moves[0]?.entry_id || ""));
       const nextConfigs = { ...configSource };
       ([{ owner: nextPrimary, fields: main.compile_config_fields }, ...(support ? [{ owner: nextSupport, fields: support.compile_config_fields }] : [])]).forEach(({ owner, fields }) => {
@@ -380,9 +470,10 @@ function App() {
       setTriggerActors(reconciled.triggerActors);
       setStacks(reconciled.stacks);
     } catch (error) {
+      if ((error as Error).name === "AbortError" || generation !== editorGeneration.current) return;
       setDiagnostics([(error as Error).message]);
     } finally {
-      setLoading(false);
+      if (generation === editorGeneration.current) setLoading(false);
     }
   };
 
@@ -429,6 +520,24 @@ function App() {
     setBuildStats((current) => ({ ...current, [characterId]: { ...current[characterId], [key]: value } }));
   };
 
+  const updateCharacterLevel = (characterId: string, value: number) => {
+    const nextLevels = { ...characterLevels, [characterId]: value };
+    setCharacterLevels(nextLevels);
+    if ((buildModes[characterId] ?? "manual-panel") === "equipment-build") {
+      void loadEditors(
+        primaryId,
+        supportId,
+        configs,
+        conditionValues,
+        {},
+        wengineSelections,
+        buildModes,
+        driveDiscSelections,
+        nextLevels,
+      );
+    }
+  };
+
   const updateElementBonus = (characterId: string, element: "physical" | "ether", value: number) => {
     setBuildStats((current) => ({ ...current, [characterId]: { ...current[characterId], element_damage_bonus: { ...current[characterId]?.element_damage_bonus, [element]: value } } }));
   };
@@ -463,8 +572,22 @@ function App() {
 
   const updateBuildMode = (owner: string, mode: "manual-panel" | "equipment-build") => {
     const nextModes = { ...buildModes, [owner]: mode };
+    const nextLevels = mode === "equipment-build"
+      ? { ...characterLevels, [owner]: 60 }
+      : characterLevels;
     setBuildModes(nextModes);
-    void loadEditors(primaryId, supportId, configs, conditionValues, {}, wengineSelections, nextModes);
+    setCharacterLevels(nextLevels);
+    void loadEditors(
+      primaryId,
+      supportId,
+      configs,
+      conditionValues,
+      {},
+      wengineSelections,
+      nextModes,
+      driveDiscSelections,
+      nextLevels,
+    );
   };
 
   const updateDriveDisc = (owner: string, slot: number, nextDisc: DriveDiscConfig | null) => {
@@ -544,7 +667,6 @@ function App() {
       return [id, {
         level: characterLevels[id] ?? 60,
         build_mode: mode,
-        base_stats: { ...buildStats[id], element_damage_bonus: { ...buildStats[id]?.element_damage_bonus } },
         ...(selection?.id ? { wengine_id: selection.id, wengine_level: selection.level, wengine_refinement: selection.refinement } : {}),
         drive_discs: driveDiscSelections[id] ?? [],
       }];
@@ -618,6 +740,14 @@ function App() {
             <label>当前操作角色<input readOnly value={characters.find((item) => item.character_id === primaryId)?.display_name ?? primaryId} /></label>
           </div>
           {selectedPrimary && <div className="selection-summary"><span className="eyebrow">CURRENT OPERATOR</span><strong>{selectedPrimary.display_name}</strong><span className="muted">{selectedPrimary.character_id}</span></div>}
+          <LivePanel
+            teamIds={teamIds}
+            characters={characters}
+            previews={buildPreviews}
+            manualStats={buildStats}
+            buildModes={buildModes}
+            loading={loading}
+          />
         </section>
 
         <section className="glass-card build-panel">
@@ -627,19 +757,21 @@ function App() {
               const equipmentMode = (buildModes[id] ?? "manual-panel") === "equipment-build";
               const driveView = driveDiscViews[id];
               const selectedDiscs = driveDiscSelections[id] ?? [];
+              const preview = buildPreviews[id];
+              const basePanel = preview?.base_stats;
               return (
                 <div className="build-character" key={id}>
                   <strong>{characters.find((item) => item.character_id === id)?.display_name ?? id}</strong>
                   <div className="form-grid three-columns">
                     <label>面板模式<select value={buildModes[id] ?? "manual-panel"} onChange={(event) => updateBuildMode(id, event.target.value as "manual-panel" | "equipment-build")}><option value="manual-panel">手工局外面板</option><option value="equipment-build">装备配置</option></select></label>
-                    <label>等级<input type="number" min="1" max="60" value={characterLevels[id] ?? 60} onChange={(event) => setCharacterLevels((current) => ({ ...current, [id]: Number(event.target.value) }))} /></label>
-                    <label>{equipmentMode ? "角色无装备基础攻击力" : "攻击力"}<input type="number" value={buildStats[id]?.attack ?? 1000} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label>
-                    <label>暴击率<input type="number" step="0.01" value={buildStats[id]?.crit_rate ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label>
-                    <label>暴击伤害<input type="number" step="0.01" value={buildStats[id]?.crit_damage ?? 0.5} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label>
-                    <label>穿透率<input type="number" step="0.01" value={buildStats[id]?.penetration_rate ?? 0} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label>
-                    <label>穿透值<input type="number" value={buildStats[id]?.penetration_flat ?? 0} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label>
-                    <label>物理伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.physical ?? 0} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label>
-                    <label>以太伤害加成<input type="number" step="0.01" value={buildStats[id]?.element_damage_bonus.ether ?? 0} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label>
+                    <label>等级<input readOnly={equipmentMode} type="number" min={equipmentMode ? 60 : 1} max="60" value={characterLevels[id] ?? 60} onChange={(event) => updateCharacterLevel(id, Number(event.target.value))} /></label>
+                    <label>{equipmentMode ? "角色无装备基础攻击力" : "攻击力"}<input readOnly={equipmentMode} type="number" value={equipmentMode ? numericPreviewStat(basePanel?.attack) : (buildStats[id]?.attack ?? 1000)} onChange={(event) => updateBuildStat(id, "attack", Number(event.target.value))} /></label>
+                    <label>暴击率<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewRatioText(basePanel?.crit_rate) : (buildStats[id]?.crit_rate ?? 0.5)} onChange={(event) => updateBuildStat(id, "crit_rate", Number(event.target.value))} /></label>
+                    <label>暴击伤害<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewRatioText(basePanel?.crit_damage) : (buildStats[id]?.crit_damage ?? 0.5)} onChange={(event) => updateBuildStat(id, "crit_damage", Number(event.target.value))} /></label>
+                    <label>穿透率<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewRatioText(basePanel?.penetration_rate) : (buildStats[id]?.penetration_rate ?? 0)} onChange={(event) => updateBuildStat(id, "penetration_rate", Number(event.target.value))} /></label>
+                    <label>穿透值<input readOnly={equipmentMode} type="number" value={equipmentMode ? numericPreviewStat(basePanel?.penetration_flat) : (buildStats[id]?.penetration_flat ?? 0)} onChange={(event) => updateBuildStat(id, "penetration_flat", Number(event.target.value))} /></label>
+                    <label>物理伤害加成<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "physical") : (buildStats[id]?.element_damage_bonus.physical ?? 0)} onChange={(event) => updateElementBonus(id, "physical", Number(event.target.value))} /></label>
+                    <label>以太伤害加成<input readOnly={equipmentMode} type={equipmentMode ? "text" : "number"} step="0.01" value={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "ether") : (buildStats[id]?.element_damage_bonus.ether ?? 0)} onChange={(event) => updateElementBonus(id, "ether", Number(event.target.value))} /></label>
                   </div>
                   {equipmentMode && <>
                     <div className="form-grid three-columns">
@@ -650,6 +782,7 @@ function App() {
                     <div className="drive-disc-grid">
                       {(driveView?.slot_schemas ?? []).map((schema) => {
                         const disc = selectedDiscs.find((item) => item.slot === schema.slot);
+                        const discPreview = preview?.drive_discs.find((item) => item.slot === schema.slot);
                         const set = driveDiscSets.find((item) => item.set_id === disc?.set_id);
                         return <article className="drive-disc-card" key={`${id}-disc-${schema.slot}`} title={set ? `2件套：${set.two_piece_text}\n4件套：${set.four_piece_text}` : undefined}>
                           <div className="drive-disc-heading">
@@ -658,13 +791,15 @@ function App() {
                           </div>
                           <label>套装<select value={disc?.set_id ?? ""} onChange={(event) => selectDriveDiscSet(id, schema.slot, event.target.value)}><option value="">空槽</option>{driveDiscSets.map((item) => <option key={item.set_id} value={item.set_id}>{item.display_name}</option>)}</select></label>
                           {disc && <>
-                            <label>主词条<select value={disc.main_stat ?? ""} disabled={schema.main_stat_options.length === 1} onChange={(event) => updateDriveDiscMain(id, schema.slot, event.target.value)}>{schema.main_stat_options.length > 1 && <option value="">未选择</option>}{schema.main_stat_options.map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label} +{formatNumber(item.value_per_roll)}</option>)}</select></label>
+                            <label>主词条<select value={disc.main_stat ?? ""} disabled={schema.main_stat_options.length === 1} onChange={(event) => updateDriveDiscMain(id, schema.slot, event.target.value)}>{schema.main_stat_options.length > 1 && <option value="">未选择</option>}{schema.main_stat_options.map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label} +{formatDriveValue(item.stat_key, item.value_per_roll)}</option>)}</select>{discPreview?.main_stat && <small className="drive-stat-value">{discPreview.main_stat.label} +{discPreview.main_stat.display_total_value}</small>}</label>
                             <div className="drive-substats">{disc.substats.map((substat, index) => {
                               const used = new Set(disc.substats.filter((_, itemIndex) => itemIndex !== index).map((item) => item.stat));
+                              const substatPreview = discPreview?.substats.find((item) => item.stat_key === substat.stat);
                               return <div className="drive-substat-row" key={`${schema.slot}-${index}`}>
                                 <select value={substat.stat} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, stat: event.target.value })}>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !used.has(item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select>
                                 <input aria-label={`${schema.slot}号位副词条${index + 1}次数`} type="number" min="1" max="6" value={substat.roll_count} onChange={(event) => updateDriveDiscSubstat(id, schema.slot, index, { ...substat, roll_count: Number(event.target.value) })} />
                                 <button className="secondary-button" aria-label={`删除${schema.slot}号位副词条${index + 1}`} type="button" onClick={() => removeDriveDiscSubstatRow(id, schema.slot, index)}>删除</button>
+                                <small className="drive-stat-value">{substatPreview ? `${substatPreview.label} +${substatPreview.display_value_per_roll} ×${substatPreview.roll_count} = +${substatPreview.display_total_value}` : "等待预览…"}</small>
                               </div>;
                             })}</div>
                             {disc.substats.length < 4 && <label>增加副词条<select value="" onChange={(event) => addDriveDiscSubstatRow(id, schema.slot, event.target.value)}><option value="">请选择词条</option>{(driveView?.substat_options ?? []).filter((item) => item.stat_key !== disc.main_stat && !disc.substats.some((substat) => substat.stat === item.stat_key)).map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}</select></label>}
@@ -713,9 +848,98 @@ function formatNumber(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
 }
 
+type LivePanelProps = {
+  teamIds: string[];
+  characters: Character[];
+  previews: Record<string, BuildPreview | null>;
+  manualStats: Record<string, typeof DEFAULT_STATS>;
+  buildModes: Record<string, "manual-panel" | "equipment-build">;
+  loading: boolean;
+};
+
+const LIVE_PANEL_STATS: { key: string; label: string; ratio?: boolean }[] = [
+  { key: "hp", label: "生命值" },
+  { key: "attack", label: "攻击力" },
+  { key: "defense", label: "防御力" },
+  { key: "impact", label: "冲击力" },
+  { key: "crit_rate", label: "暴击率", ratio: true },
+  { key: "crit_damage", label: "暴击伤害", ratio: true },
+  { key: "anomaly_proficiency", label: "异常精通" },
+  { key: "anomaly_mastery", label: "异常掌控" },
+  { key: "penetration_flat", label: "穿透值" },
+  { key: "penetration_rate", label: "穿透率", ratio: true },
+  { key: "energy_regen", label: "能量自动回复" },
+];
+
+function LivePanel({ teamIds, characters, previews, manualStats, buildModes, loading }: LivePanelProps) {
+  return <section className="live-panel" aria-label="实时局外面板">
+    <div className="section-heading compact live-panel-heading">
+      <div><p className="eyebrow">LIVE OUT-OF-COMBAT PANEL</p><h2>实时局外面板</h2></div>
+      {loading && <span className="muted">更新中…</span>}
+    </div>
+    <div className="live-panel-list">
+      {teamIds.map((id) => {
+        const preview = buildModes[id] === "equipment-build" ? previews[id] : null;
+        const manual = manualStats[id] ?? DEFAULT_STATS;
+        const stats = preview?.out_of_combat_stats;
+        const character = characters.find((item) => item.character_id === id);
+        return <article className="live-panel-card" key={id}>
+          <div className="live-panel-card-heading">
+            <strong>{character?.display_name ?? id}</strong>
+            <span className={preview?.complete === false ? "incomplete" : "complete"}>{preview ? (preview.complete ? "已解析" : "部分配置") : buildModes[id] === "equipment-build" ? "等待预览" : "手工面板"}</span>
+          </div>
+          <div className="live-panel-stats">
+            {LIVE_PANEL_STATS.map(({ key, label, ratio }) => {
+              const value = preview ? numericPreviewStat(stats?.[key]) : manual[key as keyof typeof manual] as number;
+              return <div className="live-panel-stat" key={key}><span>{label}</span><strong>{formatPanelValue(value, ratio)}</strong></div>;
+            })}
+            {(() => {
+              const value = preview
+                ? stats?.element_damage_bonus
+                : manual.element_damage_bonus;
+              return <div className="live-panel-stat live-panel-element-bonuses"><span>基础元素增伤</span><strong>{formatElementBonuses(value as Record<string, number | null> | null)}</strong></div>;
+            })()}
+          </div>
+          {preview && <details className="live-panel-provenance">
+            <summary>查看来源明细</summary>
+            <div className="provenance-list">
+              {preview.provenance.map((item) => <div className="provenance-row" key={item.contribution_id}>
+                <span>{item.source_label}</span><strong>{formatBuildContributionValue(item)}</strong><small>{item.stat}{item.element ? ` · ${item.element}` : ""}</small>
+              </div>)}
+            </div>
+          </details>}
+        </article>;
+      })}
+    </div>
+  </section>;
+}
+
+function numericPreviewStat(value: BuildPreviewStat | undefined): number | "" {
+  return typeof value === "number" ? value : "";
+}
+
+function previewRatioText(value: BuildPreviewStat | undefined): string {
+  return typeof value === "number" ? formatPreviewRatio(value) : "";
+}
+
+function previewElementRatioText(value: BuildPreviewStat | undefined, element: "physical" | "ether"): string {
+  if (!value || typeof value !== "object") return "";
+  const amount = value[element];
+  return typeof amount === "number" ? formatPreviewRatio(amount) : "";
+}
+
+function formatPanelValue(value: number | "" | undefined, ratio = false) {
+  if (value === "" || value === undefined) return "—";
+  return ratio ? formatPreviewRatio(value) : formatNumber(value);
+}
+
+function formatDriveValue(stat: string, value: number) {
+  return formatDriveStatValue(stat, value);
+}
+
 function formatElementBonuses(value: number | Record<string, number | null> | null) {
   if (!value || typeof value !== "object") return "—";
-  return Object.entries(value).map(([element, amount]) => `${element} ${formatNumber(amount)}`).join(" · ") || "—";
+  return Object.entries(value).map(([element, amount]) => `${element} ${amount === null ? "—" : `${formatNumber(amount * 100)}%`}`).join(" · ") || "—";
 }
 
 function isEquipmentSource(sourceType: string | null | undefined) {

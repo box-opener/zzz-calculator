@@ -45,6 +45,24 @@ h2 { margin-bottom: 0; font-size: 22px; letter-spacing: -.03em; }
 .selection-summary .eyebrow { margin: 0; }
 .selection-summary strong { font-size: 18px; }
 .selection-summary .muted { margin-left: auto; font-size: 12px; }
+.live-panel { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--border); }
+.live-panel-heading { margin-top: 0 !important; }
+.live-panel-list { display: grid; gap: 12px; }
+.live-panel-card { padding: 13px; border: 1px solid var(--border); border-radius: 13px; background: rgba(10, 12, 21, .42); }
+.live-panel-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.live-panel-card-heading strong { color: #f2f2fb; font-size: 14px; }
+.live-panel-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.live-panel-stat { display: flex; min-width: 0; flex-direction: column; gap: 3px; padding: 7px 8px; border-radius: 8px; background: rgba(255, 255, 255, .035); }
+.live-panel-stat span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.live-panel-stat strong { overflow: hidden; color: #f2f2fb; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.live-panel-element-bonuses { grid-column: 1 / -1; }
+.live-panel-provenance { margin-top: 11px; color: var(--muted); font-size: 11px; }
+.live-panel-provenance summary { cursor: pointer; color: #c9c1ff; }
+.provenance-list { display: grid; gap: 4px; margin-top: 8px; max-height: 220px; overflow: auto; }
+.provenance-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+.provenance-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.provenance-row strong { color: var(--green); font-size: 11px; }
+.provenance-row small { grid-column: 1 / -1; color: #778098; }
 .contract-panel { display: flex; flex-direction: column; }
 .contract-panel > .muted { margin: 16px 0 22px; }
 .contract-list { display: grid; gap: 11px; }
@@ -69,8 +87,10 @@ h2 { margin-bottom: 0; font-size: 22px; letter-spacing: -.03em; }
 .drive-disc-heading div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .drive-disc-heading small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .drive-substats { display: grid; gap: 5px; }
-.drive-substat-row { display: grid; grid-template-columns: minmax(0, 1fr) 54px auto; gap: 5px; }
+.drive-substat-row { display: grid; grid-template-columns: minmax(0, 1fr) 54px auto; gap: 5px; align-items: center; }
 .drive-substat-row input, .drive-substat-row select { min-height: 30px; padding: 4px 6px; }
+.drive-stat-value { grid-column: 1 / -1; color: #c9c1ff; font-size: 10px; line-height: 1.35; }
+.drive-disc-card label > .drive-stat-value { display: block; }
 .drive-set-summary { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 .drive-set-summary span { padding: 5px 8px; border-radius: 999px; color: #c9c1ff; background: var(--accent-soft); font-size: 11px; }
 label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }

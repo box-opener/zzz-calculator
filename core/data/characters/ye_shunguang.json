@@ -4,6 +4,19 @@
   "code_name": "Ye Shunguang",
   "specialty": "强攻",
   "element": "物理",
+  "stats": {
+    "hp": 7673.7042,
+    "atk": 938.2102,
+    "def": 606.5977,
+    "impact": 83,
+    "crit_rate": 19.4,
+    "crit_dmg": 50.0,
+    "pen_rate": 0.0,
+    "anomaly_proficiency": 94,
+    "anomaly_mastery": 93,
+    "sp_recovery": 1.2,
+    "rp_recovery": 0.0
+  },
   "skills": {
     "basic": [
       {
