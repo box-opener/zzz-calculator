@@ -73,6 +73,7 @@ from ..templates import DirectDamageEventTemplate
 from .config import AstraCompileConfig
 from .reviewed import (
     ARIA_ACTIVE_CONDITION_KEY,
+    ARIA_TEAM_BUFF_RULE_KEY,
     ASTRA_REVIEWED_MAPPING,
     CORE_ATTACK_BUFF_ACTIVE_CONDITION_KEY,
     ENERGY_AVAILABLE_CONDITION_KEY,
@@ -80,6 +81,7 @@ from .reviewed import (
     RHAPSODY_STAGE3_MIN_CONDITION_KEY,
     AstraMoveSpec,
     AstraReviewedMapping,
+    AstraTeamBuffSpec,
 )
 from .source import AstraRawMoveRecord, AstraRawRecord
 
@@ -208,6 +210,12 @@ def _raw_multiplier(
             original_text=parameter_name,
         )
     return value / 100.0
+
+
+def _resolved_ratio(value: float | Unresolved) -> Resolved | Unresolved:
+    """Turn a raw percentage-table value into a calculator ratio."""
+
+    return value if isinstance(value, Unresolved) else Resolved(value)
 
 
 def _mindscape_value(
@@ -632,6 +640,63 @@ def compile_astra(
         ),
     )
     rule_items: list[CalculationRuleItem] = [core_team_rule]
+
+    aria_team_spec = _team_buff_spec(reviewed_mapping, ARIA_TEAM_BUFF_RULE_KEY)
+    aria_source_move = raw_moves.get(aria_team_spec.source_name)
+    if aria_source_move is None:
+        raise ValueError(
+            f"raw Astra record is missing reviewed team buff source: "
+            f"{aria_team_spec.source_name}"
+        )
+    aria_damage_bonus = _raw_multiplier(
+        raw_moves,
+        aria_team_spec.source_name,
+        aria_team_spec.damage_parameter_name,
+        special_skill_level,
+        "咏叹华彩全队伤害",
+        diagnostics,
+    )
+    aria_crit_damage_bonus = _raw_multiplier(
+        raw_moves,
+        aria_team_spec.source_name,
+        aria_team_spec.crit_damage_parameter_name,
+        special_skill_level,
+        "咏叹华彩全队暴击伤害",
+        diagnostics,
+    )
+    aria_source = _rule_source(
+        "source:astra:1311:aria-team-buff",
+        EffectSourceType.SKILL,
+        aria_source_move.name,
+        aria_source_move.description,
+    )
+    rule_items.append(
+        CalculationRuleItem(
+            rule_id=RuleItemId("rule:astra:1311:aria-team-buff"),
+            owner=ASTRA_ID,
+            source=aria_source,
+            display_name=aria_team_spec.display_name,
+            original_text=aria_source_move.description,
+            eligibility=RuleEligibility.ELIGIBLE,
+            condition_ids=(ARIA_ACTIVE_CONDITION_ID,),
+            effects=(
+                _modifier(
+                    "effect:astra:1311:aria-team-damage",
+                    aria_source,
+                    CalculationNode.DAMAGE_NORMAL_BONUS,
+                    _resolved_ratio(aria_damage_bonus),
+                    target=EffectTarget.TEAM,
+                ),
+                _modifier(
+                    "effect:astra:1311:aria-team-crit-damage",
+                    aria_source,
+                    CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+                    _resolved_ratio(aria_crit_damage_bonus),
+                    target=EffectTarget.TEAM,
+                ),
+            ),
+        )
+    )
 
     c1_source = _mindscape_source(raw_record, 1)
     rule_items.append(
@@ -1067,6 +1132,20 @@ def _mindscape_source(raw_record: AstraRawRecord, level: int) -> RuleSource:
         f"{level}影：{mindscape.name}",
         mindscape.description,
     )
+
+
+def _team_buff_spec(
+    reviewed_mapping: AstraReviewedMapping,
+    rule_key: str,
+) -> AstraTeamBuffSpec:
+    specs = tuple(
+        item for item in reviewed_mapping.team_buffs if item.rule_key == rule_key
+    )
+    if len(specs) != 1:
+        raise ValueError(
+            f"reviewed Astra mapping must contain exactly one team buff spec: {rule_key}"
+        )
+    return specs[0]
 
 
 def _validate_raw_record(

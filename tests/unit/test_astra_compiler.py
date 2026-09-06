@@ -199,14 +199,67 @@ def _request(
 def test_raw_record_and_reviewed_mapping_are_separate() -> None:
     raw = _raw()
     assert raw.character_id == ASTRA_ID
-    assert len(raw.moves) == 12
+    assert len(raw.moves) == 13
     assert len(raw.core_levels) == 7
     assert tuple(item.level for item in raw.mindscapes) == (1, 2, 4, 6)
     wind = next(item for item in raw.moves if item.name == "特殊技：《风铃与旧约》")
     assert wind.parameters[0].value_for_level(12) == pytest.approx(110.0)
     assert wind.description
+    aria = next(item for item in raw.moves if item.name == "咏叹华彩")
+    assert "全队角色造成的伤害提升" in aria.description
+    assert "全队角色暴击伤害提升" in aria.description
+    assert {
+        item.name: item.values
+        for item in aria.parameters
+    } == {
+        "全队角色伤害提升": ((12, 20.0), (14, 22.0), (16, 24.0)),
+        "全队角色暴击伤害提升": ((12, 25.0), (14, 28.0), (16, 31.0)),
+    }
     assert not hasattr(ASTRA_REVIEWED_MAPPING, "core_levels")
     assert not hasattr(ASTRA_REVIEWED_MAPPING.moves[0].parameters[0], "values")
+
+
+@pytest.mark.parametrize(
+    ("skill_level", "damage_bonus", "crit_damage_bonus"),
+    ((12, 0.20, 0.25), (14, 0.22, 0.28), (16, 0.24, 0.31)),
+)
+def test_aria_team_buff_reads_special_skill_level_from_raw_parameters(
+    skill_level: int,
+    damage_bonus: float,
+    crit_damage_bonus: float,
+) -> None:
+    levels = tuple(CharacterSkillLevel(group, skill_level) for group in SkillGroup)
+    definition = compile_astra(
+        AstraCompileConfig(skill_levels=levels),
+        _raw(),
+    )
+    rule = next(
+        item
+        for item in definition.rule_items
+        if item.rule_id == RuleItemId("rule:astra:1311:aria-team-buff")
+    )
+    assert rule.condition_ids == (ARIA_ACTIVE_CONDITION_ID,)
+    assert rule.eligibility.value == "eligible"
+    assert rule.source.label == "咏叹华彩"
+    assert rule.original_text.startswith("耀嘉音进入<color=#FFFFFF>[咏叹华彩]")
+    damage_effect, crit_effect = rule.effects
+    assert isinstance(damage_effect, ModifierEffect)
+    assert isinstance(crit_effect, ModifierEffect)
+    assert (
+        damage_effect.result.modifier_path is CalculationNode.DAMAGE_NORMAL_BONUS
+    )
+    assert (
+        crit_effect.result.modifier_path
+        is CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE
+    )
+    assert damage_effect.rule.target is EffectTarget.TEAM
+    assert crit_effect.rule.target is EffectTarget.TEAM
+    assert damage_effect.rule.filters == ()
+    assert crit_effect.rule.filters == ()
+    assert damage_effect.rule.trigger is None
+    assert crit_effect.rule.trigger is None
+    assert damage_effect.result.value == Resolved(damage_bonus)
+    assert crit_effect.result.value == Resolved(crit_damage_bonus)
 
 
 def test_raw_multipliers_drive_derived_templates() -> None:

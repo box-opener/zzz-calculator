@@ -19,6 +19,10 @@ RHAPSODY_STAGE3_MIN_CONDITION_KEY = "rhapsody_stage3_min"
 RHAPSODY_STAGE3_FULL_CONDITION_KEY = "rhapsody_stage3_full"
 ENERGY_AVAILABLE_CONDITION_KEY = "energy_available"
 WIND_CHIME_COUNT_PARAMETER_KEY = "wind_chime_tremolo_count"
+ARIA_TEAM_BUFF_RULE_KEY = "aria-team-buff"
+ARIA_TEAM_BUFF_SOURCE_NAME = "咏叹华彩"
+ARIA_TEAM_DAMAGE_PARAMETER_NAME = "全队角色伤害提升"
+ARIA_TEAM_CRIT_DAMAGE_PARAMETER_NAME = "全队角色暴击伤害提升"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,8 +48,20 @@ class AstraMoveSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class AstraTeamBuffSpec:
+    """Reviewed mapping for a raw skill's event-independent team effects."""
+
+    rule_key: str
+    display_name: str
+    source_name: str
+    damage_parameter_name: str
+    crit_damage_parameter_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class AstraReviewedMapping:
     moves: tuple[AstraMoveSpec, ...]
+    team_buffs: tuple[AstraTeamBuffSpec, ...] = ()
 
 
 def _parameter(
@@ -267,12 +283,25 @@ ASTRA_REVIEWED_MAPPING = AstraReviewedMapping(
             (_parameter("complete", "伤害倍率"),),
             MultiplierRelation.COMPLETE,
         ),
-    )
+    ),
+    team_buffs=(
+        AstraTeamBuffSpec(
+            rule_key=ARIA_TEAM_BUFF_RULE_KEY,
+            display_name="咏叹华彩：全队伤害与暴击伤害",
+            source_name=ARIA_TEAM_BUFF_SOURCE_NAME,
+            damage_parameter_name=ARIA_TEAM_DAMAGE_PARAMETER_NAME,
+            crit_damage_parameter_name=ARIA_TEAM_CRIT_DAMAGE_PARAMETER_NAME,
+        ),
+    ),
 )
 
 
 __all__ = [
     "ARIA_ACTIVE_CONDITION_KEY",
+    "ARIA_TEAM_BUFF_RULE_KEY",
+    "ARIA_TEAM_BUFF_SOURCE_NAME",
+    "ARIA_TEAM_DAMAGE_PARAMETER_NAME",
+    "ARIA_TEAM_CRIT_DAMAGE_PARAMETER_NAME",
     "CORE_ATTACK_BUFF_ACTIVE_CONDITION_KEY",
     "ENERGY_AVAILABLE_CONDITION_KEY",
     "RHAPSODY_STAGE3_FULL_CONDITION_KEY",
@@ -280,6 +309,7 @@ __all__ = [
     "ASTRA_REVIEWED_MAPPING",
     "AstraDamageParameter",
     "AstraMoveSpec",
+    "AstraTeamBuffSpec",
     "AstraReviewedMapping",
     "WIND_CHIME_COUNT_PARAMETER_KEY",
 ]

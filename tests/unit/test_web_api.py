@@ -124,6 +124,21 @@ def _ye_primary_astra_support_payload(*, aria: bool) -> dict:
     }
 
 
+def _ye_primary_astra_aria_team_buff_payload(*, aria: bool) -> dict:
+    """A production-shaped payload with ARIA as its only scenario gate."""
+
+    payload = _ye_primary_astra_support_payload(aria=aria)
+    payload["move_entry_id"] = "move-entry:ye:1431:basic-fast-1"
+    payload["condition_values"] = {
+        "condition:astra:aria-active": aria,
+    }
+    payload["enabled_rule_item_ids"] = (
+        ["rule:astra:1311:aria-team-buff"] if aria else []
+    )
+    payload["selected_trigger_inputs"] = []
+    return payload
+
+
 def _astra_aria_payload(*, aria: bool, cinema_level: int = 0) -> dict:
     return {
         "primary_character_id": "character:1311",
@@ -589,6 +604,7 @@ def test_astra_aria_condition_controls_preview_availability_and_move_execution()
     false_rules = {item["rule_id"]: item for item in previews[False]["rule_items"]}
     true_rules = {item["rule_id"]: item for item in previews[True]["rule_items"]}
     aria_rule_ids = {
+        "rule:astra:1311:aria-team-buff",
         "rule:astra:1311:finale-derived",
         "rule:astra:1311:extra-ability",
         "rule:astra:1311:extra-ability-entry",
@@ -600,6 +616,7 @@ def test_astra_aria_condition_controls_preview_availability_and_move_execution()
     assert all(
         true_rules[item]["availability"] == "available"
         for item in {
+            "rule:astra:1311:aria-team-buff",
             "rule:astra:1311:cinema2",
             "rule:astra:1311:cinema4",
             "rule:astra:1311:cinema6",
@@ -730,6 +747,128 @@ def test_production_ye_primary_astra_support_aria_changes_entry_trace_and_events
         "effect:astra:1311:extra-entry-cluster",
     }
     assert active_payload["totals"]["expected"]["value"] != inactive_payload[
+        "totals"
+    ]["expected"]["value"]
+
+
+def test_production_ye_primary_astra_aria_team_buff_changes_damage_and_team_crit_panel() -> None:
+    inactive = client.post(
+        "/api/v1/moves/calculate",
+        json=_ye_primary_astra_aria_team_buff_payload(aria=False),
+    )
+    active = client.post(
+        "/api/v1/moves/calculate",
+        json=_ye_primary_astra_aria_team_buff_payload(aria=True),
+    )
+    assert inactive.status_code == active.status_code == 200
+
+    inactive_payload = inactive.json()
+    active_payload = active.json()
+    assert [item["semantic_id"] for item in inactive_payload["events"]] == [
+        "damage:ye:1431:basic-fast-1:main"
+    ]
+    assert [item["semantic_id"] for item in active_payload["events"]] == [
+        "damage:ye:1431:basic-fast-1:main"
+    ]
+
+    inactive_trace = inactive_payload["events"][0]["common_application_trace"]
+    active_trace = active_payload["events"][0]["common_application_trace"]
+    inactive_rule = next(
+        item
+        for item in inactive_trace["rule_matches"]
+        if item["rule_id"] == "rule:astra:1311:aria-team-buff"
+    )
+    active_rule = next(
+        item
+        for item in active_trace["rule_matches"]
+        if item["rule_id"] == "rule:astra:1311:aria-team-buff"
+    )
+    assert inactive_rule["status"] == "not-matched"
+    assert active_rule["status"] == "matched"
+    assert {item["status"] for item in active_rule["effects"]} == {"matched"}
+    assert {item["effect_id"] for item in active_rule["effects"]} == {
+        "effect:astra:1311:aria-team-damage",
+        "effect:astra:1311:aria-team-crit-damage",
+    }
+    damage_modifiers = [
+        item
+        for item in active_trace["applied_modifiers"]
+        if item["effect_id"] == "effect:astra:1311:aria-team-damage"
+    ]
+    assert len(damage_modifiers) == 1
+    assert damage_modifiers[0]["modifier_path"] == "damage.normal-bonus"
+    assert damage_modifiers[0]["value"] == pytest.approx(0.20)
+
+    crit_panel_traces = [
+        item
+        for item in active_payload["panel_traces"]
+        if item["effect_id"] == "effect:astra:1311:aria-team-crit-damage"
+    ]
+    assert {item["recipient_character_id"] for item in crit_panel_traces} == {
+        "character:1431",
+        "character:1311",
+    }
+    assert all(
+        item["modifier_path"] == "character.current.crit-damage"
+        for item in crit_panel_traces
+    )
+    assert all(
+        item["resolved_value"] == pytest.approx(0.25)
+        for item in crit_panel_traces
+    )
+
+    inactive_snapshots = {
+        item["character_id"]: item
+        for item in inactive_payload["resolved_character_snapshots"]
+    }
+    active_snapshots = {
+        item["character_id"]: item
+        for item in active_payload["resolved_character_snapshots"]
+    }
+    assert (
+        inactive_snapshots["character:1431"]["stats"]["crit_damage"]
+        == pytest.approx(0.5)
+    )
+    assert (
+        inactive_snapshots["character:1311"]["stats"]["crit_damage"]
+        == pytest.approx(0.5)
+    )
+    assert (
+        active_snapshots["character:1431"]["stats"]["crit_damage"]
+        == pytest.approx(0.75)
+    )
+    assert (
+        active_snapshots["character:1311"]["stats"]["crit_damage"]
+        == pytest.approx(0.75)
+    )
+    assert active_payload["totals"]["expected"]["value"] != inactive_payload[
+        "totals"
+    ]["expected"]["value"]
+
+
+def test_production_aria_team_buff_rule_switch_is_independent_from_active_state() -> None:
+    payload = _ye_primary_astra_aria_team_buff_payload(aria=True)
+    enabled = client.post("/api/v1/moves/calculate", json=payload)
+    payload["enabled_rule_item_ids"] = []
+    disabled = client.post("/api/v1/moves/calculate", json=payload)
+    assert enabled.status_code == disabled.status_code == 200
+    enabled_payload = enabled.json()
+    disabled_payload = disabled.json()
+    enabled_trace = enabled_payload["events"][0]["common_application_trace"]
+    disabled_trace = disabled_payload["events"][0]["common_application_trace"]
+    assert any(
+        item["effect_id"] == "effect:astra:1311:aria-team-damage"
+        for item in enabled_trace["applied_modifiers"]
+    )
+    assert not any(
+        item["effect_id"] == "effect:astra:1311:aria-team-damage"
+        for item in disabled_trace["applied_modifiers"]
+    )
+    assert not any(
+        item["effect_id"] == "effect:astra:1311:aria-team-crit-damage"
+        for item in disabled_payload["panel_traces"]
+    )
+    assert enabled_payload["totals"]["expected"]["value"] != disabled_payload[
         "totals"
     ]["expected"]["value"]
 
