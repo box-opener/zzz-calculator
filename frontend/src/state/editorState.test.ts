@@ -72,6 +72,35 @@ describe("reconcileEditorState", () => {
     expect(restored.enabledRules.has("rule:astra:1311:cinema2")).toBe(false);
     expect(restored.disabledRules.has("rule:astra:1311:cinema2")).toBe(true);
   });
+
+  it("prunes the third member's active controls when a three-person team is reduced", () => {
+    const threeMemberState = reconcileEditorState({
+      conditionValues: { "condition:three": true },
+      parameterValues: { "parameter:three": 2 },
+      enabledRules: new Set(["rule:three"]),
+      disabledRules: new Set(),
+      triggerActors: { "trigger:three": "character:three" },
+      stacks: { "rule:three": 2 },
+    }, {
+      conditions: [{ condition_id: "condition:three", value: false, editable: true }],
+      parameters: [{ parameter_id: "parameter:three", value: 1, minimum: 0, maximum: 4 }],
+      rules: [{ rule_id: "rule:three", availability: "available", enabled_by_default: true, toggleable: true, stack: { default: 1, minimum: 0, maximum: 4 } }],
+      triggers: [{ input_id: "trigger:three", actor_options: ["character:three"], selected_actor: "character:three" }],
+    }, ["character:one", "character:two", "character:three"]);
+    const reduced = reconcileEditorState(threeMemberState, {
+      conditions: [],
+      parameters: [],
+      rules: [],
+      triggers: [],
+    }, ["character:one", "character:two"]);
+
+    expect(reduced.conditionValues).toEqual({});
+    expect(reduced.parameterValues).toEqual({});
+    expect(reduced.enabledRules).toEqual(new Set());
+    expect(reduced.disabledRules).toEqual(new Set());
+    expect(reduced.triggerActors).toEqual({});
+    expect(reduced.stacks).toEqual({});
+  });
 });
 
 describe("resolveAuthoritativeConditionContext", () => {

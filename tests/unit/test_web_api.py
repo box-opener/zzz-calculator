@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from copy import deepcopy
 
 import pytest
 from fastapi.testclient import TestClient
@@ -204,6 +205,52 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert (asset_root / "IconRole46.webp").is_file()
     assert (asset_root / "IconRole47.webp").is_file()
     assert (asset_root / "IconRole39.webp").is_file()
+
+
+def test_calculation_accepts_a_primary_and_two_supporting_characters() -> None:
+    payload = _valid_calculation_payload()
+    primary = "character:1431"
+    supports = ["character:1311", "character:1401"]
+    payload["supporting_character_ids"] = supports
+    payload["team_character_ids"] = [primary, *supports]
+    payload["compile_configs"].update({
+        "character:1311": {"core_level": 1, "cinema_level": 0},
+        "character:1401": {"core_level": 1, "cinema_level": 0},
+    })
+    astra_build = deepcopy(payload["character_builds"][primary])
+    astra_build["out_of_combat_stats"]["element_damage_bonus"] = {"ether": 0.0}
+    alice_build = deepcopy(payload["character_builds"][primary])
+    payload["character_builds"].update({
+        "character:1311": astra_build,
+        "character:1401": alice_build,
+    })
+    payload["enemy"]["damage_resistance"]["ether"] = 0.2
+
+    for character_id in [primary, *supports]:
+        definition_response = client.post(
+            "/api/v1/definitions/preview",
+            json={
+                "character_id": character_id,
+                "team_character_ids": [primary, *supports],
+                "compile_config": payload["compile_configs"][character_id],
+            },
+        )
+        assert definition_response.status_code == 200, definition_response.text
+        build_response = client.post(
+            "/api/v1/builds/preview",
+            json={"character_id": character_id, "level": 60, "drive_discs": []},
+        )
+        assert build_response.status_code == 200, build_response.text
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["events"]
+    assert {item["character_id"] for item in result["resolved_character_snapshots"]} == {
+        primary,
+        *supports,
+    }
 
 
 def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:

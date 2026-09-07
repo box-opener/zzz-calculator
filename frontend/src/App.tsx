@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import DriveDiscCard from "./components/DriveDiscCard";
 import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTraceDetails";
 import NumberField from "./components/NumberField";
-import { teamReducer } from "./state/teamReducer";
+import { calculationTeamOrder, createTeamState, teamReducer, type TeamAction } from "./state/teamReducer";
 import {
   conditionValuesForViews,
   reconcileEditorState,
@@ -30,6 +30,8 @@ import {
   parseEquipmentConfig,
   serializeEquipmentConfig,
 } from "./state/equipmentConfig";
+import { filterCharacterCatalog, isCharacterSelectable } from "./state/characterLibrary";
+import { aggregateEditorViews } from "./state/editorAggregation";
 
 type Character = {
   character_id: string;
@@ -249,9 +251,9 @@ function App() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [wengines, setWengines] = useState<WEngine[]>([]);
   const [driveDiscSets, setDriveDiscSets] = useState<DriveDiscSet[]>([]);
-  const [{ primaryId, supportId }, dispatchTeam] = useReducer(teamReducer, { primaryId: YE_ID, supportId: ASTRA_ID });
-  const [primaryView, setPrimaryView] = useState<EditorView | null>(null);
-  const [supportView, setSupportView] = useState<EditorView | null>(null);
+  const [teamState, dispatchTeam] = useReducer(teamReducer, createTeamState([YE_ID, ASTRA_ID]));
+  const { teamCharacterIds, currentOperatorId } = teamState;
+  const [editorViews, setEditorViews] = useState<Record<string, EditorView | null>>({});
   const [wengineViews, setWengineViews] = useState<Record<string, WEngineEditorView | null>>({});
   const [driveDiscViews, setDriveDiscViews] = useState<Record<string, DriveDiscEditorView | null>>({});
   const [moveEntryId, setMoveEntryId] = useState("");
@@ -285,6 +287,11 @@ function App() {
   const [calculating, setCalculating] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [equipmentFeedback, setEquipmentFeedback] = useState<Record<string, { kind: "success" | "error"; message: string }>>({});
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [librarySlot, setLibrarySlot] = useState<number | null>(null);
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const [librarySpecialty, setLibrarySpecialty] = useState("");
+  const [libraryElement, setLibraryElement] = useState("");
   const editorGeneration = useRef(0);
   const editorAbortController = useRef<AbortController | null>(null);
   const equipmentImportInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -294,47 +301,23 @@ function App() {
     setConditionValues(next);
   };
 
-  const teamIds = useMemo(() => [primaryId, ...(supportId ? [supportId] : [])], [primaryId, supportId]);
-  const activeWengineViews = useMemo(
-    () => teamIds.map((id) => wengineViews[id]).filter((view): view is WEngineEditorView => Boolean(view)),
-    [teamIds, wengineViews],
+  const teamIds = teamCharacterIds;
+  const requestTeam = useMemo(() => calculationTeamOrder(teamIds, currentOperatorId), [teamIds, currentOperatorId]);
+  const supportingIds = requestTeam.supportingCharacterIds;
+  const aggregatedEditors = useMemo(
+    () => aggregateEditorViews(teamIds, editorViews, wengineViews, driveDiscViews),
+    [teamIds, editorViews, wengineViews, driveDiscViews],
   );
-  const activeDriveDiscViews = useMemo(
-    () => teamIds.map((id) => driveDiscViews[id]).filter((view): view is DriveDiscEditorView => Boolean(view)),
-    [teamIds, driveDiscViews],
-  );
-  const allRules = useMemo(() => [
-    ...(primaryView?.rule_items ?? []),
-    ...(supportView?.rule_items ?? []),
-    ...activeWengineViews.flatMap((view) => view.rule_items),
-    ...activeDriveDiscViews.flatMap((view) => view.rule_items),
-  ], [primaryView, supportView, activeWengineViews, activeDriveDiscViews]);
-  const allConditions = useMemo(() => [
-    ...(primaryView?.scenario_conditions ?? []),
-    ...(supportView?.scenario_conditions ?? []),
-    ...activeWengineViews.flatMap((view) => view.scenario_conditions),
-    ...activeDriveDiscViews.flatMap((view) => view.scenario_conditions),
-  ], [primaryView, supportView, activeWengineViews, activeDriveDiscViews]);
-  const allParameters = useMemo(() => [
-    ...(primaryView?.scenario_parameters ?? []),
-    ...(supportView?.scenario_parameters ?? []),
-    ...activeWengineViews.flatMap((view) => view.scenario_parameters),
-  ], [primaryView, supportView, activeWengineViews]);
-  const allTriggers = useMemo(() => [
-    ...(primaryView?.scenario_trigger_inputs ?? []),
-    ...(supportView?.scenario_trigger_inputs ?? []),
-    ...activeWengineViews.flatMap((view) => view.scenario_trigger_inputs),
-    ...activeDriveDiscViews.flatMap((view) => view.scenario_trigger_inputs),
-  ], [primaryView, supportView, activeWengineViews, activeDriveDiscViews]);
-  const allConfigFields = useMemo(() => [
-    ...(primaryView?.compile_config_fields ?? []).map((field) => ({ owner: primaryId, field })),
-    ...(supportView?.compile_config_fields ?? []).map((field) => ({ owner: supportId, field })),
-  ], [primaryId, supportId, primaryView, supportView]);
-  const selectedMove = primaryView?.moves.find((move) => move.entry_id === moveEntryId);
+  const allRules = aggregatedEditors.ruleItems;
+  const allConditions = aggregatedEditors.conditions;
+  const allParameters = aggregatedEditors.parameters;
+  const allTriggers = aggregatedEditors.triggers;
+  const allConfigFields = aggregatedEditors.configFields;
+  const selectedMove = editorViews[currentOperatorId]?.moves.find((move) => move.entry_id === moveEntryId);
 
   const loadEditors = async (
-    nextPrimary = primaryId,
-    nextSupport = supportId,
+    nextTeam: string[] = teamIds,
+    nextOperator = currentOperatorId,
     configSource = configs,
     conditionSource = conditionValuesRef.current,
     stateOverride: Partial<EditorState> = {},
@@ -350,22 +333,28 @@ function App() {
     editorAbortController.current = abortController;
     setLoading(true);
     try {
-      const nextTeam = [nextPrimary, ...(nextSupport ? [nextSupport] : [])];
-      const [main, support] = await Promise.all([
-        jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextPrimary, team_character_ids: [nextPrimary, ...(nextSupport ? [nextSupport] : [])], condition_values: conditionSource, compile_config: configSource[nextPrimary] ?? {} }), signal: abortController.signal }),
-        nextSupport
-          ? jsonRequest<EditorView>("/api/v1/definitions/preview", { method: "POST", body: JSON.stringify({ character_id: nextSupport, team_character_ids: [nextPrimary, nextSupport], condition_values: conditionSource, compile_config: configSource[nextSupport] ?? {} }), signal: abortController.signal })
-          : Promise.resolve(null),
-      ]);
+      const normalizedTeam = [...new Set(nextTeam)].slice(0, 3);
+      const normalizedOperator = normalizedTeam.includes(nextOperator)
+        ? nextOperator
+        : normalizedTeam[0] ?? "";
+      const nextEditorViews = await Promise.all(
+        normalizedTeam.map((owner) => jsonRequest<EditorView>("/api/v1/definitions/preview", {
+          method: "POST",
+          body: JSON.stringify({
+            character_id: owner,
+            team_character_ids: normalizedTeam,
+            condition_values: conditionSource,
+            compile_config: configSource[owner] ?? {},
+          }),
+          signal: abortController.signal,
+        })),
+      );
       const authoritativeConditionContext = resolveAuthoritativeConditionContext(
         conditionSource,
-        [
-          ...main.scenario_conditions,
-          ...(support?.scenario_conditions ?? []),
-        ],
+        nextEditorViews.flatMap((view) => view.scenario_conditions),
       );
       const nextWengineViews = await Promise.all(
-        nextTeam.map((owner) => {
+        normalizedTeam.map((owner) => {
           const selection = wengineSource[owner];
           if (!selection?.id || (buildModesSource[owner] ?? "manual-panel") !== "equipment-build") {
             return Promise.resolve(null);
@@ -375,7 +364,7 @@ function App() {
             body: JSON.stringify({
               wengine_id: selection.id,
               equipped_character_id: owner,
-              team_character_ids: nextTeam,
+              team_character_ids: normalizedTeam,
               level: selection.level,
               refinement: selection.refinement,
               condition_context: authoritativeConditionContext,
@@ -385,7 +374,7 @@ function App() {
         }),
       );
       const nextDriveDiscViews = await Promise.all(
-        nextTeam.map((owner) => {
+        normalizedTeam.map((owner) => {
           if ((buildModesSource[owner] ?? "manual-panel") !== "equipment-build") {
             return Promise.resolve(null);
           }
@@ -393,7 +382,7 @@ function App() {
             method: "POST",
             body: JSON.stringify({
               equipped_character_id: owner,
-              team_character_ids: nextTeam,
+              team_character_ids: normalizedTeam,
               discs: driveDiscSource[owner] ?? [],
               condition_context: authoritativeConditionContext,
             }),
@@ -402,7 +391,7 @@ function App() {
         }),
       );
       const nextBuildPreviews = await Promise.all(
-        nextTeam.map((owner) => {
+        normalizedTeam.map((owner) => {
           if ((buildModesSource[owner] ?? "manual-panel") !== "equipment-build") {
             return Promise.resolve(null);
           }
@@ -424,14 +413,14 @@ function App() {
         }),
       );
       if (generation !== editorGeneration.current) return;
-      setPrimaryView(main);
-      setSupportView(support);
-      setWengineViews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextWengineViews[index] ?? null])));
-      setDriveDiscViews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextDriveDiscViews[index] ?? null])));
-      setBuildPreviews(Object.fromEntries(nextTeam.map((owner, index) => [owner, nextBuildPreviews[index] ?? null])));
-      setMoveEntryId((current) => main.moves.some((move) => move.entry_id === current) ? current : (main.moves[0]?.entry_id || ""));
+      setEditorViews(Object.fromEntries(normalizedTeam.map((owner, index) => [owner, nextEditorViews[index] ?? null])));
+      setWengineViews(Object.fromEntries(normalizedTeam.map((owner, index) => [owner, nextWengineViews[index] ?? null])));
+      setDriveDiscViews(Object.fromEntries(normalizedTeam.map((owner, index) => [owner, nextDriveDiscViews[index] ?? null])));
+      setBuildPreviews(Object.fromEntries(normalizedTeam.map((owner, index) => [owner, nextBuildPreviews[index] ?? null])));
+      const operatorView = nextEditorViews[normalizedTeam.indexOf(normalizedOperator)];
+      setMoveEntryId((current) => operatorView?.moves.some((move) => move.entry_id === current) ? current : (operatorView?.moves[0]?.entry_id || ""));
       const nextConfigs = { ...configSource };
-      ([{ owner: nextPrimary, fields: main.compile_config_fields }, ...(support ? [{ owner: nextSupport, fields: support.compile_config_fields }] : [])]).forEach(({ owner, fields }) => {
+      nextEditorViews.forEach(({ character_id: owner, compile_config_fields: fields }) => {
         const next = { ...(nextConfigs[owner] ?? {}) };
         fields.forEach((field) => {
           if (field.field_id.startsWith("skill_level:")) {
@@ -456,30 +445,26 @@ function App() {
         },
           {
             conditions: [
-              ...main.scenario_conditions,
-              ...(support?.scenario_conditions ?? []),
+              ...nextEditorViews.flatMap((view) => view.scenario_conditions),
               ...nextWengineViews.flatMap((view) => view?.scenario_conditions ?? []),
               ...nextDriveDiscViews.flatMap((view) => view?.scenario_conditions ?? []),
             ],
             parameters: [
-              ...main.scenario_parameters,
-              ...(support?.scenario_parameters ?? []),
+              ...nextEditorViews.flatMap((view) => view.scenario_parameters),
               ...nextWengineViews.flatMap((view) => view?.scenario_parameters ?? []),
             ],
             rules: [
-              ...main.rule_items,
-              ...(support?.rule_items ?? []),
+              ...nextEditorViews.flatMap((view) => view.rule_items),
               ...nextWengineViews.flatMap((view) => view?.rule_items ?? []),
               ...nextDriveDiscViews.flatMap((view) => view?.rule_items ?? []),
             ],
             triggers: [
-              ...main.scenario_trigger_inputs,
-              ...(support?.scenario_trigger_inputs ?? []),
+              ...nextEditorViews.flatMap((view) => view.scenario_trigger_inputs),
               ...nextWengineViews.flatMap((view) => view?.scenario_trigger_inputs ?? []),
               ...nextDriveDiscViews.flatMap((view) => view?.scenario_trigger_inputs ?? []),
             ],
           },
-        nextTeam,
+        normalizedTeam,
       );
       commitConditionValues(reconciled.conditionValues);
       setParameterValues(reconciled.parameterValues);
@@ -494,6 +479,55 @@ function App() {
       if (generation === editorGeneration.current) setLoading(false);
     }
   };
+
+  const applyTeamAction = (action: Exclude<TeamAction, { type: "select-primary" | "select-support" }>) => {
+    const next = teamReducer(teamState, action);
+    if (!("teamCharacterIds" in next) || next === teamState) return;
+    dispatchTeam(action);
+    setCalculation(null);
+    void loadEditors(
+      next.teamCharacterIds,
+      next.currentOperatorId,
+      configs,
+      conditionValuesRef.current,
+      {},
+      wengineSelections,
+      buildModes,
+      driveDiscSelections,
+      characterLevels,
+    );
+  };
+
+  const openCharacterLibrary = (slotIndex: number) => {
+    setLibrarySlot(slotIndex);
+    setLibraryQuery("");
+    setLibrarySpecialty("");
+    setLibraryElement("");
+    setLibraryOpen(true);
+  };
+
+  const closeCharacterLibrary = () => {
+    setLibraryOpen(false);
+    setLibrarySlot(null);
+  };
+
+  const selectLibraryCharacter = (characterId: string) => {
+    if (librarySlot === null) return;
+    if (librarySlot < teamIds.length) {
+      applyTeamAction({ type: "replace-character", slotIndex: librarySlot, characterId });
+    } else {
+      applyTeamAction({ type: "add-character", characterId });
+    }
+    closeCharacterLibrary();
+  };
+
+  const filteredLibraryCharacters = useMemo(() => {
+    return filterCharacterCatalog(characters, {
+      query: libraryQuery,
+      specialty: librarySpecialty,
+      element: libraryElement,
+    });
+  }, [characters, libraryElement, libraryQuery, librarySpecialty]);
 
   useEffect(() => {
     Promise.all([
@@ -521,7 +555,7 @@ function App() {
           });
           return next;
         });
-        return loadEditors(primaryId, supportId, configs, conditionValuesRef.current, {}, nextSelections);
+        return loadEditors(teamIds, currentOperatorId, configs, conditionValuesRef.current, {}, nextSelections);
       })
       .catch((error: Error) => setDiagnostics([error.message]));
     // The catalog is the only initial network request; editor loading follows it.
@@ -531,7 +565,7 @@ function App() {
   const updateConfig = (characterId: string, key: string, value: unknown) => {
     const nextConfigs = { ...configs, [characterId]: { ...configs[characterId], [key]: value } };
     setConfigs(nextConfigs);
-    void loadEditors(primaryId, supportId, nextConfigs, conditionValuesRef.current, {}, wengineSelections);
+    void loadEditors(teamIds, currentOperatorId, nextConfigs, conditionValuesRef.current, {}, wengineSelections);
   };
 
   const updateBuildStat = (characterId: string, key: "attack" | "crit_rate" | "crit_damage" | "penetration_rate" | "penetration_flat", value: number) => {
@@ -543,8 +577,8 @@ function App() {
     setCharacterLevels(nextLevels);
     if ((buildModes[characterId] ?? "manual-panel") === "equipment-build") {
       void loadEditors(
-        primaryId,
-        supportId,
+        teamIds,
+        currentOperatorId,
         configs,
         conditionValuesRef.current,
         {},
@@ -565,7 +599,7 @@ function App() {
       const group = field.field_id.slice("skill_level:".length);
       const nextConfigs = { ...configs, [owner]: { ...configs[owner], skill_levels: { ...((configs[owner]?.skill_levels as Record<string, number> | undefined) ?? {}), [group]: Number(value) } } };
       setConfigs(nextConfigs);
-      void loadEditors(primaryId, supportId, nextConfigs, conditionValuesRef.current, {}, wengineSelections);
+      void loadEditors(teamIds, currentOperatorId, nextConfigs, conditionValuesRef.current, {}, wengineSelections);
       return;
     }
     updateConfig(owner, field.field_id, value);
@@ -576,7 +610,7 @@ function App() {
     const next = { ...conditionValuesRef.current };
     selectedMove.variants.forEach((variant, index) => variant.condition_ids.forEach((conditionId) => { next[conditionId] = index === variantIndex; }));
     commitConditionValues(next);
-    void loadEditors(primaryId, supportId, configs, next, { conditionValues: next }, wengineSelections);
+    void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }, wengineSelections);
   };
 
   const updateWengineSelection = (
@@ -585,7 +619,7 @@ function App() {
   ) => {
     const nextSelections = { ...wengineSelections, [owner]: selection };
     setWengineSelections(nextSelections);
-    void loadEditors(primaryId, supportId, configs, conditionValuesRef.current, {}, nextSelections);
+    void loadEditors(teamIds, currentOperatorId, configs, conditionValuesRef.current, {}, nextSelections);
   };
 
   const exportEquipmentConfig = (owner: string) => {
@@ -662,8 +696,8 @@ function App() {
       }));
       setDiagnostics([]);
       void loadEditors(
-        primaryId,
-        supportId,
+        teamIds,
+        currentOperatorId,
         configs,
         conditionValuesRef.current,
         {},
@@ -689,8 +723,8 @@ function App() {
     setBuildModes(nextModes);
     setCharacterLevels(nextLevels);
     void loadEditors(
-      primaryId,
-      supportId,
+      teamIds,
+      currentOperatorId,
       configs,
       conditionValuesRef.current,
       {},
@@ -709,8 +743,8 @@ function App() {
     const nextSelections = { ...driveDiscSelections, [owner]: nextForOwner };
     setDriveDiscSelections(nextSelections);
     void loadEditors(
-      primaryId,
-      supportId,
+      teamIds,
+      currentOperatorId,
       configs,
       conditionValuesRef.current,
       {},
@@ -804,11 +838,15 @@ function App() {
       const result = await jsonRequest<CalculationView>("/api/v1/moves/calculate", {
         method: "POST",
         body: JSON.stringify({
-          primary_character_id: primaryId,
-          supporting_character_ids: supportId ? [supportId] : [],
-          team_character_ids: teamIds,
+          primary_character_id: requestTeam.primaryCharacterId,
+          current_operator: currentOperatorId,
+          supporting_character_ids: supportingIds,
+          // The team state keeps a stable slot order for the library. The
+          // calculation transport puts the current operator first because
+          // Direct UI defines primary as both operator and move owner.
+          team_character_ids: requestTeam.teamCharacterIds,
           move_entry_id: moveEntryId,
-          compile_configs: configs,
+          compile_configs: Object.fromEntries(teamIds.map((id) => [id, configs[id] ?? {}])),
           condition_values: scenarioConditionValues,
           parameter_values: parameterValues,
           character_builds: buildPayloads(),
@@ -826,7 +864,7 @@ function App() {
     }
   };
 
-  const selectedPrimary = characters.find((item) => item.character_id === primaryId);
+  const selectedCurrent = characters.find((item) => item.character_id === currentOperatorId);
   const configFieldValue = (owner: string, field: CompileField) => {
     if (field.field_id.startsWith("skill_level:")) {
       const group = field.field_id.slice("skill_level:".length);
@@ -844,20 +882,35 @@ function App() {
 
       <section className="dashboard-grid">
         <section className="glass-card roster-panel">
-          <div className="section-heading"><div><p className="eyebrow">ROSTER</p><h2>队伍与当前角色</h2></div><span className="counter">{teamIds.length}/3</span></div>
-          <div className="character-grid">
-            {characters.map((character) => (
-              <button className={`character-card ${primaryId === character.character_id ? "selected" : ""}`} key={character.character_id} onClick={() => { const nextSupport = character.character_id === supportId ? primaryId : supportId; dispatchTeam({ type: "select-primary", characterId: character.character_id }); loadEditors(character.character_id, nextSupport); }} type="button">
-                <img alt={character.display_name} src={character.image_path} style={{ objectPosition: character.image_object_position }} />
-                <span className="character-card-copy"><strong>{character.display_name}</strong><small>{character.specialty} · {character.element}</small></span><span className="rarity">{character.rarity}</span>
-              </button>
-            ))}
+          <div className="section-heading"><div><p className="eyebrow">ROSTER · TEAM BUILDER</p><h2>队伍与当前角色</h2><p className="roster-hint">从角色库选择 1–3 名角色；槽位顺序会保留，当前操作角色负责招式结算。</p></div><span className="counter">{teamIds.length}/3</span></div>
+          <div className="team-slot-grid">
+            {Array.from({ length: 3 }, (_, slotIndex) => {
+              const id = teamIds[slotIndex];
+              const character = characters.find((item) => item.character_id === id);
+              if (!id || !character) {
+                return <button className="team-slot team-slot-empty" key={`empty-${slotIndex}`} onClick={() => openCharacterLibrary(slotIndex)} type="button">
+                  <span className="team-slot-plus" aria-hidden="true">＋</span>
+                  <strong>添加角色</strong>
+                  <small>第 {slotIndex + 1} 个队伍槽位</small>
+                </button>;
+              }
+              const isOperator = id === currentOperatorId;
+              return <article className={`team-slot team-slot-filled ${isOperator ? "team-slot-operator" : ""}`} key={id}>
+                <div className="team-slot-art">
+                  <img alt={character.display_name} src={character.image_path} style={{ objectPosition: character.image_object_position }} />
+                  <span className="rarity">{character.rarity}</span>
+                  {isOperator && <span className="operator-badge">当前操作</span>}
+                </div>
+                <div className="team-slot-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small></div>
+                <div className="team-slot-actions">
+                  <button className="secondary-button" disabled={isOperator} onClick={() => applyTeamAction({ type: "set-current-operator", characterId: id })} type="button">设为当前操作</button>
+                  <button className="secondary-button" onClick={() => openCharacterLibrary(slotIndex)} type="button">替换</button>
+                  <button className="secondary-button team-slot-remove" disabled={teamIds.length <= 1} onClick={() => applyTeamAction({ type: "remove-character", characterId: id })} type="button">移除</button>
+                </div>
+              </article>;
+            })}
           </div>
-          <div className="form-grid two-columns">
-            <label>支援角色<select value={supportId} onChange={(event) => { const nextSupport = event.target.value === primaryId ? "" : event.target.value; dispatchTeam({ type: "select-support", characterId: nextSupport }); loadEditors(primaryId, nextSupport); }}><option value="">无</option>{characters.filter((item) => item.character_id !== primaryId).map((item) => <option key={item.character_id} value={item.character_id}>{item.display_name}</option>)}</select></label>
-            <label>当前操作角色<input readOnly value={characters.find((item) => item.character_id === primaryId)?.display_name ?? primaryId} /></label>
-          </div>
-          {selectedPrimary && <div className="selection-summary"><span className="eyebrow">CURRENT OPERATOR</span><strong>{selectedPrimary.display_name}</strong><span className="muted">{selectedPrimary.character_id}</span></div>}
+          {selectedCurrent && <div className="selection-summary"><span className="eyebrow">CURRENT OPERATOR</span><strong>{selectedCurrent.display_name}</strong><span className="muted">{selectedCurrent.character_id} · {supportingIds.length} 名支援角色</span></div>}
           <LivePanel
             teamIds={teamIds}
             characters={characters}
@@ -867,6 +920,32 @@ function App() {
             loading={loading}
           />
         </section>
+
+        {libraryOpen && <div className="library-overlay" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeCharacterLibrary(); }}>
+          <section className="character-library" role="dialog" aria-modal="true" aria-labelledby="character-library-title">
+            <header className="character-library-header">
+              <div><p className="eyebrow">CHARACTER LIBRARY</p><h2 id="character-library-title">角色库</h2><p className="muted">选择角色加入第 {(librarySlot ?? 0) + 1} 个队伍槽位；已在队伍中的角色不可重复选择。</p></div>
+              <button className="icon-button library-close" aria-label="关闭角色库" onClick={closeCharacterLibrary} type="button">×</button>
+            </header>
+            <div className="character-library-filters">
+              <label><span>搜索角色</span><input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder="名称、职业或属性" /></label>
+              <label><span>职业</span><select value={librarySpecialty} onChange={(event) => setLibrarySpecialty(event.target.value)}><option value="">全部职业</option>{Array.from(new Set(characters.map((item) => item.specialty))).map((specialty) => <option key={specialty} value={specialty}>{specialtyLabel(specialty)}</option>)}</select></label>
+              <label><span>属性</span><select value={libraryElement} onChange={(event) => setLibraryElement(event.target.value)}><option value="">全部属性</option>{Array.from(new Set(characters.map((item) => item.element))).map((element) => <option key={element} value={element}>{elementLabel(element)}</option>)}</select></label>
+            </div>
+            <div className="library-results" aria-live="polite">
+              {filteredLibraryCharacters.map((character) => {
+                const alreadySelected = !isCharacterSelectable(character.character_id, teamIds);
+                return <button className={`library-character ${alreadySelected ? "library-character-selected" : ""}`} disabled={alreadySelected} key={character.character_id} onClick={() => selectLibraryCharacter(character.character_id)} type="button">
+                  <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} />
+                  <span className="library-character-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small></span>
+                  <span className="rarity">{character.rarity}</span>
+                  {alreadySelected && <span className="library-selected-mark">队伍中</span>}
+                </button>;
+              })}
+              {filteredLibraryCharacters.length === 0 && <div className="library-empty">没有符合筛选条件的角色。</div>}
+            </div>
+          </section>
+        </div>}
 
         <section className="glass-card build-panel">
           <div className="section-heading build-panel-heading"><div><p className="eyebrow">BUILD INPUT</p><h2>角色装备配置</h2></div><span className="muted">每个角色独立保存</span></div>
@@ -1014,7 +1093,7 @@ function App() {
             }
             return <NumberField key={`${owner}-${field.field_id}`} label={field.label} value={Number(fieldValue)} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} unit={unit} helper={field.help_text ?? "整数配置"} disabled={!field.editable} onCommit={(value) => updateConfigField(owner, field, value)} />;
           })}</div>
-          <div className="control-list">{allConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution}{condition.editable ? " · 可选" : " · 编译期"}</small></span><input disabled={!condition.editable} type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(primaryId, supportId, configs, next, { conditionValues: next }); }} /></label>)}</div>
+          <div className="control-list">{allConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution}{condition.editable ? " · 可选" : " · 编译期"}</small></span><input disabled={!condition.editable} type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }); }} /></label>)}</div>
           {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={parameter.maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} />; })}</div></div>}
           {selectedMove && selectedMove.multiplier_relation === "mutually-exclusive-variant" && <div className="variant-control"><div className="section-heading compact"><div><p className="eyebrow">MULTIPLIER VARIANT</p><h2>倍率版本</h2></div></div>{selectedMove.variants.map((variant, index) => <label className="variant-option" key={`${selectedMove.entry_id}-${index}`}><input name="move-variant" type="radio" checked={variant.condition_ids.length > 0 && variant.condition_ids.every((conditionId) => conditionValues[conditionId] === true)} onChange={() => selectVariant(index)} /><span>{variant.label}</span></label>)}</div>}
           <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>
@@ -1023,7 +1102,7 @@ function App() {
 
         <section className="glass-card result-panel">
           <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={calculating || loading || !moveEntryId} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
-          <label className="move-select">招式<select value={moveEntryId} onChange={(event) => setMoveEntryId(event.target.value)}>{(primaryView?.moves ?? []).map((move) => <option key={move.entry_id} value={move.entry_id}>{move.label}</option>)}</select></label>
+          <label className="move-select">招式<select value={moveEntryId} onChange={(event) => setMoveEntryId(event.target.value)}>{(editorViews[currentOperatorId]?.moves ?? []).map((move) => <option key={move.entry_id} value={move.entry_id}>{move.label}</option>)}</select></label>
           {calculation ? <div className="calculation-output"><div className="totals-grid">{["non-crit", "expected", "full-crit"].map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{["non-crit", "expected", "full-crit"].map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div>{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div>{calculation.panel_traces.length > 0 && <div className="trace-list"><p className="eyebrow">PANEL PROVENANCE</p>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</div>}{calculation.resolved_character_snapshots.length > 0 && <div className="trace-list"><p className="eyebrow">RESOLVED PANELS</p>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性加成 {formatElementBonuses(snapshot.stats.element_damage_bonus)}</span></div>)}</div>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
         </section>
       </section>
@@ -1039,6 +1118,10 @@ function formatNumber(value: number | null | undefined) {
 
 function elementLabel(element: string) {
   return ({ physical: "物理", ether: "以太", electric: "电", ice: "冰", fire: "火", wind: "风" } as Record<string, string>)[element] ?? element;
+}
+
+function specialtyLabel(specialty: string) {
+  return ({ attack: "强攻", anomaly: "异常", support: "支援", stun: "击破" } as Record<string, string>)[specialty] ?? specialty;
 }
 
 type LivePanelProps = {
