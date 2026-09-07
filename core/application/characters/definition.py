@@ -31,7 +31,7 @@ from ..scenario import (
     ScenarioIntegerParameter,
     ParameterResolution,
 )
-from .templates import DirectDamageEventTemplate
+from .templates import DamageEventTemplate
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +44,7 @@ class CharacterCalculationDefinition:
     rule_items: tuple[CalculationRuleItem, ...]
     scenario_conditions: tuple[ScenarioCondition, ...]
     scenario_parameters: tuple[ScenarioIntegerParameter, ...]
-    damage_event_templates: tuple[DirectDamageEventTemplate, ...]
+    damage_event_templates: tuple[DamageEventTemplate, ...]
     independent_derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 
@@ -137,6 +137,13 @@ class CharacterCalculationDefinition:
                     "each derived event template must have one multiplier reference"
                 )
             derived_refs_by_template[template_id] = derived
+            if (
+                derived.repeat_count_parameter_id is not None
+                and derived.repeat_count_parameter_id not in parameter_ids
+            ):
+                raise ValueError(
+                    "derived event references an unknown repeat-count parameter"
+                )
             self._assert_derived_source_rule(
                 derived,
                 rule_map,
@@ -189,6 +196,13 @@ class CharacterCalculationDefinition:
                         "each derived event template must have one multiplier reference"
                     )
                 derived_refs_by_template[template_id] = derived
+                if (
+                    derived.repeat_count_parameter_id is not None
+                    and derived.repeat_count_parameter_id not in parameter_ids
+                ):
+                    raise ValueError(
+                        "derived event references an unknown repeat-count parameter"
+                    )
                 self._assert_derived_source_rule(derived, rule_map)
         if event_creation_template_ids != set(derived_refs_by_template):
             raise ValueError(
@@ -223,7 +237,7 @@ class CharacterCalculationDefinition:
     @staticmethod
     def _assert_template_ref(
         ref: DamageEventTemplateRef,
-        templates: dict[EventTemplateId, DirectDamageEventTemplate],
+        templates: dict[EventTemplateId, DamageEventTemplate],
         move_id: MoveId | None,
         *,
         expect_move_id: bool,

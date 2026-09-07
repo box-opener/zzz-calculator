@@ -24,6 +24,10 @@ from core.types import (
     CharacterStat,
     DamageTag,
     DamageTagFilter,
+    DamageSubtype,
+    DamageSubtypeFilter,
+    DamageType,
+    DamageTypeFilter,
     DynamicIdentityCondition,
     DynamicIdentity,
     EffectId,
@@ -45,7 +49,18 @@ from core.types import (
     WEngineBuildInput,
     WEngineId,
 )
-from .wengine_ids import ASTRA_ID, YE_ID, WENGINE_ASTRA_ID, WENGINE_YE_ID
+from .wengine_ids import (
+    ALICE_ID,
+    ASTRA_ID,
+    TRIGGER_ID,
+    YE_ID,
+    YUZUHA_ID,
+    WENGINE_ALICE_ID,
+    WENGINE_ASTRA_ID,
+    WENGINE_TRIGGER_ID,
+    WENGINE_YE_ID,
+    WENGINE_YUZUHA_ID,
+)
 from .wengine_reviewed import reviewed_mapping_for
 
 
@@ -61,6 +76,9 @@ YE_VEIL_ACTIVE_CONDITION_ID = YE_MINGXIN_CONDITION_ID
 SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
+    ALICE_ID: WENGINE_ALICE_ID,
+    YUZUHA_ID: WENGINE_YUZUHA_ID,
+    TRIGGER_ID: WENGINE_TRIGGER_ID,
 }
 
 
@@ -355,6 +373,18 @@ def _reviewed_rules(
         return _song_of_noise_rules(
             raw, build_input, talent, source, eligibility, owner_capabilities
         )
+    if effect_family == "alice-practiced-perfection":
+        return _alice_practiced_perfection_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "yuzuha-metanukimorphosis":
+        return _yuzuha_metanukimorphosis_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "trigger-spectral-gaze":
+        return _trigger_spectral_gaze_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     raise ValueError(f"no reviewed W-Engine rule mapping for {raw.wengine_id}")
 
 
@@ -473,6 +503,7 @@ def _capability_eligibility(
     *,
     element: Element | None = None,
     skill_group: SkillGroup | None = None,
+    skill_groups: tuple[SkillGroup, ...] = (),
     tags: tuple[DamageTag, ...] = (),
     mechanism: str | None = None,
 ) -> RuleEligibility:
@@ -481,6 +512,10 @@ def _capability_eligibility(
     if element is not None and not capabilities.can_produce_element(element):
         return RuleEligibility.INELIGIBLE
     if skill_group is not None and not capabilities.can_use_skill_group(skill_group):
+        return RuleEligibility.INELIGIBLE
+    if skill_groups and not any(
+        capabilities.can_use_skill_group(group) for group in skill_groups
+    ):
         return RuleEligibility.INELIGIBLE
     if any(not capabilities.can_produce_tag(tag) for tag in tags):
         return RuleEligibility.INELIGIBLE
@@ -1207,6 +1242,274 @@ def _song_of_noise_rules(
     return (damage_rule, attack_rule), (active_condition,)
 
 
+def _alice_practiced_perfection_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    owner_capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    physical_eligible = _capability_eligibility(
+        eligibility,
+        owner_capabilities,
+        element=Element.PHYSICAL,
+    )
+    strong_id, strong_condition = _condition(
+        raw,
+        owner,
+        "strong-assault-active",
+        "十方锻星：强击增伤已触发",
+        "装备者触发强击时",
+    )
+    mastery_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="anomaly-mastery",
+        path=CalculationNode.CHARACTER_COMBAT_ANOMALY_MASTERY_FLAT_BONUS,
+        value=float(values["anomaly_mastery_flat"]),
+    )
+    physical_damage_effect = _wearer_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="physical-damage",
+        path=CalculationNode.DAMAGE_NORMAL_BONUS,
+        value=float(values["physical_damage_bonus"]),
+        # This weapon's reviewed scope is physical damage in the three
+        # calculator lanes that can represent Alice's strong-attack chain:
+        # direct damage, attribute-anomaly damage, and disorder.  Keep the
+        # damage-type/subtype restriction explicit so the passive does not
+        # leak onto other anomaly subtypes merely because they share the
+        # physical element.
+        filters=(
+            element_scope_filter(Element.PHYSICAL),
+            AnyFilter(
+                (
+                    DamageTypeFilter(DamageType.DIRECT),
+                    DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
+                    DamageTypeFilter(DamageType.DISORDER),
+                )
+            ),
+        ),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="anomaly-mastery",
+                label=f"{raw.name}·异常掌控提升",
+                eligibility=eligibility,
+                effects=(mastery_effect,),
+            ),
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="physical-damage",
+                label=f"{raw.name}·强击后物理伤害提升",
+                eligibility=physical_eligible,
+                condition_ids=(strong_id,),
+                effects=(physical_damage_effect,),
+                stack_count=int(values["max_stacks"]),
+                stack_min=0,
+                stack_max=int(values["max_stacks"]),
+            ),
+        ),
+        (strong_condition,),
+    )
+
+
+def _yuzuha_metanukimorphosis_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    owner_capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    physical_id, physical_condition = _condition(
+        raw,
+        owner,
+        "physical-ex-ultimate-active",
+        "狸法七变化：物理强化特殊技/终结技增益已触发",
+        "装备者的强化特殊技或终结技造成物理伤害时",
+    )
+    follow_up_id, follow_up_condition = _condition(
+        raw,
+        owner,
+        "team-anomaly-proficiency-active",
+        "狸法七变化：全队异常精通增益已触发",
+        "装备者的追加攻击命中敌人时",
+    )
+    physical_eligible = _capability_eligibility(
+        eligibility,
+        owner_capabilities,
+        element=Element.PHYSICAL,
+        skill_groups=(SkillGroup.SPECIAL_ATTACK, SkillGroup.ULTIMATE),
+        tags=(DamageTag.EX_SPECIAL_ATTACK,),
+    )
+    follow_up_eligible = _capability_eligibility(
+        eligibility,
+        owner_capabilities,
+        tags=(DamageTag.FOLLOW_UP_ATTACK,),
+    )
+    mastery_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="anomaly-mastery",
+        path=CalculationNode.CHARACTER_COMBAT_ANOMALY_MASTERY_FLAT_BONUS,
+        value=float(values["anomaly_mastery_flat"]),
+        condition=None,
+    )
+    team_proficiency_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="team-anomaly-proficiency",
+        path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+        value=float(values["team_anomaly_proficiency_flat"]),
+        target=EffectTarget.TEAM,
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="anomaly-mastery",
+                label=f"{raw.name}·强化特殊技/终结技异常掌控",
+                eligibility=physical_eligible,
+                condition_ids=(physical_id,),
+                effects=(mastery_effect,),
+            ),
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="team-anomaly-proficiency",
+                label=f"{raw.name}·全队异常精通",
+                eligibility=follow_up_eligible,
+                condition_ids=(follow_up_id,),
+                effects=(team_proficiency_effect,),
+            ),
+        ),
+        (physical_condition, follow_up_condition),
+    )
+
+
+def _trigger_spectral_gaze_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    owner_capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    electric_follow_up_eligible = _capability_eligibility(
+        eligibility,
+        owner_capabilities,
+        element=Element.ELECTRIC,
+        tags=(DamageTag.FOLLOW_UP_ATTACK,),
+        mechanism="trigger-follow-up",
+    )
+    defense_effect = ModifierEffect(
+        rule=_effect_rule(
+            effect_id=_instance_effect_id(raw.wengine_id, owner, "defense-reduction"),
+            source=source,
+            owner=owner,
+            target=EffectTarget.ENEMY,
+            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
+            filters=(
+                DamageTagFilter(DamageTag.FOLLOW_UP_ATTACK),
+                ElementFilter(Element.ELECTRIC),
+            ),
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.ENEMY_DEFENSE_REDUCTION,
+            operation=EffectOperation.ADD,
+            value=Resolved(float(values["defense_reduction"])),
+        ),
+    )
+    soul_lock_id, soul_lock_condition = _condition(
+        raw,
+        owner,
+        "soul-lock-active",
+        "索魂影眸：魂锁层数已生效",
+        "装备者触发被动且自身不是当前操作角色时获得魂锁",
+    )
+    soul_lock_rule_id = _instance_rule_id(
+        raw.wengine_id, owner, "soul-lock-impact"
+    )
+    soul_lock_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="soul-lock-impact",
+        path=CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+        value=float(values["impact_percent_per_stack"]),
+    )
+    max_soul_lock_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="soul-lock-max-impact",
+        path=CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+        value=float(values["impact_percent_at_max"]),
+        condition=RuleStackCondition(
+            soul_lock_rule_id,
+            int(values["max_stacks"]),
+        ),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="defense-reduction",
+                label=f"{raw.name}·追加攻击电属性防御降低",
+                eligibility=electric_follow_up_eligible,
+                effects=(defense_effect,),
+            ),
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="soul-lock-impact",
+                label=f"{raw.name}·魂锁冲击力",
+                eligibility=eligibility,
+                condition_ids=(soul_lock_id,),
+                effects=(soul_lock_effect,),
+                stack_count=int(values["max_stacks"]),
+                stack_min=0,
+                stack_max=int(values["max_stacks"]),
+            ),
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="soul-lock-max-impact",
+                label=f"{raw.name}·魂锁满层冲击力",
+                eligibility=eligibility,
+                condition_ids=(soul_lock_id,),
+                effects=(max_soul_lock_effect,),
+            ),
+        ),
+        (soul_lock_condition,),
+    )
+
+
 def _astra_rules(
     raw: WEngineRawRecord,
     build_input: WEngineBuildInput,
@@ -1301,6 +1604,12 @@ def _role(value: str) -> CharacterRole:
     mapping = {
         "attack": CharacterRole.ATTACK,
         "support": CharacterRole.SUPPORT,
+        "anomaly": CharacterRole.ANOMALY,
+        "stun": CharacterRole.STUN,
+        "击破": CharacterRole.STUN,
+        "异常": CharacterRole.ANOMALY,
+        "支援": CharacterRole.SUPPORT,
+        "强攻": CharacterRole.ATTACK,
     }
     try:
         return mapping[value]
@@ -1326,9 +1635,15 @@ __all__ = [
     "ASTRA_DAMAGE_BUFF_CONDITION_ID",
     "astra_damage_buff_condition_id_for",
     "ASTRA_ID",
+    "ALICE_ID",
+    "TRIGGER_ID",
+    "YUZUHA_ID",
     "SIGNATURE_WENGINE_BY_CHARACTER",
     "WENGINE_ASTRA_ID",
+    "WENGINE_ALICE_ID",
+    "WENGINE_TRIGGER_ID",
     "WENGINE_YE_ID",
+    "WENGINE_YUZUHA_ID",
     "WEngineBuildResolution",
     "WEngineRawRecord",
     "YE_MINGXIN_CONDITION_ID",

@@ -7,6 +7,7 @@ from core.types import (
     CalculationContext,
     CalculationNode,
     CalculationNodeMultiplier,
+    CurrentAnomalyProficiencyValueSource,
     CharacterId,
     CharacterSnapshot,
     DirectDamageEvent,
@@ -175,10 +176,21 @@ class DirectDamageCalculator:
                 "direct damage only supports StandardCritRule"
             )
 
-        attack = _resolved_number(
-            base_source.settlement_stats.attack,
-            unresolved,
-        )
+        if isinstance(
+            event.base_settlement_data_source,
+            CurrentAnomalyProficiencyValueSource,
+        ):
+            base_value = _resolved_number(
+                base_source.settlement_stats.anomaly_proficiency,
+                unresolved,
+            )
+            base_value_node = CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY
+        else:
+            base_value = _resolved_number(
+                base_source.settlement_stats.attack,
+                unresolved,
+            )
+            base_value_node = CalculationNode.CHARACTER_CURRENT_ATTACK
         if isinstance(event.multiplier, FixedMultiplier):
             skill_multiplier = _resolved_number(event.multiplier.value, unresolved)
         elif isinstance(event.multiplier, CalculationNodeMultiplier):
@@ -197,7 +209,10 @@ class DirectDamageCalculator:
             skill_multiplier = None
 
         crit_rate = (
-            _resolved_number(crit_source.settlement_stats.crit_rate, unresolved)
+            1.0
+            if isinstance(event.crit_rule, StandardCritRule)
+            and event.crit_rule.guaranteed
+            else _resolved_number(crit_source.settlement_stats.crit_rate, unresolved)
             if crit_source is not None
             else None
         )
@@ -241,7 +256,7 @@ class DirectDamageCalculator:
         modifiers = _modifier_totals(context, unresolved)
 
         required_values = (
-            attack,
+            base_value,
             skill_multiplier,
             crit_rate,
             crit_damage,
@@ -259,7 +274,7 @@ class DirectDamageCalculator:
                 unresolved=tuple(unresolved),
             )
 
-        assert attack is not None
+        assert base_value is not None
         assert skill_multiplier is not None
         assert crit_rate is not None
         assert crit_damage is not None
@@ -270,7 +285,7 @@ class DirectDamageCalculator:
         assert element_damage_bonus is not None
         assert base_resistance is not None
 
-        base_damage = attack * skill_multiplier
+        base_damage = base_value * skill_multiplier
         crit = calculate_crit_region(
             CritRegionInput(crit_rate=crit_rate, crit_damage=crit_damage)
         )
@@ -349,7 +364,7 @@ class DirectDamageCalculator:
         )
         assert final_damage is not None
         base_breakdown = (
-            _node(CalculationNode.CHARACTER_CURRENT_ATTACK, attack),
+            _node(base_value_node, base_value),
             _node(CalculationNode.DAMAGE_SKILL_MULTIPLIER, skill_multiplier),
             _node(CalculationNode.DAMAGE_BASE_VALUE, base_damage),
         )

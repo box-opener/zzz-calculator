@@ -45,6 +45,9 @@ class MultiplierVariant:
     condition_ids: tuple[ScenarioConditionId, ...] = ()
     repeat_count: int | None = None
     repeat_count_parameter_id: ScenarioParameterId | None = None
+    parameter_value_id: ScenarioParameterId | None = None
+    parameter_base_value: float | None = None
+    parameter_coefficient: float | None = None
 
     def __post_init__(self) -> None:
         if not str(self.variant_id):
@@ -60,6 +63,25 @@ class MultiplierVariant:
             raise ValueError(
                 "a repeat count cannot be both fixed and parameter-selected"
             )
+        dynamic_fields = (
+            self.parameter_base_value,
+            self.parameter_coefficient,
+        )
+        if self.parameter_value_id is None and any(
+            value is not None for value in dynamic_fields
+        ):
+            raise ValueError(
+                "dynamic multiplier values require a scenario parameter ID"
+            )
+        if self.parameter_value_id is not None and (
+            self.parameter_base_value is None
+            or self.parameter_coefficient is None
+        ):
+            raise ValueError(
+                "dynamic multiplier values require base and coefficient"
+            )
+        if self.parameter_coefficient is not None and self.parameter_coefficient < 0:
+            raise ValueError("dynamic multiplier coefficient must be non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,10 +112,15 @@ class DerivedDamageEventTemplateRef:
     template: DamageEventTemplateRef
     multiplier: DamageMultiplier
     repeat_count: int = 1
+    repeat_count_parameter_id: ScenarioParameterId | None = None
 
     def __post_init__(self) -> None:
         if self.repeat_count < 0:
             raise ValueError("derived event repeat_count must be non-negative")
+        if self.repeat_count_parameter_id is not None and self.repeat_count != 1:
+            raise ValueError(
+                "parameter-selected derived repeats must use repeat_count=1 as the default"
+            )
 
     @property
     def semantic_id(self) -> DamageEventSemanticId:

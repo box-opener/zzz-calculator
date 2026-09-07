@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
-from core.types import DamageMultiplier, Unresolved
+from core.types import DamageMultiplier, FixedMultiplier, Resolved, Unresolved
 
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId
@@ -86,6 +86,21 @@ def resolve_move_multiplier(
             ),
         )
 
+    dynamic_multiplier, dynamic_diagnostics = _resolve_dynamic_multiplier(
+        variant,
+        variant.multiplier,
+        scenario,
+    )
+    if dynamic_multiplier is None:
+        return MoveMultiplierResolution(
+            status=MultiplierResolutionStatus.BLOCKED,
+            variant=variant,
+            diagnostics=diagnostics + dynamic_diagnostics,
+        )
+    diagnostics += dynamic_diagnostics
+    if dynamic_multiplier != variant.multiplier:
+        variant = replace(variant, multiplier=dynamic_multiplier)
+
     repeat_status, repeat_count, repeat_diagnostics = _resolve_repeat_count(
         entry,
         variant,
@@ -106,6 +121,49 @@ def resolve_move_multiplier(
         repeat_count=repeat_count,
         diagnostics=diagnostics,
     )
+
+
+def _resolve_dynamic_multiplier(
+    variant: MultiplierVariant,
+    multiplier: DamageMultiplier,
+    scenario: CalculationScenario,
+) -> tuple[DamageMultiplier | None, tuple[CalculationDiagnostic, ...]]:
+    if variant.parameter_value_id is None:
+        return multiplier, ()
+    parameter = next(
+        (
+            item
+            for item in scenario.parameters
+            if item.parameter_id == variant.parameter_value_id
+        ),
+        None,
+    )
+    if parameter is None or parameter.value is None:
+        return None, (
+            _diagnostic(
+                str(variant.variant_id),
+                "dynamic-parameter-unresolved",
+                DiagnosticKind.MISSING_DATA,
+                f"multiplier scenario parameter is unresolved: {variant.parameter_value_id}",
+                blocking=True,
+            ),
+        )
+    if not isinstance(multiplier, FixedMultiplier) or not isinstance(
+        multiplier.value, Resolved
+    ):
+        return None, (
+            _diagnostic(
+                str(variant.variant_id),
+                "dynamic-base-unresolved",
+                DiagnosticKind.MISSING_DATA,
+                "dynamic multiplier requires a resolved fixed base multiplier",
+                blocking=True,
+            ),
+        )
+    assert variant.parameter_base_value is not None
+    assert variant.parameter_coefficient is not None
+    value = variant.parameter_base_value + variant.parameter_coefficient * parameter.value
+    return FixedMultiplier(Resolved(value)), ()
 
 
 def _select_variant(

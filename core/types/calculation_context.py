@@ -11,6 +11,7 @@ from .character import CharacterStats
 from .common import (
     BattleStateId,
     CharacterId,
+    DamageEventId,
     EffectId,
     EnemyId,
     Ratio,
@@ -68,6 +69,9 @@ class CalculationContext:
     target_snapshot: EnemySnapshot
     modifiers: tuple[Modifier, ...] = ()
     history_records: tuple[AnomalyRecord, ...] = ()
+    settled_damage_values: Mapping[DamageEventId, Resolvable[float]] = field(
+        default_factory=dict
+    )
     vulnerability_policy: VulnerabilitySettlementPolicy = field(
         default_factory=StandardVulnerabilityPolicy
     )

@@ -1,0 +1,89 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14140.json",
+  "id": "14140",
+  "name": "十方锻星",
+  "rarity": "S",
+  "specialty": "anomaly",
+  "catalog": {
+    "icon": "Weapon_S_1401",
+    "atk": 713,
+    "sub": "ATK"
+  },
+  "nanoka_detail_fields": {
+    "base_property": {
+      "name": "基础攻击力",
+      "name2": "基础攻击力",
+      "format": "{0:0.#}",
+      "value": 48
+    },
+    "rand_property": {
+      "name": "攻击力",
+      "name2": "攻击力百分比",
+      "format": "{0:0.#%}",
+      "value": 1200
+    },
+    "level_60": {
+      "rate": 94090,
+      "rate2": 4000
+    },
+    "stars_5": {
+      "star_rate": 44610,
+      "rand_rate": 15000
+    }
+  },
+  "resolved_level_60": {
+    "base_attack": 713.0,
+    "advanced_stat_key": "attack_percent",
+    "advanced_stat_value": 0.30
+  },
+  "talents": {
+    "1": {
+      "name": "予你星屑",
+      "text": "装备者的<color=#FFFFFF>[异常掌控]</color>提升<color=#2BAD00>60</color>点；触发<color=#F0D12B>[强击]</color>时，装备者造成的<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>20%</color>，持续20秒，最多叠加2层，重复触发时刷新持续时间，装备者进入接战状态时，立即获得2层效果。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 60.0,
+        "physical_damage_bonus": 0.20,
+        "max_stacks": 2
+      }
+    },
+    "2": {
+      "name": "予你星屑",
+      "text": "装备者的<color=#FFFFFF>[异常掌控]</color>提升<color=#2BAD00>69</color>点；触发<color=#F0D12B>[强击]</color>时，装备者造成的<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>23%</color>，持续20秒，最多叠加2层，重复触发时刷新持续时间，装备者进入接战状态时，立即获得2层效果。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 69.0,
+        "physical_damage_bonus": 0.23,
+        "max_stacks": 2
+      }
+    },
+    "3": {
+      "name": "予你星屑",
+      "text": "装备者的<color=#FFFFFF>[异常掌控]</color>提升<color=#2BAD00>78</color>点；触发<color=#F0D12B>[强击]</color>时，装备者造成的<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>26%</color>，持续20秒，最多叠加2层，重复触发时刷新持续时间，装备者进入接战状态时，立即获得2层效果。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 78.0,
+        "physical_damage_bonus": 0.26,
+        "max_stacks": 2
+      }
+    },
+    "4": {
+      "name": "予你星屑",
+      "text": "装备者的<color=#FFFFFF>[异常掌控]</color>提升<color=#2BAD00>87</color>点；触发<color=#F0D12B>[强击]</color>时，装备者造成的<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>29%</color>，持续20秒，最多叠加2层，重复触发时刷新持续时间，装备者进入接战状态时，立即获得2层效果。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 87.0,
+        "physical_damage_bonus": 0.29,
+        "max_stacks": 2
+      }
+    },
+    "5": {
+      "name": "予你星屑",
+      "text": "装备者的<color=#FFFFFF>[异常掌控]</color>提升<color=#2BAD00>96</color>点；触发<color=#F0D12B>[强击]</color>时，装备者造成的<color=#F0D12B>物理伤害</color>提升<color=#2BAD00>32%</color>，持续20秒，最多叠加2层，重复触发时刷新持续时间，装备者进入接战状态时，立即获得2层效果。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 96.0,
+        "physical_damage_bonus": 0.32,
+        "max_stacks": 2
+      }
+    }
+  }
+}

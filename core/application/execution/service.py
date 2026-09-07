@@ -10,6 +10,7 @@ from core.types import (
     CalculationNode,
     CharacterSnapshot,
     DamageEvent,
+    DamageEventId,
     DirectDamageEvent,
     EffectId,
     EffectOperation,
@@ -27,7 +28,7 @@ from ..matching import (
 )
 
 from ..characters.definition import CharacterCalculationDefinition
-from ..characters.templates import DirectDamageEventTemplate
+from ..characters.templates import DamageEventTemplate
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId, MoveEntryId
 from ..moves import DerivedDamageEventTemplateRef, MoveCalculationEntry
@@ -46,7 +47,7 @@ from .contracts import (
     MoveCalculationExecution,
     MoveCalculationRequest,
 )
-from .event_factory import instantiate_direct_damage_event
+from .event_factory import instantiate_damage_event
 from .modifiers import (
     MatchedEffectApplication,
     ModifierApplicationResult,
@@ -110,7 +111,7 @@ class DirectMoveApplicationService:
             )
             return _execution_without_events(request, diagnostic)
 
-        main_event = instantiate_direct_damage_event(
+        main_event = instantiate_damage_event(
             main_template,
             multiplier.multiplier,
             battle_state_id=request.battle_state_id,
@@ -143,6 +144,7 @@ class DirectMoveApplicationService:
             matched_effects,
             request.scenario.current_operator,
             initial_character_snapshots=request.initial_character_snapshots,
+            scenario=request.scenario,
             event=main_event.event,
             apply_panel=False,
             applied_panel_effect_ids=global_panel_application.applied_panel_effect_ids,
@@ -166,6 +168,7 @@ class DirectMoveApplicationService:
             ]
         ] = [(main_event, (main_event.template_id,), main_matches, panel_application)]
         seen_semantics = {main_event.semantic_id}
+        settled_damage_values = {}
         while queue:
             instantiated, ancestry, matches, application = queue.pop(0)
             event_diagnostics = list(application.diagnostics)
@@ -175,6 +178,7 @@ class DirectMoveApplicationService:
                 instantiated,
                 application,
                 event_diagnostics,
+                settled_damage_values,
             )
             event_outputs.append(calculation[0])
             traces.append(
@@ -189,6 +193,10 @@ class DirectMoveApplicationService:
                 )
             )
             move_diagnostics.extend(calculation[2])
+            if calculation[0].result is not None and calculation[0].result.value is not None:
+                settled_damage_values[instantiated.event.metadata.event_id] = Resolved(
+                    calculation[0].result.value
+                )
 
             for effect_application in _matched_event_creations(
                 matches,
@@ -212,6 +220,7 @@ class DirectMoveApplicationService:
                     effect_application.effect,
                     ancestry,
                     seen_semantics,
+                    source_event_id=instantiated.event.metadata.event_id,
                 )
                 if isinstance(created, CalculationDiagnostic):
                     move_diagnostics.append(created)
@@ -238,6 +247,7 @@ class DirectMoveApplicationService:
                     ),
                     request.scenario.current_operator,
                     initial_character_snapshots=request.initial_character_snapshots,
+                    scenario=request.scenario,
                     event=child.event,
                     apply_panel=False,
                     applied_panel_effect_ids=panel_application.applied_panel_effect_ids,
@@ -280,6 +290,7 @@ class DirectMoveApplicationService:
         instantiated: InstantiatedDamageEvent,
         application: ModifierApplicationResult,
         event_diagnostics: list[CalculationDiagnostic],
+        settled_damage_values,
     ) -> tuple[
         DamageEventCalculationOutput,
         CalculatorExecutionResult,
@@ -326,6 +337,7 @@ class DirectMoveApplicationService:
             modifiers=application.event_modifiers,
             history_records=request.history_records,
             vulnerability_policy=application.vulnerability_policy,
+            settled_damage_values=settled_damage_values,
         )
         calculation = self._router.calculate(calculation_event, context)
         all_diagnostics = diagnostics + calculation.diagnostics
@@ -347,6 +359,8 @@ class DirectMoveApplicationService:
         effect: EventCreationEffect,
         ancestry: tuple[EventTemplateId, ...],
         seen_semantics,
+        *,
+        source_event_id: DamageEventId | None = None,
     ) -> (
         tuple[InstantiatedDamageEvent, tuple[EventTemplateId, ...]]
         | CalculationDiagnostic
@@ -402,7 +416,25 @@ class DirectMoveApplicationService:
                 DiagnosticKind.AMBIGUOUS_SEMANTICS,
                 "the same semantic event was created more than once",
             )
-        child = instantiate_direct_damage_event(
+        repeat_count = derived_ref.repeat_count
+        if derived_ref.repeat_count_parameter_id is not None:
+            parameter = next(
+                (
+                    item
+                    for item in request.scenario.parameters
+                    if item.parameter_id == derived_ref.repeat_count_parameter_id
+                ),
+                None,
+            )
+            if parameter is None or parameter.value is None:
+                return _diagnostic(
+                    str(derived_ref.repeat_count_parameter_id),
+                    "repeat-count-unresolved",
+                    DiagnosticKind.MISSING_DATA,
+                    "derived event repeat-count parameter is unresolved",
+                )
+            repeat_count = parameter.value
+        child = instantiate_damage_event(
             template,
             derived_ref.multiplier,
             battle_state_id=request.battle_state_id,
@@ -410,7 +442,8 @@ class DirectMoveApplicationService:
             created_at=request.battle_time,
             source_rule_item_id=template.ref.source_rule_item_id,
             created_by_effect_id=effect.rule.effect_id,
-            repeat_count=derived_ref.repeat_count,
+            repeat_count=repeat_count,
+            source_event_id=source_event_id,
         )
         return child, (*ancestry, template_id)
 
@@ -432,7 +465,7 @@ def _find_entry(
 def _find_template(
     definitions: tuple[CharacterCalculationDefinition, ...],
     template_id: EventTemplateId,
-) -> DirectDamageEventTemplate | None:
+) -> DamageEventTemplate | None:
     return next(
         (
             item
@@ -608,6 +641,8 @@ def _display_snapshots(
     if mode is CritDisplayMode.EXPECTED or not isinstance(event, DirectDamageEvent):
         return snapshots
     if not isinstance(event.crit_rule, StandardCritRule):
+        return snapshots
+    if event.crit_rule.guaranteed:
         return snapshots
     value = 0.0 if mode is CritDisplayMode.NON_CRIT else 1.0
     updated: list[CharacterSnapshot] = []

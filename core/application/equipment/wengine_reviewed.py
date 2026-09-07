@@ -23,6 +23,9 @@ from .wengine_ids import (
     WENGINE_SONG_OF_NOISE_ID,
     WENGINE_STEEL_CUSHION_ID,
     WENGINE_TREASURE_CHEST_ID,
+    WENGINE_TRIGGER_ID,
+    WENGINE_ALICE_ID,
+    WENGINE_YUZUHA_ID,
     WENGINE_YE_ID,
 )
 
@@ -107,6 +110,24 @@ WENGINE_REVIEWED_MAPPINGS: Mapping[WEngineId, WEngineReviewedMapping] = {
         advanced_stat=CharacterStat.CRIT_DAMAGE,
         advanced_layer=BuildContributionLayer.DIRECT_RATIO,
         effect_family="ye-cloudcleave-radiance",
+    ),
+    WENGINE_ALICE_ID: WEngineReviewedMapping(
+        wengine_id=WENGINE_ALICE_ID,
+        advanced_stat=CharacterStat.ATTACK,
+        advanced_layer=BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        effect_family="alice-practiced-perfection",
+    ),
+    WENGINE_YUZUHA_ID: WEngineReviewedMapping(
+        wengine_id=WENGINE_YUZUHA_ID,
+        advanced_stat=CharacterStat.ENERGY_REGEN,
+        advanced_layer=BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        effect_family="yuzuha-metanukimorphosis",
+    ),
+    WENGINE_TRIGGER_ID: WEngineReviewedMapping(
+        wengine_id=WENGINE_TRIGGER_ID,
+        advanced_stat=CharacterStat.CRIT_RATE,
+        advanced_layer=BuildContributionLayer.DIRECT_RATIO,
+        effect_family="trigger-spectral-gaze",
     ),
 }
 

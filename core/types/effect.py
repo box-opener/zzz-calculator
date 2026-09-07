@@ -174,6 +174,13 @@ class CharacterFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class DamageDealerFilter:
+    """Match the character that owns the current damage event."""
+
+    character_id: CharacterId
+
+
+@dataclass(frozen=True, slots=True)
 class CharacterRoleFilter:
     role: CharacterRole
 
@@ -213,6 +220,7 @@ AtomicFilter: TypeAlias = (
     | SkillGroupFilter
     | MoveIdFilter
     | CharacterFilter
+    | DamageDealerFilter
     | CharacterRoleFilter
     | DynamicIdentityFilter
     | CreatedByEffectFilter
@@ -277,7 +285,30 @@ class PanelStatDerivedValue:
             raise ValueError("derived panel value cap must be non-negative")
 
 
-ModifierValue: TypeAlias = Resolvable[float] | PanelStatDerivedValue
+@dataclass(frozen=True, slots=True)
+class ScenarioParameterDerivedValue:
+    """A linear value derived from one static scenario integer parameter."""
+
+    parameter_id: str
+    coefficient: Resolvable[float]
+    base: Resolvable[float] = Resolved(0.0)
+    cap_max: Resolvable[float] | None = None
+    kind: Literal["scenario-parameter-derived"] = field(
+        default="scenario-parameter-derived", init=False
+    )
+
+    def __post_init__(self) -> None:
+        if not self.parameter_id.strip():
+            raise ValueError("scenario parameter value source requires an ID")
+        if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
+            raise ValueError("scenario parameter coefficient must be non-negative")
+        if isinstance(self.cap_max, Resolved) and self.cap_max.value < 0:
+            raise ValueError("scenario parameter value cap must be non-negative")
+
+
+ModifierValue: TypeAlias = (
+    Resolvable[float] | PanelStatDerivedValue | ScenarioParameterDerivedValue
+)
 
 
 @dataclass(frozen=True, slots=True)

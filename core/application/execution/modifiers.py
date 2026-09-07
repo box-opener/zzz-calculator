@@ -23,6 +23,7 @@ from core.types import (
     EffectTarget,
     InitialCharacterSnapshot,
     PanelStatDerivedValue,
+    ScenarioParameterDerivedValue,
     PanelStatThresholdCondition,
     Resolved,
     RuleStackCondition,
@@ -87,6 +88,26 @@ _PANEL_NODES = frozenset(
     }
 )
 
+_PANEL_FLAT_FIELDS = {
+    CalculationNode.CHARACTER_COMBAT_HP_FLAT_BONUS: "hp",
+    CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS: "attack",
+    CalculationNode.CHARACTER_COMBAT_DEFENSE_FLAT_BONUS: "defense",
+    CalculationNode.CHARACTER_COMBAT_IMPACT_FLAT_BONUS: "impact",
+    CalculationNode.CHARACTER_COMBAT_ANOMALY_MASTERY_FLAT_BONUS: "anomaly_mastery",
+    CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS: "anomaly_proficiency",
+    CalculationNode.CHARACTER_COMBAT_ENERGY_REGEN_FLAT_BONUS: "energy_regen",
+}
+
+_PANEL_PERCENT_FIELDS = {
+    CalculationNode.CHARACTER_COMBAT_HP_PERCENT_BONUS: "hp",
+    CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS: "attack",
+    CalculationNode.CHARACTER_COMBAT_DEFENSE_PERCENT_BONUS: "defense",
+    CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS: "impact",
+    CalculationNode.CHARACTER_COMBAT_ANOMALY_MASTERY_PERCENT_BONUS: "anomaly_mastery",
+    CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_PERCENT_BONUS: "anomaly_proficiency",
+    CalculationNode.CHARACTER_COMBAT_ENERGY_REGEN_PERCENT_BONUS: "energy_regen",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class ModifierApplicationResult:
@@ -109,6 +130,7 @@ def apply_matched_modifiers(
     current_operator: CharacterId,
     *,
     initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = (),
+    scenario: CalculationScenario | None = None,
     event: object | None = None,
     apply_panel: bool = True,
     applied_panel_effect_ids: frozenset[EffectId] = frozenset(),
@@ -170,6 +192,7 @@ def apply_matched_modifiers(
             effect,
             initial_character_snapshots,
             diagnostics,
+            scenario=scenario,
         )
         if effect is None:
             continue
@@ -348,6 +371,7 @@ def apply_global_panel_effects(
                 effect,
                 initial_character_snapshots,
                 diagnostics,
+                scenario=scenario,
             )
             if resolved_effect is None:
                 continue
@@ -676,8 +700,65 @@ def _resolve_effect_value(
     effect: ModifierEffect,
     initial_character_snapshots: tuple[InitialCharacterSnapshot, ...],
     diagnostics: list[CalculationDiagnostic],
+    *,
+    scenario: CalculationScenario | None = None,
 ) -> ModifierEffect | None:
     value = effect.result.value
+    if isinstance(value, ScenarioParameterDerivedValue):
+        if scenario is None:
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "derived-parameter-scenario",
+                    DiagnosticKind.MISSING_DATA,
+                    "scenario parameter value source requires a calculation scenario",
+                )
+            )
+            return None
+        parameter = next(
+            (
+                item
+                for item in scenario.parameters
+                if str(item.parameter_id) == value.parameter_id
+            ),
+            None,
+        )
+        if parameter is None or parameter.value is None:
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "derived-parameter-value",
+                    DiagnosticKind.MISSING_DATA,
+                    f"scenario parameter is unresolved: {value.parameter_id}",
+                )
+            )
+            return None
+        coefficient = value.coefficient
+        base = value.base
+        if not isinstance(coefficient, Resolved) or not isinstance(base, Resolved):
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "derived-parameter-coefficient",
+                    DiagnosticKind.MISSING_DATA,
+                    "scenario parameter derived value is unresolved",
+                )
+            )
+            return None
+        result = base.value + coefficient.value * parameter.value
+        if value.cap_max is not None:
+            if not isinstance(value.cap_max, Resolved):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "derived-parameter-cap",
+                        DiagnosticKind.MISSING_DATA,
+                        "scenario parameter derived value cap is unresolved",
+                    )
+                )
+                return None
+            result = min(result, value.cap_max.value)
+        return replace(effect, result=replace(effect.result, value=Resolved(result)))
     if not isinstance(value, PanelStatDerivedValue):
         return effect
 
@@ -1016,6 +1097,89 @@ def _apply_panel_effects(
                     "panel-value",
                     DiagnosticKind.MISSING_DATA,
                     value.notes,
+                )
+            )
+            continue
+        if effect.result.modifier_path in _PANEL_FLAT_FIELDS:
+            field_name = _PANEL_FLAT_FIELDS[effect.result.modifier_path]
+            current = getattr(updated_stats, field_name)
+            if not isinstance(current, Resolved):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "panel-base-value",
+                        DiagnosticKind.MISSING_DATA,
+                        f"current {field_name} is unresolved",
+                    )
+                )
+                continue
+            applied_value = value.value * stack_count
+            updated_stats = replace(
+                updated_stats,
+                **{field_name: Resolved(current.value + applied_value)},
+            )
+            applied_effect_ids.add(effect.rule.effect_id)
+            traces.append(
+                PanelModifierExecutionTrace(
+                    recipient_character_id=recipient,
+                    owner_character_id=effect.rule.owner,
+                    rule_item_id=(rule_item_id_by_effect or {}).get(
+                        effect.rule.effect_id
+                    ),
+                    effect_id=effect.rule.effect_id,
+                    modifier_path=effect.result.modifier_path,
+                    operation=effect.result.operation,
+                    resolved_value=applied_value,
+                    stack_count=stack_count,
+                )
+            )
+            continue
+        if effect.result.modifier_path in _PANEL_PERCENT_FIELDS:
+            field_name = _PANEL_PERCENT_FIELDS[effect.result.modifier_path]
+            initial = next(
+                (
+                    item
+                    for item in initial_character_snapshots
+                    if item.character_id == recipient
+                ),
+                None,
+            )
+            base_value = (
+                getattr(initial.initial_stats, field_name)
+                if initial is not None
+                else None
+            )
+            current = getattr(updated_stats, field_name)
+            if not isinstance(base_value, Resolved) or not isinstance(
+                current, Resolved
+            ):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "panel-base-value",
+                        DiagnosticKind.MISSING_DATA,
+                        f"initial/current {field_name} is unresolved for a percent Panel Effect",
+                    )
+                )
+                continue
+            applied_value = base_value.value * value.value * stack_count
+            updated_stats = replace(
+                updated_stats,
+                **{field_name: Resolved(current.value + applied_value)},
+            )
+            applied_effect_ids.add(effect.rule.effect_id)
+            traces.append(
+                PanelModifierExecutionTrace(
+                    recipient_character_id=recipient,
+                    owner_character_id=effect.rule.owner,
+                    rule_item_id=(rule_item_id_by_effect or {}).get(
+                        effect.rule.effect_id
+                    ),
+                    effect_id=effect.rule.effect_id,
+                    modifier_path=effect.result.modifier_path,
+                    operation=effect.result.operation,
+                    resolved_value=applied_value,
+                    stack_count=stack_count,
                 )
             )
             continue

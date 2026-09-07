@@ -93,14 +93,13 @@ def supported_character_catalog() -> tuple[CharacterCatalogItem, ...]:
 def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:
     from core.application.equipment import (
         load_wengine_raw_record,
-        signature_wengine_id_for,
+        SIGNATURE_WENGINE_BY_CHARACTER,
     )
     from core.data.wengines.loader import supported_wengine_ids
-    from core.application.equipment.wengine import ASTRA_ID, YE_ID
 
     signature_characters = {
-        signature_wengine_id_for(ASTRA_ID): ASTRA_ID,
-        signature_wengine_id_for(YE_ID): YE_ID,
+        wengine_id: character_id
+        for character_id, wengine_id in SIGNATURE_WENGINE_BY_CHARACTER.items()
     }
     items = []
     for wengine_id in supported_wengine_ids():

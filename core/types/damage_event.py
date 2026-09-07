@@ -36,6 +36,42 @@ class CurrentAttackValueSource:
 
 
 @dataclass(frozen=True, slots=True)
+class CurrentAnomalyProficiencyValueSource:
+    """Current anomaly proficiency used by an explicitly typed event."""
+
+    character_id: CharacterId
+    kind: Literal["current-anomaly-proficiency"] = field(
+        default="current-anomaly-proficiency", init=False
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class CurrentAnomalyEffectStrengthValueSource:
+    """Current attack/anomaly-proficiency source for a synthetic anomaly event."""
+
+    character_id: CharacterId
+    kind: Literal["current-anomaly-effect-strength"] = field(
+        default="current-anomaly-effect-strength", init=False
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class SettledDamageValueSource:
+    """Reference to a previously settled damage result.
+
+    This source is intentionally an identity only.  The application layer
+    resolves the referenced result and passes it to the calculator through
+    ``CalculationContext.settled_damage_values``; it must never rerun the
+    source event's defense/resistance/vulnerability regions.
+    """
+
+    event_id: DamageEventId
+    kind: Literal["settled-damage-value"] = field(
+        default="settled-damage-value", init=False
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class CurrentPenetrationForceValueSource:
     character_id: CharacterId
     kind: Literal["current-penetration-force"] = field(
@@ -54,8 +90,11 @@ class AnomalyRecordValueSource:
 
 BaseSettlementDataSource: TypeAlias = (
     CurrentAttackValueSource
+    | CurrentAnomalyProficiencyValueSource
+    | CurrentAnomalyEffectStrengthValueSource
     | CurrentPenetrationForceValueSource
     | AnomalyRecordValueSource
+    | SettledDamageValueSource
     | Unresolved
 )
 
@@ -78,6 +117,7 @@ DamageMultiplier: TypeAlias = FixedMultiplier | CalculationNodeMultiplier | Unre
 @dataclass(frozen=True, slots=True)
 class StandardCritRule:
     stat_owner: CharacterId
+    guaranteed: bool = False
     kind: Literal["standard"] = field(default="standard", init=False)
 
 
@@ -145,11 +185,44 @@ class DamageEventMetadata:
 @dataclass(frozen=True, slots=True)
 class DirectDamageEvent:
     metadata: DamageEventMetadata
-    base_settlement_data_source: CurrentAttackValueSource
+    base_settlement_data_source: CurrentAttackValueSource | CurrentAnomalyProficiencyValueSource
     multiplier: DamageMultiplier
     crit_rule: StandardCritRule | Unresolved
     damage_type: Literal[DamageType.DIRECT] = field(default=DamageType.DIRECT, init=False)
     damage_subtype: None = field(default=None, init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class SettledAnomalyDamageEvent:
+    """An anomaly-labelled child whose base is an already settled value."""
+
+    metadata: DamageEventMetadata
+    base_settlement_data_source: SettledDamageValueSource
+    multiplier: DamageMultiplier
+    crit_rule: NoCritRule | Unresolved
+    damage_type: Literal[DamageType.ANOMALY] = field(
+        default=DamageType.ANOMALY, init=False
+    )
+    damage_subtype: Literal[DamageSubtype.ATTRIBUTE_ANOMALY] = field(
+        default=DamageSubtype.ATTRIBUTE_ANOMALY, init=False
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class CurrentAttributeAnomalyDamageEvent:
+    """An attribute anomaly calculated from the current character panel."""
+
+    metadata: DamageEventMetadata
+    anomaly_triggerer: CharacterId
+    base_settlement_data_source: CurrentAnomalyEffectStrengthValueSource
+    multiplier: DamageMultiplier
+    crit_rule: NoCritRule | Unresolved
+    damage_type: Literal[DamageType.ANOMALY] = field(
+        default=DamageType.ANOMALY, init=False
+    )
+    damage_subtype: Literal[DamageSubtype.ATTRIBUTE_ANOMALY] = field(
+        default=DamageSubtype.ATTRIBUTE_ANOMALY, init=False
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,6 +349,8 @@ class UnresolvedSharpExplosionDamageEvent:
 
 DamageEvent: TypeAlias = (
     DirectDamageEvent
+    | SettledAnomalyDamageEvent
+    | CurrentAttributeAnomalyDamageEvent
     | AttributeAnomalyDamageEvent
     | DischargeDamageEvent
     | TurbulenceDamageEvent

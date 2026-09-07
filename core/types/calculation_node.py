@@ -60,6 +60,7 @@ class CalculationNode(StrEnum):
     # Shared damage inputs and regions.
     DAMAGE_SKILL_MULTIPLIER = "damage.skill-multiplier"
     DAMAGE_BASE_VALUE = "damage.base-value"
+    DAMAGE_SETTLED_VALUE = "damage.settled-value"
     DAMAGE_STANDARD_CRIT_REGION = "damage.standard-crit-region"
     DAMAGE_NORMAL_BONUS = "damage.normal-bonus"
     DAMAGE_NORMAL_BONUS_REGION = "damage.normal-bonus-region"

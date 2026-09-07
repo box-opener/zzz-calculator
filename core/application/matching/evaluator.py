@@ -14,6 +14,7 @@ from core.types import (
     DamageSubtypeFilter,
     DamageTagFilter,
     DamageTypeFilter,
+    DamageDealerFilter,
     DynamicIdentityCondition,
     DynamicIdentityFilter,
     EffectFilter,
@@ -393,6 +394,8 @@ def match_filter(
         return _bool_decision(item.state_id in context.target.states)
     if isinstance(item, CharacterFilter):
         return _bool_decision(context.current_operator is item.character_id)
+    if isinstance(item, DamageDealerFilter):
+        return _bool_decision(event.metadata.damage_dealer == item.character_id)
     if isinstance(item, CharacterRoleFilter):
         profile = context.character(context.current_operator)
         if profile is None:

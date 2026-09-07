@@ -3,6 +3,7 @@
 from .wengine import (
     WEngineBuildResolution,
     WEngineRawRecord,
+    SIGNATURE_WENGINE_BY_CHARACTER,
     compile_wengine,
     load_wengine_raw_record,
     signature_wengine_id_for,
@@ -14,9 +15,13 @@ from .wengine_reviewed import (
 )
 from .wengine import ASTRA_DAMAGE_BUFF_CONDITION_ID, YE_MINGXIN_CONDITION_ID, astra_damage_buff_condition_id_for
 from .wengine_ids import (
+    WENGINE_ALICE_ID,
     WENGINE_ATTACK_SAMPLE_IDS,
     WENGINE_SUPPORT_SAMPLE_IDS,
     WENGINE_STAGE_18_2_5_IDS,
+    WENGINE_SIGNATURE_IDS,
+    WENGINE_TRIGGER_ID,
+    WENGINE_YUZUHA_ID,
 )
 from .drive_disc import (
     DriveDiscBuildResolution,
@@ -34,6 +39,7 @@ from .drive_disc_reviewed import (
 __all__ = [
     "WEngineBuildResolution",
     "WEngineRawRecord",
+    "SIGNATURE_WENGINE_BY_CHARACTER",
     "compile_wengine",
     "load_wengine_raw_record",
     "signature_wengine_id_for",
@@ -46,6 +52,10 @@ __all__ = [
     "WENGINE_ATTACK_SAMPLE_IDS",
     "WENGINE_SUPPORT_SAMPLE_IDS",
     "WENGINE_STAGE_18_2_5_IDS",
+    "WENGINE_SIGNATURE_IDS",
+    "WENGINE_ALICE_ID",
+    "WENGINE_TRIGGER_ID",
+    "WENGINE_YUZUHA_ID",
     "DRIVE_DISC_REVIEWED_MAPPINGS",
     "DriveDiscBuildResolution",
     "DriveDiscClauseDisposition",

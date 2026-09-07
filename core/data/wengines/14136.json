@@ -1,0 +1,94 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14136.json",
+  "id": "14136",
+  "name": "索魂影眸",
+  "rarity": "S",
+  "specialty": "stun",
+  "catalog": {
+    "icon": "Weapon_S_1361",
+    "atk": 713,
+    "sub": "CRIT Rate"
+  },
+  "nanoka_detail_fields": {
+    "base_property": {
+      "name": "基础攻击力",
+      "name2": "基础攻击力",
+      "format": "{0:0.#}",
+      "value": 48
+    },
+    "rand_property": {
+      "name": "暴击率",
+      "name2": "暴击率",
+      "format": "{0:0.#%}",
+      "value": 960
+    },
+    "level_60": {
+      "rate": 94090,
+      "rate2": 4000
+    },
+    "stars_5": {
+      "star_rate": 44610,
+      "rand_rate": 15000
+    }
+  },
+  "resolved_level_60": {
+    "base_attack": 713.0,
+    "advanced_stat_key": "crit_rate",
+    "advanced_stat_value": 0.24
+  },
+  "talents": {
+    "1": {
+      "name": "捕风寻踪",
+      "text": "装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人并造成<color=#2EB6FF>电属性伤害</color>时，目标的防御力降低<color=#2BAD00>25%</color>，持续5秒，同名被动效果之间不可叠加；该效果触发时，如果自身不是当前操作中的角色，则装备者获得1层<color=#FFFFFF>[魂锁]</color>，最多叠加3层，同一招式内最多触发一次；每层<color=#FFFFFF>[魂锁]</color>，可使装备者的冲击力提升<color=#2BAD00>4%</color>，持续12秒，每层效果单独结算持续时间，<color=#FFFFFF>[魂锁]</color>层数叠满时，额外给装备者的冲击力提升<color=#2BAD00>8%</color>。",
+      "numeric_values": {
+        "defense_reduction": 0.25,
+        "impact_percent_per_stack": 0.04,
+        "max_stacks": 3,
+        "impact_percent_at_max": 0.08
+      }
+    },
+    "2": {
+      "name": "捕风寻踪",
+      "text": "装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人并造成<color=#2EB6FF>电属性伤害</color>时，目标的防御力降低<color=#2BAD00>28.75%</color>，持续5秒，同名被动效果之间不可叠加；该效果触发时，如果自身不是当前操作中的角色，则装备者获得1层<color=#FFFFFF>[魂锁]</color>，最多叠加3层，同一招式内最多触发一次；每层<color=#FFFFFF>[魂锁]</color>，可使装备者的冲击力提升<color=#2BAD00>4.6%</color>，持续12秒，每层效果单独结算持续时间，<color=#FFFFFF>[魂锁]</color>层数叠满时，额外给装备者的冲击力提升<color=#2BAD00>9.2%</color>。",
+      "numeric_values": {
+        "defense_reduction": 0.2875,
+        "impact_percent_per_stack": 0.046,
+        "max_stacks": 3,
+        "impact_percent_at_max": 0.092
+      }
+    },
+    "3": {
+      "name": "捕风寻踪",
+      "text": "装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人并造成<color=#2EB6FF>电属性伤害</color>时，目标的防御力降低<color=#2BAD00>32.5%</color>，持续5秒，同名被动效果之间不可叠加；该效果触发时，如果自身不是当前操作中的角色，则装备者获得1层<color=#FFFFFF>[魂锁]</color>，最多叠加3层，同一招式内最多触发一次；每层<color=#FFFFFF>[魂锁]</color>，可使装备者的冲击力提升<color=#2BAD00>5.2%</color>，持续12秒，每层效果单独结算持续时间，<color=#FFFFFF>[魂锁]</color>层数叠满时，额外给装备者的冲击力提升<color=#2BAD00>10.4%</color>。",
+      "numeric_values": {
+        "defense_reduction": 0.325,
+        "impact_percent_per_stack": 0.052,
+        "max_stacks": 3,
+        "impact_percent_at_max": 0.104
+      }
+    },
+    "4": {
+      "name": "捕风寻踪",
+      "text": "装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人并造成<color=#2EB6FF>电属性伤害</color>时，目标的防御力降低<color=#2BAD00>36.25%</color>，持续5秒，同名被动效果之间不可叠加；该效果触发时，如果自身不是当前操作中的角色，则装备者获得1层<color=#FFFFFF>[魂锁]</color>，最多叠加3层，同一招式内最多触发一次；每层<color=#FFFFFF>[魂锁]</color>，可使装备者的冲击力提升<color=#2BAD00>5.8%</color>，持续12秒，每层效果单独结算持续时间，<color=#FFFFFF>[魂锁]</color>层数叠满时，额外给装备者的冲击力提升<color=#2BAD00>11.6%</color>。",
+      "numeric_values": {
+        "defense_reduction": 0.3625,
+        "impact_percent_per_stack": 0.058,
+        "max_stacks": 3,
+        "impact_percent_at_max": 0.116
+      }
+    },
+    "5": {
+      "name": "捕风寻踪",
+      "text": "装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人并造成<color=#2EB6FF>电属性伤害</color>时，目标的防御力降低<color=#2BAD00>40%</color>，持续5秒，同名被动效果之间不可叠加；该效果触发时，如果自身不是当前操作中的角色，则装备者获得1层<color=#FFFFFF>[魂锁]</color>，最多叠加3层，同一招式内最多触发一次；每层<color=#FFFFFF>[魂锁]</color>，可使装备者的冲击力提升<color=#2BAD00>6.4%</color>，持续12秒，每层效果单独结算持续时间，<color=#FFFFFF>[魂锁]</color>层数叠满时，额外给装备者的冲击力提升<color=#2BAD00>12.8%</color>。",
+      "numeric_values": {
+        "defense_reduction": 0.4,
+        "impact_percent_per_stack": 0.064,
+        "max_stacks": 3,
+        "impact_percent_at_max": 0.128
+      }
+    }
+  }
+}

@@ -97,9 +97,18 @@ def _execution(mode: CritDisplayMode, value: float) -> MoveCalculationExecution:
 
 
 def test_production_character_records_are_the_single_raw_data_source() -> None:
-    assert supported_character_ids() == ("character:1311", "character:1431")
+    assert supported_character_ids() == (
+        "character:1311",
+        "character:1431",
+        "character:1401",
+        "character:1411",
+        "character:1361",
+    )
     assert load_character_record("character:1311")["name"] == "耀嘉音"
     assert load_character_record("character:1431")["name"] == "叶瞬光"
+    assert load_character_record("character:1401")["name"] == "爱丽丝"
+    assert load_character_record("character:1411")["name"] == "柚叶"
+    assert load_character_record("character:1361")["name"] == "「扳机」"
 
 
 def test_character_editor_exposes_static_conditions_and_trigger_inputs() -> None:

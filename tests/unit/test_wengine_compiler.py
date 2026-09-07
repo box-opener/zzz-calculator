@@ -4,8 +4,11 @@ from core.application import assemble_build
 from core.application.equipment import compile_wengine, load_wengine_raw_record
 from core.application.equipment.wengine import (
     ASTRA_DAMAGE_BUFF_CONDITION_ID,
+    WENGINE_ALICE_ID,
     WENGINE_ASTRA_ID,
+    WENGINE_TRIGGER_ID,
     WENGINE_YE_ID,
+    WENGINE_YUZUHA_ID,
     SIGNATURE_WENGINE_BY_CHARACTER,
     YE_VEIL_ACTIVE_CONDITION_ID,
     signature_wengine_id_for,
@@ -24,6 +27,11 @@ from core.types import (
     CharacterStats,
     CharacterRole,
     CharacterStat,
+    AnyFilter,
+    DamageSubtype,
+    DamageSubtypeFilter,
+    DamageTypeFilter,
+    DamageType,
     EffectOperation,
     Element,
     ElementFilter,
@@ -65,9 +73,69 @@ def test_signature_wengine_raw_records_keep_confirmed_max_level_values() -> None
     assert ye.advanced_stat_value == 0.48
 
 
+def test_new_signature_raw_records_use_resolved_level_60_percentages() -> None:
+    alice = load_wengine_raw_record(str(WENGINE_ALICE_ID))
+    yuzuha = load_wengine_raw_record(str(WENGINE_YUZUHA_ID))
+    trigger = load_wengine_raw_record(str(WENGINE_TRIGGER_ID))
+
+    assert (alice.base_attack, alice.advanced_stat_name, alice.advanced_stat_value) == (
+        713.0,
+        "攻击力",
+        0.30,
+    )
+    assert (yuzuha.base_attack, yuzuha.advanced_stat_name, yuzuha.advanced_stat_value) == (
+        713.0,
+        "能量自动回复",
+        0.60,
+    )
+    assert (trigger.base_attack, trigger.advanced_stat_name, trigger.advanced_stat_value) == (
+        713.0,
+        "暴击率",
+        0.24,
+    )
+    assert tuple(item.refinement for item in alice.talents) == (1, 2, 3, 4, 5)
+    assert tuple(item.refinement for item in yuzuha.talents) == (1, 2, 3, 4, 5)
+    assert tuple(item.refinement for item in trigger.talents) == (1, 2, 3, 4, 5)
+
+
 def test_signature_mapping_is_explicit_and_not_name_derived() -> None:
     assert SIGNATURE_WENGINE_BY_CHARACTER[CharacterId("character:1311")] == WENGINE_ASTRA_ID
     assert signature_wengine_id_for(CharacterId("character:1431")) == WENGINE_YE_ID
+    assert signature_wengine_id_for(CharacterId("character:1401")) == WENGINE_ALICE_ID
+    assert signature_wengine_id_for(CharacterId("character:1411")) == WENGINE_YUZUHA_ID
+    assert signature_wengine_id_for(CharacterId("character:1361")) == WENGINE_TRIGGER_ID
+
+
+def test_new_signature_compilers_keep_static_values_and_owner_qualified_rules() -> None:
+    cases = (
+        (WENGINE_ALICE_ID, CharacterId("character:1401"), CharacterRole.ANOMALY, 0.30),
+        (WENGINE_YUZUHA_ID, CharacterId("character:1411"), CharacterRole.SUPPORT, 0.60),
+        (WENGINE_TRIGGER_ID, CharacterId("character:1361"), CharacterRole.STUN, 0.24),
+    )
+    for wengine_id, owner, role, advanced_value in cases:
+        result = compile_wengine(
+            WEngineBuildInput(wengine_id, owner),
+            equipped_character_role=role,
+        )
+        assert result.complete is True
+        assert result.contributions[0].value == Resolved(713.0)
+        assert result.contributions[1].value == Resolved(advanced_value)
+        assert all(str(item.rule_id).endswith(f"owner:{owner.rsplit(':', 1)[-1]}:{str(item.rule_id).rsplit(':', 1)[-1]}") for item in result.rule_items)
+
+
+def test_new_signature_passives_are_ineligible_for_wrong_owner_roles_but_keep_stats() -> None:
+    for wengine_id, owner, role in (
+        (WENGINE_ALICE_ID, CharacterId("character:1411"), CharacterRole.SUPPORT),
+        (WENGINE_YUZUHA_ID, CharacterId("character:1401"), CharacterRole.ANOMALY),
+        (WENGINE_TRIGGER_ID, CharacterId("character:1401"), CharacterRole.ANOMALY),
+    ):
+        result = compile_wengine(
+            WEngineBuildInput(wengine_id, owner),
+            equipped_character_role=role,
+        )
+        assert result.contributions
+        assert result.rule_items
+        assert all(item.eligibility is RuleEligibility.INELIGIBLE for item in result.rule_items)
 
 
 def test_astra_signature_compiles_white_attack_and_attack_percent() -> None:
@@ -246,6 +314,48 @@ def test_stage_18_2_5_sample_catalog_compiles_static_values_and_reviewed_effects
         assert result.contributions[1].value == Resolved(advanced_value)
         assert result.rule_items
         assert all(item.effects for item in result.rule_items)
+
+
+def test_new_signature_passive_filters_keep_each_textual_damage_scope_explicit() -> None:
+    alice = compile_wengine(
+        WEngineBuildInput(WENGINE_ALICE_ID, CharacterId("character:1401")),
+        equipped_character_role=CharacterRole.ANOMALY,
+    )
+    alice_damage = next(
+        item
+        for item in alice.rule_items
+        if str(item.rule_id).endswith(":physical-damage")
+    )
+    filters = alice_damage.effects[0].rule.filters
+    type_scope = next(
+        item
+        for item in filters
+        if isinstance(item, AnyFilter)
+        and any(
+            isinstance(child, (DamageTypeFilter, DamageSubtypeFilter))
+            for child in item.filters
+        )
+    )
+    assert {
+        (item.damage_type if isinstance(item, DamageTypeFilter) else item.damage_subtype)
+        for item in type_scope.filters
+        if isinstance(item, (DamageTypeFilter, DamageSubtypeFilter))
+    } == {
+        DamageType.DIRECT,
+        DamageType.DISORDER,
+        DamageSubtype.ATTRIBUTE_ANOMALY,
+    }
+
+    yuzuha = compile_wengine(
+        WEngineBuildInput(WENGINE_YUZUHA_ID, CharacterId("character:1411")),
+        owner_capabilities=registration_for("character:1411").equipment_capabilities,
+    )
+    physical_rule = next(
+        item
+        for item in yuzuha.rule_items
+        if str(item.rule_id).endswith(":anomaly-mastery")
+    )
+    assert physical_rule.eligibility is RuleEligibility.ELIGIBLE
 
 
 def test_stage_18_2_5_reviewed_effects_keep_damage_filters_and_stack_bounds() -> None:

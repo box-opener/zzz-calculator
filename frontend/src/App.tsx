@@ -233,7 +233,7 @@ type CalculationView = {
 
 const YE_ID = "character:1431";
 const ASTRA_ID = "character:1311";
-const DEFAULT_STATS = { hp: 10000, attack: 1000, defense: 500, impact: 100, anomaly_mastery: 100, anomaly_proficiency: 100, energy_regen: 1.2, crit_rate: 0.5, crit_damage: 0.5, penetration_rate: 0, penetration_flat: 0, element_damage_bonus: { physical: 0, ether: 0 } };
+const DEFAULT_STATS = { hp: 10000, attack: 1000, defense: 500, impact: 100, anomaly_mastery: 100, anomaly_proficiency: 100, energy_regen: 1.2, crit_rate: 0.5, crit_damage: 0.5, penetration_rate: 0, penetration_flat: 0, element_damage_bonus: { physical: 0, ether: 0, electric: 0 } };
 
 async function jsonRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -278,6 +278,7 @@ function App() {
   const [enemyDefense, setEnemyDefense] = useState(1000);
   const [enemyPhysicalResistance, setEnemyPhysicalResistance] = useState(0.2);
   const [enemyEtherResistance, setEnemyEtherResistance] = useState(0.2);
+  const [enemyElectricResistance, setEnemyElectricResistance] = useState(0.2);
   const [stunVulnerability, setStunVulnerability] = useState(1.5);
   const [calculation, setCalculation] = useState<CalculationView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -555,7 +556,7 @@ function App() {
     }
   };
 
-  const updateElementBonus = (characterId: string, element: "physical" | "ether", value: number) => {
+  const updateElementBonus = (characterId: string, element: string, value: number) => {
     setBuildStats((current) => ({ ...current, [characterId]: { ...current[characterId], element_damage_bonus: { ...current[characterId]?.element_damage_bonus, [element]: value } } }));
   };
 
@@ -787,7 +788,8 @@ function App() {
         drive_discs: driveDiscSelections[id] ?? [],
       }];
     }
-    return [id, { level: characterLevels[id] ?? 60, out_of_combat_stats: { ...buildStats[id], element_damage_bonus: { ...buildStats[id]?.element_damage_bonus } } }];
+    const stats = buildStats[id] ?? { ...DEFAULT_STATS, element_damage_bonus: { ...DEFAULT_STATS.element_damage_bonus } };
+    return [id, { level: characterLevels[id] ?? 60, out_of_combat_stats: { ...stats, element_damage_bonus: { ...stats.element_damage_bonus } } }];
   }));
 
   const calculate = async () => {
@@ -810,7 +812,7 @@ function App() {
           condition_values: scenarioConditionValues,
           parameter_values: parameterValues,
           character_builds: buildPayloads(),
-          enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: { physical: enemyPhysicalResistance, ether: enemyEtherResistance }, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
+          enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: { physical: enemyPhysicalResistance, ether: enemyEtherResistance, electric: enemyElectricResistance }, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
           enabled_rule_item_ids: [...enabledRules],
           selected_trigger_inputs: Object.entries(triggerActors).filter(([, actor_id]) => actor_id).map(([input_id, actor_id]) => ({ input_id, actor_id })),
           rule_stack_counts: stacks,
@@ -876,6 +878,7 @@ function App() {
               const preview = buildPreviews[id];
               const basePanel = preview?.base_stats;
               const character = characters.find((item) => item.character_id === id);
+              const selectedElement = character?.element ?? "physical";
               const feedback = equipmentFeedback[id];
               const roleLabel = teamIndex === 0 ? "主控角色" : "支援角色";
               return (
@@ -939,6 +942,7 @@ function App() {
                       <NumberField label="穿透值" value={equipmentMode ? numericPreviewStat(basePanel?.penetration_flat) : (buildStats[id]?.penetration_flat ?? 0)} min={0} helper={equipmentMode ? "装备解析结果" : "内核值 · 固定数值"} readOnly={equipmentMode} displayValue={equipmentMode ? formatPanelDisplay(basePanel?.penetration_flat) : undefined} onCommit={(value) => updateBuildStat(id, "penetration_flat", value)} />
                       <NumberField label="物理伤害加成" value={equipmentMode ? numericPreviewStat((basePanel?.element_damage_bonus as Record<string, number | null> | undefined)?.physical) : (buildStats[id]?.element_damage_bonus.physical ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "physical") || "—" : undefined} onCommit={(value) => updateElementBonus(id, "physical", value)} />
                       <NumberField label="以太伤害加成" value={equipmentMode ? numericPreviewStat((basePanel?.element_damage_bonus as Record<string, number | null> | undefined)?.ether) : (buildStats[id]?.element_damage_bonus.ether ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "ether") || "—" : undefined} onCommit={(value) => updateElementBonus(id, "ether", value)} />
+                      {!(["physical", "ether"] as string[]).includes(selectedElement) && <NumberField label={`${elementLabel(selectedElement)}伤害加成`} value={equipmentMode ? numericPreviewStat((basePanel?.element_damage_bonus as Record<string, number | null> | undefined)?.[selectedElement]) : (buildStats[id]?.element_damage_bonus[selectedElement as keyof typeof DEFAULT_STATS.element_damage_bonus] ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, selectedElement) || "—" : undefined} onCommit={(value) => updateElementBonus(id, selectedElement, value)} />}
                     </div>
                   </div>
 
@@ -988,6 +992,7 @@ function App() {
             <NumberField label="防御力" value={enemyDefense} min={0} helper="敌方初始防御力" onCommit={setEnemyDefense} />
             <NumberField label="物理抗性" value={enemyPhysicalResistance} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyPhysicalResistance} />
             <NumberField label="以太抗性" value={enemyEtherResistance} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyEtherResistance} />
+            <NumberField label="电抗性" value={enemyElectricResistance} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyElectricResistance} />
             <NumberField label="失衡易伤" value={stunVulnerability} unit="×" helper="伤害倍率，例如 1.5×" onCommit={setStunVulnerability} />
             <NumberField label="减易伤" value={enemyDamageReduction} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyDamageReduction} />
             <label className="check-field"><span>当前处于失衡</span><input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label>
@@ -1030,6 +1035,10 @@ function App() {
 
 function formatNumber(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
+}
+
+function elementLabel(element: string) {
+  return ({ physical: "物理", ether: "以太", electric: "电", ice: "冰", fire: "火", wind: "风" } as Record<string, string>)[element] ?? element;
 }
 
 type LivePanelProps = {
@@ -1119,7 +1128,7 @@ function previewRatioText(value: BuildPreviewStat | undefined): string {
   return typeof value === "number" ? formatPreviewRatio(value) : "";
 }
 
-function previewElementRatioText(value: BuildPreviewStat | undefined, element: "physical" | "ether"): string {
+function previewElementRatioText(value: BuildPreviewStat | undefined, element: string): string {
   if (!value || typeof value !== "object") return "";
   const amount = value[element];
   return typeof amount === "number" ? formatPreviewRatio(amount) : "";

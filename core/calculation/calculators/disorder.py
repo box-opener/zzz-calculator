@@ -43,6 +43,7 @@ _SUPPORTED_MODIFIER_PATHS = frozenset(
     {
         CalculationNode.DISORDER_TRIGGER_DAMAGE_BONUS,
         CalculationNode.DISORDER_SETTLED_CONTRIBUTOR_DAMAGE_BONUS,
+        CalculationNode.DISORDER_EXTRA_MULTIPLIER,
         CalculationNode.ENEMY_DEFENSE_INCREASE,
         CalculationNode.ENEMY_DEFENSE_REDUCTION,
         CalculationNode.DAMAGE_DEFENSE_IGNORE,
@@ -289,7 +290,10 @@ class DisorderDamageCalculator:
         assert damage_reduction is not None
         assert base_resistance is not None
 
-        base_damage = anomaly_effect_strength * disorder_multiplier
+        total_multiplier = disorder_multiplier + modifiers[
+            CalculationNode.DISORDER_EXTRA_MULTIPLIER
+        ]
+        base_damage = anomaly_effect_strength * total_multiplier
         disorder_bonus = calculate_disorder_damage_bonus_region(
             DisorderDamageBonusRegionInput(
                 trigger_damage_bonus=modifiers[
@@ -364,7 +368,7 @@ class DisorderDamageCalculator:
                 CalculationNode.ANOMALY_EFFECT_STRENGTH,
                 anomaly_effect_strength,
             ),
-            _node(CalculationNode.DISORDER_TOTAL_MULTIPLIER, disorder_multiplier),
+            _node(CalculationNode.DISORDER_TOTAL_MULTIPLIER, total_multiplier),
             _node(CalculationNode.DAMAGE_BASE_VALUE, base_damage),
         )
         return CalculationResult(

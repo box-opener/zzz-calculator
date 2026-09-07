@@ -193,11 +193,17 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert {item["character_id"] for item in payload} == {
         "character:1311",
         "character:1431",
+        "character:1401",
+        "character:1411",
+        "character:1361",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
+    assert (asset_root / "IconRole46.webp").is_file()
+    assert (asset_root / "IconRole47.webp").is_file()
+    assert (asset_root / "IconRole39.webp").is_file()
 
 
 def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
@@ -218,8 +224,11 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
         "wengine:14143",
         "wengine:14145",
         "wengine:14149",
+        "wengine:14136",
+        "wengine:14140",
+        "wengine:14141",
     }
-    assert {item["specialty"] for item in catalog} == {"attack", "support"}
+    assert {item["specialty"] for item in catalog} == {"attack", "support", "anomaly", "stun"}
     assert (
         next(item for item in catalog if item["wengine_id"] == "wengine:14131")[
             "signature_character_id"
@@ -227,6 +236,15 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
         == "character:1311"
     )
     assert all("rule_item_ids" not in item for item in catalog)
+    assert {
+        (item["wengine_id"], item["signature_character_id"])
+        for item in catalog
+        if item["signature_character_id"] is not None
+    } >= {
+        ("wengine:14136", "character:1361"),
+        ("wengine:14140", "character:1401"),
+        ("wengine:14141", "character:1411"),
+    }
 
 
 def test_drive_disc_catalog_and_editor_cover_the_frozen_thirty_sets() -> None:

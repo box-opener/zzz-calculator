@@ -11,6 +11,21 @@ from core.application.characters.astra import (
     compile_astra,
     load_raw_record as load_astra_raw_record,
 )
+from core.application.characters.alice import (
+    AliceCompileConfig,
+    compile_alice,
+    load_raw_record as load_alice_raw_record,
+)
+from core.application.characters.yuzuha import (
+    YuzuhaCompileConfig,
+    compile_yuzuha,
+    load_raw_record as load_yuzuha_raw_record,
+)
+from core.application.characters.trigger import (
+    TriggerCompileConfig,
+    compile_trigger,
+    load_raw_record as load_trigger_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -173,6 +188,81 @@ def _astra_fields(
         _integer_field(
             "cinema_level",
             "耀嘉音影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _alice_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "爱丽丝核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "爱丽丝影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _yuzuha_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "柚叶核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "柚叶影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _trigger_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "扳机核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "扳机影画",
             int(values.get("cinema_level", 0)),
             0,
             6,
@@ -362,6 +452,97 @@ def _compile_astra(
     )
 
 
+def _alice_eligibility(team_ids: Sequence[CharacterId]) -> bool:
+    return any(
+        _REGISTRATIONS[character_id].role
+        in {CharacterRole.ANOMALY, CharacterRole.SUPPORT}
+        for character_id in team_ids
+        if character_id != CharacterId("character:1401")
+    )
+
+
+def _yuzuha_eligibility(team_ids: Sequence[CharacterId]) -> bool:
+    # Yuzuha's raw faction is Camp11.  The only other Camp11 member in the
+    # current production roster is Alice; anomaly teammates also satisfy the
+    # alternate qualification in the source text.
+    return any(
+        character_id == CharacterId("character:1401")
+        or (
+            character_id != CharacterId("character:1411")
+            and _REGISTRATIONS[character_id].role is CharacterRole.ANOMALY
+        )
+        for character_id in team_ids
+    )
+
+
+def _trigger_eligibility(team_ids: Sequence[CharacterId]) -> bool:
+    return any(
+        character_id != CharacterId("character:1361")
+        and (
+            _REGISTRATIONS[character_id].role is CharacterRole.ATTACK
+            or _REGISTRATIONS[character_id].base_element is Element.ELECTRIC
+        )
+        for character_id in team_ids
+    )
+
+
+def _compile_alice(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_alice(
+        AliceCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=_alice_eligibility(team_ids),
+        ),
+        load_alice_raw_record(load_character_record("character:1401")),
+    )
+
+
+def _compile_yuzuha(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_yuzuha(
+        YuzuhaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=_yuzuha_eligibility(team_ids),
+        ),
+        load_yuzuha_raw_record(load_character_record("character:1411")),
+    )
+
+
+def _compile_trigger(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_trigger(
+        TriggerCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=_trigger_eligibility(team_ids),
+        ),
+        load_trigger_raw_record(load_character_record("character:1361")),
+    )
+
+
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
@@ -408,6 +589,78 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"ether-veil"}),
+        ),
+    ),
+    CharacterId("character:1401"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1401"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1401",
+            display_name="爱丽丝",
+            rarity="S",
+            element="physical",
+            specialty="anomaly",
+            image_path="/characters/IconRole46.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_alice,
+        config_fields=_alice_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1401"),
+            role=CharacterRole.ANOMALY,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"alice-polar-assault", "alice-physical-anomaly"}),
+        ),
+    ),
+    CharacterId("character:1411"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1411"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1411",
+            display_name="浮波柚叶",
+            rarity="S",
+            element="physical",
+            specialty="support",
+            image_path="/characters/IconRole47.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.SUPPORT,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_yuzuha,
+        config_fields=_yuzuha_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1411"),
+            role=CharacterRole.SUPPORT,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"yuzuha-tanuki-wish"}),
+        ),
+    ),
+    CharacterId("character:1361"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1361"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1361",
+            display_name="「扳机」",
+            rarity="S",
+            element="electric",
+            specialty="stun",
+            image_path="/characters/IconRole39.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_trigger,
+        config_fields=_trigger_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1361"),
+            role=CharacterRole.STUN,
+            possible_elements=frozenset({Element.ELECTRIC, Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"trigger-follow-up", "trigger-sniper-stance"}),
         ),
     ),
 }

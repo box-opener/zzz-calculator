@@ -1,0 +1,84 @@
+{
+  "schema_version": "nanoka-wengine-raw-v1",
+  "source_provider": "nanoka",
+  "source_version": "3.2.4+18409985",
+  "source_url": "https://static.nanoka.cc/zzz/3.2.4+18409985/zh/weapon/14141.json",
+  "id": "14141",
+  "name": "狸法七变化",
+  "rarity": "S",
+  "specialty": "support",
+  "catalog": {
+    "icon": "Weapon_S_1411",
+    "atk": 713,
+    "sub": "Energy Regen"
+  },
+  "nanoka_detail_fields": {
+    "base_property": {
+      "name": "基础攻击力",
+      "name2": "基础攻击力",
+      "format": "{0:0.#}",
+      "value": 48
+    },
+    "rand_property": {
+      "name": "能量自动回复",
+      "name2": "能量自动回复",
+      "format": "{0:0.#%}",
+      "value": 2400
+    },
+    "level_60": {
+      "rate": 94090,
+      "rate2": 4000
+    },
+    "stars_5": {
+      "star_rate": 44610,
+      "rand_rate": 15000
+    }
+  },
+  "resolved_level_60": {
+    "base_attack": 713.0,
+    "advanced_stat_key": "energy_regen_percent",
+    "advanced_stat_value": 0.60
+  },
+  "talents": {
+    "1": {
+      "name": "机巧玲珑",
+      "text": "装备者的<color=#FFFFFF>[强化特殊技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#F0D12B>物理伤害</color>时，装备者<color=#FFFFFF>异常掌控</color>提升<color=#2BAD00>30</color>点，持续40秒；装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人时，使全队角色的<color=#FFFFFF>异常精通</color>提升<color=#2BAD00>60</color>点，持续40秒，该效果全队唯一。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 30.0,
+        "team_anomaly_proficiency_flat": 60.0
+      }
+    },
+    "2": {
+      "name": "机巧玲珑",
+      "text": "装备者的<color=#FFFFFF>[强化特殊技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#F0D12B>物理伤害</color>时，装备者<color=#FFFFFF>异常掌控</color>提升<color=#2BAD00>34</color>点，持续40秒；装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人时，使全队角色的<color=#FFFFFF>异常精通</color>提升<color=#2BAD00>69</color>点，持续40秒，该效果全队唯一。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 34.0,
+        "team_anomaly_proficiency_flat": 69.0
+      }
+    },
+    "3": {
+      "name": "机巧玲珑",
+      "text": "装备者的<color=#FFFFFF>[强化特殊技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#F0D12B>物理伤害</color>时，装备者<color=#FFFFFF>异常掌控</color>提升<color=#2BAD00>39</color>点，持续40秒；装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人时，使全队角色的<color=#FFFFFF>异常精通</color>提升<color=#2BAD00>78</color>点，持续40秒，该效果全队唯一。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 39.0,
+        "team_anomaly_proficiency_flat": 78.0
+      }
+    },
+    "4": {
+      "name": "机巧玲珑",
+      "text": "装备者的<color=#FFFFFF>[强化特殊技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#F0D12B>物理伤害</color>时，装备者<color=#FFFFFF>异常掌控</color>提升<color=#2BAD00>43</color>点，持续40秒；装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人时，使全队角色的<color=#FFFFFF>异常精通</color>提升<color=#2BAD00>87</color>点，持续40秒，该效果全队唯一。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 43.0,
+        "team_anomaly_proficiency_flat": 87.0
+      }
+    },
+    "5": {
+      "name": "机巧玲珑",
+      "text": "装备者的<color=#FFFFFF>[强化特殊技]</color>或<color=#FFFFFF>[终结技]</color>造成<color=#F0D12B>物理伤害</color>时，装备者<color=#FFFFFF>异常掌控</color>提升<color=#2BAD00>48</color>点，持续40秒；装备者的<color=#FFFFFF>[追加攻击]</color>命中敌人时，使全队角色的<color=#FFFFFF>异常精通</color>提升<color=#2BAD00>96</color>点，持续40秒，该效果全队唯一。",
+      "numeric_values": {
+        "anomaly_mastery_flat": 48.0,
+        "team_anomaly_proficiency_flat": 96.0
+      }
+    }
+  }
+}

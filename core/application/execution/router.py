@@ -5,8 +5,32 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.calculation import CalculationResult
-from core.calculation.calculators import DirectDamageCalculator
-from core.types import CalculationContext, DamageEvent, DamageType, UnresolvedReason
+from core.calculation.calculators import (
+    AttributeAnomalyDamageCalculator,
+    CurrentAttributeAnomalyDamageCalculator,
+    DirectDamageCalculator,
+    DischargeDamageCalculator,
+    DisorderDamageCalculator,
+    LuminanceDamageCalculator,
+    PenetrationDamageCalculator,
+    SettledAnomalyDamageCalculator,
+    TurbulenceDamageCalculator,
+)
+from core.types import (
+    AttributeAnomalyDamageEvent,
+    CurrentAttributeAnomalyDamageEvent,
+    CalculationContext,
+    DamageEvent,
+    DamageType,
+    DirectDamageEvent,
+    DischargeDamageEvent,
+    DisorderDamageEvent,
+    LuminanceDamageEvent,
+    PenetrationDamageEvent,
+    SettledAnomalyDamageEvent,
+    TurbulenceDamageEvent,
+    UnresolvedReason,
+)
 
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId
@@ -28,7 +52,8 @@ class CalculationRouter:
         event: DamageEvent,
         context: CalculationContext,
     ) -> CalculatorExecutionResult:
-        if event.damage_type is not DamageType.DIRECT:
+        calculator = _calculator_for(event)
+        if calculator is None:
             return CalculatorExecutionResult(
                 status=EventCalculationStatus.UNSUPPORTED_CALCULATOR,
                 diagnostics=(
@@ -45,7 +70,7 @@ class CalculationRouter:
                     ),
                 ),
             )
-        result = DirectDamageCalculator().calculate(context)
+        result = calculator.calculate(context)
         if result.value is None:
             status = (
                 EventCalculationStatus.DATA_INSUFFICIENT
@@ -81,3 +106,27 @@ class CalculationRouter:
             status=EventCalculationStatus.CALCULATED,
             result=result,
         )
+
+
+def _calculator_for(event: DamageEvent):
+    """Map typed events to calculators without using character IDs."""
+
+    if isinstance(event, DirectDamageEvent):
+        return DirectDamageCalculator()
+    if isinstance(event, SettledAnomalyDamageEvent):
+        return SettledAnomalyDamageCalculator()
+    if isinstance(event, CurrentAttributeAnomalyDamageEvent):
+        return CurrentAttributeAnomalyDamageCalculator()
+    if isinstance(event, AttributeAnomalyDamageEvent):
+        return AttributeAnomalyDamageCalculator()
+    if isinstance(event, DischargeDamageEvent):
+        return DischargeDamageCalculator()
+    if isinstance(event, DisorderDamageEvent):
+        return DisorderDamageCalculator()
+    if isinstance(event, TurbulenceDamageEvent):
+        return TurbulenceDamageCalculator()
+    if isinstance(event, LuminanceDamageEvent):
+        return LuminanceDamageCalculator()
+    if isinstance(event, PenetrationDamageEvent):
+        return PenetrationDamageCalculator()
+    return None
