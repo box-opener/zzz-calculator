@@ -721,6 +721,11 @@ def compile_alice(
                         target=EffectTarget.TEAM,
                         snapshot_rule=SnapshotRule.SETTLEMENT,
                         filters=(
+                            # Only a typed direct attack hit is a legal
+                            # Victory-state trigger.  Attribute-anomaly and
+                            # disorder settlement events are not attack hits
+                            # and must not create another C6 package.
+                            DamageTypeFilter(DamageType.DIRECT),
                             # Victory state is the source of this effect.  Any
                             # teammate attack hit during that state can
                             # trigger it; only the explicit provenance gate
