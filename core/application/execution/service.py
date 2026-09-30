@@ -13,6 +13,7 @@ from core.types import (
     DamageEvent,
     DamageEventId,
     DirectDamageEvent,
+    DisorderDamageEvent,
     EffectId,
     EffectOperation,
     FixedMultiplier,
@@ -34,7 +35,11 @@ from ..matching import (
 )
 
 from ..characters.definition import CharacterCalculationDefinition
-from ..characters.templates import DamageEventTemplate
+from ..characters.templates import (
+    AttributeAnomalyDamageEventTemplate,
+    DamageEventTemplate,
+    DisorderDamageEventTemplate,
+)
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId, MoveEntryId
 from ..moves import DerivedDamageEventTemplateRef, MoveCalculationEntry
@@ -683,10 +688,10 @@ def _history_records_for_event(
 ):
     """Resolve explicit history first, then the opt-in static adapter.
 
-    Only the typed attribute-anomaly path is eligible for the v1
-    single-character assumption.  Unknown history IDs and other anomaly
-    mechanisms remain missing-data cases until their caller supplies a real
-    record.
+    The typed attribute-anomaly path and a narrowly declared disorder path are
+    eligible for the v1 single-character assumption.  Unknown history IDs and
+    other anomaly mechanisms remain missing-data cases until their caller
+    supplies a real record.
     """
 
     if request.history_record_mode != HistoryRecordMode.STATIC_SINGLE_CHARACTER:
@@ -699,6 +704,20 @@ def _history_records_for_event(
         # inspect panel fields for a synthetic replacement (or derive a
         # second set of diagnostics) in this branch.
         return request.history_records, ()
+    if isinstance(event, DisorderDamageEvent) and any(
+        record.record_id == event.history_record_source
+        for record in request.history_records
+    ):
+        return request.history_records, ()
+    if isinstance(event, DisorderDamageEvent) and not _declared_static_disorder_source(
+        request,
+        event,
+    ):
+        # A static disorder record is permitted only when the active
+        # definition explicitly declares the source record and its triggerer.
+        # This keeps the adapter from guessing an owner or numeric record from
+        # an arbitrary history-record ID.
+        return request.history_records, ()
     assembly = static_attribute_anomaly_record(event, snapshots, modifiers)
     if assembly is None:
         return request.history_records, ()
@@ -706,6 +725,27 @@ def _history_records_for_event(
     if source_id is None:
         return request.history_records, assembly.diagnostics
     return (*request.history_records, assembly.record), assembly.diagnostics
+
+
+def _declared_static_disorder_source(
+    request: MoveCalculationRequest,
+    event: DisorderDamageEvent,
+) -> bool:
+    for definition in _all_definitions(request):
+        for template in definition.damage_event_templates:
+            if isinstance(template, DisorderDamageEventTemplate):
+                triggerer = template.disorder_triggerer
+            elif isinstance(template, AttributeAnomalyDamageEventTemplate):
+                triggerer = template.anomaly_triggerer
+            else:
+                continue
+            if (
+                template.history_record_source == event.history_record_source
+                and template.damage_dealer == event.metadata.damage_dealer
+                and triggerer == event.disorder_triggerer
+            ):
+                return True
+    return False
 
 
 def _crit_capability(event: DamageEvent) -> CritCapability:

@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from core.types import (
     AnyFilter,
+    BattleEventKind,
     CharacterId,
     CharacterRole,
     CalculationNode,
+    CurrentAttackValueSource,
+    DamageMultiplier,
     DamageTag,
     DamageTagFilter,
+    DamageSubtype,
+    DamageSubtypeFilter,
     DamageType,
     DamageTypeFilter,
     Element,
@@ -18,6 +23,9 @@ from core.types import (
     EffectRule,
     EffectSourceType,
     EffectTarget,
+    EventCreationEffect,
+    EventCreationResult,
+    FixedMultiplier,
     MoveId,
     MoveIdFilter,
     ModifierEffect,
@@ -26,11 +34,19 @@ from core.types import (
     Resolved,
     RuleSource,
     SnapshotRule,
+    StandardCritRule,
 )
 
-from ...ids import RuleItemId
+from ...element_scope import element_scope_filter
+from ...ids import DamageEventSemanticId, RuleItemId, ScenarioParameterId
 from ...rules import CalculationRuleItem, RuleEligibility
-from ...scenario import ConditionResolution, ScenarioCondition, ScenarioRuleStack
+from ...scenario import (
+    ConditionResolution,
+    ParameterResolution,
+    ScenarioCondition,
+    ScenarioIntegerParameter,
+)
+from ...moves import DamageEventTemplateRef, DerivedDamageEventTemplateRef
 from ..definition import CharacterCalculationDefinition
 from ..nanoka_compiler import (
     NanokaReviewedMapping,
@@ -40,8 +56,8 @@ from ..nanoka_compiler import (
 )
 from ..nanoka_source import NanokaRawRecord, load_nanoka_raw_record
 from .config import YuzuhaCompileConfig
+from ..templates import DirectDamageEventTemplate
 from .reviewed import (
-    EXTRA_ABILITY_ACTIVE_CONDITION_ID,
     SWEET_SCARE_ACTIVE_CONDITION_ID,
     TANUKI_ATTACK_CONDITION_ID,
     TANUKI_SELF_ATTACK_CONDITION_ID,
@@ -55,6 +71,83 @@ from .reviewed import (
 # values are kept as a level curve (rather than a single level-12 constant),
 # and the compiler always selects the requested core level.
 TANUKI_WISH_ATTACK_CAPS = (600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0)
+YUZUHA_C6_SHELL_COUNT_PARAMETER_ID = ScenarioParameterId(
+    "parameter:yuzuha:cinema6:strong-shell-count"
+)
+
+
+def _independent_shell(
+    source_rule_id: RuleItemId,
+) -> tuple[DerivedDamageEventTemplateRef, DirectDamageEventTemplate]:
+    """Compile one C6 charged strong-shell event.
+
+    Shells are independent direct events with their own physical identity and
+    no inherited tags/move ID.  The parent support-assault move is represented
+    solely by the EventCreation filter.
+    """
+
+    ref = DamageEventTemplateRef(
+        template_id="template:yuzuha:1411:cinema6:strong-shell",
+        semantic_id=DamageEventSemanticId(
+            "event:yuzuha:1411:cinema6:strong-shell"
+        ),
+        label="6影：强力炮弹",
+        damage_type=DamageType.DIRECT,
+        skill_group=None,
+        damage_tags=frozenset(),
+        element=Element.PHYSICAL,
+        source_rule_item_id=source_rule_id,
+    )
+    derived = DerivedDamageEventTemplateRef(
+        template=ref,
+        multiplier=FixedMultiplier(Resolved(3.0)),
+        repeat_count=1,
+        repeat_count_parameter_id=YUZUHA_C6_SHELL_COUNT_PARAMETER_ID,
+    )
+    typed = DirectDamageEventTemplate(
+        ref=ref,
+        damage_dealer=YUZUHA_ID,
+        element=Element.PHYSICAL,
+        base_source=CurrentAttackValueSource(YUZUHA_ID),
+        crit_rule=StandardCritRule(YUZUHA_ID),
+        move_id=None,
+    )
+    return derived, typed
+
+
+def _independent_sweet_scare_fireworks(
+    source_rule_id: RuleItemId,
+    multiplier: DamageMultiplier,
+) -> tuple[DerivedDamageEventTemplateRef, DirectDamageEventTemplate]:
+    """Compile one per-shell copy of the reviewed polar fireworks move."""
+
+    ref = DamageEventTemplateRef(
+        template_id="template:yuzuha:1411:cinema6:sweet-scare-fireworks",
+        semantic_id=DamageEventSemanticId(
+            "event:yuzuha:1411:cinema6:sweet-scare-fireworks"
+        ),
+        label="6影：甜蜜惊吓追加彩糖花火·极",
+        damage_type=DamageType.DIRECT,
+        skill_group=None,
+        damage_tags=frozenset(),
+        element=Element.PHYSICAL,
+        source_rule_item_id=source_rule_id,
+    )
+    derived = DerivedDamageEventTemplateRef(
+        template=ref,
+        multiplier=multiplier,
+        repeat_count=1,
+        repeat_count_parameter_id=YUZUHA_C6_SHELL_COUNT_PARAMETER_ID,
+    )
+    typed = DirectDamageEventTemplate(
+        ref=ref,
+        damage_dealer=YUZUHA_ID,
+        element=Element.PHYSICAL,
+        base_source=CurrentAttackValueSource(YUZUHA_ID),
+        crit_rule=StandardCritRule(YUZUHA_ID),
+        move_id=None,
+    )
+    return derived, typed
 
 
 def _condition(condition_id, label: str, text: str) -> ScenarioCondition:
@@ -178,11 +271,6 @@ def compile_yuzuha(
             "狸猫阿釜自主攻击",
         ),
         _condition(
-            EXTRA_ABILITY_ACTIVE_CONDITION_ID,
-            "额外能力：人多乐趣大已生效",
-            "队伍中存在异常角色或同阵营角色，且异常掌控超过100点",
-        ),
-        _condition(
             SWEET_SCARE_ACTIVE_CONDITION_ID,
             "目标处于甜蜜惊吓",
             "处于[甜蜜惊吓]状态下的敌人",
@@ -230,10 +318,26 @@ def compile_yuzuha(
         raw_record.extra_ability_name,
         raw_record.extra_ability_description,
     )
-    # The mastery-to-bonus conversion is deliberately left as a reviewed
-    # scenario boundary until the panel-derived-value contract supports a
-    # capped current anomaly-mastery source.  The eligibility and original
-    # rule remain visible, and no incorrect fixed 20% is applied to damage.
+    extra_bonus_coefficient = 0.002 * (
+        1.30 if config.cinema_level >= 1 else 1.0
+    )
+    extra_bonus_cap = 0.26 if config.cinema_level >= 1 else 0.20
+    extra_mastery_value = PanelStatDerivedValue(
+        source_character_id=YUZUHA_ID,
+        source_node=CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+        threshold=Resolved(100.0),
+        minimum=Resolved(100.0),
+        coefficient=Resolved(extra_bonus_coefficient),
+        cap_max=Resolved(extra_bonus_cap),
+    )
+    extra_buildup_value = PanelStatDerivedValue(
+        source_character_id=YUZUHA_ID,
+        source_node=CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+        threshold=Resolved(100.0),
+        minimum=Resolved(100.0),
+        coefficient=Resolved(0.002),
+        cap_max=Resolved(0.20),
+    )
     rules.append(
         _rule(
             "rule:yuzuha:1411:extra-ability",
@@ -243,7 +347,38 @@ def compile_yuzuha(
             RuleEligibility.ELIGIBLE
             if config.additional_ability_eligible
             else RuleEligibility.INELIGIBLE,
-            condition_ids=(EXTRA_ABILITY_ACTIVE_CONDITION_ID,),
+            # The real runtime gate is [狸之愿].  Static team eligibility is
+            # represented by additional_ability_eligible; a second user
+            # checkbox would create a contradictory duplicate truth value.
+            condition_ids=(TANUKI_WISH_ACTIVE_CONDITION_ID,),
+            effects=(
+                _modifier(
+                    "extra-ability:anomaly-buildup",
+                    extra_source,
+                    CalculationNode.ANOMALY_BUILDUP_EFFICIENCY,
+                    extra_buildup_value,
+                    target=EffectTarget.TEAM,
+                ),
+                _modifier(
+                    "extra-ability:anomaly-damage",
+                    extra_source,
+                    CalculationNode.ANOMALY_DAMAGE_BONUS,
+                    extra_mastery_value,
+                    target=EffectTarget.TEAM,
+                    filters=(
+                        DamageTypeFilter(DamageType.ANOMALY),
+                        DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
+                    ),
+                ),
+                _modifier(
+                    "extra-ability:disorder-damage",
+                    extra_source,
+                    CalculationNode.DISORDER_TRIGGER_DAMAGE_BONUS,
+                    extra_mastery_value,
+                    target=EffectTarget.TEAM,
+                    filters=(DamageTypeFilter(DamageType.DISORDER),),
+                ),
+            ),
         )
     )
 
@@ -273,18 +408,6 @@ def compile_yuzuha(
                     Resolved(0.10),
                     target=EffectTarget.ENEMY,
                     condition=None,
-                    filters=(
-                        AnyFilter(
-                            tuple(ElementFilter(element) for element in Element if element in {
-                                Element.PHYSICAL,
-                                Element.FIRE,
-                                Element.ELECTRIC,
-                                Element.ICE,
-                                Element.ETHER,
-                                Element.WIND,
-                            })
-                        ),
-                    ),
                 ),
             ),
             condition_ids=(SWEET_SCARE_ACTIVE_CONDITION_ID,),
@@ -413,15 +536,38 @@ def compile_yuzuha(
         f"6影：{c6.name}",
         c6.description,
     )
+    c6_shell_rule_id = RuleItemId("rule:yuzuha:1411:cinema6-shells")
+    c6_shell_derived, c6_shell_template = _independent_shell(c6_shell_rule_id)
+    polar_entry = next(
+        item
+        for item in entries
+        if str(item.entry_id).endswith("basic-candy-fireworks-polar")
+    )
+    polar_multiplier = polar_entry.multiplier_variants[0].multiplier
+    c6_fireworks_rule_id = RuleItemId(
+        "rule:yuzuha:1411:cinema6:sweet-scare-fireworks"
+    )
+    c6_fireworks_derived, c6_fireworks_template = _independent_sweet_scare_fireworks(
+        c6_fireworks_rule_id,
+        polar_multiplier,
+    )
+    templates = (*templates, c6_shell_template, c6_fireworks_template)
+
+    c6_eligibility = (
+        RuleEligibility.ELIGIBLE
+        if config.cinema_level >= 6
+        else RuleEligibility.INELIGIBLE
+    )
+    # Keep the stackable disorder multiplier separate from EventCreation:
+    # Stage-015 intentionally rejects stacked EventCreation effects, while
+    # the text gives the multiplier its own independent 0..3 stack count.
     rules.append(
         _rule(
             "rule:yuzuha:1411:cinema6",
             c6_source,
             f"6影：{c6.name}",
             c6.description,
-            RuleEligibility.ELIGIBLE
-            if config.cinema_level >= 6
-            else RuleEligibility.INELIGIBLE,
+            c6_eligibility,
             effects=(
                 _modifier(
                     "cinema6:disorder-damage",
@@ -429,11 +575,71 @@ def compile_yuzuha(
                     CalculationNode.DISORDER_EXTRA_MULTIPLIER,
                     Resolved(1.05),
                     target=EffectTarget.TEAM,
+                    filters=(DamageTypeFilter(DamageType.DISORDER),),
                 ),
             ),
             stack_count=3,
             stack_min=0,
             stack_max=3,
+        )
+    )
+    rules.append(
+        _rule(
+            str(c6_shell_rule_id),
+            c6_source,
+            f"6影：{c6.name}（强力炮弹）",
+            c6.description,
+            c6_eligibility,
+            effects=(
+                EventCreationEffect(
+                    rule=EffectRule(
+                        effect_id=EffectId(
+                            "effect:character:1411:cinema6:strong-shell"
+                        ),
+                        source=c6_source,
+                        owner=YUZUHA_ID,
+                        target=EffectTarget.TEAM,
+                        snapshot_rule=SnapshotRule.SETTLEMENT,
+                        filters=(
+                            MoveIdFilter(MoveId("move:yuzuha:stuffed-candy")),
+                        ),
+                    ),
+                    result=EventCreationResult(
+                        event_kind=BattleEventKind.DAMAGE,
+                        event_template_id=c6_shell_derived.template.template_id,
+                    ),
+                ),
+            ),
+        )
+    )
+    rules.append(
+        _rule(
+            str(c6_fireworks_rule_id),
+            c6_source,
+            f"6影：{c6.name}（甜蜜惊吓追加）",
+            c6.description,
+            c6_eligibility,
+            effects=(
+                EventCreationEffect(
+                    rule=EffectRule(
+                        effect_id=EffectId(
+                            "effect:character:1411:cinema6:sweet-scare-fireworks"
+                        ),
+                        source=c6_source,
+                        owner=YUZUHA_ID,
+                        target=EffectTarget.TEAM,
+                        snapshot_rule=SnapshotRule.SETTLEMENT,
+                        filters=(
+                            MoveIdFilter(MoveId("move:yuzuha:stuffed-candy")),
+                        ),
+                    ),
+                    result=EventCreationResult(
+                        event_kind=BattleEventKind.DAMAGE,
+                        event_template_id=c6_fireworks_derived.template.template_id,
+                    ),
+                ),
+            ),
+            condition_ids=(SWEET_SCARE_ACTIVE_CONDITION_ID,),
         )
     )
 
@@ -446,6 +652,21 @@ def compile_yuzuha(
         templates=templates,
         rules=rules,
         conditions=conditions,
+        parameters=(
+            ScenarioIntegerParameter(
+                parameter_id=YUZUHA_C6_SHELL_COUNT_PARAMETER_ID,
+                label="6影强力炮弹追加次数",
+                original_text="每蓄能0.4秒消耗1点甜度点，最多追加2枚",
+                resolution=ParameterResolution.USER_SELECTED,
+                value=0,
+                minimum=0,
+                maximum=2,
+            ),
+        ),
+        independent_derived_damage_events=(
+            c6_shell_derived,
+            c6_fireworks_derived,
+        ),
         diagnostics=diagnostics,
     )
 
@@ -474,6 +695,7 @@ def load_raw_record(data):
 __all__ = [
     "TANUKI_WISH_ATTACK_CAPS",
     "TANUKI_WISH_ACTIVE_CONDITION_ID",
+    "YUZUHA_C6_SHELL_COUNT_PARAMETER_ID",
     "YUZUHA_ID",
     "compile_yuzuha",
     "load_raw_record",

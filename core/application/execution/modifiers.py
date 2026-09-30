@@ -193,6 +193,7 @@ def apply_matched_modifiers(
             initial_character_snapshots,
             diagnostics,
             scenario=scenario,
+            current_character_snapshots=snapshots,
         )
         if effect is None:
             continue
@@ -330,6 +331,14 @@ def apply_global_panel_effects(
     applied_ids: set[EffectId] = set()
     traces: list[PanelModifierExecutionTrace] = []
     applied_non_stacking_groups: set[str] = set()
+    # Current-panel derived values must observe all ordinary panel effects
+    # first.  In particular, an equipment anomaly-mastery bonus must be part
+    # of the current AM read used by Alice/Yuzuha, regardless of RuleItem
+    # ordering.  Keep the deferred list narrow: only the new current-AM
+    # contract is order-sensitive; initial-attack-derived values preserve the
+    # original initial snapshot semantics and can be applied in the ordinary
+    # pass.
+    deferred_current_panel_effects: list[tuple[ModifierEffect, int, RuleItemId]] = []
     for rule in rule_items:
         if rule.rule_id not in scenario.enabled_rule_item_ids:
             continue
@@ -357,6 +366,11 @@ def apply_global_panel_effects(
             if effect.result.modifier_path not in _PANEL_NODES:
                 continue
             if not _is_recipient_panel_effect(effect):
+                continue
+            if _is_current_panel_derived_effect(effect):
+                deferred_current_panel_effects.append(
+                    (effect, stack_count, rule.rule_id)
+                )
                 continue
             effect_status, effect_diagnostics = _resolve_panel_effect_condition(
                 effect,
@@ -386,6 +400,40 @@ def apply_global_panel_effects(
             snapshots = updated
             applied_ids.update(effect_ids)
             traces.extend(panel_traces)
+
+    # Resolve current-panel derived values only after the ordinary panel pass.
+    # Conditions are evaluated against that final ordinary settlement panel as
+    # well, so a threshold cannot accidentally read a pre-equipment value.
+    for effect, stack_count, rule_id in deferred_current_panel_effects:
+        effect_status, effect_diagnostics = _resolve_panel_effect_condition(
+            effect,
+            scenario,
+            initial_character_snapshots,
+            snapshots,
+        )
+        diagnostics.extend(effect_diagnostics)
+        if effect_status is not EffectMatchStatus.MATCHED:
+            continue
+        resolved_effect = _resolve_effect_value(
+            effect,
+            initial_character_snapshots,
+            diagnostics,
+            scenario=scenario,
+            current_character_snapshots=snapshots,
+        )
+        if resolved_effect is None:
+            continue
+        updated, effect_ids, panel_traces = _apply_panel_effects_to_recipients(
+            snapshots,
+            [(resolved_effect, stack_count)],
+            diagnostics,
+            initial_character_snapshots=initial_character_snapshots,
+            team_character_ids=team_character_ids,
+            rule_item_id_by_effect={resolved_effect.rule.effect_id: rule_id},
+        )
+        snapshots = updated
+        applied_ids.update(effect_ids)
+        traces.extend(panel_traces)
 
     return ModifierApplicationResult(
         character_snapshots=snapshots,
@@ -702,6 +750,7 @@ def _resolve_effect_value(
     diagnostics: list[CalculationDiagnostic],
     *,
     scenario: CalculationScenario | None = None,
+    current_character_snapshots: tuple[CharacterSnapshot, ...] = (),
 ) -> ModifierEffect | None:
     value = effect.result.value
     if isinstance(value, ScenarioParameterDerivedValue):
@@ -762,38 +811,8 @@ def _resolve_effect_value(
     if not isinstance(value, PanelStatDerivedValue):
         return effect
 
-    source = next(
-        (
-            item
-            for item in initial_character_snapshots
-            if item.character_id == value.source_character_id
-        ),
-        None,
-    )
-    if source is None:
-        diagnostics.append(
-            _diagnostic(
-                str(effect.rule.effect_id),
-                "derived-value-source",
-                DiagnosticKind.MISSING_DATA,
-                "derived panel value is missing its initial character snapshot",
-            )
-        )
-        return None
-
-    source_attack = source.initial_stats.attack
     coefficient = value.coefficient
     cap_max = value.cap_max
-    if not isinstance(source_attack, Resolved):
-        diagnostics.append(
-            _diagnostic(
-                str(effect.rule.effect_id),
-                "derived-value-attack",
-                DiagnosticKind.MISSING_DATA,
-                "initial attack is unresolved for a derived panel value",
-            )
-        )
-        return None
     if not isinstance(coefficient, Resolved):
         diagnostics.append(
             _diagnostic(
@@ -804,7 +823,76 @@ def _resolve_effect_value(
             )
         )
         return None
-    result = source_attack.value * coefficient.value
+
+    if value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY:
+        current = next(
+            (
+                item
+                for item in current_character_snapshots
+                if item.character_id == value.source_character_id
+            ),
+            None,
+        )
+        current_mastery = (
+            current.settlement_stats.anomaly_mastery
+            if current is not None
+            else None
+        )
+        if not isinstance(current_mastery, Resolved):
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "derived-value-current-anomaly-mastery",
+                    DiagnosticKind.MISSING_DATA,
+                    "current anomaly mastery is unresolved for a derived panel value",
+                )
+            )
+            return None
+        threshold = value.threshold if value.threshold is not None else value.minimum
+        if threshold is None:
+            threshold = Resolved(0.0)
+        if not isinstance(threshold, Resolved):
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "derived-value-threshold",
+                    DiagnosticKind.MISSING_DATA,
+                    threshold.notes,
+                )
+            )
+            return None
+        result = max(current_mastery.value - threshold.value, 0.0) * coefficient.value
+    else:
+        source = next(
+            (
+                item
+                for item in initial_character_snapshots
+                if item.character_id == value.source_character_id
+            ),
+            None,
+        )
+        if source is None:
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "derived-value-source",
+                    DiagnosticKind.MISSING_DATA,
+                    "derived panel value is missing its initial character snapshot",
+                )
+            )
+            return None
+        source_attack = source.initial_stats.attack
+        if not isinstance(source_attack, Resolved):
+            diagnostics.append(
+                _diagnostic(
+                    str(effect.rule.effect_id),
+                    "derived-value-attack",
+                    DiagnosticKind.MISSING_DATA,
+                    "initial attack is unresolved for a derived panel value",
+                )
+            )
+            return None
+        result = source_attack.value * coefficient.value
     if cap_max is not None:
         if not isinstance(cap_max, Resolved):
             diagnostics.append(
@@ -829,6 +917,14 @@ def _is_recipient_panel_effect(effect: ModifierEffect) -> bool:
         rule.target in {EffectTarget.SELF, EffectTarget.TEAM}
         and not rule.filters
         and _is_event_independent_condition(rule.condition)
+    )
+
+
+def _is_current_panel_derived_effect(effect: ModifierEffect) -> bool:
+    value = effect.result.value
+    return (
+        isinstance(value, PanelStatDerivedValue)
+        and value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY
     )
 
 

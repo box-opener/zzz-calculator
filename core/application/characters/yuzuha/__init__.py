@@ -1,6 +1,6 @@
 """Reviewed Floating Wave Yuzuha (character:1411) compiler."""
 
-from .compiler import YUZUHA_ID, compile_yuzuha
+from .compiler import YUZUHA_C6_SHELL_COUNT_PARAMETER_ID, YUZUHA_ID, compile_yuzuha
 from .config import YuzuhaCompileConfig
 from .reviewed import (
     EXTRA_ABILITY_ACTIVE_CONDITION_ID,
@@ -29,6 +29,7 @@ __all__ = [
     "TANUKI_SELF_ATTACK_CONDITION_ID",
     "TANUKI_WISH_ACTIVE_CONDITION_ID",
     "YUZUHA_ID",
+    "YUZUHA_C6_SHELL_COUNT_PARAMETER_ID",
     "YUZUHA_REVIEWED_MAPPING",
     "YuzuhaCompileConfig",
     "NanokaRawCoreLevel",

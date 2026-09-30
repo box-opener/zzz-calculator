@@ -18,12 +18,16 @@ from core.types import (
     AnomalyContribution,
     AnomalyRecord,
     AttributeAnomalyDamageEvent,
+    AnomalyRecordValueSource,
     CalculationNode,
     CharacterSnapshot,
     DamageEvent,
+    DisorderDamageEvent,
     EffectOperation,
     Element,
+    FixedMultiplier,
     NoAnomalyCrit,
+    NoCritRule,
     Resolved,
     Unresolved,
     UnresolvedReason,
@@ -72,6 +76,23 @@ def static_attribute_anomaly_record(
     resolved by the caller and therefore never reach this helper.
     """
 
+    if isinstance(event, DisorderDamageEvent):
+        # Static browser mode has one explicit full-gauge assumption.  A
+        # disorder event carries the source record identity and triggerer but
+        # not a second anomaly snapshot, so reuse this narrow adapter through
+        # a typed synthetic attribute-anomaly view.  This does not infer a
+        # record for arbitrary event IDs in EXPLICIT mode, and it leaves the
+        # disorder-specific modifiers on the disorder settlement lane.
+        event = AttributeAnomalyDamageEvent(
+            metadata=event.metadata,
+            anomaly_triggerer=event.disorder_triggerer,
+            base_settlement_data_source=AnomalyRecordValueSource(
+                event.history_record_source
+            ),
+            history_record_source=event.history_record_source,
+            multiplier=FixedMultiplier(Resolved(1.0)),
+            crit_rule=NoCritRule(),
+        )
     if not isinstance(event, AttributeAnomalyDamageEvent):
         return None
 

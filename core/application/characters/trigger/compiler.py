@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from core.types import (
+    AnyFilter,
     BattleEventKind,
     CharacterFilter,
     CharacterId,
     CharacterRole,
     CalculationNode,
+    CreatedByEffectFilter,
     CurrentAttackValueSource,
     DamageTag,
     DamageTagFilter,
@@ -25,6 +27,7 @@ from core.types import (
     ModifierEffect,
     ModifierResult,
     MoveId,
+    MoveIdFilter,
     Resolved,
     RuleSource,
     SnapshotRule,
@@ -32,6 +35,8 @@ from core.types import (
 )
 
 from ...ids import DamageEventSemanticId, RuleItemId
+from ...diagnostics import CalculationDiagnostic, DiagnosticKind
+from ...ids import DiagnosticId
 from ...moves import DamageEventTemplateRef, DerivedDamageEventTemplateRef
 from ...rules import CalculationRuleItem, RuleEligibility
 from ...scenario import ConditionResolution, ScenarioCondition
@@ -76,6 +81,7 @@ def _rule(
     stack_count=None,
     stack_min=None,
     stack_max=None,
+    diagnostics=(),
 ) -> CalculationRuleItem:
     return CalculationRuleItem(
         rule_id=RuleItemId(rule_id),
@@ -89,6 +95,7 @@ def _rule(
         stack_count=stack_count,
         stack_min=stack_min,
         stack_max=stack_max,
+        diagnostics=tuple(diagnostics),
     )
 
 
@@ -167,6 +174,42 @@ def _independent_bullet(
     )
 
 
+def _independent_severance(
+    source_rule_id: RuleItemId,
+) -> tuple[DerivedDamageEventTemplateRef, DirectDamageEventTemplate]:
+    """Build C4's independent 200%-ATK severance event.
+
+    The parent concerto move identity is deliberately not copied onto this
+    child.  C4's EventCreation filter is the only trigger boundary; keeping
+    the child move-less also makes the explicit no-recursion contract clear.
+    """
+
+    ref = DamageEventTemplateRef(
+        template_id="template:character:1361:cinema4:severance",
+        semantic_id="event:character:1361:cinema4:severance",
+        label="4影：断离额外伤害",
+        damage_type=DamageType.DIRECT,
+        skill_group=None,
+        damage_tags=frozenset(),
+        element=Element.ELECTRIC,
+        source_rule_item_id=source_rule_id,
+    )
+    derived = DerivedDamageEventTemplateRef(
+        template=ref,
+        multiplier=FixedMultiplier(Resolved(2.0)),
+        repeat_count=1,
+    )
+    typed = DirectDamageEventTemplate(
+        ref=ref,
+        damage_dealer=TRIGGER_ID,
+        element=Element.ELECTRIC,
+        base_source=CurrentAttackValueSource(TRIGGER_ID),
+        crit_rule=StandardCritRule(TRIGGER_ID),
+        move_id=None,
+    )
+    return derived, typed
+
+
 def compile_trigger(
     config: TriggerCompileConfig,
     raw_record: NanokaRawRecord,
@@ -207,10 +250,12 @@ def compile_trigger(
     )
     follow_up_filter = (DamageTagFilter(DamageTag.FOLLOW_UP_ATTACK),)
 
-    # Core passive: an additional attack makes the target more vulnerable to
-    # daze.  The modifier is attached to the enemy and is filtered by the
-    # event's explicit FOLLOW_UP tag, so SELF/TEAM identity is not conflated
-    # with the damage dealer.
+    # The source event activates an enemy debuff, but the active debuff is a
+    # settlement fact that any teammate's current event may consume.  It must
+    # therefore not be filtered by the current settlement event's
+    # FOLLOW_UP tag.  The non-stun lane preserves the text's explicit promise
+    # that the bonus works before the enemy enters daze; the enemy's ordinary
+    # base stun vulnerability remains in its own stun lane.
     rules: list[CalculationRuleItem] = [
         _rule(
             "rule:trigger:1361:core-passive",
@@ -222,10 +267,9 @@ def compile_trigger(
                 _modifier(
                     "core:stun-vulnerability",
                     core_source,
-                    CalculationNode.ENEMY_STUN_VULNERABILITY,
+                    CalculationNode.ENEMY_NORMAL_VULNERABILITY,
                     Resolved(0.20 + 0.025 * (config.core_level - 1)),
                     target=EffectTarget.ENEMY,
-                    filters=follow_up_filter,
                 ),
             ),
         )
@@ -281,10 +325,9 @@ def compile_trigger(
                 _modifier(
                     "cinema1:stun-vulnerability",
                     c1_source,
-                    CalculationNode.ENEMY_STUN_VULNERABILITY,
+                    CalculationNode.ENEMY_NORMAL_VULNERABILITY,
                     Resolved(0.20),
                     target=EffectTarget.ENEMY,
-                    filters=follow_up_filter,
                 ),
             ),
         )
@@ -351,15 +394,62 @@ def compile_trigger(
         f"4影：{c4.name}",
         c4.description,
     )
+    c4_rule_id = RuleItemId("rule:trigger:1361:cinema4")
+    c4_derived, c4_template = _independent_severance(c4_rule_id)
+    templates = (*templates, c4_template)
+    c4_effect_id = EffectId("effect:character:1361:cinema4:severance")
     rules.append(
         _rule(
-            "rule:trigger:1361:cinema4",
+            str(c4_rule_id),
             c4_source,
             f"4影：{c4.name}",
             c4.description,
             RuleEligibility.ELIGIBLE
             if config.cinema_level >= 4
             else RuleEligibility.INELIGIBLE,
+            effects=(
+                EventCreationEffect(
+                    rule=EffectRule(
+                        effect_id=c4_effect_id,
+                        source=c4_source,
+                        owner=TRIGGER_ID,
+                        target=EffectTarget.TEAM,
+                        snapshot_rule=SnapshotRule.SETTLEMENT,
+                        filters=(
+                            AnyFilter(
+                                (
+                                    # C4 is tied to the actual concerto
+                                    # attack identity, including its Hell
+                                    # variant, rather than to Trigger being
+                                    # the current operator.
+                                    MoveIdFilter(MoveId("move:trigger:concerto-sniping")),
+                                    MoveIdFilter(
+                                        MoveId("move:trigger:concerto-sniping-hell")
+                                    ),
+                                )
+                            ),
+                        ),
+                    ),
+                    result=EventCreationResult(
+                        event_kind=BattleEventKind.DAMAGE,
+                        event_template_id=c4_derived.template.template_id,
+                    ),
+                ),
+            ),
+            diagnostics=(
+                CalculationDiagnostic(
+                    diagnostic_id=DiagnosticId(
+                        "unsupported:trigger:1361:cinema4:impact-daze"
+                    ),
+                    kind=DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                    message=(
+                        "C4 断离额外120%冲击力失衡值 is retained in source text "
+                        "but this static calculator scope does not model the daze result"
+                    ),
+                    blocking=False,
+                    original_text="额外累积「扳机」120%冲击力的失衡值",
+                ),
+            ),
         )
     )
 
@@ -404,6 +494,23 @@ def compile_trigger(
             if config.cinema_level >= 6
             else RuleEligibility.INELIGIBLE,
             effects=(
+                _modifier(
+                    "cinema6:armor-piercing-round-damage",
+                    c6_source,
+                    CalculationNode.DAMAGE_NORMAL_BONUS,
+                    Resolved(0.50),
+                    target=EffectTarget.TEAM,
+                    filters=(
+                        # The 50% is specific to the independently-created
+                        # bullet; ordinary Trigger attacks keep their normal
+                        # multiplier lane untouched.
+                        CreatedByEffectFilter(
+                            EffectId(
+                                "effect:character:1361:cinema6:armor-piercing-round"
+                            )
+                        ),
+                    ),
+                ),
                 EventCreationEffect(
                     rule=EffectRule(
                         effect_id=EffectId(
@@ -437,7 +544,7 @@ def compile_trigger(
         templates=templates,
         rules=rules,
         conditions=conditions,
-        independent_derived_damage_events=(derived,),
+        independent_derived_damage_events=(c4_derived, derived),
         diagnostics=diagnostics,
     )
 

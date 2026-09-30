@@ -261,12 +261,26 @@ class EffectRule:
 
 @dataclass(frozen=True, slots=True)
 class PanelStatDerivedValue:
-    """A deliberately small value source for build-time panel-derived Effects."""
+    """A deliberately small value source for build-time panel-derived Effects.
+
+    The original contract only supported a value derived from a character's
+    immutable initial attack.  A small number of reviewed character effects
+    instead read the character's final settlement anomaly mastery.  Those
+    effects use ``threshold`` (and its compatibility alias ``minimum``) to
+    express ``max(current - threshold, 0)`` before applying the coefficient.
+    Keeping the source node and threshold explicit prevents a compiler from
+    accidentally reading an initial panel value or inventing a cap.
+    """
 
     source_character_id: CharacterId
     source_node: CalculationNode
     coefficient: Resolvable[float]
     cap_max: Resolvable[float] | None = None
+    threshold: Resolvable[float] | None = None
+    # ``minimum`` is retained as a named alias for callers that describe this
+    # contract in threshold/minimum terms.  Compilers should set both fields
+    # to the same value when exposing a thresholded current-panel effect.
+    minimum: Resolvable[float] | None = None
     kind: Literal["panel-stat-derived"] = field(
         default="panel-stat-derived",
         init=False,
@@ -275,14 +289,33 @@ class PanelStatDerivedValue:
     def __post_init__(self) -> None:
         if not str(self.source_character_id):
             raise ValueError("derived panel value source character is required")
-        if self.source_node is not CalculationNode.CHARACTER_INITIAL_ATTACK:
+        if self.source_node not in {
+            CalculationNode.CHARACTER_INITIAL_ATTACK,
+            CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+        }:
             raise ValueError(
-                "Stage-016 only supports CHARACTER_INITIAL_ATTACK derived values"
+                "panel derived values only support initial attack or current anomaly mastery"
             )
         if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
             raise ValueError("derived panel value coefficient must be non-negative")
         if isinstance(self.cap_max, Resolved) and self.cap_max.value < 0:
             raise ValueError("derived panel value cap must be non-negative")
+        if isinstance(self.threshold, Resolved) and self.threshold.value < 0:
+            raise ValueError("derived panel value threshold must be non-negative")
+        if isinstance(self.minimum, Resolved) and self.minimum.value < 0:
+            raise ValueError("derived panel value minimum must be non-negative")
+        if (
+            isinstance(self.threshold, Resolved)
+            and isinstance(self.minimum, Resolved)
+            and self.threshold.value != self.minimum.value
+        ):
+            raise ValueError("derived panel value threshold and minimum must agree")
+        if self.source_node is CalculationNode.CHARACTER_INITIAL_ATTACK and (
+            self.threshold is not None or self.minimum is not None
+        ):
+            raise ValueError(
+                "initial-attack derived values cannot declare a current-panel threshold"
+            )
 
 
 @dataclass(frozen=True, slots=True)

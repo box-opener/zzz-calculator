@@ -388,12 +388,14 @@ def _cinema_rule_items(
             source_c1,
             CalculationNode.DAMAGE_NORMAL_BONUS,
             0.10,
+            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
         ),
         _modifier(
             "effect:ye:1431:cinema1:defense-ignore",
             source_c1,
             CalculationNode.DAMAGE_DEFENSE_IGNORE,
             0.20,
+            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
         ),
     )
     rule_items.append(
@@ -663,6 +665,7 @@ def compile_ye_shunguang(
                     core_source,
                     CalculationNode.DAMAGE_NORMAL_BONUS,
                     core_bonus,
+                    condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
                 ),
             ),
         ),

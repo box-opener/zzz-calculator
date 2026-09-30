@@ -10,7 +10,6 @@ from core.types import (
     DamageSubtypeFilter,
     DamageTypeFilter,
     DamageDealerFilter,
-    CharacterFilter,
     CreatedByEffectFilter,
     Element,
     ElementFilter,
@@ -36,8 +35,8 @@ from core.types import (
     BattleEventKind,
     ModifierEffect,
     ModifierResult,
-    MoveIdFilter,
     NotFilter,
+    PanelStatDerivedValue,
     ScenarioParameterDerivedValue,
     SettledDamageValueSource,
     RuleSource,
@@ -48,6 +47,7 @@ from core.types import (
 )
 
 from ...diagnostics import CalculationDiagnostic
+from ...element_scope import element_scope_filter
 from ...ids import RuleItemId
 from ...ids import DamageEventSemanticId, MoveEntryId, MultiplierVariantId
 from ...moves import (
@@ -513,6 +513,22 @@ def compile_alice(
             RuleEligibility.ELIGIBLE
             if config.additional_ability_eligible
             else RuleEligibility.INELIGIBLE,
+            effects=(
+                _modifier(
+                    "extra-ability:anomaly-mastery-to-attack",
+                    extra_source,
+                    CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
+                    PanelStatDerivedValue(
+                        source_character_id=ALICE_ID,
+                        source_node=CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+                        coefficient=Resolved(1.6),
+                        threshold=Resolved(140.0),
+                        minimum=Resolved(140.0),
+                        cap_max=None,
+                    ),
+                    target=EffectTarget.SELF,
+                ),
+            ),
         )
     )
 
@@ -569,6 +585,11 @@ def compile_alice(
                     CalculationNode.ANOMALY_DAMAGE_BONUS,
                     Resolved(0.15),
                     target=EffectTarget.TEAM,
+                    filters=(
+                        DamageTypeFilter(DamageType.ANOMALY),
+                        DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
+                        element_scope_filter(Element.PHYSICAL),
+                    ),
                 ),
                 _modifier(
                     "cinema2:disorder-damage",
@@ -576,6 +597,10 @@ def compile_alice(
                     CalculationNode.DISORDER_SETTLED_CONTRIBUTOR_DAMAGE_BONUS,
                     Resolved(0.15),
                     target=EffectTarget.TEAM,
+                    filters=(
+                        DamageTypeFilter(DamageType.DISORDER),
+                        element_scope_filter(Element.PHYSICAL),
+                    ),
                 ),
             ),
         )
@@ -696,11 +721,16 @@ def compile_alice(
                         target=EffectTarget.TEAM,
                         snapshot_rule=SnapshotRule.SETTLEMENT,
                         filters=(
-                            CharacterFilter(ALICE_ID),
-                            AnyFilter(
-                                (
-                                    MoveIdFilter(MoveId("move:alice:star-dance")),
-                                    MoveIdFilter(MoveId("move:alice:star-finale")),
+                            # Victory state is the source of this effect.  Any
+                            # teammate attack hit during that state can
+                            # trigger it; only the explicit provenance gate
+                            # prevents the child from recursively creating
+                            # another package in the same static request.
+                            NotFilter(
+                                CreatedByEffectFilter(
+                                    EffectId(
+                                        "effect:character:1401:cinema6:decisive-extra-attack"
+                                    )
                                 )
                             ),
                         ),
