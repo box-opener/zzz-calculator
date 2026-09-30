@@ -9,7 +9,7 @@ from core.application.execution.contracts import MoveCalculationExecution
 from core.application.equipment.wengine import WEngineBuildResolution
 from core.application.equipment.drive_disc import DriveDiscBuildResolution
 from core.application.ids import DamageEventSemanticId
-from core.application.output import CritDisplayMode
+from core.application.output import CritCapability, CritDisplayMode
 from core.application.rules import CalculationRuleItem, RuleEligibility
 from core.application.scenario import CalculationScenario
 from core.types import (
@@ -321,6 +321,13 @@ def build_move_calculation_view(
                 )
             )
             continue
+        if any(item.crit_capability != first.crit_capability for item in typed_items[1:]):
+            diagnostics.append(
+                _presentation_diagnostic(
+                    f"crit-capability-{semantic_id}",
+                    "three crit-mode executions disagree on event crit capability",
+                )
+            )
         mode_views = {
             mode.value: _mode_view(mode_event_maps[mode][semantic_id])
             for mode in required_modes
@@ -340,6 +347,7 @@ def build_move_calculation_view(
         common_trace = (
             traces[0] if all(item == traces[0] for item in traces[1:]) else None
         )
+        event_display_modes = _display_modes_for_capability(first.crit_capability)
         if common_trace is None:
             diagnostics.append(
                 _presentation_diagnostic(
@@ -360,6 +368,8 @@ def build_move_calculation_view(
                 repeat_count=first.repeat_count,
                 modes=mode_views,
                 common_application_trace=common_trace,
+                crit_capability=first.crit_capability.value,
+                display_modes=event_display_modes,
             )
         )
 
@@ -434,6 +444,26 @@ def build_move_calculation_view(
             build_contribution_view(item) for item in build_provenance
         ),
         diagnostics=tuple(diagnostics),
+        display_modes=_move_display_modes(
+            tuple(item.crit_capability for item in expected.output.events)
+        ),
+    )
+
+
+def _display_modes_for_capability(capability: CritCapability) -> tuple[str, ...]:
+    if capability == CritCapability.STANDARD:
+        return tuple(item.value for item in CritDisplayMode)
+    # Backend execution remains three-mode compatible, but a non-standard
+    # anomaly result is one value in the presentation contract.  In
+    # particular, ordinary panel crit values never leak into anomaly cards.
+    return (CritDisplayMode.EXPECTED.value,)
+
+
+def _move_display_modes(capabilities) -> tuple[str, ...]:
+    return (
+        tuple(item.value for item in CritDisplayMode)
+        if any(item == CritCapability.STANDARD for item in capabilities)
+        else (CritDisplayMode.EXPECTED.value,)
     )
 
 

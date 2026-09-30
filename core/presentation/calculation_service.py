@@ -10,6 +10,7 @@ from core.application import (
     CalculationScenario,
     CharacterMatchProfile,
     CritDisplayMode,
+    HistoryRecordMode,
     EnemyMatchProfile,
     MoveCalculationRequest,
     ScenarioRuleStack,
@@ -185,6 +186,7 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             additional_rule_items=additional_rule_items,
             additional_scenario_conditions=additional_scenario_conditions,
             base_calculation_modifiers=base_modifiers,
+            history_record_mode=HistoryRecordMode.STATIC_SINGLE_CHARACTER,
             crit_display_mode=mode,
         )
         executions[mode] = calculate_move(request)

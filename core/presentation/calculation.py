@@ -121,6 +121,8 @@ class DamageEventView:
     repeat_count: int
     modes: dict[str, DamageEventModeView]
     common_application_trace: EventTraceView | None
+    crit_capability: str = "standard"
+    display_modes: tuple[str, ...] = ("non-crit", "expected", "full-crit")
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +142,7 @@ class CalculationView:
     panel_traces: tuple[PanelTraceView, ...]
     build_provenance: tuple[BuildContributionView, ...]
     diagnostics: tuple[DiagnosticView, ...]
+    display_modes: tuple[str, ...] = ("non-crit", "expected", "full-crit")
 
 
 MoveCalculationView = CalculationView

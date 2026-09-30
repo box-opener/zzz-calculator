@@ -24,6 +24,15 @@ class EventCalculationStatus(StrEnum):
     BLOCKED = "blocked"
 
 
+class CritCapability(StrEnum):
+    """Crit capability declared by the typed DamageEvent."""
+
+    NONE = "none"
+    STANDARD = "standard"
+    ANOMALY_INDEPENDENT = "anomaly-independent"
+    UNRESOLVED = "unresolved"
+
+
 @dataclass(frozen=True, slots=True)
 class DamageEventCalculationOutput:
     """One event's unit calculation plus application-level repeat metadata."""
@@ -36,6 +45,7 @@ class DamageEventCalculationOutput:
     result: CalculationResult | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
     repeat_count: int = 1
+    crit_capability: CritCapability = CritCapability.STANDARD
 
     def __post_init__(self) -> None:
         if not str(self.semantic_id) or not self.label.strip():

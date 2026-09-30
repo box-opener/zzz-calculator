@@ -35,6 +35,7 @@ from core.types import (
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId
 from ..output import EventCalculationStatus
+from core.calculation.calculators.errors import InvalidCalculationContextError
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +71,27 @@ class CalculationRouter:
                     ),
                 ),
             )
-        result = calculator.calculate(context)
+        try:
+            result = calculator.calculate(context)
+        except InvalidCalculationContextError as exc:
+            # Calculators keep strict identity contracts for direct callers;
+            # the application boundary turns a malformed static/request
+            # record into a readable blocked result instead of leaking a
+            # traceback through the HTTP presentation API.
+            return CalculatorExecutionResult(
+                status=EventCalculationStatus.BLOCKED,
+                diagnostics=(
+                    CalculationDiagnostic(
+                        diagnostic_id=DiagnosticId(
+                            "application:calculator-context-mismatch:"
+                            f"{getattr(event, 'history_record_source', event.metadata.event_id)}"
+                        ),
+                        kind=DiagnosticKind.DATA_QUALITY,
+                        message=str(exc),
+                        blocking=True,
+                    ),
+                ),
+            )
         if result.value is None:
             status = (
                 EventCalculationStatus.DATA_INSUFFICIENT

@@ -9,6 +9,7 @@ from core.types import (
     CalculationContext,
     CalculationNode,
     CharacterSnapshot,
+    AttributeAnomalyDamageEvent,
     DamageEvent,
     DamageEventId,
     DirectDamageEvent,
@@ -17,8 +18,13 @@ from core.types import (
     FixedMultiplier,
     EventCreationEffect,
     EventTemplateId,
+    IndependentAnomalyCrit,
+    IndependentAnomalyCritRule,
+    NoCritRule,
+    RecordedAnomalyCritRule,
     Resolved,
     StandardCritRule,
+    Unresolved,
 )
 
 from ..matching import (
@@ -35,6 +41,7 @@ from ..moves import DerivedDamageEventTemplateRef, MoveCalculationEntry
 from ..scenario import ScenarioRuleStack
 from ..rules import CalculationRuleItem
 from ..output import (
+    CritCapability,
     CritDisplayMode,
     DamageEventCalculationOutput,
     EventCalculationStatus,
@@ -43,6 +50,7 @@ from ..output import (
 from .contracts import (
     DamageEventExecutionTrace,
     EventStatModifier,
+    HistoryRecordMode,
     InstantiatedDamageEvent,
     MoveCalculationExecution,
     MoveCalculationRequest,
@@ -59,6 +67,7 @@ from .multiplier import (
     resolve_move_multiplier,
 )
 from .router import CalculationRouter, CalculatorExecutionResult
+from .static_records import static_attribute_anomaly_record
 
 
 class DirectMoveApplicationService:
@@ -126,8 +135,19 @@ class DirectMoveApplicationService:
             request.scenario,
             frozenset(profile.character_id for profile in request.team_profiles),
         )
-        main_context = _match_context(
+        # Static browser requests need an identity-only record before matching
+        # (ANOMALY_CONTRIBUTORS can be a filter).  This is deliberately gated
+        # by an explicit request mode; normal application callers must provide
+        # their own history records.
+        identity_history, identity_diagnostics = _history_records_for_event(
             request,
+            main_event.event,
+            global_panel_application.character_snapshots,
+            (),
+        )
+        identity_request = replace(request, history_records=identity_history)
+        main_context = _match_context(
+            identity_request,
             main_event.event,
             global_panel_application.character_snapshots,
             request.base_calculation_modifiers,
@@ -153,6 +173,26 @@ class DirectMoveApplicationService:
             global_panel_application,
             panel_application,
         )
+        # Event-level normal/anomaly bonuses belong to the completed record,
+        # while defense/resistance/vulnerability remain calculator regions.
+        # Build the final record once from the same settlement snapshots used
+        # by the calculator and make it available to derived events too.
+        final_history, final_diagnostics = _history_records_for_event(
+            request,
+            main_event.event,
+            panel_application.character_snapshots,
+            panel_application.event_modifiers,
+        )
+        request = replace(request, history_records=final_history)
+        if identity_diagnostics or final_diagnostics:
+            panel_application = replace(
+                panel_application,
+                diagnostics=(
+                    *panel_application.diagnostics,
+                    *identity_diagnostics,
+                    *final_diagnostics,
+                ),
+            )
 
         event_outputs: list[DamageEventCalculationOutput] = []
         traces: list[DamageEventExecutionTrace] = []
@@ -317,6 +357,7 @@ class DirectMoveApplicationService:
                 status=EventCalculationStatus.BLOCKED,
                 diagnostics=diagnostics,
                 repeat_count=instantiated.repeat_count,
+                crit_capability=_crit_capability(calculation_event),
             )
             return (
                 output,
@@ -350,6 +391,7 @@ class DirectMoveApplicationService:
             result=calculation.result,
             diagnostics=all_diagnostics,
             repeat_count=instantiated.repeat_count,
+            crit_capability=_crit_capability(calculation_event),
         )
         return output, calculation, all_diagnostics
 
@@ -631,6 +673,58 @@ def _match_context(
         initial_character_snapshots=request.initial_character_snapshots,
         created_by_effect_id=created_by_effect_id,
     )
+
+
+def _history_records_for_event(
+    request: MoveCalculationRequest,
+    event: DamageEvent,
+    snapshots: tuple[CharacterSnapshot, ...],
+    modifiers,
+):
+    """Resolve explicit history first, then the opt-in static adapter.
+
+    Only the typed attribute-anomaly path is eligible for the v1
+    single-character assumption.  Unknown history IDs and other anomaly
+    mechanisms remain missing-data cases until their caller supplies a real
+    record.
+    """
+
+    if request.history_record_mode != HistoryRecordMode.STATIC_SINGLE_CHARACTER:
+        return request.history_records, ()
+    if isinstance(event, AttributeAnomalyDamageEvent) and any(
+        record.record_id == event.history_record_source
+        for record in request.history_records
+    ):
+        # An explicit caller-owned record is authoritative.  Do not even
+        # inspect panel fields for a synthetic replacement (or derive a
+        # second set of diagnostics) in this branch.
+        return request.history_records, ()
+    assembly = static_attribute_anomaly_record(event, snapshots, modifiers)
+    if assembly is None:
+        return request.history_records, ()
+    source_id = assembly.record.record_id if assembly.record is not None else None
+    if source_id is None:
+        return request.history_records, assembly.diagnostics
+    return (*request.history_records, assembly.record), assembly.diagnostics
+
+
+def _crit_capability(event: DamageEvent) -> CritCapability:
+    rule = getattr(event, "crit_rule", None)
+    if isinstance(rule, StandardCritRule):
+        return CritCapability.STANDARD
+    if isinstance(rule, NoCritRule):
+        return CritCapability.NONE
+    if isinstance(rule, IndependentAnomalyCritRule):
+        return CritCapability.ANOMALY_INDEPENDENT
+    if isinstance(rule, RecordedAnomalyCritRule):
+        return (
+            CritCapability.ANOMALY_INDEPENDENT
+            if isinstance(rule.capability, IndependentAnomalyCrit)
+            else CritCapability.NONE
+        )
+    if isinstance(rule, Unresolved):
+        return CritCapability.UNRESOLVED
+    return CritCapability.UNRESOLVED
 
 
 def _display_snapshots(

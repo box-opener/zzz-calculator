@@ -351,7 +351,6 @@ def compile_alice(
                 parameter_name="物理强击倍率",
                 multiplier=FixedMultiplier(Resolved(7.13)),
             ),
-            condition_ids=(PHYSICAL_ANOMALY_ACTIVE_CONDITION_ID,),
         ),
         _special_entry(
             entry_id="move-entry:alice:1401:polar-assault",

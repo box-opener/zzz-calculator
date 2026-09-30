@@ -17,6 +17,7 @@ from core.types import (
 )
 
 from ..nodes import CalculationNodeValue
+from ..anomaly import anomaly_effect_strength
 from ..regions import (
     AnomalyCritRegionInput,
     BroadVulnerabilityRegionInput,
@@ -176,12 +177,12 @@ class CurrentAttributeAnomalyDamageCalculator:
         assert resistance is not None and element_bonus is not None
         assert anomaly_multiplier is not None
         level_coefficient = 1.0 + (dealer.level - 1) / 59.0
-        normal_bonus = element_bonus + modifiers[CalculationNode.DAMAGE_NORMAL_BONUS]
-        effect_strength = (
-            level_coefficient
-            * (proficiency / 100.0)
-            * (1.0 + normal_bonus)
-            * attack
+        effect_strength = anomaly_effect_strength(
+            dealer.level,
+            attack,
+            proficiency,
+            element_bonus,
+            modifiers[CalculationNode.DAMAGE_NORMAL_BONUS],
         )
         anomaly_bonus = 1.0 + modifiers[CalculationNode.ANOMALY_DAMAGE_BONUS]
         anomaly_crit = calculate_anomaly_crit_region(

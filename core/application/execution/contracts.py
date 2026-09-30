@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from core.types import (
     AnomalyRecord,
@@ -39,6 +40,20 @@ from ..scenario import CalculationScenario, ConditionResolution, ScenarioConditi
 from ..rules import CalculationRuleItem, RuleEligibility
 
 
+class HistoryRecordMode(StrEnum):
+    """How an execution request obtains anomaly history records.
+
+    ``EXPLICIT`` is the default for callers that own battle history.  The
+    presentation calculator can opt into ``STATIC_SINGLE_CHARACTER`` for the
+    v1 static-analysis assumption that the typed anomaly triggerer completed
+    one gauge alone.  Keeping this choice on the request prevents a generic
+    application call from silently inventing records for arbitrary IDs.
+    """
+
+    EXPLICIT = "explicit"
+    STATIC_SINGLE_CHARACTER = "static-single-character"
+
+
 @dataclass(frozen=True, slots=True)
 class MoveCalculationRequest:
     definition: CharacterCalculationDefinition
@@ -57,6 +72,7 @@ class MoveCalculationRequest:
     base_calculation_modifiers: tuple[Modifier, ...] = ()
     history_records: tuple[AnomalyRecord, ...] = ()
     crit_display_mode: CritDisplayMode = CritDisplayMode.EXPECTED
+    history_record_mode: HistoryRecordMode = HistoryRecordMode.EXPLICIT
 
     def __post_init__(self) -> None:
         # Scenario shape/static validation applies to every definition in the
