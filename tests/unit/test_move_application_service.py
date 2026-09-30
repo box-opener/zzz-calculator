@@ -336,6 +336,9 @@ def test_mutually_exclusive_variant_is_resolved_from_conditions_only() -> None:
     assert blocked.output.events == ()
     assert blocked.output.known_total is None
     assert blocked.output.diagnostics
+    assert blocked.output.diagnostics[0].blocking is True
+    assert "普通攻击：明心境·斩流光 灭" in blocked.output.diagnostics[0].message
+    assert "condition:ye:variant:mingxin-zhanliuguang-mie" in blocked.output.diagnostics[0].message
 
 
 def test_modifier_application_resolves_veil_policy_without_rewriting_base_modifiers() -> (

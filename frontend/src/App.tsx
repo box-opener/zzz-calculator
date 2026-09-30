@@ -5,9 +5,13 @@ import NumberField from "./components/NumberField";
 import { calculationTeamOrder, createTeamState, teamReducer, type TeamAction } from "./state/teamReducer";
 import {
   conditionValuesForViews,
+  matchingMoveVariantIndexes,
+  projectMoveOptions,
   reconcileEditorState,
   resolveAuthoritativeConditionContext,
+  selectMoveVariantConditions,
   type EditorState,
+  type MoveVariantProjection,
 } from "./state/editorState";
 import {
   addDriveDiscSubstat,
@@ -112,7 +116,7 @@ type Move = {
   skill_group: string | null;
   damage_tags: string[];
   multiplier_relation: string;
-  variants: { label: string; multiplier: number | null; repeat_count: number | null; condition_ids: string[]; repeat_count_parameter_id: string | null }[];
+  variants: { variant_id: string; label: string; multiplier: number | null; repeat_count: number | null; condition_ids: string[]; repeat_count_parameter_id: string | null }[];
 };
 
 type EditorView = {
@@ -313,7 +317,51 @@ function App() {
   const allParameters = aggregatedEditors.parameters;
   const allTriggers = aggregatedEditors.triggers;
   const allConfigFields = aggregatedEditors.configFields;
-  const selectedMove = editorViews[currentOperatorId]?.moves.find((move) => move.entry_id === moveEntryId);
+  const operatorMoves = editorViews[currentOperatorId]?.moves ?? [];
+  const moveOptions = useMemo(
+    () => projectMoveOptions(operatorMoves),
+    [operatorMoves],
+  );
+  const selectedMove = operatorMoves.find((move) => move.entry_id === moveEntryId);
+  const selectedMoveVariantIndexes = selectedMove
+    ? matchingMoveVariantIndexes(selectedMove, conditionValues)
+    : [];
+  const selectedMoveOption: MoveVariantProjection | undefined = selectedMove
+    ? selectedMove.multiplier_relation === "mutually-exclusive-variant"
+      ? selectedMoveVariantIndexes.length === 1
+        ? moveOptions.find((option) => (
+          option.entryId === selectedMove.entry_id
+          && option.variantIndex === selectedMoveVariantIndexes[0]
+        ))
+        : undefined
+      : moveOptions.find((option) => option.entryId === selectedMove.entry_id)
+    : undefined;
+  const moveSelectionIssue = !selectedMove
+    ? "请选择招式"
+    : selectedMove.multiplier_relation === "mutually-exclusive-variant"
+      ? selectedMoveVariantIndexes.length === 1
+        ? null
+        : selectedMoveVariantIndexes.length === 0
+          ? `${selectedMove.label}需要选择一个倍率版本`
+          : `${selectedMove.label}的倍率条件冲突，请只保留一个版本`
+      : null;
+  const moveVariantConditionIds = useMemo(() => new Set(
+    teamIds
+      .flatMap((owner) => editorViews[owner]?.moves ?? [])
+      .filter((move) => move.multiplier_relation === "mutually-exclusive-variant")
+      .flatMap((move) => move.variants.flatMap((variant) => variant.condition_ids)),
+  ), [editorViews, teamIds]);
+  const visibleScenarioConditions = useMemo(() => {
+    const seen = new Set<string>();
+    return allConditions.filter((condition) => {
+      if (!condition.editable || moveVariantConditionIds.has(condition.condition_id)) {
+        return false;
+      }
+      if (seen.has(condition.condition_id)) return false;
+      seen.add(condition.condition_id);
+      return true;
+    });
+  }, [allConditions, moveVariantConditionIds]);
 
   const loadEditors = async (
     nextTeam: string[] = teamIds,
@@ -605,12 +653,30 @@ function App() {
     updateConfig(owner, field.field_id, value);
   };
 
-  const selectVariant = (variantIndex: number) => {
-    if (!selectedMove) return;
-    const next = { ...conditionValuesRef.current };
-    selectedMove.variants.forEach((variant, index) => variant.condition_ids.forEach((conditionId) => { next[conditionId] = index === variantIndex; }));
+  const selectVariant = (entryId: string, variantIndex: number) => {
+    const move = operatorMoves.find((item) => item.entry_id === entryId);
+    if (!move) return;
+    const next = selectMoveVariantConditions(
+      conditionValuesRef.current,
+      move,
+      variantIndex,
+      allConditions,
+    );
+    setMoveEntryId(entryId);
+    setCalculation(null);
     commitConditionValues(next);
     void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }, wengineSelections);
+  };
+
+  const selectMoveOption = (optionKey: string) => {
+    const option = moveOptions.find((item) => item.optionKey === optionKey);
+    if (!option) return;
+    if (option.variantIndex !== null) {
+      selectVariant(option.entryId, option.variantIndex);
+      return;
+    }
+    setMoveEntryId(option.entryId);
+    setCalculation(null);
   };
 
   const updateWengineSelection = (
@@ -827,7 +893,10 @@ function App() {
   }));
 
   const calculate = async () => {
-    if (!moveEntryId) return;
+    if (!moveEntryId || moveSelectionIssue) {
+      if (moveSelectionIssue) setDiagnostics([moveSelectionIssue]);
+      return;
+    }
     setCalculating(true);
     setDiagnostics([]);
     try {
@@ -1093,16 +1162,16 @@ function App() {
             }
             return <NumberField key={`${owner}-${field.field_id}`} label={field.label} value={Number(fieldValue)} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} unit={unit} helper={field.help_text ?? "整数配置"} disabled={!field.editable} onCommit={(value) => updateConfigField(owner, field, value)} />;
           })}</div>
-          <div className="control-list">{allConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution}{condition.editable ? " · 可选" : " · 编译期"}</small></span><input disabled={!condition.editable} type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }); }} /></label>)}</div>
+          {visibleScenarioConditions.length > 0 && <div className="control-list"><div className="section-heading compact"><div><p className="eyebrow">CHARACTER STATES</p><h2>角色状态</h2><p className="control-section-hint">只显示可直接理解的独立状态；招式倍率在右侧招式下拉框中选择。</p></div></div>{visibleScenarioConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution} · 影响相关规则</small></span><input type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }); }} /></label>)}</div>}
           {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={parameter.maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} />; })}</div></div>}
-          {selectedMove && selectedMove.multiplier_relation === "mutually-exclusive-variant" && <div className="variant-control"><div className="section-heading compact"><div><p className="eyebrow">MULTIPLIER VARIANT</p><h2>倍率版本</h2></div></div>{selectedMove.variants.map((variant, index) => <label className="variant-option" key={`${selectedMove.entry_id}-${index}`}><input name="move-variant" type="radio" checked={variant.condition_ids.length > 0 && variant.condition_ids.every((conditionId) => conditionValues[conditionId] === true)} onChange={() => selectVariant(index)} /><span>{variant.label}</span></label>)}</div>}
           <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>
           {allTriggers.length > 0 && <><div className="section-heading compact"><div><p className="eyebrow">TRIGGER FACTS</p><h2>场景触发</h2><p className="control-section-hint">需要明确入场角色的 Effect 会在这里显示；留空时计算 trace 会标记为 blocked。</p></div></div><div className="trigger-field-grid">{allTriggers.map((trigger) => { const selectedActor = triggerActors[trigger.input_id]; return <label className={`trigger-field ${selectedActor ? "trigger-field-selected" : "trigger-field-missing"}`} key={trigger.input_id}><span>{trigger.label}</span><select value={selectedActor ?? ""} onChange={(event) => setTriggerActors((current) => { const next = { ...current }; if (event.target.value) next[trigger.input_id] = event.target.value; else delete next[trigger.input_id]; return next; })}><option value="">未指定</option>{trigger.actor_options.map((actor) => <option key={actor} value={actor}>{characters.find((item) => item.character_id === actor)?.display_name ?? actor}</option>)}</select><small>{selectedActor ? `已指定：${characters.find((item) => item.character_id === selectedActor)?.display_name ?? selectedActor}` : "⚠ 需要指定入场角色"}</small></label>; })}</div></>}
         </section>
 
         <section className="glass-card result-panel">
-          <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={calculating || loading || !moveEntryId} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
-          <label className="move-select">招式<select value={moveEntryId} onChange={(event) => setMoveEntryId(event.target.value)}>{(editorViews[currentOperatorId]?.moves ?? []).map((move) => <option key={move.entry_id} value={move.entry_id}>{move.label}</option>)}</select></label>
+          <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={calculating || loading || !moveEntryId || Boolean(moveSelectionIssue)} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
+          <label className="move-select">招式<select value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
+          {moveSelectionIssue && <p className="control-section-hint">⚠ {moveSelectionIssue}；未发送计算请求。</p>}
           {calculation ? <div className="calculation-output"><div className="totals-grid">{["non-crit", "expected", "full-crit"].map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{["non-crit", "expected", "full-crit"].map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div>{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div>{calculation.panel_traces.length > 0 && <div className="trace-list"><p className="eyebrow">PANEL PROVENANCE</p>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</div>}{calculation.resolved_character_snapshots.length > 0 && <div className="trace-list"><p className="eyebrow">RESOLVED PANELS</p>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性加成 {formatElementBonuses(snapshot.stats.element_damage_bonus)}</span></div>)}</div>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
         </section>
       </section>

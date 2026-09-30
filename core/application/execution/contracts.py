@@ -59,7 +59,16 @@ class MoveCalculationRequest:
     crit_display_mode: CritDisplayMode = CritDisplayMode.EXPECTED
 
     def __post_init__(self) -> None:
-        self.definition.validate_scenario(self.scenario)
+        # Scenario shape/static validation applies to every definition in the
+        # request, but mutually-exclusive variant selection belongs only to
+        # the move being executed.  The multiplier resolver owns that
+        # selected-entry decision so a missing choice can become a structured
+        # blocked calculation instead of rejecting unrelated support entries.
+        self.definition.validate_scenario(
+            self.scenario,
+            selected_move_entry_id=self.move_entry_id,
+            require_variant_selection=False,
+        )
         definitions = (self.definition, *self.supporting_definitions)
         definition_character_ids = tuple(item.character_id for item in definitions)
         if len(set(definition_character_ids)) != len(definition_character_ids):
@@ -67,7 +76,10 @@ class MoveCalculationRequest:
                 "primary and supporting definitions must have unique character IDs"
             )
         for definition in self.supporting_definitions:
-            definition.validate_scenario(self.scenario)
+            definition.validate_scenario(
+                self.scenario,
+                require_variant_selection=False,
+            )
         definition_conditions = tuple(
             condition
             for definition in definitions

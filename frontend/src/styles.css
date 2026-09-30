@@ -285,9 +285,7 @@ select option { color: #151823; background: #f5f6fb; }
 .trigger-field small { color: var(--muted-dark); font-size: 9px; }
 .trigger-field-missing small { color: var(--amber); }
 .trigger-field-selected small { color: var(--green); }
-.parameter-list, .variant-control { display: grid; gap: 12px; margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--border); }
-.variant-option { display: flex; align-items: center; gap: 9px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 11px; color: var(--text); background: var(--surface-soft); }
-.variant-option input { width: 17px; min-height: 17px; accent-color: var(--accent); }
+.parameter-list { display: grid; gap: 12px; margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--border); }
 .toggle-row, .rule-row { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
 .toggle-row span, .rule-row > span { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
 .toggle-row strong, .rule-row strong { color: var(--text); font-size: 12px; }

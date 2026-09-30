@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { conditionValuesForViews, reconcileEditorState, resolveAuthoritativeConditionContext } from "./editorState";
+import {
+  conditionValuesForViews,
+  matchingMoveVariantIndexes,
+  projectMoveOptions,
+  reconcileEditorState,
+  resolveAuthoritativeConditionContext,
+  selectMoveVariantConditions,
+} from "./editorState";
 
 const previous = {
   conditionValues: { active: true },
@@ -139,5 +146,65 @@ describe("conditionValuesForViews", () => {
         { condition_id: "condition:static", value: true, editable: false },
       ],
     )).toEqual({ "condition:astra:aria-active": true });
+  });
+});
+
+describe("move variant projection", () => {
+  const moves = [
+    {
+      entry_id: "move:plain",
+      label: "普通攻击：一击",
+      multiplier_relation: "complete",
+      variants: [{ variant_id: "variant:plain", label: "伤害倍率", condition_ids: [] }],
+    },
+    {
+      entry_id: "move:charge",
+      label: "普通攻击：星芒圆舞曲",
+      multiplier_relation: "mutually-exclusive-variant",
+      variants: [
+        { variant_id: "variant:charge-1", label: "一段蓄力伤害倍率", condition_ids: ["charge-1"] },
+        { variant_id: "variant:charge-2", label: "二段蓄力伤害倍率", condition_ids: ["charge-2"] },
+      ],
+    },
+  ] as const;
+
+  it("projects every mutually-exclusive variant into the existing move selector", () => {
+    expect(projectMoveOptions(moves)).toEqual([
+      expect.objectContaining({ optionKey: "move:plain", entryId: "move:plain", label: "普通攻击：一击" }),
+      expect.objectContaining({
+        optionKey: "move:charge::variant:charge-1",
+        entryId: "move:charge",
+        label: "普通攻击：星芒圆舞曲（一段蓄力）",
+        variantIndex: 0,
+      }),
+      expect.objectContaining({
+        optionKey: "move:charge::variant:charge-2",
+        entryId: "move:charge",
+        label: "普通攻击：星芒圆舞曲（二段蓄力）",
+        variantIndex: 1,
+      }),
+    ]);
+  });
+
+  it("atomically switches variant conditions and preserves static/shared values", () => {
+    const sharedMove = {
+      entry_id: "move:shared",
+      label: "共享条件招式",
+      multiplier_relation: "mutually-exclusive-variant",
+      variants: [
+        { variant_id: "variant:a", label: "A", condition_ids: ["shared", "a"] },
+        { variant_id: "variant:b", label: "B", condition_ids: ["shared", "b"] },
+      ],
+    } as const;
+    expect(selectMoveVariantConditions(
+      { shared: true, a: true, b: false, static: true },
+      sharedMove,
+      1,
+      [
+        { condition_id: "shared", editable: false },
+        { condition_id: "static", editable: false },
+      ],
+    )).toEqual({ shared: true, a: false, b: true, static: true });
+    expect(matchingMoveVariantIndexes(sharedMove, { shared: true, a: false, b: true })).toEqual([1]);
   });
 });

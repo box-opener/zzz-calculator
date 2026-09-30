@@ -15,6 +15,7 @@ from core.types import (
 from ..diagnostics import CalculationDiagnostic
 from ..ids import (
     DamageEventSemanticId,
+    MoveEntryId,
     ScenarioConditionId,
 )
 from ..moves import (
@@ -286,7 +287,25 @@ class CharacterCalculationDefinition:
             for effect in rule.effects
         )
 
-    def validate_scenario(self, scenario: CalculationScenario) -> None:
+    def validate_scenario(
+        self,
+        scenario: CalculationScenario,
+        *,
+        selected_move_entry_id: MoveEntryId | None = None,
+        require_variant_selection: bool | None = None,
+    ) -> None:
+        """Validate scenario shape and (optionally) one move's variant choice.
+
+        Scenario conditions and parameters belong to the whole compiled
+        definition, so their references and static values are always checked.
+        Variant selection is different: a request executes exactly one move,
+        while supporting definitions and the other entries are only rule
+        context.  Callers constructing a request therefore pass
+        ``require_variant_selection=False`` and let the multiplier resolver
+        validate the selected entry.  The default keeps the historical
+        definition-level validation useful for compiler/unit tests: when no
+        entry is specified, every mutually-exclusive entry is checked.
+        """
         condition_map = {
             item.condition_id: item for item in scenario.conditions
         }
@@ -323,7 +342,19 @@ class CharacterCalculationDefinition:
                     "scenario cannot override a static compilation parameter"
                 )
 
-        for entry in self.move_entries:
+        if require_variant_selection is False:
+            entries_to_validate = ()
+        else:
+            entries_to_validate = (
+                tuple(self.move_entries)
+                if selected_move_entry_id is None
+                else tuple(
+                    entry
+                    for entry in self.move_entries
+                    if entry.entry_id == selected_move_entry_id
+                )
+            )
+        for entry in entries_to_validate:
             if (
                 entry.multiplier_relation
                 is not MultiplierRelation.MUTUALLY_EXCLUSIVE_VARIANT
@@ -344,9 +375,26 @@ class CharacterCalculationDefinition:
                 matched += 1
             if matched > 1:
                 raise ValueError(
-                    "scenario conditions select multiple mutually exclusive variants"
+                    f"{entry.display_name} has multiple mutually exclusive "
+                    "variants selected (multiple mutually exclusive multiplier "
+                    "variants): "
+                    + "; ".join(
+                        f"{variant.label} "
+                        f"(conditions: {', '.join(map(str, variant.condition_ids))})"
+                        for variant in entry.multiplier_variants
+                        if all(
+                            condition_map[condition_id].value is True
+                            for condition_id in variant.condition_ids
+                        )
+                    )
                 )
             if matched == 0 and not unresolved:
                 raise ValueError(
-                    "scenario conditions select no mutually exclusive variant"
+                    f"{entry.display_name} has no selected mutually exclusive "
+                    "multiplier variant; choose exactly one of: "
+                    + "; ".join(
+                        f"{variant.label} "
+                        f"(conditions: {', '.join(map(str, variant.condition_ids))})"
+                        for variant in entry.multiplier_variants
+                    )
                 )

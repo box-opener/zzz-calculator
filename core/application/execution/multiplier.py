@@ -192,7 +192,7 @@ def _select_variant(
         )
 
     active: list[MultiplierVariant] = []
-    unresolved = False
+    unresolved_variants: list[MultiplierVariant] = []
     for variant in variants:
         status, diagnostics = _resolve_conditions(
             variant.condition_ids,
@@ -200,12 +200,16 @@ def _select_variant(
             str(variant.variant_id),
         )
         if status is MultiplierResolutionStatus.BLOCKED:
-            unresolved = True
+            unresolved_variants.append(variant)
         elif status is MultiplierResolutionStatus.RESOLVED:
             active.append(variant)
-        if diagnostics:
-            unresolved = True
-    if unresolved:
+        if diagnostics and status is not MultiplierResolutionStatus.NOT_MATCHED:
+            unresolved_variants.append(variant)
+    if unresolved_variants:
+        unresolved_labels = ", ".join(
+            _variant_condition_summary(variant)
+            for variant in _unique_variants(unresolved_variants)
+        )
         return (
             MultiplierResolutionStatus.BLOCKED,
             None,
@@ -214,8 +218,10 @@ def _select_variant(
                     str(entry.entry_id),
                     "variant-condition-unresolved",
                     DiagnosticKind.MISSING_DATA,
-                    "a mutually exclusive multiplier condition is unresolved",
+                    f"{entry.display_name} has unresolved mutually exclusive "
+                    f"multiplier conditions: {unresolved_labels}",
                     blocking=True,
+                    candidates=tuple(variant.label for variant in variants),
                 ),
             ),
         )
@@ -223,18 +229,27 @@ def _select_variant(
         return MultiplierResolutionStatus.RESOLVED, active[0], ()
     if not active:
         return (
-            MultiplierResolutionStatus.NOT_MATCHED,
+            MultiplierResolutionStatus.BLOCKED,
             None,
             (
                 _diagnostic(
                     str(entry.entry_id),
-                    "no-variant-matched",
+                    "no-variant-selected",
                     DiagnosticKind.MISSING_DATA,
-                    "no mutually exclusive multiplier variant matched the scenario",
-                    blocking=False,
+                    f"{entry.display_name} has no selected mutually exclusive "
+                    "multiplier variant; choose exactly one: "
+                    + "; ".join(
+                        _variant_condition_summary(variant)
+                        for variant in variants
+                    ),
+                    blocking=True,
+                    candidates=tuple(variant.label for variant in variants),
                 ),
             ),
         )
+    active_summary = "; ".join(
+        _variant_condition_summary(variant) for variant in active
+    )
     return (
         MultiplierResolutionStatus.BLOCKED,
         None,
@@ -243,8 +258,10 @@ def _select_variant(
                 str(entry.entry_id),
                 "multiple-variants-matched",
                 DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                "multiple mutually exclusive multiplier variants matched",
+                f"{entry.display_name} has multiple mutually exclusive "
+                f"multiplier variants selected: {active_summary}",
                 blocking=True,
+                candidates=tuple(variant.label for variant in active),
             ),
         ),
     )
@@ -349,6 +366,7 @@ def _diagnostic(
     *,
     blocking: bool,
     original_text: str | None = None,
+    candidates: tuple[str, ...] = (),
 ) -> CalculationDiagnostic:
     return CalculationDiagnostic(
         diagnostic_id=DiagnosticId(f"{subject_id}:{suffix}"),
@@ -356,4 +374,23 @@ def _diagnostic(
         message=message,
         blocking=blocking,
         original_text=original_text,
+        candidates=candidates,
     )
+
+
+def _variant_condition_summary(variant: MultiplierVariant) -> str:
+    condition_ids = ", ".join(map(str, variant.condition_ids)) or "none"
+    return f"{variant.label} (conditions: {condition_ids})"
+
+
+def _unique_variants(
+    variants: list[MultiplierVariant],
+) -> tuple[MultiplierVariant, ...]:
+    seen: set[object] = set()
+    unique: list[MultiplierVariant] = []
+    for variant in variants:
+        if variant.variant_id in seen:
+            continue
+        seen.add(variant.variant_id)
+        unique.append(variant)
+    return tuple(unique)

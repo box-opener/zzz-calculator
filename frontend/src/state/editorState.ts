@@ -7,6 +7,119 @@ export type EditorState = {
   stacks: Record<string, number>;
 };
 
+export type MoveVariantProjection = {
+  optionKey: string;
+  entryId: string;
+  label: string;
+  variantId: string | null;
+  variantIndex: number | null;
+  conditionIds: string[];
+  multiplierRelation: string;
+};
+
+type MoveProjectionInput = {
+  entry_id: string;
+  label: string;
+  multiplier_relation: string;
+  variants: readonly {
+    variant_id?: string;
+    label: string;
+    condition_ids: readonly string[];
+  }[];
+};
+
+type VariantConditionView = {
+  condition_id: string;
+  editable: boolean;
+};
+
+/**
+ * Project domain MoveView entries into the one dropdown used by the UI.
+ *
+ * A mutually-exclusive entry contributes one presentation option per
+ * multiplier variant.  The option key is intentionally UI-only; the request
+ * still carries the original entry ID and its condition values.
+ */
+export function projectMoveOptions(
+  moves: readonly MoveProjectionInput[],
+): MoveVariantProjection[] {
+  return moves.flatMap<MoveVariantProjection>((move) => {
+    if (move.multiplier_relation !== "mutually-exclusive-variant") {
+      return [{
+        optionKey: move.entry_id,
+        entryId: move.entry_id,
+        label: move.label,
+        variantId: null,
+        variantIndex: null,
+        conditionIds: [],
+        multiplierRelation: move.multiplier_relation,
+      }];
+    }
+    return move.variants.map((variant, variantIndex) => ({
+      optionKey: `${move.entry_id}::${variant.variant_id ?? variantIndex}`,
+      entryId: move.entry_id,
+      label: `${move.label}（${variantDisplayLabel(variant.label)}）`,
+      variantId: variant.variant_id ?? null,
+      variantIndex,
+      conditionIds: [...variant.condition_ids],
+      multiplierRelation: move.multiplier_relation,
+    }));
+  });
+}
+
+function variantDisplayLabel(label: string): string {
+  const shortened = label.replace(/(?:伤害)?倍率\s*$/, "").trim();
+  return shortened || label;
+}
+
+/** Return the variants whose condition conjunction is currently true. */
+export function matchingMoveVariantIndexes(
+  move: MoveProjectionInput,
+  values: Readonly<Record<string, boolean | null>>,
+): number[] {
+  if (move.multiplier_relation !== "mutually-exclusive-variant") return [];
+  return move.variants.reduce<number[]>((matches, variant, index) => {
+    if (variant.condition_ids.length > 0
+      && variant.condition_ids.every((conditionId) => values[conditionId] === true)) {
+      matches.push(index);
+    }
+    return matches;
+  }, []);
+}
+
+/**
+ * Set one move's editable variant conditions atomically.
+ *
+ * Static condition values are deliberately left untouched.  A shared
+ * condition ID is written once from the selected variant's condition set,
+ * rather than being overwritten by a later variant in a nested loop.
+ */
+export function selectMoveVariantConditions(
+  previous: Readonly<Record<string, boolean | null>>,
+  move: MoveProjectionInput,
+  variantIndex: number,
+  conditions: readonly VariantConditionView[] = [],
+): Record<string, boolean | null> {
+  if (move.multiplier_relation !== "mutually-exclusive-variant"
+    || !move.variants[variantIndex]) {
+    return { ...previous };
+  }
+  const conditionMetadata = new Map(
+    conditions.map((condition) => [condition.condition_id, condition]),
+  );
+  const allVariantConditionIds = new Set(
+    move.variants.flatMap((variant) => variant.condition_ids),
+  );
+  const selectedConditionIds = new Set(move.variants[variantIndex].condition_ids);
+  const next = { ...previous };
+  allVariantConditionIds.forEach((conditionId) => {
+    const metadata = conditionMetadata.get(conditionId);
+    if (metadata && !metadata.editable) return;
+    next[conditionId] = selectedConditionIds.has(conditionId);
+  });
+  return next;
+}
+
 type ConditionView = {
   condition_id: string;
   value: boolean | null;

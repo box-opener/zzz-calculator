@@ -224,6 +224,17 @@ def test_calculation_accepts_a_primary_and_two_supporting_characters() -> None:
         "character:1311": astra_build,
         "character:1401": alice_build,
     })
+    # Alice's mutually-exclusive Star Dance variants are intentionally all
+    # false: she is only supporting this Ye calculation and her unselected
+    # entry must not block the primary move.
+    payload["condition_values"] = {
+        "condition:alice:star-dance-charge-1": False,
+        "condition:alice:star-dance-charge-2": False,
+        "condition:alice:star-dance-charge-3": False,
+        "condition:alice:physical-anomaly-active": True,
+        "condition:alice:polar-assault-active": False,
+        "condition:alice:victory-state-active": False,
+    }
     payload["enemy"]["damage_resistance"]["ether"] = 0.2
 
     for character_id in [primary, *supports]:
@@ -1032,6 +1043,21 @@ def test_move_calculation_executes_all_three_display_modes() -> None:
     assert all(
         item["source_type"] == "manual-panel" for item in payload["build_provenance"]
     )
+
+
+def test_unselected_move_variant_returns_structured_blocking_diagnostic() -> None:
+    payload = _valid_calculation_payload()
+    payload["move_entry_id"] = "move-entry:ye:1431:basic-mingxin-zhanliuguang-mie"
+    payload["compile_configs"]["character:1431"]["mingxin_active"] = True
+    response = client.post("/api/v1/moves/calculate", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()
+    assert all(item["complete"] is False for item in result["totals"].values())
+    messages = [item["message"] for item in result["diagnostics"]]
+    assert any("明心境·斩流光 灭" in message for message in messages)
+    assert any("condition:ye:variant:mingxin-zhanliuguang-mie" in message for message in messages)
+    assert all(item["blocking"] is True for item in result["diagnostics"])
 
 
 def test_move_calculation_accepts_astra_as_cross_character_support() -> None:
