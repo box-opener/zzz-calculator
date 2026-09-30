@@ -7,8 +7,6 @@ from core.types import (
     CharacterId,
     CharacterRole,
     CalculationNode,
-    DamageTag,
-    DamageTagFilter,
     DamageSubtypeFilter,
     DamageTypeFilter,
     DamageDealerFilter,
@@ -526,9 +524,6 @@ def compile_alice(
         f"1影：{c1.name}",
         c1.description,
     )
-    # C1's defense reduction is tied to Alice's Strong Attack, which is an
-    # anomaly event.  The damage tag keeps this Effect from leaking onto all
-    # ordinary sword hits while the anomaly event lane is being integrated.
     rules.append(
         _rule(
             "rule:alice:1401:cinema1",
@@ -545,7 +540,6 @@ def compile_alice(
                     CalculationNode.ENEMY_DEFENSE_REDUCTION,
                     Resolved(0.20),
                     target=EffectTarget.ENEMY,
-                    filters=(DamageTagFilter(DamageTag.FOLLOW_UP_ATTACK),),
                 ),
             ),
         )
