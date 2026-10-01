@@ -264,10 +264,10 @@ class PanelStatDerivedValue:
     """A deliberately small value source for build-time panel-derived Effects.
 
     The original contract only supported a value derived from a character's
-    immutable initial attack.  A small number of reviewed character effects
-    instead read the character's final settlement anomaly mastery.  Those
-    effects use ``threshold`` (and its compatibility alias ``minimum``) to
-    express ``max(current - threshold, 0)`` before applying the coefficient.
+    immutable initial attack.  Reviewed character effects can also read final
+    settlement anomaly mastery or crit rate.  Anomaly-mastery effects use
+    ``threshold`` (and its compatibility alias ``minimum``) to express
+    ``max(current - threshold, 0)`` before applying the coefficient.
     Keeping the source node and threshold explicit prevents a compiler from
     accidentally reading an initial panel value or inventing a cap.
     """
@@ -291,10 +291,12 @@ class PanelStatDerivedValue:
             raise ValueError("derived panel value source character is required")
         if self.source_node not in {
             CalculationNode.CHARACTER_INITIAL_ATTACK,
+            CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
         }:
             raise ValueError(
-                "panel derived values only support initial attack or current anomaly mastery"
+                "panel derived values only support initial attack, current crit rate, "
+                "or current anomaly mastery"
             )
         if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
             raise ValueError("derived panel value coefficient must be non-negative")

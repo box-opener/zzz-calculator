@@ -48,6 +48,7 @@ class NanokaDamageParameterSpec:
     variant_key: str
     parameter_name: str
     condition_ids: tuple[object, ...] = ()
+    source_skill_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +120,7 @@ def raw_multiplier(
     level: int,
     subject: str,
     diagnostics: list[CalculationDiagnostic],
+    source_skill_id: str | None = None,
 ) -> float | Unresolved:
     move = raw_moves.get(source_name)
     parameter = (
@@ -127,7 +129,7 @@ def raw_multiplier(
         else None
     )
     value = (
-        parameter.value_for_level(level)
+        parameter.value_for_level(level, source_skill_id)
         if parameter is not None and parameter.format == "%"
         else None
     )
@@ -184,6 +186,7 @@ def compile_direct_moves(
                 level,
                 f"{character_id}:{spec.entry_key}",
                 entry_diagnostics,
+                parameter.source_skill_id,
             )
             variants.append(
                 MultiplierVariant(

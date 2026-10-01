@@ -18,6 +18,7 @@ _CHARACTER_FILES = {
     "character:1401": "alice.json",
     "character:1411": "yuzuha.json",
     "character:1361": "trigger.json",
+    "character:1091": "miyabi.json",
 }
 
 

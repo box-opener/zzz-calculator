@@ -270,6 +270,8 @@ class DirectMoveApplicationService:
                 if isinstance(created, CalculationDiagnostic):
                     move_diagnostics.append(created)
                     continue
+                if created is None:
+                    continue
                 child, child_ancestry = created
                 seen_semantics.add(child.semantic_id)
                 child_context = _match_context(
@@ -411,6 +413,7 @@ class DirectMoveApplicationService:
     ) -> (
         tuple[InstantiatedDamageEvent, tuple[EventTemplateId, ...]]
         | CalculationDiagnostic
+        | None
     ):
         if effect.result.event_kind is not BattleEventKind.DAMAGE:
             return _diagnostic(
@@ -456,13 +459,6 @@ class DirectMoveApplicationService:
                 DiagnosticKind.MISSING_DATA,
                 "EventCreation template is not registered",
             )
-        if derived_ref.semantic_id in seen_semantics:
-            return _diagnostic(
-                str(derived_ref.semantic_id),
-                "duplicate-semantic-event",
-                DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                "the same semantic event was created more than once",
-            )
         repeat_count = derived_ref.repeat_count
         if derived_ref.repeat_count_parameter_id is not None:
             parameter = next(
@@ -481,6 +477,15 @@ class DirectMoveApplicationService:
                     "derived event repeat-count parameter is unresolved",
                 )
             repeat_count = parameter.value
+        if repeat_count == 0 and derived_ref.skip_when_repeat_count_zero:
+            return None
+        if derived_ref.semantic_id in seen_semantics:
+            return _diagnostic(
+                str(derived_ref.semantic_id),
+                "duplicate-semantic-event",
+                DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                "the same semantic event was created more than once",
+            )
         child = instantiate_damage_event(
             template,
             derived_ref.multiplier,

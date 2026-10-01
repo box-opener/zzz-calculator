@@ -332,12 +332,10 @@ def apply_global_panel_effects(
     traces: list[PanelModifierExecutionTrace] = []
     applied_non_stacking_groups: set[str] = set()
     # Current-panel derived values must observe all ordinary panel effects
-    # first.  In particular, an equipment anomaly-mastery bonus must be part
-    # of the current AM read used by Alice/Yuzuha, regardless of RuleItem
-    # ordering.  Keep the deferred list narrow: only the new current-AM
-    # contract is order-sensitive; initial-attack-derived values preserve the
-    # original initial snapshot semantics and can be applied in the ordinary
-    # pass.
+    # first.  In particular, an equipment anomaly-mastery or crit-rate bonus
+    # must be part of the value read by reviewed character effects, regardless
+    # of RuleItem ordering.  Initial-attack-derived values keep their original
+    # initial snapshot semantics and can be applied in the ordinary pass.
     deferred_current_panel_effects: list[tuple[ModifierEffect, int, RuleItemId]] = []
     for rule in rule_items:
         if rule.rule_id not in scenario.enabled_rule_item_ids:
@@ -824,7 +822,10 @@ def _resolve_effect_value(
         )
         return None
 
-    if value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY:
+    if value.source_node in {
+        CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+        CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+    }:
         current = next(
             (
                 item
@@ -833,18 +834,24 @@ def _resolve_effect_value(
             ),
             None,
         )
-        current_mastery = (
-            current.settlement_stats.anomaly_mastery
-            if current is not None
-            else None
-        )
-        if not isinstance(current_mastery, Resolved):
+        if current is None:
+            current_stat = None
+        elif value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY:
+            current_stat = current.settlement_stats.anomaly_mastery
+        else:
+            current_stat = current.settlement_stats.crit_rate
+        if not isinstance(current_stat, Resolved):
+            label = (
+                "current anomaly mastery"
+                if value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY
+                else "current crit rate"
+            )
             diagnostics.append(
                 _diagnostic(
                     str(effect.rule.effect_id),
-                    "derived-value-current-anomaly-mastery",
+                    f"derived-value-{value.source_node.value}",
                     DiagnosticKind.MISSING_DATA,
-                    "current anomaly mastery is unresolved for a derived panel value",
+                    f"{label} is unresolved for a derived panel value",
                 )
             )
             return None
@@ -861,7 +868,7 @@ def _resolve_effect_value(
                 )
             )
             return None
-        result = max(current_mastery.value - threshold.value, 0.0) * coefficient.value
+        result = max(current_stat.value - threshold.value, 0.0) * coefficient.value
     else:
         source = next(
             (
@@ -924,7 +931,11 @@ def _is_current_panel_derived_effect(effect: ModifierEffect) -> bool:
     value = effect.result.value
     return (
         isinstance(value, PanelStatDerivedValue)
-        and value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY
+        and value.source_node
+        in {
+            CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+            CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+        }
     )
 
 

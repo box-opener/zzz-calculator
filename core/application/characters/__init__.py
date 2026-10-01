@@ -14,6 +14,7 @@ from .astra import AstraCompileConfig, compile_astra
 from .alice import AliceCompileConfig, compile_alice
 from .yuzuha import YuzuhaCompileConfig, compile_yuzuha
 from .trigger import TriggerCompileConfig, compile_trigger
+from .miyabi import MiyabiCompileConfig, compile_miyabi
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -32,4 +33,6 @@ __all__ = [
     "compile_yuzuha",
     "TriggerCompileConfig",
     "compile_trigger",
+    "MiyabiCompileConfig",
+    "compile_miyabi",
 ]

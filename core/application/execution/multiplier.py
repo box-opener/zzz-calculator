@@ -44,10 +44,14 @@ def resolve_move_multiplier(
         )
 
     if entry.multiplier_relation is MultiplierRelation.UNRESOLVED_RELATION:
+        reviewed_diagnostics = tuple(
+            item for item in entry.diagnostics if item.blocking
+        )
         return MoveMultiplierResolution(
             status=MultiplierResolutionStatus.BLOCKED,
             diagnostics=condition_diagnostics
-            + (
+            + reviewed_diagnostics
+            + (() if reviewed_diagnostics else (
                 _diagnostic(
                     str(entry.entry_id),
                     "unresolved-multiplier-relation",
@@ -55,7 +59,7 @@ def resolve_move_multiplier(
                     "the multiplier relationship is unresolved",
                     blocking=True,
                 ),
-            ),
+            )),
         )
 
     variant_status, variant, variant_diagnostics = _select_variant(

@@ -30,11 +30,30 @@ class NanokaRawSkillParameter:
     growth: float | None
     source_skill_id: str | None
     values: tuple[tuple[int, float], ...]
+    source_curves: tuple[
+        tuple[str, tuple[tuple[int, float], ...]], ...
+    ] = ()
     stun_ratio: float | None = None
     stun_ratio_growth: float | None = None
     attribute_infliction: float | None = None
 
-    def value_for_level(self, level: int) -> float | None:
+    def value_for_level(
+        self,
+        level: int,
+        source_skill_id: str | None = None,
+    ) -> float | None:
+        if source_skill_id is not None:
+            source_values = next(
+                (
+                    values
+                    for source_id, values in self.source_curves
+                    if source_id == source_skill_id
+                ),
+                None,
+            )
+            if source_values is None:
+                return None
+            return dict(source_values).get(level)
         return dict(self.values).get(level)
 
 
@@ -260,12 +279,26 @@ def _raw_parameter(
             growth=None,
             source_skill_id=None,
             values=(),
+            source_curves=(),
         )
-    source_skill_id, raw_value = next(iter(raw_param.items()))
-    if not isinstance(raw_value, Mapping):
-        raise ValueError(f"Nanoka parameter value must be an object: {section}:{name}")
-    main = _number(raw_value, "main", f"{section}:{name}")
-    growth = _number(raw_value, "growth", f"{section}:{name}")
+    source_curves: list[tuple[str, tuple[tuple[int, float], ...]]] = []
+    raw_curves: list[tuple[str, Mapping[str, object], float, float]] = []
+    for source_skill_id, raw_value in raw_param.items():
+        if not isinstance(raw_value, Mapping):
+            raise ValueError(f"Nanoka parameter value must be an object: {section}:{name}")
+        main = _number(raw_value, "main", f"{section}:{name}")
+        growth = _number(raw_value, "growth", f"{section}:{name}")
+        raw_curves.append((str(source_skill_id), raw_value, main, growth))
+        source_curves.append(
+            (
+                str(source_skill_id),
+                tuple(
+                    (level, (main + growth * (level - 1)) / 100.0)
+                    for level in range(1, 17)
+                ),
+            )
+        )
+    source_skill_id, raw_value, main, growth = raw_curves[0]
     raw_format = raw_value.get("format", "%")
     if not isinstance(raw_format, str) or not raw_format.strip():
         raise ValueError(f"Nanoka parameter format is invalid: {section}:{name}")
@@ -280,6 +313,7 @@ def _raw_parameter(
         growth=growth,
         source_skill_id=str(source_skill_id),
         values=values,
+        source_curves=tuple(source_curves),
         stun_ratio=_optional_number(raw_value.get("stun_ratio")),
         stun_ratio_growth=_optional_number(raw_value.get("stun_ratio_growth")),
         attribute_infliction=_optional_number(

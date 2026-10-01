@@ -113,10 +113,13 @@ class DerivedDamageEventTemplateRef:
     multiplier: DamageMultiplier
     repeat_count: int = 1
     repeat_count_parameter_id: ScenarioParameterId | None = None
+    skip_when_repeat_count_zero: bool = False
 
     def __post_init__(self) -> None:
         if self.repeat_count < 0:
             raise ValueError("derived event repeat_count must be non-negative")
+        if not isinstance(self.skip_when_repeat_count_zero, bool):
+            raise ValueError("skip_when_repeat_count_zero must be boolean")
         if self.repeat_count_parameter_id is not None and self.repeat_count != 1:
             raise ValueError(
                 "parameter-selected derived repeats must use repeat_count=1 as the default"

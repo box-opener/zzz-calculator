@@ -26,6 +26,12 @@ from core.application.characters.trigger import (
     compile_trigger,
     load_raw_record as load_trigger_raw_record,
 )
+from core.application.characters.miyabi import (
+    MiyabiCompileConfig,
+    MIYABI_ID,
+    compile_miyabi,
+    load_raw_record as load_miyabi_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -213,6 +219,31 @@ def _alice_fields(
         _integer_field(
             "cinema_level",
             "爱丽丝影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _miyabi_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "雅核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "雅影画",
             int(values.get("cinema_level", 0)),
             0,
             6,
@@ -543,6 +574,45 @@ def _compile_trigger(
     )
 
 
+def _miyabi_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    faction = "对空洞特别行动部第六课"
+    for character_id in team_ids:
+        if character_id == MIYABI_ID:
+            continue
+        registration = _REGISTRATIONS[character_id]
+        if registration.role in {CharacterRole.SUPPORT, CharacterRole.ANOMALY}:
+            return True
+        camp = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camp, Mapping) and faction in {
+            str(value) for value in camp.values()
+        }:
+            return True
+    return False
+
+
+def _compile_miyabi(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_miyabi(
+        MiyabiCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=_miyabi_additional_ability_eligibility(
+                team_ids
+            ),
+        ),
+        load_miyabi_raw_record(load_character_record(str(MIYABI_ID))),
+    )
+
+
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
@@ -661,6 +731,32 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"trigger-follow-up", "trigger-sniper-stance"}),
+        ),
+    ),
+    CharacterId("character:1091"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1091"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1091",
+            display_name="雅",
+            rarity="S",
+            element="ice",
+            specialty="anomaly",
+            image_path="/characters/IconRole13.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.ICE,
+        compile_definition=_compile_miyabi,
+        config_fields=_miyabi_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1091"),
+            role=CharacterRole.ANOMALY,
+            possible_elements=frozenset(
+                {Element.ICE, Element.LIESHUANG, Element.PHYSICAL}
+            ),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"miyabi-icefire", "miyabi-frostburn-break"}),
         ),
     ),
 }

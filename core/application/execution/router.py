@@ -93,15 +93,23 @@ class CalculationRouter:
                 ),
             )
         if result.value is None:
-            status = (
-                EventCalculationStatus.DATA_INSUFFICIENT
-                if result.unresolved
-                and all(
-                    item.reason is UnresolvedReason.MISSING_DATA
-                    for item in result.unresolved
-                )
-                else EventCalculationStatus.UNSUPPORTED_CALCULATOR
-            )
+            semantic_ambiguities = {
+                UnresolvedReason.AMBIGUOUS_TEXT,
+                UnresolvedReason.AMBIGUOUS_IDENTITY,
+                UnresolvedReason.AMBIGUOUS_ORDERING,
+            }
+            if result.unresolved and all(
+                item.reason is UnresolvedReason.MISSING_DATA
+                for item in result.unresolved
+            ):
+                status = EventCalculationStatus.DATA_INSUFFICIENT
+            elif any(
+                item.reason in semantic_ambiguities
+                for item in result.unresolved
+            ):
+                status = EventCalculationStatus.BLOCKED
+            else:
+                status = EventCalculationStatus.UNSUPPORTED_CALCULATOR
             diagnostics = tuple(
                 CalculationDiagnostic(
                     diagnostic_id=DiagnosticId(
@@ -110,6 +118,8 @@ class CalculationRouter:
                     kind=(
                         DiagnosticKind.MISSING_DATA
                         if item.reason is UnresolvedReason.MISSING_DATA
+                        else DiagnosticKind.AMBIGUOUS_SEMANTICS
+                        if item.reason in semantic_ambiguities
                         else DiagnosticKind.UNSUPPORTED_CALCULATOR
                     ),
                     message=item.notes,

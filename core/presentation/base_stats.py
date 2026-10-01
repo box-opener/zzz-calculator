@@ -131,7 +131,11 @@ def character_base_stats(
             # element_abnormal_power is 异常掌控.  The extra-level 31401
             # entry is an anomaly-mastery (掌控) flat bonus.
             "anomaly_mastery": source_number("element_abnormal_power") + extra_number("31401"),
-            "anomaly_proficiency": source_number("element_mystery"),
+            # Nanoka assigns different property IDs to the two anomaly
+            # attributes: 31401 is Anomaly Mastery (掌控), while 31201 is
+            # Anomaly Proficiency (精通).  Both contribute to the displayed
+            # level-60 panel when present on an ascension record.
+            "anomaly_proficiency": source_number("element_mystery") + extra_number("31201"),
             "penetration_rate": source_number("pen_rate") / 10000.0,
             "energy_regen": source_number("sp_recover") / 100.0,
         }
@@ -169,6 +173,7 @@ def _element(value: str) -> Element:
         "fire": Element.FIRE,
         "冰": Element.ICE,
         "ice": Element.ICE,
+        "冰属性": Element.ICE,
         "电": Element.ELECTRIC,
         "电属性": Element.ELECTRIC,
         "electric": Element.ELECTRIC,
