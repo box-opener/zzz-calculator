@@ -718,13 +718,31 @@ def _history_records_for_event(
         # This keeps the adapter from guessing an owner or numeric record from
         # an arbitrary history-record ID.
         return request.history_records, ()
-    assembly = static_attribute_anomaly_record(event, snapshots, modifiers)
+    assembly = static_attribute_anomaly_record(
+        event,
+        snapshots,
+        modifiers,
+        modifier_sources=_modifier_sources(request),
+    )
     if assembly is None:
         return request.history_records, ()
     source_id = assembly.record.record_id if assembly.record is not None else None
     if source_id is None:
         return request.history_records, assembly.diagnostics
     return (*request.history_records, assembly.record), assembly.diagnostics
+
+
+def _modifier_sources(request: MoveCalculationRequest):
+    """Resolve effect provenance without coupling the calculation helper to UI DTOs."""
+
+    sources = {}
+    for rule in _all_rule_items(request):
+        for effect in rule.effects:
+            sources[str(effect.rule.effect_id)] = (
+                effect.rule.source.label,
+                effect.rule.owner,
+            )
+    return sources
 
 
 def _declared_static_disorder_source(

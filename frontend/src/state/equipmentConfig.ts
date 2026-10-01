@@ -27,6 +27,31 @@ export type EquipmentConfigParseResult =
   | { ok: true; config: EquipmentConfig }
   | { ok: false; message: string };
 
+export const CHARACTER_CONFIG_SCHEMA_VERSION = "zzz-character-config-v2" as const;
+
+export type CharacterBuildMode = "manual-panel" | "equipment-build";
+
+export type CharacterConfig = {
+  schema_version: typeof CHARACTER_CONFIG_SCHEMA_VERSION;
+  character_id: string;
+  character_level: number;
+  build_mode: CharacterBuildMode;
+  compile_config: Record<string, unknown>;
+  wengine: EquipmentWengineConfig | null;
+  drive_discs: DriveDiscConfig[];
+  manual_panel_stats: Record<string, unknown> | null;
+};
+
+export type CharacterConfigParseResult =
+  | {
+    ok: true;
+    config: CharacterConfig;
+    equipment: EquipmentConfig;
+    source: "v2" | "v1" | "drive-only";
+    wengineProvided: boolean;
+  }
+  | { ok: false; message: string };
+
 const MAIN_STAT_KEYS_BY_SLOT: Record<number, readonly string[]> = {
   1: ["hp-flat"],
   2: ["attack-flat"],
@@ -183,7 +208,15 @@ export function parseEquipmentConfig(
   catalog: EquipmentValidationCatalog,
 ): EquipmentConfigParseResult {
   try {
-    const raw: unknown = JSON.parse(source);
+    const parsed: unknown = JSON.parse(source);
+    const raw = legacyDriveOnlyPayload(parsed)
+      ? {
+        schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+        character_id: expectedCharacterId,
+        wengine: null,
+        drive_discs: Array.isArray(parsed) ? parsed : parsed.drive_discs,
+      }
+      : parsed;
     return { ok: true, config: validateEquipmentObject(raw, expectedCharacterId, catalog) };
   } catch (error) {
     return { ok: false, message: (error as Error).message };
@@ -208,4 +241,221 @@ export function createEquipmentConfig(
 
 export function serializeEquipmentConfig(config: EquipmentConfig): string {
   return `${JSON.stringify(config, null, 2)}\n`;
+}
+
+function legacyDriveOnlyPayload(value: unknown): value is DriveDiscConfig[] | { drive_discs: unknown } {
+  return Array.isArray(value)
+    || (isRecord(value)
+      && Object.keys(value).length === 1
+      && Object.prototype.hasOwnProperty.call(value, "drive_discs"));
+}
+
+function validateCompileConfig(raw: unknown): Record<string, unknown> {
+  if (!isRecord(raw)) invalid("compile_config must be an object");
+  const allowed = new Set([
+    "core_level",
+    "cinema_level",
+    "skill_levels",
+    "mingxin_active",
+    "entry_move_uses_linren",
+  ]);
+  const unknown = Object.keys(raw).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) {
+    invalid(`compile_config has unsupported fields: ${unknown.join(", ")}`);
+  }
+  if (!("core_level" in raw) || !("cinema_level" in raw)) {
+    invalid("compile_config must include core_level and cinema_level");
+  }
+  integerInRange(raw.core_level, 1, 7, "compile_config.core_level");
+  integerInRange(raw.cinema_level, 0, 6, "compile_config.cinema_level");
+  for (const key of ["mingxin_active", "entry_move_uses_linren"]) {
+    if (key in raw && typeof raw[key] !== "boolean") invalid(`compile_config.${key} must be boolean`);
+  }
+  if ("skill_levels" in raw) {
+    if (!isRecord(raw.skill_levels)) invalid("compile_config.skill_levels must be an object");
+    const groups = new Set(["basic-attack", "dodge", "special-attack", "chain-attack", "assist", "ultimate"]);
+    for (const [group, value] of Object.entries(raw.skill_levels)) {
+      if (!groups.has(group)) invalid(`unknown skill group in compile_config.skill_levels: ${group}`);
+      integerInRange(value, 1, 16, `compile_config.skill_levels.${group}`);
+    }
+  }
+  return JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
+}
+
+function validateManualPanelStats(raw: unknown): Record<string, unknown> | null {
+  if (raw === null) return null;
+  if (!isRecord(raw)) invalid("manual_panel_stats must be null or an object");
+  const allowed = new Set([
+    "hp",
+    "attack",
+    "defense",
+    "impact",
+    "anomaly_mastery",
+    "anomaly_proficiency",
+    "energy_regen",
+    "crit_rate",
+    "crit_damage",
+    "penetration_rate",
+    "penetration_flat",
+    "element_damage_bonus",
+  ]);
+  const unknown = Object.keys(raw).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) invalid(`manual_panel_stats has unsupported fields: ${unknown.join(", ")}`);
+  for (const key of Object.keys(raw).filter((item) => item !== "element_damage_bonus")) {
+    if (typeof raw[key] !== "number" || !Number.isFinite(raw[key] as number)) {
+      invalid(`manual_panel_stats.${key} must be a finite number`);
+    }
+  }
+  if ("element_damage_bonus" in raw) {
+    if (!isRecord(raw.element_damage_bonus)) invalid("manual_panel_stats.element_damage_bonus must be an object");
+    for (const [element, value] of Object.entries(raw.element_damage_bonus)) {
+      if (typeof value !== "number" || !Number.isFinite(value)) invalid(`manual_panel_stats.element_damage_bonus.${element} must be a finite number`);
+    }
+  }
+  return JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
+}
+
+function validateCharacterObject(
+  raw: unknown,
+  expectedCharacterId: string,
+  catalog: EquipmentValidationCatalog,
+): { config: CharacterConfig; equipment: EquipmentConfig } {
+  if (!isRecord(raw)) invalid("character config must be a JSON object");
+  if (!hasExactKeys(raw, [
+    "schema_version",
+    "character_id",
+    "character_level",
+    "build_mode",
+    "compile_config",
+    "wengine",
+    "drive_discs",
+    "manual_panel_stats",
+  ])) {
+    invalid("character config has unexpected or missing fields");
+  }
+  if (raw.schema_version !== CHARACTER_CONFIG_SCHEMA_VERSION) {
+    invalid(`unsupported character config schema: ${String(raw.schema_version)}`);
+  }
+  const characterId = stringValue(raw.character_id, "character_id");
+  if (characterId !== expectedCharacterId) invalid(`character_id ${characterId} does not match ${expectedCharacterId}`);
+  const characterLevel = integerInRange(raw.character_level, 1, 60, "character_level");
+  if (raw.build_mode !== "manual-panel" && raw.build_mode !== "equipment-build") {
+    invalid("build_mode must be manual-panel or equipment-build");
+  }
+  const compileConfig = validateCompileConfig(raw.compile_config);
+  const manualStats = validateManualPanelStats(raw.manual_panel_stats);
+  const equipment = validateEquipmentObject({
+    schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+    character_id: characterId,
+    wengine: raw.wengine,
+    drive_discs: raw.drive_discs,
+  }, expectedCharacterId, catalog);
+  return {
+    config: {
+      schema_version: CHARACTER_CONFIG_SCHEMA_VERSION,
+      character_id: characterId,
+      character_level: characterLevel,
+      build_mode: raw.build_mode,
+      compile_config: compileConfig,
+      wengine: equipment.wengine,
+      drive_discs: equipment.drive_discs,
+      manual_panel_stats: manualStats,
+    },
+    equipment,
+  };
+}
+
+export function createCharacterConfig(
+  characterId: string,
+  characterLevel: number,
+  buildMode: CharacterBuildMode,
+  compileConfig: Record<string, unknown>,
+  wengine: EquipmentWengineConfig | null,
+  driveDiscs: readonly DriveDiscConfig[],
+  manualPanelStats: Record<string, unknown> | null,
+): CharacterConfig {
+  return {
+    schema_version: CHARACTER_CONFIG_SCHEMA_VERSION,
+    character_id: characterId,
+    character_level: characterLevel,
+    build_mode: buildMode,
+    compile_config: JSON.parse(JSON.stringify(compileConfig)) as Record<string, unknown>,
+    wengine: wengine ? { ...wengine } : null,
+    drive_discs: driveDiscs.map((disc) => ({
+      ...disc,
+      substats: disc.substats.map((substat) => ({ ...substat })),
+    })),
+    manual_panel_stats: manualPanelStats
+      ? JSON.parse(JSON.stringify(manualPanelStats)) as Record<string, unknown>
+      : null,
+  };
+}
+
+export function serializeCharacterConfig(config: CharacterConfig): string {
+  return `${JSON.stringify(config, null, 2)}\n`;
+}
+
+/** Parse v2 plus the repository's pre-v2 equipment exports without guessing. */
+export function parseCharacterConfig(
+  source: string,
+  expectedCharacterId: string,
+  catalog: EquipmentValidationCatalog,
+): CharacterConfigParseResult {
+  try {
+    const parsed: unknown = JSON.parse(source);
+    if (isRecord(parsed) && parsed.schema_version === CHARACTER_CONFIG_SCHEMA_VERSION) {
+      const validated = validateCharacterObject(parsed, expectedCharacterId, catalog);
+      return {
+        ok: true,
+        config: validated.config,
+        equipment: validated.equipment,
+        source: "v2",
+        wengineProvided: true,
+      };
+    }
+    if (isRecord(parsed) && "schema_version" in parsed) {
+      if (parsed.schema_version !== EQUIPMENT_CONFIG_SCHEMA_VERSION) {
+        invalid(`unsupported character config schema: ${String(parsed.schema_version)}`);
+      }
+      const weaponMissing = hasExactKeys(parsed, ["schema_version", "character_id", "drive_discs"]);
+      const equipment = validateEquipmentObject(
+        weaponMissing
+          ? {
+            schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+            character_id: parsed.character_id,
+            wengine: null,
+            drive_discs: parsed.drive_discs,
+          }
+          : parsed,
+        expectedCharacterId,
+        catalog,
+      );
+      return {
+        ok: true,
+        config: createCharacterConfig(expectedCharacterId, 60, "equipment-build", { core_level: 1, cinema_level: 0 }, equipment.wengine, equipment.drive_discs, null),
+        equipment,
+        source: "v1",
+        wengineProvided: !weaponMissing,
+      };
+    }
+    if (legacyDriveOnlyPayload(parsed)) {
+      const rawDiscs = Array.isArray(parsed) ? parsed : parsed.drive_discs;
+      const equipment = validateEquipmentObject({
+        schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+        character_id: expectedCharacterId,
+        wengine: null,
+        drive_discs: rawDiscs,
+      }, expectedCharacterId, catalog);
+      return {
+        ok: true,
+        config: createCharacterConfig(expectedCharacterId, 60, "equipment-build", { core_level: 1, cinema_level: 0 }, null, equipment.drive_discs, null),
+        equipment,
+        source: "drive-only",
+        wengineProvided: false,
+      };
+    }
+    invalid("character config must declare a supported schema_version");
+  } catch (error) {
+    return { ok: false, message: (error as Error).message };
+  }
 }

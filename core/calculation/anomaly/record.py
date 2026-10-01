@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 from core.types import (
     ANOMALY_DAMAGE_KIND_BY_ELEMENT,
     ANOMALY_STATE_KIND_BY_ELEMENT,
     AnomalyBuildupEvent,
     AnomalyContribution,
+    AnomalyEffectStrengthTrace,
     AnomalyGauge,
     AnomalyRecord,
     AnomalyTriggerSnapshot,
@@ -79,6 +81,7 @@ def build_anomaly_record(
     contributors = tuple(
         dict.fromkeys(contribution.contributor for contribution in contributions)
     )
+    strength_trace = _weighted_strength_trace(contributions, total_written)
     return AnomalyRecord(
         record_id=trigger_snapshot.record_id,
         target_enemy=gauge.target_enemy,
@@ -102,4 +105,80 @@ def build_anomaly_record(
         triggered_at=event.metadata.occurred_at,
         duration=trigger_snapshot.duration,
         contributions=contributions,
+        anomaly_effect_strength_trace=strength_trace,
+    )
+
+
+def _weighted_strength_trace(
+    contributions: tuple[AnomalyContribution, ...],
+    total_written: float,
+) -> AnomalyEffectStrengthTrace | None:
+    """Retain per-contribution provenance for an explicit historical record.
+
+    A weighted record with multiple contributors does not have one valid
+    level/attack/proficiency product.  Keep each original trace and expose the
+    weighted final value instead of rebuilding a formula from current stats.
+    """
+
+    detailed = tuple(
+        (
+            contribution.contributor,
+            contribution.actual_written_buildup,
+            contribution.anomaly_effect_strength_trace,
+        )
+        for contribution in contributions
+        if contribution.anomaly_effect_strength_trace is not None
+    )
+    if len(detailed) != len(contributions):
+        return None
+    first = detailed[0][2]
+    assert first is not None
+    numeric = tuple(
+        contribution.anomaly_effect_strength
+        for contribution in contributions
+    )
+    if not all(isinstance(item, Resolved) for item in numeric):
+        return replace(
+            first,
+            level=None,
+            level_coefficient=None,
+            anomaly_proficiency=None,
+            anomaly_proficiency_factor=None,
+            attack=None,
+            element_bonus=None,
+            normal_bonus=None,
+            mutation=None,
+            final_strength=None,
+            factors=(),
+            unresolved="历史异常记录存在未解析的贡献者强度",
+            contributor_traces=tuple(
+                (owner, written, trace)
+                for owner, written, trace in detailed
+                if trace is not None
+            ),
+        )
+    weighted = sum(
+        written * value.value
+        for (_, written, _), value in zip(detailed, numeric)
+    ) / total_written
+    if len(detailed) == 1:
+        return replace(first, final_strength=weighted)
+    return replace(
+        first,
+        level=None,
+        level_coefficient=None,
+        anomaly_proficiency=None,
+        anomaly_proficiency_factor=None,
+        attack=None,
+        element_bonus=None,
+        normal_bonus=None,
+        mutation=None,
+        final_strength=weighted,
+        factors=(),
+        unresolved="历史异常记录为多贡献者加权值，以下保留每次原始来源",
+        contributor_traces=tuple(
+            (owner, written, trace)
+            for owner, written, trace in detailed
+            if trace is not None
+        ),
     )

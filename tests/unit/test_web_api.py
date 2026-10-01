@@ -264,6 +264,70 @@ def test_calculation_accepts_a_primary_and_two_supporting_characters() -> None:
     }
 
 
+def test_alice_attribute_anomaly_exposes_generated_strength_provenance() -> None:
+    stats = {
+        "hp": 10000.0,
+        "attack": 1234.0,
+        "defense": 500.0,
+        "impact": 100.0,
+        "anomaly_mastery": 100.0,
+        "anomaly_proficiency": 234.0,
+        "energy_regen": 1.2,
+        "crit_rate": 0.5,
+        "crit_damage": 0.5,
+        "penetration_rate": 0.0,
+        "penetration_flat": 0.0,
+        "element_damage_bonus": {"physical": 0.17},
+    }
+    response = client.post(
+        "/api/v1/moves/calculate",
+        json={
+            "primary_character_id": "character:1401",
+            "team_character_ids": ["character:1401"],
+            "move_entry_id": "move-entry:alice:1401:physical-anomaly",
+            "compile_configs": {"character:1401": {"core_level": 1, "cinema_level": 0}},
+            "condition_values": {},
+            "parameter_values": {},
+            "character_builds": {"character:1401": {"level": 42, "out_of_combat_stats": stats}},
+            "enemy": {
+                "enemy_id": "enemy:ui",
+                "level": 60,
+                "initial_defense": 1000.0,
+                "damage_resistance": {"physical": 0.2},
+                "damage_reduction": 0.0,
+                "stun_vulnerability_bonus": 1.5,
+                "is_stunned": False,
+            },
+            "enabled_rule_item_ids": [],
+            "selected_trigger_inputs": [],
+            "rule_stack_counts": {},
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    event = response.json()["events"][0]
+    trace = event["modes"]["expected"]["anomaly_effect_strength_trace"]
+    assert trace["level"] == 42
+    assert trace["attack"] == 1234.0
+    assert trace["anomaly_proficiency"] == 234.0
+    assert trace["element_bonus"] == 0.17
+    assert trace["normal_bonus"] == 0.0
+    assert trace["mutation"] == 1.0
+    assert trace["final_strength"] == pytest.approx(
+        trace["level_coefficient"]
+        * trace["anomaly_proficiency_factor"]
+        * (1 + trace["element_bonus"] + trace["normal_bonus"])
+        * trace["attack"]
+        * trace["mutation"]
+    )
+    assert {item["source_label"] for item in trace["factors"]} >= {
+        "角色等级系数",
+        "有效异常精通",
+        "对应属性增伤",
+        "异化系数（当前实现）",
+    }
+
+
 def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
     response = client.get("/api/v1/wengines")
 

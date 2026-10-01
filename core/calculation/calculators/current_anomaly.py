@@ -17,7 +17,7 @@ from core.types import (
 )
 
 from ..nodes import CalculationNodeValue
-from ..anomaly import anomaly_effect_strength
+from ..anomaly import anomaly_effect_strength_with_trace
 from ..regions import (
     AnomalyCritRegionInput,
     BroadVulnerabilityRegionInput,
@@ -137,6 +137,7 @@ class CurrentAttributeAnomalyDamageCalculator:
             unresolved,
         )
         modifiers = _modifier_totals(context, unresolved)
+        mutation, mutation_factors = _mutation_coefficient(context, unresolved)
         if isinstance(event.multiplier, FixedMultiplier):
             anomaly_multiplier = _number(event.multiplier.value, unresolved)
         else:
@@ -177,12 +178,24 @@ class CurrentAttributeAnomalyDamageCalculator:
         assert resistance is not None and element_bonus is not None
         assert anomaly_multiplier is not None
         level_coefficient = 1.0 + (dealer.level - 1) / 59.0
-        effect_strength = anomaly_effect_strength(
-            dealer.level,
-            attack,
-            proficiency,
-            element_bonus,
-            modifiers[CalculationNode.DAMAGE_NORMAL_BONUS],
+        effect_strength, effect_trace = anomaly_effect_strength_with_trace(
+            character_id=event.anomaly_triggerer,
+            level=dealer.level,
+            attack=attack,
+            anomaly_proficiency=proficiency,
+            element_damage_bonus=element_bonus,
+            normal_damage_bonus=modifiers[CalculationNode.DAMAGE_NORMAL_BONUS],
+            mutation=mutation,
+            element=event.metadata.element,
+            normal_factors=tuple(
+                # The application presentation layer resolves these effect IDs
+                # to human-readable labels; the calculation remains independent
+                # of that layer while retaining every actual modifier value.
+                _strength_factor(modifier)
+                for modifier in context.modifiers
+                if modifier.modifier_path is CalculationNode.DAMAGE_NORMAL_BONUS
+            ),
+            mutation_factors=mutation_factors,
         )
         anomaly_bonus = 1.0 + modifiers[CalculationNode.ANOMALY_DAMAGE_BONUS]
         anomaly_crit = calculate_anomaly_crit_region(
@@ -241,7 +254,59 @@ class CurrentAttributeAnomalyDamageCalculator:
                 *resistance_region.breakdown,
                 *vulnerability.breakdown,
             ),
+            anomaly_effect_strength_trace=effect_trace,
         )
+
+
+def _strength_factor(modifier):
+    from core.types import AnomalyStrengthFactor, Resolved
+
+    return AnomalyStrengthFactor(
+        factor="normal-bonus",
+        value=modifier.value.value if isinstance(modifier.value, Resolved) else None,
+        source_id=str(modifier.effect_id),
+        source_label=str(modifier.effect_id),
+        owner_character_id=None,
+        unresolved=(modifier.value.notes if not isinstance(modifier.value, Resolved) else None),
+    )
+
+
+def _mutation_coefficient(context, unresolved):
+    from core.types import AnomalyStrengthFactor, Resolved
+
+    coefficient = 1.0
+    factors = []
+    for modifier in context.modifiers:
+        if modifier.modifier_path is not CalculationNode.ANOMALY_MUTATION_COEFFICIENT:
+            continue
+        if modifier.operation is not EffectOperation.MULTIPLY:
+            unresolved.append(
+                Unresolved(
+                    reason=UnresolvedReason.MISSING_SPEC_RULE,
+                    notes=(
+                        "CurrentAttributeAnomalyDamageCalculator supports "
+                        "MULTIPLY only for anomaly mutation coefficient"
+                    ),
+                )
+            )
+            continue
+        if not isinstance(modifier.value, Resolved):
+            unresolved.append(modifier.value)
+            value = None
+        else:
+            value = modifier.value.value
+            coefficient *= value
+        factors.append(
+            AnomalyStrengthFactor(
+                factor="mutation",
+                value=value,
+                source_id=str(modifier.effect_id),
+                source_label=str(modifier.effect_id),
+                owner_character_id=None,
+                unresolved=(modifier.value.notes if value is None else None),
+            )
+        )
+    return coefficient, tuple(factors)
 
 
 __all__ = ["CurrentAttributeAnomalyDamageCalculator"]

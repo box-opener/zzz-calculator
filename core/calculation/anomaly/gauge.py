@@ -57,6 +57,7 @@ def apply_anomaly_buildup(
         anomaly_effect_strength=application_context.anomaly_effect_strength,
         impact_strength=application_context.impact_strength,
         occurred_at=event.metadata.occurred_at,
+        anomaly_effect_strength_trace=application_context.anomaly_effect_strength_trace,
     )
     contributions = (*gauge.contributions, contribution)
     if calculated_buildup >= remaining:

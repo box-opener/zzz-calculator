@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  createCharacterConfig,
   createEquipmentConfig,
   EQUIPMENT_CONFIG_SCHEMA_VERSION,
+  parseCharacterConfig,
   parseEquipmentConfig,
+  serializeCharacterConfig,
   serializeEquipmentConfig,
 } from "./equipmentConfig";
 
@@ -68,5 +71,88 @@ describe("equipment config JSON", () => {
     expect(parseEquipmentConfig(JSON.stringify(badRoll), "character:demo", catalog).ok).toBe(false);
     const badWeapon = { ...config, wengine: { id: "wengine:nope", level: 60, refinement: 1 } };
     expect(parseEquipmentConfig(JSON.stringify(badWeapon), "character:demo", catalog).ok).toBe(false);
+  });
+});
+
+describe("complete character config v2", () => {
+  const manualStats = {
+    hp: 12345,
+    attack: 2345,
+    defense: 678,
+    impact: 111,
+    anomaly_mastery: 222,
+    anomaly_proficiency: 333,
+    energy_regen: 1.4,
+    crit_rate: 0.55,
+    crit_damage: 1.2,
+    penetration_rate: 0.08,
+    penetration_flat: 17,
+    element_damage_bonus: { physical: 0.12, ether: 0.2, electric: 0.03 },
+  };
+
+  it("round-trips progress, compile flags, equipment, and manual stats", () => {
+    const full = createCharacterConfig(
+      "character:demo",
+      48,
+      "manual-panel",
+      {
+        core_level: 6,
+        cinema_level: 4,
+        skill_levels: {
+          "basic-attack": 12,
+          dodge: 14,
+          "special-attack": 16,
+          "chain-attack": 12,
+          assist: 14,
+          ultimate: 16,
+        },
+        mingxin_active: true,
+      },
+      { id: "wengine:demo", level: 60, refinement: 5 },
+      [{ slot: 1, set_id: "drive-disc:31000", main_stat: null, substats: [] }],
+      manualStats,
+    );
+    const parsed = parseCharacterConfig(serializeCharacterConfig(full), "character:demo", catalog);
+    expect(parsed).toEqual({
+      ok: true,
+      config: full,
+      equipment: {
+        schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+        character_id: "character:demo",
+        wengine: full.wengine,
+        drive_discs: full.drive_discs,
+      },
+      source: "v2",
+      wengineProvided: true,
+    });
+  });
+
+  it("keeps current weapon semantics distinct for v1 null and drive-only legacy files", () => {
+    const v1 = JSON.stringify({
+      schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+      character_id: "character:demo",
+      wengine: null,
+      drive_discs: [],
+    });
+    const explicitNull = parseCharacterConfig(v1, "character:demo", catalog);
+    expect(explicitNull).toMatchObject({ ok: true, source: "v1", wengineProvided: true });
+    const missingWeapon = parseCharacterConfig(JSON.stringify({
+      schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+      character_id: "character:demo",
+      drive_discs: [],
+    }), "character:demo", catalog);
+    expect(missingWeapon).toMatchObject({ ok: true, source: "v1", wengineProvided: false });
+    const driveOnly = parseCharacterConfig(JSON.stringify({ drive_discs: [] }), "character:demo", catalog);
+    expect(driveOnly).toMatchObject({ ok: true, source: "drive-only", wengineProvided: false });
+    expect(parseCharacterConfig(JSON.stringify([{ slot: 1, set_id: "drive-disc:31000", main_stat: null, substats: [] }]), "character:demo", catalog)).toMatchObject({ ok: true, source: "drive-only", wengineProvided: false });
+  });
+
+  it("rejects derived eligibility and invalid progress fields", () => {
+    const full = createCharacterConfig("character:demo", 60, "equipment-build", { core_level: 1, cinema_level: 0 }, null, [], null);
+    const derived = JSON.parse(serializeCharacterConfig(full)) as Record<string, unknown>;
+    derived.compile_config = { core_level: 1, cinema_level: 0, additional_ability_eligible: true };
+    expect(parseCharacterConfig(JSON.stringify(derived), "character:demo", catalog).ok).toBe(false);
+    const badLevel = { ...JSON.parse(serializeCharacterConfig(full)), character_level: 61 };
+    expect(parseCharacterConfig(JSON.stringify(badLevel), "character:demo", catalog).ok).toBe(false);
   });
 });

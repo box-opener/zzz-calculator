@@ -29,6 +29,44 @@ from .enums import (
 
 
 @dataclass(frozen=True, slots=True)
+class AnomalyStrengthFactor:
+    """One named input used by the anomaly effect-strength formula.
+
+    This is deliberately a small calculation value object rather than an
+    application/presentation type.  It lets a generated anomaly record retain
+    the inputs that produced its strength without asking a later settlement to
+    reconstruct them from the current character panel.
+    """
+
+    factor: str
+    value: float | None
+    source_id: str | None = None
+    source_label: str | None = None
+    owner_character_id: CharacterId | None = None
+    unresolved: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyEffectStrengthTrace:
+    """Provenance captured at the point anomaly effect strength is generated."""
+
+    character_id: CharacterId
+    level: int | None
+    level_coefficient: float | None
+    anomaly_proficiency: float | None
+    anomaly_proficiency_factor: float | None
+    attack: float | None
+    element_bonus: float | None
+    normal_bonus: float | None
+    mutation: float | None
+    final_strength: float | None
+    element: Element | None = None
+    factors: tuple[AnomalyStrengthFactor, ...] = ()
+    unresolved: str | None = None
+    contributor_traces: tuple[tuple[CharacterId, float, "AnomalyEffectStrengthTrace"], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class NoAnomalyCrit:
     kind: Literal["none"] = field(default="none", init=False)
 
@@ -53,6 +91,7 @@ class AnomalyContribution:
     anomaly_effect_strength: Resolvable[float]
     impact_strength: Resolvable[float]
     occurred_at: BattleTime
+    anomaly_effect_strength_trace: AnomalyEffectStrengthTrace | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -80,6 +119,7 @@ class AnomalyRecord:
     triggered_at: BattleTime
     duration: Resolvable[Seconds]
     contributions: tuple[AnomalyContribution, ...] = ()
+    anomaly_effect_strength_trace: AnomalyEffectStrengthTrace | None = None
 
     def __post_init__(self) -> None:
         if self.element not in ANOMALY_ELEMENTS:

@@ -167,7 +167,13 @@ class TurbulenceDamageCalculator:
             resistance_value,
         )
         if unresolved or any(value is None for value in required):
-            return CalculationResult(None, (), tuple(unresolved))
+            return CalculationResult(
+                None,
+                (),
+                tuple(unresolved),
+                anomaly_effect_strength_trace=record.anomaly_effect_strength_trace,
+                anomaly_record_id=str(record.record_id),
+            )
 
         assert effect_strength is not None
         assert historical_anomaly_bonus is not None
@@ -250,4 +256,6 @@ class TurbulenceDamageCalculator:
                 *resistance.breakdown,
                 *vulnerability.breakdown,
             ),
+            anomaly_effect_strength_trace=record.anomaly_effect_strength_trace,
+            anomaly_record_id=str(record.record_id),
         )

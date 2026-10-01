@@ -239,12 +239,28 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             for effect in rule.effects
         }
     )
+    source_owners = {
+        str(effect.rule.effect_id): str(effect.rule.owner)
+        for definition in definitions
+        for rule in definition.rule_items
+        for effect in rule.effects
+        if effect.rule.owner is not None
+    }
+    source_owners.update(
+        {
+            str(effect.rule.effect_id): str(effect.rule.owner)
+            for rule in additional_rule_items
+            for effect in rule.effects
+            if effect.rule.owner is not None
+        }
+    )
     return to_jsonable(
         build_move_calculation_view(
             executions,
             source_labels,
             build_provenance=build_provenance,
             source_types=source_types,
+            source_owners=source_owners,
         )
     )
 

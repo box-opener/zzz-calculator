@@ -10,6 +10,7 @@ from core.calculation import (
     DamageCalculator,
     InvalidCalculationContextError,
 )
+from core.calculation.anomaly import anomaly_effect_strength_with_trace
 from core.types import (
     ANOMALY_DAMAGE_KIND_BY_ELEMENT,
     ANOMALY_STATE_KIND_BY_ELEMENT,
@@ -260,6 +261,40 @@ def test_attribute_anomaly_damage_golden_result() -> None:
     assert breakdown[CalculationNode.ANOMALY_DAMAGE_BONUS_REGION] == 1.2
     assert breakdown[CalculationNode.DAMAGE_DEFENSE_REGION] == 0.5
     assert breakdown[CalculationNode.DAMAGE_RESISTANCE_REGION] == 0.8
+
+
+def test_historical_anomaly_uses_recorded_strength_trace_not_current_panel() -> None:
+    trigger = CharacterId("character:triggerer")
+    recorded_value, trace = anomaly_effect_strength_with_trace(
+        character_id=trigger,
+        level=42,
+        attack=1234.0,
+        anomaly_proficiency=234.0,
+        element_damage_bonus=0.17,
+        normal_damage_bonus=0.08,
+        element=Element.PHYSICAL,
+    )
+    record = replace(
+        _record(effect_strength=recorded_value, triggerer=trigger),
+        anomaly_effect_strength_trace=trace,
+    )
+    event = _event(record)
+    # The live settlement snapshot intentionally disagrees with the values
+    # captured in the completed record. Historical anomaly damage must retain
+    # the record's original provenance and numeric strength.
+    result = AttributeAnomalyDamageCalculator().calculate(
+        _context(
+            event,
+            snapshots=(_snapshot(event.metadata.damage_dealer, level=60),),
+            records=(record,),
+        )
+    )
+
+    assert result.value is not None
+    assert result.anomaly_effect_strength_trace is trace
+    assert trace.attack == 1234.0
+    assert trace.final_strength == pytest.approx(recorded_value)
+    assert result.breakdown[0].value == Resolved(recorded_value)
 
 
 def test_independent_anomaly_crit_does_not_read_ordinary_crit_stats() -> None:

@@ -264,6 +264,7 @@ def build_move_calculation_view(
     build_provenance=(),
     *,
     source_types: Mapping[str, str] | None = None,
+    source_owners: Mapping[str, str] | None = None,
 ) -> CalculationView:
     """Align three application executions by semantic event ID."""
 
@@ -329,7 +330,11 @@ def build_move_calculation_view(
                 )
             )
         mode_views = {
-            mode.value: _mode_view(mode_event_maps[mode][semantic_id])
+            mode.value: _mode_view(
+                mode_event_maps[mode][semantic_id],
+                source_labels=dict(source_labels or {}),
+                source_owners=dict(source_owners or {}),
+            )
             for mode in required_modes
         }
         traces = tuple(

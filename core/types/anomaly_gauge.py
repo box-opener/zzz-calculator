@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from .anomaly_record import (
     AnomalyContribution,
     AnomalyCritCapability,
+    AnomalyEffectStrengthTrace,
     AnomalyRecord,
 )
 from .battle_event import AnomalyBuildupEvent
@@ -69,6 +70,7 @@ class AnomalyBuildupApplicationContext:
     event: AnomalyBuildupEvent
     anomaly_effect_strength: Resolvable[float]
     impact_strength: Resolvable[float]
+    anomaly_effect_strength_trace: AnomalyEffectStrengthTrace | None = None
 
 
 @dataclass(frozen=True, slots=True)

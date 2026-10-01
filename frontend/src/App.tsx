@@ -30,9 +30,9 @@ import {
   formatPreviewRatio,
 } from "./state/buildPreview";
 import {
-  createEquipmentConfig,
-  parseEquipmentConfig,
-  serializeEquipmentConfig,
+  createCharacterConfig,
+  parseCharacterConfig,
+  serializeCharacterConfig,
 } from "./state/equipmentConfig";
 import { filterCharacterCatalog, isCharacterSelectable } from "./state/characterLibrary";
 import { aggregateEditorViews } from "./state/editorAggregation";
@@ -221,16 +221,44 @@ type BuildPreview = {
   complete: boolean;
 };
 
+type AnomalyStrengthFactorView = {
+  factor: string;
+  value: number | null;
+  source_id: string | null;
+  source_label: string | null;
+  owner_character_id: string | null;
+  unresolved: string | null;
+};
+
+type AnomalyEffectStrengthTraceView = {
+  character_id: string;
+  level: number | null;
+  level_coefficient: number | null;
+  anomaly_proficiency: number | null;
+  anomaly_proficiency_factor: number | null;
+  attack: number | null;
+  element_bonus: number | null;
+  normal_bonus: number | null;
+  mutation: number | null;
+  final_strength: number | null;
+  element: string | null;
+  factors: AnomalyStrengthFactorView[];
+  unresolved: string | null;
+  contributor_traces: { contributor_character_id: string; actual_written_buildup: number; trace: AnomalyEffectStrengthTraceView }[];
+};
+
 type CalculationView = {
   move_entry_id: string;
   display_modes?: string[];
   events: {
     semantic_id: string;
     label: string;
+    damage_type: string;
+    damage_subtype: string | null;
     repeat_count: number;
     crit_capability?: string;
     display_modes?: string[];
-    modes: Record<string, { value: number | null; known_value: number | null; status: string; diagnostics: { message: string }[]; calculation_breakdown: { node: string; value: number | null; read_rule: string }[] }>;
+    modes: Record<string, { value: number | null; known_value: number | null; status: string; diagnostics: { message: string }[]; calculation_breakdown: { node: string; value: number | null; read_rule: string }[]; anomaly_effect_strength_trace?: AnomalyEffectStrengthTraceView | null; anomaly_record_id?: string | null }>;
     common_application_trace: EventTraceEnvelope | null;
   }[];
   totals: Record<string, { value: number | null; complete: boolean; diagnostics: { message: string }[] }>;
@@ -693,34 +721,46 @@ function App() {
 
   const exportEquipmentConfig = (owner: string) => {
     const selection = wengineSelections[owner];
-    const config = createEquipmentConfig(
+    const currentCompileConfig = configs[owner] ?? {};
+    const compileConfig: Record<string, unknown> = {
+      core_level: currentCompileConfig.core_level ?? 1,
+      cinema_level: currentCompileConfig.cinema_level ?? 0,
+      ...(currentCompileConfig.skill_levels ? { skill_levels: currentCompileConfig.skill_levels } : {}),
+      ...(typeof currentCompileConfig.mingxin_active === "boolean" ? { mingxin_active: currentCompileConfig.mingxin_active } : {}),
+      ...(typeof currentCompileConfig.entry_move_uses_linren === "boolean" ? { entry_move_uses_linren: currentCompileConfig.entry_move_uses_linren } : {}),
+    };
+    const config = createCharacterConfig(
       owner,
+      characterLevels[owner] ?? 60,
+      buildModes[owner] ?? "manual-panel",
+      compileConfig,
       selection?.id
         ? { id: selection.id, level: selection.level, refinement: selection.refinement }
         : null,
       driveDiscSelections[owner] ?? [],
+      buildStats[owner] ? { ...buildStats[owner], element_damage_bonus: { ...buildStats[owner].element_damage_bonus } } : null,
     );
-    const blob = new Blob([serializeEquipmentConfig(config)], {
+    const blob = new Blob([serializeCharacterConfig(config)], {
       type: "application/json;charset=utf-8",
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     const safeCharacterId = owner.replace(/[^a-z0-9._-]+/gi, "_");
     anchor.href = url;
-    anchor.download = `zzz-equipment-${safeCharacterId}.json`;
+    anchor.download = `zzz-character-${safeCharacterId}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
     setEquipmentFeedback((current) => ({
       ...current,
-      [owner]: { kind: "success", message: "配置已导出为 JSON，可随时重新导入。" },
+      [owner]: { kind: "success", message: "角色完整配置已导出为 JSON，可随时重新导入。" },
     }));
   };
 
   const importEquipmentConfig = async (owner: string, file: File) => {
     try {
-      const result = parseEquipmentConfig(
+      const result = parseCharacterConfig(
         await file.text(),
         owner,
         {
@@ -741,17 +781,41 @@ function App() {
       }
 
       const nextWengineSelections = { ...wengineSelections };
-      if (result.config.wengine) {
-        nextWengineSelections[owner] = { ...result.config.wengine };
-      } else {
+      if (result.wengineProvided && result.equipment.wengine) {
+        nextWengineSelections[owner] = { ...result.equipment.wengine };
+      } else if (result.wengineProvided) {
+        // A v1/v2 explicit null means clear.  Drive-only legacy files omit
+        // the weapon field and therefore deliberately retain the current one.
         delete nextWengineSelections[owner];
       }
       const nextDriveDiscSelections = {
         ...driveDiscSelections,
         [owner]: result.config.drive_discs,
       };
-      const nextBuildModes = { ...buildModes, [owner]: "equipment-build" as const };
-      const nextCharacterLevels = { ...characterLevels, [owner]: 60 };
+      const nextBuildModes = {
+        ...buildModes,
+        [owner]: result.source === "v2" ? result.config.build_mode : "equipment-build" as const,
+      };
+      const nextCharacterLevels = {
+        ...characterLevels,
+        ...(result.source === "v2" ? { [owner]: result.config.character_level } : {}),
+      };
+      const nextConfigs = {
+        ...configs,
+        ...(result.source === "v2" ? { [owner]: { ...result.config.compile_config } } : {}),
+      };
+      const nextBuildStats = { ...buildStats };
+      if (result.source === "v2" && result.config.manual_panel_stats) {
+        const manual = result.config.manual_panel_stats;
+        const elementBonus = manual.element_damage_bonus;
+        nextBuildStats[owner] = {
+          ...DEFAULT_STATS,
+          ...Object.fromEntries(Object.entries(manual).filter(([key, value]) => key !== "element_damage_bonus" && typeof value === "number")),
+          element_damage_bonus: elementBonus && typeof elementBonus === "object"
+            ? { ...DEFAULT_STATS.element_damage_bonus, ...(elementBonus as Record<string, number>) }
+            : { ...DEFAULT_STATS.element_damage_bonus },
+        };
+      }
 
       // Commit all imported values together, then issue one authoritative
       // editor/build refresh using the complete next state.
@@ -759,15 +823,17 @@ function App() {
       setDriveDiscSelections(nextDriveDiscSelections);
       setBuildModes(nextBuildModes);
       setCharacterLevels(nextCharacterLevels);
+      setConfigs(nextConfigs);
+      setBuildStats(nextBuildStats);
       setEquipmentFeedback((current) => ({
         ...current,
-        [owner]: { kind: "success", message: `已导入 ${result.config.drive_discs.length} 个驱动盘${result.config.wengine ? "与 1 把音擎" : ""}。` },
+        [owner]: { kind: "success", message: `已导入 ${result.config.drive_discs.length} 个驱动盘${result.equipment.wengine ? "与 1 把音擎" : ""}及角色进度。` },
       }));
       setDiagnostics([]);
       void loadEditors(
         teamIds,
         currentOperatorId,
-        configs,
+        nextConfigs,
         conditionValuesRef.current,
         {},
         nextWengineSelections,
@@ -786,9 +852,7 @@ function App() {
 
   const updateBuildMode = (owner: string, mode: "manual-panel" | "equipment-build") => {
     const nextModes = { ...buildModes, [owner]: mode };
-    const nextLevels = mode === "equipment-build"
-      ? { ...characterLevels, [owner]: 60 }
-      : characterLevels;
+    const nextLevels = characterLevels;
     setBuildModes(nextModes);
     setCharacterLevels(nextLevels);
     void loadEditors(
@@ -945,6 +1009,18 @@ function App() {
     return configs[owner]?.[field.field_id] ?? field.value;
   };
 
+  const renderCompileField = (owner: string, field: CompileField) => {
+    const fieldValue = configFieldValue(owner, field);
+    const unit = field.field_id.includes("level") ? "级" : field.field_id.includes("stack") ? "层" : undefined;
+    if (field.field_type === "boolean") {
+      return <label className="check-field" key={`${owner}-${field.field_id}`}><span><strong>{field.label}</strong><small>{field.help_text ?? "编译期配置"}</small></span><input disabled={!field.editable} type="checkbox" checked={Boolean(fieldValue)} onChange={(event) => updateConfigField(owner, field, event.target.checked)} /></label>;
+    }
+    if (field.field_type === "select") {
+      return <label className="select-field" key={`${owner}-${field.field_id}`}><span>{field.label}</span><select disabled={!field.editable} value={String(fieldValue)} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+    }
+    return <NumberField key={`${owner}-${field.field_id}`} label={field.label} value={Number(fieldValue)} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} unit={unit} helper={field.help_text ?? "整数配置"} disabled={!field.editable} onCommit={(value) => updateConfigField(owner, field, value)} />;
+  };
+
   return (
     <main className="app-shell">
       <header className="app-header glass-card">
@@ -1027,11 +1103,11 @@ function App() {
               const driveView = driveDiscViews[id];
               const selectedDiscs = driveDiscSelections[id] ?? [];
               const preview = buildPreviews[id];
-              const basePanel = preview?.base_stats;
               const character = characters.find((item) => item.character_id === id);
               const selectedElement = character?.element ?? "physical";
               const feedback = equipmentFeedback[id];
               const roleLabel = teamIndex === 0 ? "主控角色" : "支援角色";
+              const progressFields = editorViews[id]?.compile_config_fields.filter(isCharacterProgressField) ?? [];
               return (
                 <article className={`build-character ${equipmentMode ? "build-character-equipment" : "build-character-manual"}`} key={id}>
                   <header className="build-character-heading">
@@ -1044,7 +1120,7 @@ function App() {
                       </div>
                     </div>
                     <div className="equipment-tools">
-                      <span className="equipment-schema-note">JSON · schema v1</span>
+                      <span className="equipment-schema-note">JSON · 角色配置 v2</span>
                       <button className="toolbar-button" type="button" onClick={() => equipmentImportInputRefs.current[id]?.click()}>
                         <span aria-hidden="true">↑</span> 导入配置
                       </button>
@@ -1065,7 +1141,7 @@ function App() {
                       />
                     </div>
                   </header>
-                  <div className="equipment-schema-copy">导入或导出当前角色的音擎与 1–6 号位驱动盘；文件会校验角色、槽位、套装和词条。</div>
+                  <div className="equipment-schema-copy">导入或导出当前角色的等级、核心/影画、技能、音擎、驱动盘与手工面板；文件会完整校验输入。</div>
                   {feedback && <p className={`equipment-feedback ${feedback.kind}`}>{feedback.kind === "success" ? "✓" : "!"} {feedback.message}</p>}
 
                   <div className="build-mode-strip">
@@ -1074,28 +1150,32 @@ function App() {
                       label="角色等级"
                       value={characterLevels[id] ?? 60}
                       integer
-                      min={equipmentMode ? 60 : 1}
+                      min={1}
                       max={60}
                       unit="级"
-                      helper={equipmentMode ? "装备构筑固定为 60 级" : "可编辑范围 1–60"}
-                      readOnly={equipmentMode}
+                      helper="可编辑范围 1–60"
                       onCommit={(value) => updateCharacterLevel(id, value)}
                     />
                   </div>
 
-                  <div className="build-stats-section">
-                    <div className="subsection-heading"><div><span className="eyebrow">PANEL SNAPSHOT</span><h3>{equipmentMode ? "装备后面板预览" : "手工局外面板"}</h3></div><span className="subsection-badge">{equipmentMode ? "只读预览" : "可编辑"}</span></div>
+                  {progressFields.length > 0 && <div className="character-progress-config">
+                    <div className="subsection-heading"><div><span className="eyebrow">CHARACTER CONFIG</span><h3>角色技能配置</h3></div><span className="subsection-badge">核心 · 影画 · 技能</span></div>
+                    <div className="character-progress-grid">{progressFields.map((field) => renderCompileField(id, field))}</div>
+                  </div>}
+
+                  {!equipmentMode && <div className="build-stats-section">
+                    <div className="subsection-heading"><div><span className="eyebrow">MANUAL PANEL</span><h3>手工局外面板</h3></div><span className="subsection-badge">可编辑</span></div>
                     <div className="number-field-grid">
-                      <NumberField label={equipmentMode ? "无装备基础攻击力" : "攻击力"} value={equipmentMode ? numericPreviewStat(basePanel?.attack) : (buildStats[id]?.attack ?? 1000)} min={0} helper={equipmentMode ? "来自角色基础属性" : "内核值 · 直接攻击力"} readOnly={equipmentMode} displayValue={equipmentMode ? formatPanelDisplay(basePanel?.attack) : undefined} onCommit={(value) => updateBuildStat(id, "attack", value)} />
-                      <NumberField label="暴击率" value={equipmentMode ? numericPreviewStat(basePanel?.crit_rate) : (buildStats[id]?.crit_rate ?? 0.5)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewRatioText(basePanel?.crit_rate) || "—" : undefined} onCommit={(value) => updateBuildStat(id, "crit_rate", value)} />
-                      <NumberField label="暴击伤害" value={equipmentMode ? numericPreviewStat(basePanel?.crit_damage) : (buildStats[id]?.crit_damage ?? 0.5)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewRatioText(basePanel?.crit_damage) || "—" : undefined} onCommit={(value) => updateBuildStat(id, "crit_damage", value)} />
-                      <NumberField label="穿透率" value={equipmentMode ? numericPreviewStat(basePanel?.penetration_rate) : (buildStats[id]?.penetration_rate ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewRatioText(basePanel?.penetration_rate) || "—" : undefined} onCommit={(value) => updateBuildStat(id, "penetration_rate", value)} />
-                      <NumberField label="穿透值" value={equipmentMode ? numericPreviewStat(basePanel?.penetration_flat) : (buildStats[id]?.penetration_flat ?? 0)} min={0} helper={equipmentMode ? "装备解析结果" : "内核值 · 固定数值"} readOnly={equipmentMode} displayValue={equipmentMode ? formatPanelDisplay(basePanel?.penetration_flat) : undefined} onCommit={(value) => updateBuildStat(id, "penetration_flat", value)} />
-                      <NumberField label="物理伤害加成" value={equipmentMode ? numericPreviewStat((basePanel?.element_damage_bonus as Record<string, number | null> | undefined)?.physical) : (buildStats[id]?.element_damage_bonus.physical ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "physical") || "—" : undefined} onCommit={(value) => updateElementBonus(id, "physical", value)} />
-                      <NumberField label="以太伤害加成" value={equipmentMode ? numericPreviewStat((basePanel?.element_damage_bonus as Record<string, number | null> | undefined)?.ether) : (buildStats[id]?.element_damage_bonus.ether ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, "ether") || "—" : undefined} onCommit={(value) => updateElementBonus(id, "ether", value)} />
-                      {!(["physical", "ether"] as string[]).includes(selectedElement) && <NumberField label={`${elementLabel(selectedElement)}伤害加成`} value={equipmentMode ? numericPreviewStat((basePanel?.element_damage_bonus as Record<string, number | null> | undefined)?.[selectedElement]) : (buildStats[id]?.element_damage_bonus[selectedElement as keyof typeof DEFAULT_STATS.element_damage_bonus] ?? 0)} min={0} unit="%" displayAsPercent={!equipmentMode} helper={equipmentMode ? "装备解析结果" : "底层 ratio 值按百分比编辑"} readOnly={equipmentMode} displayValue={equipmentMode ? previewElementRatioText(basePanel?.element_damage_bonus, selectedElement) || "—" : undefined} onCommit={(value) => updateElementBonus(id, selectedElement, value)} />}
+                      <NumberField label="攻击力" value={buildStats[id]?.attack ?? 1000} min={0} helper="内核值 · 直接攻击力" onCommit={(value) => updateBuildStat(id, "attack", value)} />
+                      <NumberField label="暴击率" value={buildStats[id]?.crit_rate ?? 0.5} min={0} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={(value) => updateBuildStat(id, "crit_rate", value)} />
+                      <NumberField label="暴击伤害" value={buildStats[id]?.crit_damage ?? 0.5} min={0} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={(value) => updateBuildStat(id, "crit_damage", value)} />
+                      <NumberField label="穿透率" value={buildStats[id]?.penetration_rate ?? 0} min={0} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={(value) => updateBuildStat(id, "penetration_rate", value)} />
+                      <NumberField label="穿透值" value={buildStats[id]?.penetration_flat ?? 0} min={0} helper="内核值 · 固定数值" onCommit={(value) => updateBuildStat(id, "penetration_flat", value)} />
+                      <NumberField label="物理伤害加成" value={buildStats[id]?.element_damage_bonus.physical ?? 0} min={0} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={(value) => updateElementBonus(id, "physical", value)} />
+                      <NumberField label="以太伤害加成" value={buildStats[id]?.element_damage_bonus.ether ?? 0} min={0} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={(value) => updateElementBonus(id, "ether", value)} />
+                      {!(["physical", "ether"] as string[]).includes(selectedElement) && <NumberField label={`${elementLabel(selectedElement)}伤害加成`} value={buildStats[id]?.element_damage_bonus[selectedElement as keyof typeof DEFAULT_STATS.element_damage_bonus] ?? 0} min={0} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={(value) => updateElementBonus(id, selectedElement, value)} />}
                     </div>
-                  </div>
+                  </div>}
 
                   {equipmentMode && <div className="equipment-build-details">
                     <div className="subsection-heading"><div><span className="eyebrow">W-ENGINE</span><h3>音擎</h3></div><span className="subsection-badge">专精匹配</span></div>
@@ -1136,7 +1216,7 @@ function App() {
               );
             })}
           </div>
-          {calculation && calculation.build_provenance.length > 0 && <div className="trace-list"><p className="eyebrow">BUILD PROVENANCE</p>{calculation.build_provenance.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.character_id}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.source_label} · {trace.stat} · {trace.layer}</small></div>)}</div>}
+          {calculation && calculation.build_provenance.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">BUILD PROVENANCE</span><strong>构筑来源明细</strong></span><small>{calculation.build_provenance.length} 项</small></summary>{teamIds.map((owner) => { const traces = calculation.build_provenance.filter((trace) => trace.character_id === owner); return traces.length > 0 && <div className="provenance-character-group" key={owner}><h4>{characters.find((item) => item.character_id === owner)?.display_name ?? owner}</h4>{traces.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.source_label}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.stat} · {trace.layer}</small></div>)}</div>; })}</details>}
           <div className="section-heading compact"><div><p className="eyebrow">TARGET</p><h2>敌人</h2></div></div>
           <div className="target-fields">
             <NumberField label="等级" value={enemyLevel} integer min={1} max={80} unit="级" helper="敌人等级 1–80" onCommit={setEnemyLevel} />
@@ -1154,17 +1234,7 @@ function App() {
       <section className="workspace-grid">
         <section className="glass-card controls-panel">
           <div className="section-heading"><div><p className="eyebrow">SCENARIO</p><h2>场景与规则</h2></div>{loading && <span className="muted">读取中…</span>}</div>
-          <div className="config-field-grid">{allConfigFields.map(({ owner, field }) => {
-            const fieldValue = configFieldValue(owner, field);
-            const unit = field.field_id.includes("level") ? "级" : field.field_id.includes("stack") ? "层" : undefined;
-            if (field.field_type === "boolean") {
-              return <label className="check-field" key={`${owner}-${field.field_id}`}><span><strong>{field.label}</strong><small>{field.help_text ?? "编译期配置"}</small></span><input disabled={!field.editable} type="checkbox" checked={Boolean(fieldValue)} onChange={(event) => updateConfigField(owner, field, event.target.checked)} /></label>;
-            }
-            if (field.field_type === "select") {
-              return <label className="select-field" key={`${owner}-${field.field_id}`}><span>{field.label}</span><select disabled={!field.editable} value={String(fieldValue)} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
-            }
-            return <NumberField key={`${owner}-${field.field_id}`} label={field.label} value={Number(fieldValue)} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} unit={unit} helper={field.help_text ?? "整数配置"} disabled={!field.editable} onCommit={(value) => updateConfigField(owner, field, value)} />;
-          })}</div>
+          <div className="config-field-grid">{allConfigFields.filter(({ field }) => !isCharacterProgressField(field)).map(({ owner, field }) => renderCompileField(owner, field))}</div>
           {visibleScenarioConditions.length > 0 && <div className="control-list"><div className="section-heading compact"><div><p className="eyebrow">CHARACTER STATES</p><h2>角色状态</h2><p className="control-section-hint">只显示可直接理解的独立状态；招式倍率在右侧招式下拉框中选择。</p></div></div>{visibleScenarioConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution} · 影响相关规则</small></span><input type="checkbox" checked={condition.value === true || conditionValues[condition.condition_id] === true} onChange={(event) => { const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }); }} /></label>)}</div>}
           {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={parameter.maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} />; })}</div></div>}
           <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stacks[rule.rule_id] ?? rule.stack.default ?? rule.stack.minimum} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>
@@ -1175,7 +1245,7 @@ function App() {
           <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={calculating || loading || !moveEntryId || Boolean(moveSelectionIssue)} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
           <label className="move-select">招式<select value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
           {moveSelectionIssue && <p className="control-section-hint">⚠ {moveSelectionIssue}；未发送计算请求。</p>}
-          {calculation ? <div className="calculation-output"><div className="totals-grid">{(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div>{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div>{calculation.panel_traces.length > 0 && <div className="trace-list"><p className="eyebrow">PANEL PROVENANCE</p>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</div>}{calculation.resolved_character_snapshots.length > 0 && <div className="trace-list"><p className="eyebrow">RESOLVED PANELS</p>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性加成 {formatElementBonuses(snapshot.stats.element_damage_bonus)}</span></div>)}</div>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
+          {calculation ? <div className="calculation-output"><div className="totals-grid">{(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div><AnomalyStrengthDetails event={event} />{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div>{calculation.panel_traces.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">PANEL PROVENANCE</span><strong>面板来源明细</strong></span><small>{calculation.panel_traces.length} 项</small></summary>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</details>}{calculation.resolved_character_snapshots.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">RESOLVED PANELS</span><strong>结算面板快照</strong></span><small>{calculation.resolved_character_snapshots.length} 名</small></summary>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性加成 {formatElementBonuses(snapshot.stats.element_damage_bonus)}</span></div>)}</details>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
         </section>
       </section>
 
@@ -1194,6 +1264,12 @@ function elementLabel(element: string) {
 
 function specialtyLabel(specialty: string) {
   return ({ attack: "强攻", anomaly: "异常", support: "支援", stun: "击破" } as Record<string, string>)[specialty] ?? specialty;
+}
+
+function isCharacterProgressField(field: CompileField) {
+  return field.field_id === "core_level"
+    || field.field_id === "cinema_level"
+    || field.field_id.startsWith("skill_level:");
 }
 
 type LivePanelProps = {
@@ -1257,7 +1333,7 @@ function LivePanel({ teamIds, characters, previews, manualStats, buildModes, loa
           <div className="live-panel-secondary-grid">
             {LIVE_PANEL_STATS.filter(({ key }) => !["attack", "crit_rate", "crit_damage"].includes(key)).map(({ key, label, ratio }) => <div className="live-panel-stat" key={key}><span>{label}</span><strong>{readStat(key, ratio)}</strong></div>)}
           </div>
-          <details className="live-panel-provenance" open={Boolean(preview)}>
+          <details className="live-panel-provenance">
             <summary><span>来源明细</span><small>{preview ? `${preview.provenance.length} 项装备/基础贡献` : "手工输入值"}</small></summary>
             <div className="provenance-list">
               {preview ? preview.provenance.map((item) => <div className="provenance-row" key={item.contribution_id}>
@@ -1273,20 +1349,6 @@ function LivePanel({ teamIds, characters, previews, manualStats, buildModes, loa
 
 function numericPreviewStat(value: BuildPreviewStat | undefined): number | "" {
   return typeof value === "number" ? value : "";
-}
-
-function formatPanelDisplay(value: BuildPreviewStat | undefined): string {
-  return typeof value === "number" ? formatNumber(value) : "—";
-}
-
-function previewRatioText(value: BuildPreviewStat | undefined): string {
-  return typeof value === "number" ? formatPreviewRatio(value) : "";
-}
-
-function previewElementRatioText(value: BuildPreviewStat | undefined, element: string): string {
-  if (!value || typeof value !== "object") return "";
-  const amount = value[element];
-  return typeof amount === "number" ? formatPreviewRatio(amount) : "";
 }
 
 function formatPanelValue(value: number | "" | undefined, ratio = false) {
@@ -1305,6 +1367,43 @@ function formatElementBonuses(value: number | Record<string, number | null> | nu
 
 function isEquipmentSource(sourceType: string | null | undefined) {
   return sourceType === "weapon" || sourceType === "drive-disc";
+}
+
+function AnomalyStrengthDetails({ event }: { event: CalculationView["events"][number] }) {
+  const trace = event.modes.expected?.anomaly_effect_strength_trace;
+  const isAnomaly = event.damage_subtype === "attribute-anomaly" || event.damage_type === "disorder";
+  if (!isAnomaly) return null;
+  if (!trace) {
+    return <div className="anomaly-strength-details anomaly-strength-missing"><strong>异常强度来源</strong><span>读取异常记录「{event.modes.expected?.anomaly_record_id ?? event.semantic_id}」，原始因子未提供；当前仅展示记录保存的异常强度数字。</span></div>;
+  }
+  return <div className="anomaly-strength-details">
+    <div className="anomaly-strength-heading"><strong>异常效果强度来源</strong><span>{trace.unresolved ?? "来自实际结算来源"}</span></div>
+    {trace.contributor_traces.length > 0
+      ? <div className="anomaly-strength-contributors">{trace.contributor_traces.map((item) => <div className="anomaly-strength-contributor" key={`${item.contributor_character_id}-${item.actual_written_buildup}`}><strong>{item.contributor_character_id}</strong><small>实际写入 {formatNumber(item.actual_written_buildup)}</small><AnomalyStrengthFormula trace={item.trace} /></div>)}</div>
+      : <AnomalyStrengthFormula trace={trace} />}
+  </div>;
+}
+
+function AnomalyStrengthFormula({ trace }: { trace: AnomalyEffectStrengthTraceView }) {
+  return <div className="anomaly-strength-formula">
+    <p>公式：等级系数 × 异常精通/100 × (1 + 对应属性增伤 + 适用普通增伤) × 攻击力 × 异化系数</p>
+    <div className="anomaly-strength-values">
+      <span><small>角色等级</small><b>{trace.level === null ? "未提供" : `${trace.level}级`}</b></span>
+      <span><small>等级系数</small><b>{formatNumber(trace.level_coefficient)}</b></span>
+      <span><small>有效异常精通</small><b>{formatNumber(trace.anomaly_proficiency)}</b></span>
+      <span><small>精通区</small><b>{formatNumber(trace.anomaly_proficiency_factor)}</b></span>
+      <span><small>有效攻击力</small><b>{formatNumber(trace.attack)}</b></span>
+      <span><small>对应属性增伤</small><b>{formatRatioOrMissing(trace.element_bonus)}</b></span>
+      <span><small>普通增伤区</small><b>{formatRatioOrMissing(trace.normal_bonus)}</b></span>
+      <span><small>异化系数</small><b>{formatNumber(trace.mutation)}</b></span>
+      <span><small>最终强度</small><b>{formatNumber(trace.final_strength)}</b></span>
+    </div>
+    {trace.factors.length > 0 && <div className="anomaly-strength-sources">{trace.factors.map((factor, index) => <div className="anomaly-strength-source" key={`${factor.factor}-${factor.source_id ?? index}`}><span>{factor.source_label ?? factor.factor}</span><strong>{factor.value === null ? "未提供" : formatNumber(factor.value)}</strong><small>{factor.owner_character_id ?? factor.source_id ?? "来源未标注"}{factor.unresolved ? ` · ${factor.unresolved}` : ""}</small></div>)}</div>}
+  </div>;
+}
+
+function formatRatioOrMissing(value: number | null) {
+  return value === null ? "未提供" : `${formatNumber(value * 100)}%`;
 }
 
 export default App;

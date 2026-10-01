@@ -305,6 +305,8 @@ class AttributeAnomalyDamageCalculator:
                 value=None,
                 breakdown=(),
                 unresolved=tuple(unresolved),
+                anomaly_effect_strength_trace=record.anomaly_effect_strength_trace,
+                anomaly_record_id=str(record.record_id),
             )
 
         assert anomaly_effect_strength is not None
@@ -422,4 +424,6 @@ class AttributeAnomalyDamageCalculator:
                 *resistance.unresolved,
                 *vulnerability.unresolved,
             ),
+            anomaly_effect_strength_trace=record.anomaly_effect_strength_trace,
+            anomaly_record_id=str(record.record_id),
         )

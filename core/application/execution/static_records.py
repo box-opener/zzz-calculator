@@ -16,6 +16,8 @@ from core.types import (
     ANOMALY_DAMAGE_KIND_BY_ELEMENT,
     ANOMALY_STATE_KIND_BY_ELEMENT,
     AnomalyContribution,
+    AnomalyEffectStrengthTrace,
+    AnomalyStrengthFactor,
     AnomalyRecord,
     AttributeAnomalyDamageEvent,
     AnomalyRecordValueSource,
@@ -33,7 +35,10 @@ from core.types import (
     UnresolvedReason,
 )
 
-from core.calculation.anomaly import anomaly_effect_strength, anomaly_impact_strength
+from core.calculation.anomaly import (
+    anomaly_effect_strength_with_trace,
+    anomaly_impact_strength,
+)
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId
 
@@ -67,6 +72,7 @@ def static_attribute_anomaly_record(
     event: DamageEvent,
     snapshots: tuple[CharacterSnapshot, ...],
     modifiers=(),
+    modifier_sources=None,
 ) -> StaticAnomalyRecordAssembly | None:
     """Build the static one-character record for a typed anomaly event.
 
@@ -166,17 +172,27 @@ def static_attribute_anomaly_record(
         CalculationNode.DAMAGE_NORMAL_BONUS,
         event,
     )
+    normal_factors = _normal_factors(modifiers, modifier_sources or {})
+    mutation, mutation_factors, mutation_diagnostics = _mutation_coefficient(
+        modifiers,
+        event,
+        modifier_sources or {},
+    )
     anomaly_bonus, anomaly_diagnostics = _modifier_total(
         modifiers,
         CalculationNode.ANOMALY_DAMAGE_BONUS,
         event,
     )
-    effect_strength = _effect_strength(
+    effect_strength, effect_trace = _effect_strength(
         level,
         attack,
         proficiency,
         element_bonus,
         normal_bonus,
+        event,
+        normal_factors,
+        mutation,
+        mutation_factors,
     )
     impact_strength = _impact_strength(level, impact)
     duration = _ANOMALY_DURATION_SECONDS.get(event.metadata.element)
@@ -197,6 +213,7 @@ def static_attribute_anomaly_record(
         anomaly_effect_strength=effect_strength,
         impact_strength=impact_strength,
         occurred_at=event.metadata.created_at,
+        anomaly_effect_strength_trace=effect_trace,
     )
     record = AnomalyRecord(
         record_id=event.history_record_source,
@@ -213,10 +230,15 @@ def static_attribute_anomaly_record(
         triggered_at=event.metadata.created_at,
         duration=duration_value,
         contributions=(contribution,),
+        anomaly_effect_strength_trace=effect_trace,
     )
     return StaticAnomalyRecordAssembly(
         record=record,
-        diagnostics=(*normal_diagnostics, *anomaly_diagnostics),
+        diagnostics=(
+            *normal_diagnostics,
+            *anomaly_diagnostics,
+            *mutation_diagnostics,
+        ),
     )
 
 
@@ -236,20 +258,132 @@ def _effect_strength(
     proficiency,
     element_bonus,
     normal_bonus,
+    event: AttributeAnomalyDamageEvent,
+    normal_factors: tuple[AnomalyStrengthFactor, ...],
+    mutation,
+    mutation_factors: tuple[AnomalyStrengthFactor, ...],
 ):
-    values = (attack, proficiency, element_bonus, normal_bonus)
+    values = (attack, proficiency, element_bonus, normal_bonus, mutation)
     if level is None or any(not isinstance(item, Resolved) for item in values):
-        return _unresolved("cannot calculate static anomaly effect strength")
-    value = anomaly_effect_strength(
-        level,
-        attack.value,
-        proficiency.value,
-        element_bonus.value,
-        normal_bonus.value,
+        notes = "cannot calculate static anomaly effect strength"
+        return _unresolved(notes), AnomalyEffectStrengthTrace(
+            character_id=event.anomaly_triggerer,
+            level=level,
+            level_coefficient=(1.0 + (level - 1) / 59.0) if level is not None else None,
+            anomaly_proficiency=proficiency.value if isinstance(proficiency, Resolved) else None,
+            anomaly_proficiency_factor=(proficiency.value / 100.0) if isinstance(proficiency, Resolved) else None,
+            attack=attack.value if isinstance(attack, Resolved) else None,
+            element_bonus=element_bonus.value if isinstance(element_bonus, Resolved) else None,
+            normal_bonus=normal_bonus.value if isinstance(normal_bonus, Resolved) else None,
+            mutation=mutation.value if isinstance(mutation, Resolved) else None,
+            final_strength=None,
+            element=event.metadata.element,
+            factors=(*normal_factors, *mutation_factors),
+            unresolved=notes,
+        )
+    value, trace = anomaly_effect_strength_with_trace(
+        character_id=event.anomaly_triggerer,
+        level=level,
+        attack=attack.value,
+        anomaly_proficiency=proficiency.value,
+        element_damage_bonus=element_bonus.value,
+        normal_damage_bonus=normal_bonus.value,
+        mutation=mutation.value,
+        element=event.metadata.element,
+        normal_factors=normal_factors,
+        mutation_factors=mutation_factors,
     )
     if not math.isfinite(value):
-        return _unresolved("static anomaly effect strength is not finite")
-    return Resolved(value)
+        notes = "static anomaly effect strength is not finite"
+        return _unresolved(notes), replace_trace_unresolved(trace, notes)
+    return Resolved(value), trace
+
+
+def replace_trace_unresolved(
+    trace: AnomalyEffectStrengthTrace,
+    notes: str,
+) -> AnomalyEffectStrengthTrace:
+    return AnomalyEffectStrengthTrace(
+        character_id=trace.character_id,
+        level=trace.level,
+        level_coefficient=trace.level_coefficient,
+        anomaly_proficiency=trace.anomaly_proficiency,
+        anomaly_proficiency_factor=trace.anomaly_proficiency_factor,
+        attack=trace.attack,
+        element_bonus=trace.element_bonus,
+        normal_bonus=trace.normal_bonus,
+        mutation=trace.mutation,
+        final_strength=None,
+        element=trace.element,
+        factors=trace.factors,
+        unresolved=notes,
+        contributor_traces=trace.contributor_traces,
+    )
+
+
+def _normal_factors(modifiers, modifier_sources):
+    factors: list[AnomalyStrengthFactor] = []
+    for modifier in modifiers:
+        if modifier.modifier_path is not CalculationNode.DAMAGE_NORMAL_BONUS:
+            continue
+        value = modifier.value.value if isinstance(modifier.value, Resolved) else None
+        source_id = str(modifier.effect_id)
+        source_label, owner = modifier_sources.get(source_id, (None, None))
+        factors.append(
+            AnomalyStrengthFactor(
+                factor="normal-bonus",
+                value=value,
+                source_id=source_id,
+                source_label=source_label,
+                owner_character_id=owner,
+                unresolved=(modifier.value.notes if not isinstance(modifier.value, Resolved) else None),
+            )
+        )
+    return tuple(factors)
+
+
+def _mutation_coefficient(modifiers, event, modifier_sources):
+    coefficient = 1.0
+    factors: list[AnomalyStrengthFactor] = []
+    diagnostics: list[CalculationDiagnostic] = []
+    for modifier in modifiers:
+        if modifier.modifier_path is not CalculationNode.ANOMALY_MUTATION_COEFFICIENT:
+            continue
+        source_id = str(modifier.effect_id)
+        source_label, owner = modifier_sources.get(source_id, (None, None))
+        if modifier.operation is not EffectOperation.MULTIPLY:
+            diagnostics.append(
+                _diagnostic(
+                    event,
+                    "static-record-mutation-operation",
+                    "static anomaly record requires MULTIPLY for anomaly mutation coefficient",
+                )
+            )
+            value = None
+            unresolved = f"unsupported mutation operation: {modifier.operation.value}"
+        elif not isinstance(modifier.value, Resolved):
+            diagnostics.append(
+                _diagnostic(event, "static-record-mutation-value", modifier.value.notes)
+            )
+            value = None
+            unresolved = modifier.value.notes
+        else:
+            value = modifier.value.value
+            unresolved = None
+            coefficient *= value
+        factors.append(
+            AnomalyStrengthFactor(
+                factor="mutation",
+                value=value,
+                source_id=source_id,
+                source_label=source_label,
+                owner_character_id=owner,
+                unresolved=unresolved,
+            )
+        )
+        if value is None:
+            return _unresolved("cannot calculate static anomaly mutation coefficient"), tuple(factors), tuple(diagnostics)
+    return Resolved(coefficient), tuple(factors), tuple(diagnostics)
 
 
 def _impact_strength(level: int | None, impact):

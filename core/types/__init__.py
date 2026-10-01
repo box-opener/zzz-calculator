@@ -3,7 +3,9 @@
 from .anomaly_record import (
     AnomalyContribution,
     AnomalyCritCapability,
+    AnomalyEffectStrengthTrace,
     AnomalyRecord,
+    AnomalyStrengthFactor,
     IndependentAnomalyCrit,
     NoAnomalyCrit,
 )

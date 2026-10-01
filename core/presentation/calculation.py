@@ -12,7 +12,14 @@ from dataclasses import dataclass
 from core.application.execution.contracts import DamageEventExecutionTrace
 from core.application.output import CritDisplayMode, DamageEventCalculationOutput
 from core.calculation.nodes import CalculationNodeValue
-from core.types import BuildContributionTrace, CharacterSnapshot, Resolved, Unresolved
+from core.types import (
+    AnomalyEffectStrengthTrace,
+    AnomalyStrengthFactor,
+    BuildContributionTrace,
+    CharacterSnapshot,
+    Resolved,
+    Unresolved,
+)
 
 from .diagnostics import DiagnosticView
 
@@ -110,6 +117,43 @@ class DamageEventModeView:
     diagnostics: tuple[DiagnosticView, ...]
     unresolved: tuple[str, ...]
     calculation_breakdown: tuple[CalculationNodeValueView, ...]
+    anomaly_effect_strength_trace: "AnomalyEffectStrengthTraceView | None" = None
+    anomaly_record_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyStrengthFactorView:
+    factor: str
+    value: float | None
+    source_id: str | None
+    source_label: str | None
+    owner_character_id: str | None
+    unresolved: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyContributorStrengthTraceView:
+    contributor_character_id: str
+    actual_written_buildup: float
+    trace: "AnomalyEffectStrengthTraceView"
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyEffectStrengthTraceView:
+    character_id: str
+    level: int | None
+    level_coefficient: float | None
+    anomaly_proficiency: float | None
+    anomaly_proficiency_factor: float | None
+    attack: float | None
+    element_bonus: float | None
+    normal_bonus: float | None
+    mutation: float | None
+    final_strength: float | None
+    element: str | None
+    factors: tuple[AnomalyStrengthFactorView, ...]
+    unresolved: str | None
+    contributor_traces: tuple[AnomalyContributorStrengthTraceView, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -321,7 +365,70 @@ def build_contribution_view(trace: BuildContributionTrace) -> BuildContributionV
     )
 
 
-def _mode_view(item: DamageEventCalculationOutput) -> DamageEventModeView:
+def anomaly_strength_factor_view(
+    factor: AnomalyStrengthFactor,
+    source_labels: dict[str, str] | None = None,
+    source_owners: dict[str, str] | None = None,
+) -> AnomalyStrengthFactorView:
+    resolved_label = (
+        (source_labels or {}).get(factor.source_id or "")
+        if factor.source_id is not None
+        else None
+    )
+    label = resolved_label or factor.source_label
+    owner = (
+        str(factor.owner_character_id)
+        if factor.owner_character_id is not None
+        else (source_owners or {}).get(factor.source_id or "")
+    )
+    return AnomalyStrengthFactorView(
+        factor=factor.factor,
+        value=factor.value,
+        source_id=factor.source_id,
+        source_label=label,
+        owner_character_id=owner,
+        unresolved=factor.unresolved,
+    )
+
+
+def anomaly_effect_strength_trace_view(
+    trace: AnomalyEffectStrengthTrace,
+    source_labels: dict[str, str] | None = None,
+    source_owners: dict[str, str] | None = None,
+) -> AnomalyEffectStrengthTraceView:
+    return AnomalyEffectStrengthTraceView(
+        character_id=str(trace.character_id),
+        level=trace.level,
+        level_coefficient=trace.level_coefficient,
+        anomaly_proficiency=trace.anomaly_proficiency,
+        anomaly_proficiency_factor=trace.anomaly_proficiency_factor,
+        attack=trace.attack,
+        element_bonus=trace.element_bonus,
+        normal_bonus=trace.normal_bonus,
+        mutation=trace.mutation,
+        final_strength=trace.final_strength,
+        element=trace.element.value if trace.element is not None else None,
+        factors=tuple(
+            anomaly_strength_factor_view(item, source_labels, source_owners)
+            for item in trace.factors
+        ),
+        unresolved=trace.unresolved,
+        contributor_traces=tuple(
+            AnomalyContributorStrengthTraceView(
+                contributor_character_id=str(contributor),
+                actual_written_buildup=written,
+                trace=anomaly_effect_strength_trace_view(item, source_labels, source_owners),
+            )
+            for contributor, written, item in trace.contributor_traces
+        ),
+    )
+
+
+def _mode_view(
+    item: DamageEventCalculationOutput,
+    source_labels: dict[str, str] | None = None,
+    source_owners: dict[str, str] | None = None,
+) -> DamageEventModeView:
     result = item.result
     return DamageEventModeView(
         value=result.value if result is not None else None,
@@ -348,6 +455,16 @@ def _mode_view(item: DamageEventCalculationOutput) -> DamageEventModeView:
             if result is not None
             else ()
         ),
+        anomaly_effect_strength_trace=(
+            anomaly_effect_strength_trace_view(
+                result.anomaly_effect_strength_trace,
+                source_labels,
+                source_owners,
+            )
+            if result is not None and result.anomaly_effect_strength_trace is not None
+            else None
+        ),
+        anomaly_record_id=result.anomaly_record_id if result is not None else None,
     )
 
 
@@ -363,6 +480,9 @@ __all__ = [
     "CalculationNodeValueView",
     "CalculationView",
     "BuildContributionView",
+    "AnomalyEffectStrengthTraceView",
+    "AnomalyStrengthFactorView",
+    "AnomalyContributorStrengthTraceView",
     "DamageEventModeView",
     "DamageEventView",
     "EffectMatchView",
@@ -376,4 +496,5 @@ __all__ = [
     "event_trace_view",
     "panel_snapshot_view",
     "build_contribution_view",
+    "anomaly_effect_strength_trace_view",
 ]
