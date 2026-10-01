@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import replace
 
 import pytest
@@ -263,28 +264,61 @@ def test_ye_c1_damage_effects_do_not_leak_to_astra_c4_child() -> None:
 
 
 def test_current_am_derived_values_and_equipment_order() -> None:
-    manual = calculate_payload(
-        _payload(
-            primary="character:1401",
-            supporting=("character:1411",),
-            move_entry_id="move-entry:alice:1401:physical-anomaly",
-            compile_configs={
-                "character:1401": {"core_level": 1, "cinema_level": 0},
-                "character:1411": {"core_level": 1, "cinema_level": 0},
+    manual_payload = _payload(
+        primary="character:1401",
+        supporting=("character:1411",),
+        move_entry_id="move-entry:alice:1401:physical-anomaly",
+        compile_configs={
+            "character:1401": {"core_level": 1, "cinema_level": 0},
+            "character:1411": {"core_level": 1, "cinema_level": 0},
+        },
+        condition_values={
+            **_alice_conditions(),
+            "condition:yuzuha:tanuki-wish-active": False,
+        },
+        enabled_rule_item_ids=("rule:alice:1401:extra-ability",),
+        character_builds={
+            "character:1401": {
+                "level": 60,
+                "out_of_combat_stats": _stats(
+                    "physical", attack=1000.0, anomaly_mastery=200.0
+                ),
             },
-            condition_values={
-                **_alice_conditions(),
-                "condition:yuzuha:tanuki-wish-active": False,
+            "character:1411": {
+                "level": 60,
+                "out_of_combat_stats": _stats("physical"),
             },
-            enabled_rule_item_ids=("rule:alice:1401:extra-ability",),
-        )
+        },
     )
+    manual = calculate_payload(manual_payload)
     alice_snapshot = next(
         item
         for item in manual["resolved_character_snapshots"]
         if item["character_id"] == "character:1401"
     )
-    assert alice_snapshot["stats"]["attack"] == pytest.approx(196.0)
+    assert alice_snapshot["stats"]["attack"] == pytest.approx(1000.0)
+    assert alice_snapshot["stats"]["anomaly_proficiency"] == pytest.approx(196.0)
+    manual_without_extra = deepcopy(manual_payload)
+    manual_without_extra["enabled_rule_item_ids"] = []
+    baseline = calculate_payload(manual_without_extra)
+    baseline_event = _event(baseline, "event:alice:1401:physical-anomaly")
+    extra_event = _event(manual, "event:alice:1401:physical-anomaly")
+    assert _breakdown(extra_event)["anomaly.effect-strength"] > _breakdown(
+        baseline_event
+    )["anomaly.effect-strength"]
+
+    low_am_payload = deepcopy(manual_payload)
+    low_am_payload["character_builds"]["character:1401"]["out_of_combat_stats"] = _stats(
+        "physical", attack=1000.0, anomaly_mastery=100.0
+    )
+    low_am = calculate_payload(low_am_payload)
+    low_snapshot = next(
+        item
+        for item in low_am["resolved_character_snapshots"]
+        if item["character_id"] == "character:1401"
+    )
+    assert low_snapshot["stats"]["attack"] == pytest.approx(1000.0)
+    assert low_snapshot["stats"]["anomaly_proficiency"] == pytest.approx(100.0)
 
     equipment_builds = {
         "character:1401": {
@@ -293,40 +327,55 @@ def test_current_am_derived_values_and_equipment_order() -> None:
             "wengine_id": "wengine:14140",
             "wengine_level": 60,
             "wengine_refinement": 1,
-            "base_stats": _stats("physical", anomaly_mastery=100.0),
+            "base_stats": _stats(
+                "physical", attack=1000.0, anomaly_mastery=100.0
+            ),
         },
         "character:1411": {
             "level": 60,
             "out_of_combat_stats": _stats("physical"),
         },
     }
-    equipment = calculate_payload(
-        _payload(
-            primary="character:1401",
-            supporting=("character:1411",),
-            move_entry_id="move-entry:alice:1401:physical-anomaly",
-            compile_configs={
-                "character:1401": {"core_level": 1, "cinema_level": 0},
-                "character:1411": {"core_level": 1, "cinema_level": 0},
-            },
-            condition_values={
-                **_alice_conditions(),
-                "condition:yuzuha:tanuki-wish-active": False,
-                "condition:wengine:14140:owner:1401:strong-assault-active": False,
-            },
-            enabled_rule_item_ids=(
-                "rule:alice:1401:extra-ability",
-                "rule:wengine:14140:owner:1401:anomaly-mastery",
-            ),
-            character_builds=equipment_builds,
-        )
+    equipment_payload = _payload(
+        primary="character:1401",
+        supporting=("character:1411",),
+        move_entry_id="move-entry:alice:1401:physical-anomaly",
+        compile_configs={
+            "character:1401": {"core_level": 1, "cinema_level": 0},
+            "character:1411": {"core_level": 1, "cinema_level": 0},
+        },
+        condition_values={
+            **_alice_conditions(),
+            "condition:yuzuha:tanuki-wish-active": False,
+            "condition:wengine:14140:owner:1401:strong-assault-active": False,
+        },
+        enabled_rule_item_ids=(
+            "rule:alice:1401:extra-ability",
+            "rule:wengine:14140:owner:1401:anomaly-mastery",
+        ),
+        character_builds=equipment_builds,
     )
+    equipment = calculate_payload(equipment_payload)
+    equipment_without_extra = deepcopy(equipment_payload)
+    equipment_without_extra["enabled_rule_item_ids"] = [
+        "rule:wengine:14140:owner:1401:anomaly-mastery"
+    ]
+    equipment_baseline = calculate_payload(equipment_without_extra)
     alice_snapshot = next(
         item
         for item in equipment["resolved_character_snapshots"]
         if item["character_id"] == "character:1401"
     )
+    baseline_snapshot = next(
+        item
+        for item in equipment_baseline["resolved_character_snapshots"]
+        if item["character_id"] == "character:1401"
+    )
     assert alice_snapshot["stats"]["anomaly_mastery"] == pytest.approx(160.0)
+    assert alice_snapshot["stats"]["anomaly_proficiency"] == pytest.approx(132.0)
+    assert alice_snapshot["stats"]["attack"] == pytest.approx(
+        baseline_snapshot["stats"]["attack"]
+    )
     traces = [
         item
         for item in equipment["panel_traces"]
@@ -334,9 +383,86 @@ def test_current_am_derived_values_and_equipment_order() -> None:
     ]
     assert [item["effect_id"] for item in traces] == [
         "effect:wengine:14140:owner:1401:anomaly-mastery",
-        "effect:character:1401:extra-ability:anomaly-mastery-to-attack",
+        "effect:character:1401:extra-ability:anomaly-mastery-to-proficiency",
     ]
     assert traces[1]["resolved_value"] == pytest.approx(32.0)
+    assert traces[1]["modifier_path"] == (
+        "character.combat.anomaly-proficiency-flat-bonus"
+    )
+
+
+def test_alice_extra_proficiency_does_not_touch_yuzuha_astra_attack_buffs() -> None:
+    builds = {
+        "character:1401": {
+            "level": 60,
+            "out_of_combat_stats": _stats(
+                "physical", attack=1000.0, anomaly_mastery=200.0
+            ),
+        },
+        "character:1411": {
+            "level": 60,
+            "out_of_combat_stats": _stats("physical", attack=100.0),
+        },
+        "character:1311": {
+            "level": 60,
+            "out_of_combat_stats": _stats("ether", attack=800.0),
+        },
+    }
+    common = dict(
+        primary="character:1401",
+        supporting=("character:1411", "character:1311"),
+        move_entry_id="move-entry:alice:1401:physical-anomaly",
+        compile_configs={
+            "character:1401": {"core_level": 1, "cinema_level": 0},
+            "character:1411": {"core_level": 1, "cinema_level": 0},
+            "character:1311": {"core_level": 1, "cinema_level": 0},
+        },
+        condition_values={
+            **_alice_conditions(),
+            "condition:yuzuha:tanuki-wish-active": True,
+            "condition:astra:core-attack-buff-active": True,
+        },
+        character_builds=builds,
+    )
+    enabled = (
+        "rule:yuzuha:1411:core-passive",
+        "rule:astra:1311:core-passive-self",
+        "rule:alice:1401:extra-ability",
+    )
+    with_extra = calculate_payload(
+        _payload(**common, enabled_rule_item_ids=enabled)
+    )
+    without_extra_payload = dict(common)
+    without_extra = calculate_payload(
+        _payload(
+            **without_extra_payload,
+            enabled_rule_item_ids=enabled[:-1],
+        )
+    )
+    with_snapshot = next(
+        item
+        for item in with_extra["resolved_character_snapshots"]
+        if item["character_id"] == "character:1401"
+    )
+    without_snapshot = next(
+        item
+        for item in without_extra["resolved_character_snapshots"]
+        if item["character_id"] == "character:1401"
+    )
+    assert with_snapshot["stats"]["attack"] == pytest.approx(
+        without_snapshot["stats"]["attack"]
+    )
+    assert with_snapshot["stats"]["anomaly_proficiency"] == pytest.approx(196.0)
+    assert without_snapshot["stats"]["anomaly_proficiency"] == pytest.approx(100.0)
+    extra_trace = next(
+        item
+        for item in with_extra["panel_traces"]
+        if item["effect_id"]
+        == "effect:character:1401:extra-ability:anomaly-mastery-to-proficiency"
+    )
+    assert extra_trace["modifier_path"] == (
+        "character.combat.anomaly-proficiency-flat-bonus"
+    )
 
 
 @pytest.mark.parametrize("anomaly_mastery, expected", ((200.0, 0.26), (80.0, 0.0)))

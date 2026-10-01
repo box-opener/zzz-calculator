@@ -515,9 +515,9 @@ def compile_alice(
             else RuleEligibility.INELIGIBLE,
             effects=(
                 _modifier(
-                    "extra-ability:anomaly-mastery-to-attack",
+                    "extra-ability:anomaly-mastery-to-proficiency",
                     extra_source,
-                    CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
+                    CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
                     PanelStatDerivedValue(
                         source_character_id=ALICE_ID,
                         source_node=CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
