@@ -32,6 +32,12 @@ from core.application.characters.miyabi import (
     compile_miyabi,
     load_raw_record as load_miyabi_raw_record,
 )
+from core.application.characters.yixuan import (
+    YIXUAN_ID,
+    YixuanCompileConfig,
+    compile_yixuan,
+    load_raw_record as load_yixuan_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -244,6 +250,31 @@ def _miyabi_fields(
         _integer_field(
             "cinema_level",
             "雅影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _yixuan_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "仪玄核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "仪玄影画",
             int(values.get("cinema_level", 0)),
             0,
             6,
@@ -613,6 +644,38 @@ def _compile_miyabi(
     )
 
 
+def _yixuan_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != YIXUAN_ID
+        and _REGISTRATIONS[character_id].role
+        in {CharacterRole.STUN, CharacterRole.SUPPORT, CharacterRole.DEFENSE}
+        for character_id in team_ids
+    )
+
+
+def _compile_yixuan(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_yixuan(
+        YixuanCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _yixuan_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_yixuan_raw_record(load_character_record(str(YIXUAN_ID))),
+    )
+
+
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
@@ -757,6 +820,30 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"miyabi-icefire", "miyabi-frostburn-break"}),
+        ),
+    ),
+    CharacterId("character:1371"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1371"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1371",
+            display_name="仪玄",
+            rarity="S",
+            element="ether",
+            specialty="rupture",
+            image_path="/characters/IconRole44.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.RUPTURE,
+        base_element=Element.ETHER,
+        compile_definition=_compile_yixuan,
+        config_fields=_yixuan_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1371"),
+            role=CharacterRole.RUPTURE,
+            possible_elements=frozenset({Element.ETHER, Element.XUANMO}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"yixuan-penetration"}),
         ),
     ),
 }

@@ -433,11 +433,20 @@ def build_move_calculation_view(
                 "three crit-mode executions disagree on resolved panel snapshots",
             )
         )
-    diagnostics.extend(
-        diagnostic_view(item)
-        for mode in required_modes
-        for item in executions[mode].output.diagnostics
-    )
+    seen_output_diagnostics = set()
+    for mode in required_modes:
+        for item in executions[mode].output.diagnostics:
+            identity = (
+                item.diagnostic_id,
+                item.kind,
+                item.message,
+                item.original_text,
+                item.candidates,
+            )
+            if identity in seen_output_diagnostics:
+                continue
+            seen_output_diagnostics.add(identity)
+            diagnostics.append(diagnostic_view(item))
     return CalculationView(
         schema_version=SCHEMA_VERSION,
         move_entry_id=str(expected.output.move_entry_id),

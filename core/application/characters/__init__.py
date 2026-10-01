@@ -7,6 +7,7 @@ from .templates import (
     CurrentAttributeAnomalyDamageEventTemplate,
     DamageEventTemplate,
     DirectDamageEventTemplate,
+    PenetrationDamageEventTemplate,
     DisorderDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
 )
@@ -15,11 +16,13 @@ from .alice import AliceCompileConfig, compile_alice
 from .yuzuha import YuzuhaCompileConfig, compile_yuzuha
 from .trigger import TriggerCompileConfig, compile_trigger
 from .miyabi import MiyabiCompileConfig, compile_miyabi
+from .yixuan import YixuanCompileConfig, compile_yixuan
 
 __all__ = [
     "CharacterCalculationDefinition",
     "CharacterSkillLevel",
     "DirectDamageEventTemplate",
+    "PenetrationDamageEventTemplate",
     "DamageEventTemplate",
     "AttributeAnomalyDamageEventTemplate",
     "CurrentAttributeAnomalyDamageEventTemplate",
@@ -35,4 +38,6 @@ __all__ = [
     "compile_trigger",
     "MiyabiCompileConfig",
     "compile_miyabi",
+    "YixuanCompileConfig",
+    "compile_yixuan",
 ]

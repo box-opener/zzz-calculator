@@ -76,3 +76,66 @@ proficiency `238` (148 base + 90 from source property `31201`). The API has no
 separate ascension/core-stat selector, so selecting a lower core passive level
 does not alter this level-60 base panel. Manual-panel mode remains available
 for user-supplied stats.
+
+## Yixuan (`character:1371`)
+
+### Nanoka source version and packaged panel
+
+The Yixuan detail record is packaged from the currently retrievable live `3.2`
+source at `https://static.nanoka.cc/zzz/3.2/zh/character/1371.json`, with that
+version and URL recorded in the raw file. The older pinned path
+`3.2.4+18409985` returned 404 during source validation; no existing character
+record or shared version constant was rewritten. The raw record identifies
+base element 以太 and special element 玄墨. Its level-60 `extra_level[6]`
+contains `11101` HP `+420`; the common Nanoka panel normalization includes this
+property and yields HP `8373.8621`, attack `872.5748`, crit rate `0.194`,
+anomaly mastery `92`, and anomaly proficiency `90` before equipment.
+
+The build API still takes character level but no separate core/ascension-level
+input. Equipment builds therefore use the packaged level-60, `extra_level[6]`
+panel even when the selected core level is lower. Manual-panel mode remains
+available for user-supplied values.
+
+Yixuan's source says each point of her maximum HP adds 0.1 penetration force.
+The shared calculation specification already defines the general formula as
+`0.25 × current attack + 0.10 × current max HP`; the compiler uses the existing
+typed `PenetrationDamageEvent` and this shared formula without adding a second
+HP term. The independent Xuanmo anomaly is calculated through the static
+`AnomalyRecord` path, not through penetration force.
+
+### Lightning event identity
+
+The Additional Ability and Cinema 1 text state force multipliers of 225% and
+50%, respectively, and identify Yixuan as the force owner/dealer. Neither
+passage assigns the lightning event an elemental attribute, `MoveId`,
+`SkillGroup`, or damage tags. When the explicit Perfect Support switch-out or
+Cinema 1 hit condition is selected, the event creation is therefore blocked
+with an `AMBIGUOUS_SEMANTICS` diagnostic that retains the known multiplier and
+the unresolved identity choices. No lightning damage value is guessed.
+
+The existing static request model can exercise Cinema 1 from a Direct or
+Penetration damage event, including Yixuan's own Penetration event. It does not
+simulate the six-second cooldown. The Additional Ability's switched-out actor
+is supplied as a separate current-state selection; the current support-entry
+trigger contract identifies the incoming actor, not the outgoing Yixuan.
+
+### Static anomaly and resource states
+
+Yixuan's raw core text identifies an independent 玄墨 anomaly gauge. The
+calculator exposes 玄墨侵蚀 as a separate `AttributeAnomalyDamageEvent` using
+the static full-gauge assumption: 10 seconds, 20 ticks at 62.5% each. Its
+紊乱 event uses the maximum-duration formula `450% + 20 × 62.5% = 1700%` and
+inherits the Xuanmo anomaly record. These events use the Ether base resistance
+and the anomaly/disorder calculators; Penetration, Core damage, Cinema 4, and
+Cinema 6 modifiers are filtered out of these settlements.
+
+The calculator accepts current-state choices for 凝神, 聚墨/符法千重-破,
+静心 stack count, the Perfect Support switch-out, and the C6 free Ultimate.
+It does not replay state acquisition, duration expiry, stack consumption,
+cooldowns, flash energy, 术法值, or the extra 3 seconds of stun duration. The
+Extra Ability's 10-second flash recovery and Yixuan's other flash/resource
+changes are also outside the current damage calculation contract. When the
+Extra Ability is eligible and 凝神 is selected, its 40% crit-damage bonus is a
+settlement-panel effect owned by Yixuan; it does not change teammates' panels.
+Attribute anomaly and Disorder events use no-crit rules, so this ordinary crit
+panel value does not alter their damage.

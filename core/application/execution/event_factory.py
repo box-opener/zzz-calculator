@@ -12,6 +12,7 @@ from core.types import (
     DirectDamageEvent,
     DisorderDamageEvent,
     CurrentAttributeAnomalyDamageEvent,
+    PenetrationDamageEvent,
     SettledAnomalyDamageEvent,
     SettledDamageValueSource,
     EffectId,
@@ -23,6 +24,7 @@ from ..characters.templates import (
     CurrentAttributeAnomalyDamageEventTemplate,
     DamageEventTemplate,
     DirectDamageEventTemplate,
+    PenetrationDamageEventTemplate,
     DisorderDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
 )
@@ -92,6 +94,31 @@ def instantiate_damage_event(
             target_enemy=target_enemy,
             created_at=created_at,
             source_rule_item_id=source_rule_item_id,
+            created_by_effect_id=created_by_effect_id,
+            repeat_count=repeat_count,
+        )
+    if isinstance(template, PenetrationDamageEventTemplate):
+        event = PenetrationDamageEvent(
+            metadata=template_metadata(
+                template,
+                battle_state_id=battle_state_id,
+                target_enemy=target_enemy,
+                created_at=created_at,
+            ),
+            base_settlement_data_source=template.base_source,
+            multiplier=multiplier,
+            crit_rule=template.crit_rule,
+        )
+        return InstantiatedDamageEvent(
+            template_id=template.ref.template_id,
+            semantic_id=template.ref.semantic_id,
+            label=template.ref.label,
+            event=event,
+            source_rule_item_id=(
+                source_rule_item_id
+                if source_rule_item_id is not None
+                else template.ref.source_rule_item_id
+            ),
             created_by_effect_id=created_by_effect_id,
             repeat_count=repeat_count,
         )

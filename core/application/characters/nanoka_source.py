@@ -112,6 +112,7 @@ class NanokaRawRecord:
     moves: tuple[NanokaRawMoveRecord, ...]
     core_levels: tuple[NanokaRawCoreLevel, ...]
     mindscapes: tuple[NanokaRawMindscape, ...]
+    special_element: str | None = None
 
     @property
     def extra_ability_name(self) -> str:
@@ -235,6 +236,12 @@ def load_nanoka_raw_record(
 
     weapon_type = _mapping(data, "weapon_type")
     element_type = _mapping(data, "element_type")
+    raw_special_element = data.get("special_element_type", {})
+    special_element = (
+        raw_special_element.get("name")
+        if isinstance(raw_special_element, Mapping)
+        else None
+    )
     camp = _mapping(data, "camp")
     source_version = str(
         data.get("source_version", NANOKA_SOURCE_VERSION)
@@ -259,6 +266,11 @@ def load_nanoka_raw_record(
         moves=tuple(moves),
         core_levels=tuple(core_levels),
         mindscapes=tuple(mindscapes),
+        special_element=(
+            str(special_element).strip()
+            if isinstance(special_element, str) and special_element.strip()
+            else None
+        ),
     )
 
 

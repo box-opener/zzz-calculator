@@ -45,6 +45,7 @@ from core.types import (
     EffectOperation,
     Resolved,
     SnapshotRule,
+    StateId,
     Unresolved,
     UnresolvedReason,
     WEngineBuildInput,
@@ -669,7 +670,14 @@ def _enemy_inputs(enemy: EnemyInput):
         damage_reduction=Resolved(enemy.damage_reduction),
         is_stunned=enemy.is_stunned,
     )
-    profile = EnemyMatchProfile(enemy_id=enemy_id)
+    profile = EnemyMatchProfile(
+        enemy_id=enemy_id,
+        states=(
+            frozenset({StateId("state:enemy:stunned")})
+            if enemy.is_stunned
+            else frozenset()
+        ),
+    )
     base = Modifier(
         effect_id=EffectId("base:ui:enemy-stun-vulnerability"),
         modifier_path=CalculationNode.ENEMY_STUN_VULNERABILITY,

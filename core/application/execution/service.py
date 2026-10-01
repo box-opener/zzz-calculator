@@ -14,6 +14,7 @@ from core.types import (
     DamageEventId,
     DirectDamageEvent,
     DisorderDamageEvent,
+    PenetrationDamageEvent,
     EffectId,
     EffectOperation,
     FixedMultiplier,
@@ -26,6 +27,7 @@ from core.types import (
     Resolved,
     StandardCritRule,
     Unresolved,
+    UnresolvedReason,
 )
 
 from ..matching import (
@@ -425,10 +427,27 @@ class DirectMoveApplicationService:
         template_id = effect.result.event_template_id
         if template_id is None:
             unresolved = effect.result.unresolved_template
+            unresolved_reason = unresolved.reason if unresolved is not None else None
+            diagnostic_kind = (
+                DiagnosticKind.AMBIGUOUS_SEMANTICS
+                if unresolved_reason
+                in {
+                    UnresolvedReason.AMBIGUOUS_TEXT,
+                    UnresolvedReason.AMBIGUOUS_IDENTITY,
+                    UnresolvedReason.AMBIGUOUS_ORDERING,
+                }
+                else DiagnosticKind.UNSUPPORTED_CALCULATOR
+                if unresolved_reason
+                in {
+                    UnresolvedReason.MISSING_SPEC_RULE,
+                    UnresolvedReason.NOT_IMPLEMENTED_IN_SPEC,
+                }
+                else DiagnosticKind.MISSING_DATA
+            )
             return _diagnostic(
                 str(effect.rule.effect_id),
                 "unresolved-template",
-                DiagnosticKind.MISSING_DATA,
+                diagnostic_kind,
                 (
                     unresolved.notes
                     if unresolved is not None
@@ -795,7 +814,9 @@ def _display_snapshots(
     event: DamageEvent,
     mode: CritDisplayMode,
 ) -> tuple[CharacterSnapshot, ...]:
-    if mode is CritDisplayMode.EXPECTED or not isinstance(event, DirectDamageEvent):
+    if mode is CritDisplayMode.EXPECTED or not isinstance(
+        event, (DirectDamageEvent, PenetrationDamageEvent)
+    ):
         return snapshots
     if not isinstance(event.crit_rule, StandardCritRule):
         return snapshots

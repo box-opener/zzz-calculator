@@ -13,6 +13,7 @@ from core.types import (
     CharacterId,
     CharacterSnapshot,
     DirectDamageEvent,
+    PenetrationDamageEvent,
     DynamicIdentity,
     EffectId,
     EffectOperation,
@@ -960,7 +961,7 @@ def _event_stat_modifier(
     stack_count: int,
     diagnostics: list[CalculationDiagnostic],
 ) -> EventStatModifier | None:
-    if not isinstance(event, DirectDamageEvent) or not isinstance(
+    if not isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)) or not isinstance(
         event.crit_rule, StandardCritRule
     ):
         diagnostics.append(

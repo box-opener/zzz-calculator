@@ -6,6 +6,7 @@ from core.types import (
     AnomalyRecordId,
     CurrentAnomalyEffectStrengthValueSource,
     CurrentAnomalyProficiencyValueSource,
+    CurrentPenetrationForceValueSource,
     SettledDamageValueSource,
     CharacterId,
     CurrentAttackValueSource,
@@ -38,6 +39,32 @@ class DirectDamageEventTemplate:
             raise ValueError("template ref element must match typed template element")
         if self.damage_dealer != self.base_source.character_id:
             raise ValueError("base attack source must match damage dealer")
+        if self.damage_dealer != self.crit_rule.stat_owner:
+            raise ValueError("crit stat owner must match damage dealer")
+        if self.ref.skill_group is None and self.move_id is not None:
+            raise ValueError(
+                "a template with a move_id must have an explicit skill_group"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class PenetrationDamageEventTemplate:
+    """Typed template for a move that uses the shared rupture formula."""
+
+    ref: DamageEventTemplateRef
+    damage_dealer: CharacterId
+    element: Element
+    base_source: CurrentPenetrationForceValueSource
+    crit_rule: StandardCritRule
+    move_id: MoveId | None
+
+    def __post_init__(self) -> None:
+        if self.ref.damage_type is not DamageType.PENETRATION:
+            raise ValueError("PenetrationDamageEventTemplate requires penetration damage")
+        if self.ref.element is not self.element:
+            raise ValueError("template ref element must match typed template element")
+        if self.damage_dealer != self.base_source.character_id:
+            raise ValueError("penetration-force source must match damage dealer")
         if self.damage_dealer != self.crit_rule.stat_owner:
             raise ValueError("crit stat owner must match damage dealer")
         if self.ref.skill_group is None and self.move_id is not None:
@@ -142,6 +169,7 @@ class SettledAnomalyDamageEventTemplate:
 
 DamageEventTemplate = (
     DirectDamageEventTemplate
+    | PenetrationDamageEventTemplate
     | AttributeAnomalyDamageEventTemplate
     | CurrentAttributeAnomalyDamageEventTemplate
     | DisorderDamageEventTemplate
@@ -154,6 +182,7 @@ __all__ = [
     "CurrentAttributeAnomalyDamageEventTemplate",
     "DamageEventTemplate",
     "DirectDamageEventTemplate",
+    "PenetrationDamageEventTemplate",
     "DisorderDamageEventTemplate",
     "SettledAnomalyDamageEventTemplate",
 ]

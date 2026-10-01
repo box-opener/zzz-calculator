@@ -120,7 +120,12 @@ def character_base_stats(
             "defense": source_number("defence_growth") / 10000.0,
         }
         normalized = {
-            "hp": source_number("hp_max") + level_number("hp_max") + growth["hp"] * 59.0,
+            "hp": (
+                source_number("hp_max")
+                + level_number("hp_max")
+                + growth["hp"] * 59.0
+                + extra_number("11101")
+            ),
             "attack": source_number("attack") + level_number("attack") + growth["attack"] * 59.0 + extra_number("12101"),
             "defense": source_number("defence") + level_number("defence") + growth["defense"] * 59.0,
             "impact": source_number("break_stun") + extra_number("12201"),

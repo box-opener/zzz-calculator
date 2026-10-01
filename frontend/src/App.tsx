@@ -1263,7 +1263,7 @@ function elementLabel(element: string) {
 }
 
 function specialtyLabel(specialty: string) {
-  return ({ attack: "强攻", anomaly: "异常", support: "支援", stun: "击破" } as Record<string, string>)[specialty] ?? specialty;
+  return ({ attack: "强攻", anomaly: "异常", support: "支援", stun: "击破", rupture: "命破" } as Record<string, string>)[specialty] ?? specialty;
 }
 
 function isCharacterProgressField(field: CompileField) {
