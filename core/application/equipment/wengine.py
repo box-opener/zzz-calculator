@@ -486,6 +486,8 @@ def _condition(
     suffix: str,
     label: str,
     original_text: str,
+    *,
+    default_value: bool = False,
 ) -> tuple[ScenarioConditionId, ScenarioCondition]:
     condition_id = _instance_condition_id(raw, owner, suffix)
     return condition_id, ScenarioCondition(
@@ -493,7 +495,7 @@ def _condition(
         label=label,
         original_text=original_text,
         resolution=ConditionResolution.USER_SELECTED,
-        value=False,
+        value=default_value,
     )
 
 
@@ -1423,17 +1425,20 @@ def _trigger_spectral_gaze_rules(
         tags=(DamageTag.FOLLOW_UP_ATTACK,),
         mechanism="trigger-follow-up",
     )
+    defense_active_id, defense_active_condition = _condition(
+        raw,
+        owner,
+        "defense-reduction-active",
+        "索魂影眸·目标防御降低",
+        "装备者的追加攻击造成电属性伤害后，索魂影眸减防效果已生效",
+        default_value=True,
+    )
     defense_effect = ModifierEffect(
         rule=_effect_rule(
             effect_id=_instance_effect_id(raw.wengine_id, owner, "defense-reduction"),
             source=source,
             owner=owner,
             target=EffectTarget.ENEMY,
-            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-            filters=(
-                DamageTagFilter(DamageTag.FOLLOW_UP_ATTACK),
-                ElementFilter(Element.ELECTRIC),
-            ),
         ),
         result=ModifierResult(
             modifier_path=CalculationNode.ENEMY_DEFENSE_REDUCTION,
@@ -1478,8 +1483,9 @@ def _trigger_spectral_gaze_rules(
                 owner=owner,
                 source=source,
                 suffix="defense-reduction",
-                label=f"{raw.name}·追加攻击电属性防御降低",
+                label=f"{raw.name}·目标防御降低",
                 eligibility=electric_follow_up_eligible,
+                condition_ids=(defense_active_id,),
                 effects=(defense_effect,),
             ),
             _rule(
@@ -1506,7 +1512,7 @@ def _trigger_spectral_gaze_rules(
                 effects=(max_soul_lock_effect,),
             ),
         ),
-        (soul_lock_condition,),
+        (defense_active_condition, soul_lock_condition),
     )
 
 
