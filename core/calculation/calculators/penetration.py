@@ -46,6 +46,7 @@ _SUPPORTED_MODIFIER_PATHS = frozenset(
     {
         CalculationNode.DAMAGE_NORMAL_BONUS,
         CalculationNode.PENETRATION_DAMAGE_BONUS,
+        CalculationNode.PENETRATION_FORCE_BONUS,
         CalculationNode.DAMAGE_SPECIAL_INDEPENDENT_REGION,
         CalculationNode.DAMAGE_RESISTANCE_IGNORE,
         CalculationNode.ENEMY_RESISTANCE_REDUCTION,
@@ -200,7 +201,10 @@ class PenetrationDamageCalculator:
             skill_multiplier = None
 
         crit_rate = (
-            _resolved_number(crit_source.settlement_stats.crit_rate, unresolved)
+            1.0
+            if isinstance(event.crit_rule, StandardCritRule)
+            and event.crit_rule.guaranteed
+            else _resolved_number(crit_source.settlement_stats.crit_rate, unresolved)
             if crit_source is not None
             else None
         )
@@ -260,6 +264,7 @@ class PenetrationDamageCalculator:
             PenetrationForceInput(
                 current_attack=current_attack,
                 current_max_hp=current_max_hp,
+                additional_force=modifiers[CalculationNode.PENETRATION_FORCE_BONUS],
             )
         )
         assert force.value is not None

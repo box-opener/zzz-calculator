@@ -6,6 +6,7 @@ from core.types import (
     AnomalyRecordId,
     CurrentAnomalyEffectStrengthValueSource,
     CurrentAnomalyProficiencyValueSource,
+    CurrentMaxHPValueSource,
     CurrentPenetrationForceValueSource,
     SettledDamageValueSource,
     CharacterId,
@@ -28,7 +29,11 @@ class DirectDamageEventTemplate:
     ref: DamageEventTemplateRef
     damage_dealer: CharacterId
     element: Element
-    base_source: CurrentAttackValueSource | CurrentAnomalyProficiencyValueSource
+    base_source: (
+        CurrentAttackValueSource
+        | CurrentMaxHPValueSource
+        | CurrentAnomalyProficiencyValueSource
+    )
     crit_rule: StandardCritRule
     move_id: MoveId | None
 

@@ -33,6 +33,7 @@ export type EventTraceEnvelope = {
   applied_modifiers: readonly TraceModifier[];
   event_stat_modifiers: readonly TraceModifier[];
   event_multiplier_modifiers: readonly TraceModifier[];
+  guaranteed_crit_effect_ids?: readonly string[];
 };
 
 export type TraceRuleDefinition = {
@@ -223,6 +224,18 @@ export function EventTraceDetails({
     ...trace.event_stat_modifiers,
     ...trace.event_multiplier_modifiers,
   ];
+  const guaranteedCritEffects = (trace.guaranteed_crit_effect_ids ?? []).map((effectId) => {
+    const rule = trace.rule_matches.find((match) =>
+      match.effects.some((effect) => effect.effect_id === effectId)
+    );
+    const effect = rule?.effects.find((item) => item.effect_id === effectId);
+    return {
+      effectId,
+      ruleId: rule?.rule_id,
+      ruleLabel: rule?.source_label,
+      effectLabel: effect?.source_label,
+    };
+  });
 
   return (
     <div className="application-trace">
@@ -251,6 +264,14 @@ export function EventTraceDetails({
           )}
         </div>
       )) : <p className="trace-empty">当前事件没有可展示的已启用 Rule。</p>}
+      {guaranteedCritEffects.map((item) => (
+        <div className="trace-match trace-modifier-row" key={item.effectId}>
+          <strong>保证暴击</strong>
+          <span>{item.effectLabel ?? item.effectId}</span>
+          <small>{item.ruleLabel ?? item.ruleId ?? "来源未标注"} · {item.ruleId ?? "Rule 未标注"}</small>
+          <small>{item.effectId}</small>
+        </div>
+      ))}
       {modifiers.map((modifier) => (
         <div className="trace-match trace-modifier-row" key={modifier.effect_id}>
           <strong className={isEquipmentSource(modifier.source_type) ? "equipment-source" : undefined}>{modifier.source_label ?? modifier.effect_id}</strong>

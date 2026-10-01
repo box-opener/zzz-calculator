@@ -329,6 +329,7 @@ class DamageEventExecutionTrace:
     applied_modifiers: tuple[Modifier, ...] = ()
     event_stat_modifiers: tuple[EventStatModifier, ...] = ()
     event_multiplier_modifiers: tuple[Modifier, ...] = ()
+    guaranteed_crit_effect_ids: tuple[EffectId, ...] = ()
     created_by_effect_id: EffectId | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 

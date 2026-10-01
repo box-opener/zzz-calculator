@@ -139,3 +139,84 @@ Extra Ability is eligible and 凝神 is selected, its 40% crit-damage bonus is a
 settlement-panel effect owned by Yixuan; it does not change teammates' panels.
 Attribute anomaly and Disorder events use no-crit rules, so this ordinary crit
 panel value does not alter their damage.
+
+## Lucia (`character:1451`)
+
+### Nanoka source and packaged panel
+
+The raw character record is retained at `core/data/characters/lucia.json` from
+`https://static.nanoka.cc/zzz/3.2/zh/character/1451.json`, with the live `3.2`
+version and exact source URL embedded in the file. Its rarity field is `4`,
+which the local character catalog maps to S rank. The level-60 packaged panel
+includes the raw `extra_level[6].extra["30501"]` energy-recovery bonus and
+normalizes to HP `8477.1696`, attack `758.2048`, anomaly mastery `96`, anomaly
+proficiency `95`, and energy recovery `1.56` before equipment.
+
+The shared equipment-build API still has no ascension/core-stat selector, so
+these level-60 figures use `extra_level[6]` even when a lower core level is
+selected. Manual-panel mode can represent a different panel.
+
+### Current and initial maximum HP
+
+The EX Chorus source encodes the final-hit addition as
+`{CAL:0.34 + 0.03 × effective special-skill level,100,2}%`; the `100` is the
+CAL display scale, so the settlement multiplier is `0.34 + 0.03 × effective
+special-skill level` (0.70 at level 12), with no additional division by 100.
+It is a separate Direct event using Lucia's current maximum-HP panel and is
+created once for the final hit of each reviewed Chorus move. The child keeps
+its parent's MoveId, skill group, and tags so C2/C6 Chorus effects apply to it.
+Ultimate rush collision children retain the Ultimate MoveId but are excluded;
+only the stop-time finisher gets one HP component. Whim variants get none. The
+team 5% max-HP effect during Spring Ether Curtain is a current panel modifier,
+so it changes this added damage.
+
+Break Dark instead reads Lucia's initial maximum HP. The source formula is
+represented as `12 + initial HP × (5 + 0.2 × effective special-skill level) /
+200`, capped at `612 + 24 × effective special-skill level` total added
+penetration force. The 12 flat force is separate from the HP-scaled term; the
+Spring Curtain current-HP increase does not raise the input to this formula.
+The source does not say to floor the result, so the implementation does not.
+
+Cinema 6 reads initial maximum HP for its 2% attack increase, applied to
+Lucia's own panel. Its +30% crit damage applies only to Lucia Chorus Direct
+events, while the Extra Ability's +30% crit damage is a team panel buff during
+Break Dark and requires another Rupture or Stun teammate. Cinema 6 guaranteed
+crit is an independently enabled event effect for Chorus moves while any Ether
+Curtain is selected; it is not a permanent property of the raw event template.
+
+The static damage rules also carry non-blocking diagnostics for resources that
+do not alter the current settlement: Cinema 1's 5% Decibel-gain and Echo-stack
+refresh, Cinema 4's 100 Decibels (with its 15-second trigger interval), the EX
+Special raw energy-cost field with no numeric value, and the Ultimate's
+Starlight-area HP recovery. Their resource, healing, and timing effects are not
+calculated. These diagnostics leave the known damage values usable.
+
+### Dream follow-up and Ultimate rush collisions
+
+The Core source identifies an automatic follow-up as Chorus, but Nanoka exposes
+three same-named `追加攻击伤害倍率` curves under skill IDs `1451007`, `1451010`,
+and `1451015` without saying which generated move identity, skill group, or
+damage tags they inherit. A Direct or Penetration hit from the current operator
+can therefore retain the known partial result and a blocking identity
+diagnostic with all three current-level multiplier candidates. A hit dealt by
+Lucia herself does not trigger this follow-up. The calculation does not model
+the 8-second lockout or dream-resource consumption.
+
+Ultimate source curve `1451024` gives each rush collision multiplier, but the
+3-second hold duration does not determine how many collisions occur. The
+calculator exposes an integer selected hit count with no inferred upper bound;
+without a count only the known finisher remains calculated and the selected
+Ultimate path is partial. A count of zero adds no collision event. Positive
+counts create repeated events with the Ultimate's MoveId and tags; the EX
+Chorus max-HP addition remains limited to its one final hit.
+
+### Static state assumptions and anomaly
+
+Dream, Dream Song, Break Dark, Spring Curtain, any Ether Curtain, follow-up
+readiness, and Ultimate collision count are current-state inputs. The static
+calculator does not replay time, cooldowns, curtain extension, dream-resource
+consumption, or the 8-second follow-up lockout. Lucia's Ether corruption is a
+separate static anomaly result: 20 ticks at 62.5% each over the 10-second
+assumption; max-duration Disorder uses `450% + 20 × 62.5% = 1700%`. These use
+the Ether anomaly/disorder calculators with no standard crit or penetration
+force contribution.

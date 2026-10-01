@@ -36,6 +36,12 @@ class CurrentAttackValueSource:
 
 
 @dataclass(frozen=True, slots=True)
+class CurrentMaxHPValueSource:
+    character_id: CharacterId
+    kind: Literal["current-max-hp"] = field(default="current-max-hp", init=False)
+
+
+@dataclass(frozen=True, slots=True)
 class CurrentAnomalyProficiencyValueSource:
     """Current anomaly proficiency used by an explicitly typed event."""
 
@@ -90,6 +96,7 @@ class AnomalyRecordValueSource:
 
 BaseSettlementDataSource: TypeAlias = (
     CurrentAttackValueSource
+    | CurrentMaxHPValueSource
     | CurrentAnomalyProficiencyValueSource
     | CurrentAnomalyEffectStrengthValueSource
     | CurrentPenetrationForceValueSource
@@ -185,7 +192,11 @@ class DamageEventMetadata:
 @dataclass(frozen=True, slots=True)
 class DirectDamageEvent:
     metadata: DamageEventMetadata
-    base_settlement_data_source: CurrentAttackValueSource | CurrentAnomalyProficiencyValueSource
+    base_settlement_data_source: (
+        CurrentAttackValueSource
+        | CurrentMaxHPValueSource
+        | CurrentAnomalyProficiencyValueSource
+    )
     multiplier: DamageMultiplier
     crit_rule: StandardCritRule | Unresolved
     damage_type: Literal[DamageType.DIRECT] = field(default=DamageType.DIRECT, init=False)

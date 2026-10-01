@@ -52,6 +52,9 @@ def test_formula_region_is_not_itself_a_buff_collection() -> None:
 
 def test_penetration_force_bonus_and_region_keep_distinct_node_roles() -> None:
     force = CALCULATION_NODE_DEFINITIONS[CalculationNode.PENETRATION_FORCE]
+    force_bonus = CALCULATION_NODE_DEFINITIONS[
+        CalculationNode.PENETRATION_FORCE_BONUS
+    ]
     bonus = CALCULATION_NODE_DEFINITIONS[
         CalculationNode.PENETRATION_DAMAGE_BONUS
     ]
@@ -60,6 +63,9 @@ def test_penetration_force_bonus_and_region_keep_distinct_node_roles() -> None:
     ]
 
     assert force.kind is NodeKind.DERIVED
+    assert force_bonus.kind is NodeKind.MODIFIER
+    assert force_bonus.unit is NodeUnit.FLAT
+    assert force_bonus.modifier_aggregation is ModifierAggregation.SUM
     assert bonus.kind is NodeKind.MODIFIER
     assert bonus.modifier_aggregation is ModifierAggregation.SUM
     assert region.kind is NodeKind.REGION

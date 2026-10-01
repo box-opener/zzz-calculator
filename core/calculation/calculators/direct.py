@@ -8,6 +8,7 @@ from core.types import (
     CalculationNode,
     CalculationNodeMultiplier,
     CurrentAnomalyProficiencyValueSource,
+    CurrentMaxHPValueSource,
     CharacterId,
     CharacterSnapshot,
     DirectDamageEvent,
@@ -185,6 +186,15 @@ class DirectDamageCalculator:
                 unresolved,
             )
             base_value_node = CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY
+        elif isinstance(
+            event.base_settlement_data_source,
+            CurrentMaxHPValueSource,
+        ):
+            base_value = _resolved_number(
+                base_source.settlement_stats.hp,
+                unresolved,
+            )
+            base_value_node = CalculationNode.CHARACTER_CURRENT_MAX_HP
         else:
             base_value = _resolved_number(
                 base_source.settlement_stats.attack,

@@ -79,6 +79,7 @@ _MODIFIER_NODES = frozenset(
         CalculationNode.POLAR_DISORDER_MULTIPLIER,
         CalculationNode.POLAR_DISORDER_ADDITIONAL_EQUIVALENT_MULTIPLIER,
         CalculationNode.PENETRATION_DAMAGE_BONUS,
+        CalculationNode.PENETRATION_FORCE_BONUS,
         CalculationNode.ENEMY_DEFENSE_INCREASE,
         CalculationNode.ENEMY_DEFENSE_REDUCTION,
         CalculationNode.DAMAGE_DEFENSE_IGNORE,

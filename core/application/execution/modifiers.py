@@ -18,6 +18,7 @@ from core.types import (
     EffectId,
     EffectOperation,
     EventCreationEffect,
+    GuaranteedCritEffect,
     Modifier,
     ModifierEffect,
     Effect,
@@ -116,6 +117,7 @@ class ModifierApplicationResult:
     event_modifiers: tuple[Modifier, ...]
     event_stat_modifiers: tuple[EventStatModifier, ...] = ()
     event_multiplier_modifiers: tuple[Modifier, ...] = ()
+    event_crit_guarantee_effect_ids: tuple[EffectId, ...] = ()
     vulnerability_policy: VulnerabilitySettlementPolicy = field(
         default_factory=StandardVulnerabilityPolicy
     )
@@ -169,6 +171,7 @@ def apply_matched_modifiers(
     rule_modifiers: list[Modifier] = []
     event_stat_modifiers: list[EventStatModifier] = []
     event_multiplier_modifiers: list[Modifier] = []
+    event_crit_guarantee_effect_ids: list[EffectId] = []
     vulnerability_policy: VulnerabilitySettlementPolicy = StandardVulnerabilityPolicy()
     vulnerability_policy_effect_seen = False
     for application in matched_effects:
@@ -178,6 +181,31 @@ def apply_matched_modifiers(
         else:
             effect = application
             stack_count = 1
+        if isinstance(effect, GuaranteedCritEffect):
+            if stack_count != 1:
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "guaranteed-crit-stack",
+                        DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                        "guaranteed crit Effects do not support stacks",
+                    )
+                )
+                continue
+            if not isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)) or not isinstance(
+                event.crit_rule, StandardCritRule
+            ):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "guaranteed-crit-event",
+                        DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                        "guaranteed crit Effects require a standard-crit Direct or Penetration event",
+                    )
+                )
+                continue
+            event_crit_guarantee_effect_ids.append(effect.rule.effect_id)
+            continue
         if not isinstance(effect, ModifierEffect):
             if stack_count != 1 and not isinstance(effect, EventCreationEffect):
                 diagnostics.append(
@@ -311,6 +339,7 @@ def apply_matched_modifiers(
         event_modifiers=event_modifiers,
         event_stat_modifiers=tuple(event_stat_modifiers),
         event_multiplier_modifiers=tuple(event_multiplier_modifiers),
+        event_crit_guarantee_effect_ids=tuple(event_crit_guarantee_effect_ids),
         vulnerability_policy=vulnerability_policy,
         applied_panel_effect_ids=applied_panel_ids,
         panel_traces=panel_traces,
@@ -889,18 +918,27 @@ def _resolve_effect_value(
                 )
             )
             return None
-        source_attack = source.initial_stats.attack
-        if not isinstance(source_attack, Resolved):
+        source_panel_value = (
+            source.initial_stats.hp
+            if value.source_node is CalculationNode.CHARACTER_INITIAL_HP
+            else source.initial_stats.attack
+        )
+        if not isinstance(source_panel_value, Resolved):
+            source_stat_label = (
+                "initial maximum HP"
+                if value.source_node is CalculationNode.CHARACTER_INITIAL_HP
+                else "initial attack"
+            )
             diagnostics.append(
                 _diagnostic(
                     str(effect.rule.effect_id),
-                    "derived-value-attack",
+                    f"derived-value-{value.source_node.value}",
                     DiagnosticKind.MISSING_DATA,
-                    "initial attack is unresolved for a derived panel value",
+                    f"{source_stat_label} is unresolved for a derived panel value",
                 )
             )
             return None
-        result = source_attack.value * coefficient.value
+        result = source_panel_value.value * coefficient.value
     if cap_max is not None:
         if not isinstance(cap_max, Resolved):
             diagnostics.append(

@@ -70,6 +70,7 @@ class EventTraceView:
     applied_modifiers: tuple[ModifierView, ...]
     event_stat_modifiers: tuple[ModifierView, ...]
     event_multiplier_modifiers: tuple[ModifierView, ...]
+    guaranteed_crit_effect_ids: tuple[str, ...]
     created_by_effect_id: str | None
     diagnostics: tuple[DiagnosticView, ...]
 
@@ -293,6 +294,9 @@ def event_trace_view(
                 source_types=source_types,
             )
             for item in trace.event_multiplier_modifiers
+        ),
+        guaranteed_crit_effect_ids=tuple(
+            str(item) for item in trace.guaranteed_crit_effect_ids
         ),
         created_by_effect_id=(
             str(trace.created_by_effect_id)

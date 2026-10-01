@@ -38,6 +38,12 @@ from core.application.characters.yixuan import (
     compile_yixuan,
     load_raw_record as load_yixuan_raw_record,
 )
+from core.application.characters.lucia import (
+    LUCIA_ID,
+    LuciaCompileConfig,
+    compile_lucia,
+    load_raw_record as load_lucia_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -275,6 +281,31 @@ def _yixuan_fields(
         _integer_field(
             "cinema_level",
             "仪玄影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _lucia_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "卢西娅核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "卢西娅影画",
             int(values.get("cinema_level", 0)),
             0,
             6,
@@ -676,6 +707,38 @@ def _compile_yixuan(
     )
 
 
+def _lucia_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != LUCIA_ID
+        and _REGISTRATIONS[character_id].role
+        in {CharacterRole.RUPTURE, CharacterRole.STUN}
+        for character_id in team_ids
+    )
+
+
+def _compile_lucia(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_lucia(
+        LuciaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _lucia_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_lucia_raw_record(load_character_record(str(LUCIA_ID))),
+    )
+
+
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
@@ -844,6 +907,30 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"yixuan-penetration"}),
+        ),
+    ),
+    CharacterId("character:1451"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1451"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1451",
+            display_name="卢西娅",
+            rarity="S",
+            element="ether",
+            specialty="support",
+            image_path="/characters/IconRole50.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.SUPPORT,
+        base_element=Element.ETHER,
+        compile_definition=_compile_lucia,
+        config_fields=_lucia_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1451"),
+            role=CharacterRole.SUPPORT,
+            possible_elements=frozenset({Element.ETHER}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"lucia-dream-song", "lucia-ether-curtain"}),
         ),
     ),
 }

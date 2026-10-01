@@ -284,6 +284,56 @@ def test_penetration_force_is_recomputed_from_each_settlement_snapshot() -> None
     assert second_result.value == first_result.value * 2.0
 
 
+def test_penetration_force_flat_bonus_is_added_to_the_live_force_formula() -> None:
+    dealer = CharacterId("character:force-bonus")
+    event = _event(dealer, multiplier=FixedMultiplier(Resolved(1.0)))
+    result = PenetrationDamageCalculator().calculate(
+        _context(
+            event,
+            snapshots=(_snapshot(dealer, hp=12000.0, attack=1000.0),),
+            target=_target(initial_defense=0.0),
+            modifiers=(
+                _modifier(CalculationNode.PENETRATION_FORCE_BONUS, 900.0),
+            ),
+        )
+    )
+
+    assert _breakdown(result)[CalculationNode.PENETRATION_FORCE_BONUS] == 900.0
+    assert _breakdown(result)[CalculationNode.PENETRATION_FORCE] == 2350.0
+
+
+def test_guaranteed_penetration_crit_ignores_an_unresolved_panel_crit_rate() -> None:
+    dealer = CharacterId("character:guaranteed-penetration-crit")
+    event = replace(
+        _event(dealer, multiplier=FixedMultiplier(Resolved(1.0))),
+        crit_rule=StandardCritRule(dealer, guaranteed=True),
+    )
+    unresolved_rate = Unresolved(
+        reason=UnresolvedReason.MISSING_DATA,
+        notes="ordinary crit rate is unavailable, but this event is guaranteed to crit",
+    )
+    result = PenetrationDamageCalculator().calculate(
+        _context(
+            event,
+            snapshots=(
+                _snapshot(
+                    dealer,
+                    hp=10000.0,
+                    attack=1000.0,
+                    crit_rate=unresolved_rate,
+                    crit_damage=0.5,
+                ),
+            ),
+            target=_target(initial_defense=0.0),
+        )
+    )
+
+    assert result.value == pytest.approx(1250.0 * 1.5)
+    assert _breakdown(result)[CalculationNode.DAMAGE_STANDARD_CRIT_REGION] == pytest.approx(1.5)
+    assert _breakdown(result)[CalculationNode.CHARACTER_CURRENT_CRIT_RATE] == 1.0
+    assert result.unresolved == ()
+
+
 def test_penetration_damage_does_not_read_any_defense_or_penetration_stat() -> None:
     unknown = Unresolved(
         reason=UnresolvedReason.MISSING_DATA,

@@ -263,11 +263,11 @@ class EffectRule:
 class PanelStatDerivedValue:
     """A deliberately small value source for build-time panel-derived Effects.
 
-    The original contract only supported a value derived from a character's
-    immutable initial attack.  Reviewed character effects can also read final
-    settlement anomaly mastery or crit rate.  Anomaly-mastery effects use
-    ``threshold`` (and its compatibility alias ``minimum``) to express
-    ``max(current - threshold, 0)`` before applying the coefficient.
+    Reviewed character effects can read a character's immutable initial
+    attack or maximum HP, or the final settlement anomaly mastery or crit
+    rate. Anomaly-mastery effects use ``threshold`` (and its compatibility
+    alias ``minimum``) to express ``max(current - threshold, 0)`` before
+    applying the coefficient.
     Keeping the source node and threshold explicit prevents a compiler from
     accidentally reading an initial panel value or inventing a cap.
     """
@@ -291,12 +291,13 @@ class PanelStatDerivedValue:
             raise ValueError("derived panel value source character is required")
         if self.source_node not in {
             CalculationNode.CHARACTER_INITIAL_ATTACK,
+            CalculationNode.CHARACTER_INITIAL_HP,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
         }:
             raise ValueError(
-                "panel derived values only support initial attack, current crit rate, "
-                "or current anomaly mastery"
+                "panel derived values only support initial attack/HP, current crit "
+                "rate, or current anomaly mastery"
             )
         if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
             raise ValueError("derived panel value coefficient must be non-negative")
@@ -312,11 +313,14 @@ class PanelStatDerivedValue:
             and self.threshold.value != self.minimum.value
         ):
             raise ValueError("derived panel value threshold and minimum must agree")
-        if self.source_node is CalculationNode.CHARACTER_INITIAL_ATTACK and (
+        if self.source_node in {
+            CalculationNode.CHARACTER_INITIAL_ATTACK,
+            CalculationNode.CHARACTER_INITIAL_HP,
+        } and (
             self.threshold is not None or self.minimum is not None
         ):
             raise ValueError(
-                "initial-attack derived values cannot declare a current-panel threshold"
+                "initial-panel derived values cannot declare a current-panel threshold"
             )
 
 
@@ -389,6 +393,17 @@ class EventCreationEffect:
 
 
 @dataclass(frozen=True, slots=True)
+class GuaranteedCritEffect:
+    """Guarantee a standard-crit event after its owning rule is matched."""
+
+    rule: EffectRule
+    result_kind: Literal["guaranteed-crit"] = field(
+        default="guaranteed-crit",
+        init=False,
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class UnresolvedEffect:
     rule: EffectRule
     unresolved: Unresolved
@@ -396,5 +411,9 @@ class UnresolvedEffect:
 
 
 Effect: TypeAlias = (
-    ModifierEffect | StateChangeEffect | EventCreationEffect | UnresolvedEffect
+    ModifierEffect
+    | StateChangeEffect
+    | EventCreationEffect
+    | GuaranteedCritEffect
+    | UnresolvedEffect
 )

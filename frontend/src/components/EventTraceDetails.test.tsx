@@ -83,4 +83,28 @@ describe("EventTraceDetails", () => {
     expect(markup).not.toContain("<strong>当前处于咏叹华彩</strong>");
     expect(markup).toContain("未命中");
   });
+
+  it("shows the applied guaranteed-crit effect with its source Rule", () => {
+    const baseTrace = trace("matched", "matched");
+    const eventTrace: EventTraceEnvelope = {
+      ...baseTrace,
+      guaranteed_crit_effect_ids: ["effect:lucia:cinema6:chorus-guaranteed-crit"],
+      rule_matches: baseTrace.rule_matches.map((match) => ({
+        ...match,
+        effects: [{
+          effect_id: "effect:lucia:cinema6:chorus-guaranteed-crit",
+          source_label: "卢西娅6影：合唱必定暴击",
+          source_type: "cinema",
+          status: "matched",
+          diagnostics: [],
+        }],
+      })),
+    };
+    const markup = render(eventTrace, { [aria]: true, [energy]: true });
+
+    expect(markup).toContain("保证暴击");
+    expect(markup).toContain("卢西娅6影：合唱必定暴击");
+    expect(markup).toContain(ruleId);
+    expect(markup).toContain("effect:lucia:cinema6:chorus-guaranteed-crit");
+  });
 });

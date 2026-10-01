@@ -235,6 +235,9 @@ class DirectMoveApplicationService:
                     applied_modifiers=application.event_modifiers,
                     event_stat_modifiers=application.event_stat_modifiers,
                     event_multiplier_modifiers=application.event_multiplier_modifiers,
+                    guaranteed_crit_effect_ids=(
+                        application.event_crit_guarantee_effect_ids
+                    ),
                     created_by_effect_id=instantiated.created_by_effect_id,
                     diagnostics=calculation[2],
                 )
@@ -346,8 +349,13 @@ class DirectMoveApplicationService:
         tuple[CalculationDiagnostic, ...],
     ]:
         diagnostics_list = list(event_diagnostics)
-        calculation_event = _apply_event_multiplier_modifiers(
+        calculation_event = _apply_guaranteed_crit_effects(
             instantiated.event,
+            application.event_crit_guarantee_effect_ids,
+            diagnostics_list,
+        )
+        calculation_event = _apply_event_multiplier_modifiers(
+            calculation_event,
             application.event_multiplier_modifiers,
             diagnostics_list,
         )
@@ -452,6 +460,12 @@ class DirectMoveApplicationService:
                     unresolved.notes
                     if unresolved is not None
                     else "event template is unresolved"
+                ),
+                original_text=(
+                    unresolved.original_text if unresolved is not None else None
+                ),
+                candidates=(
+                    unresolved.candidates if unresolved is not None else ()
                 ),
             )
         if template_id in ancestry:
@@ -654,6 +668,10 @@ def _merge_modifier_applications(
         event_modifiers=event_application.event_modifiers,
         event_stat_modifiers=event_application.event_stat_modifiers,
         event_multiplier_modifiers=event_application.event_multiplier_modifiers,
+        event_crit_guarantee_effect_ids=(
+            *global_panel.event_crit_guarantee_effect_ids,
+            *event_application.event_crit_guarantee_effect_ids,
+        ),
         vulnerability_policy=event_application.vulnerability_policy,
         applied_panel_effect_ids=(
             global_panel.applied_panel_effect_ids
@@ -917,6 +935,32 @@ def _apply_event_stat_modifiers(
     return tuple(index[item.character_id] for item in snapshots)
 
 
+def _apply_guaranteed_crit_effects(
+    event: DamageEvent,
+    effect_ids: tuple[EffectId, ...],
+    diagnostics: list[CalculationDiagnostic],
+) -> DamageEvent:
+    if not effect_ids:
+        return event
+    if not isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)) or not isinstance(
+        event.crit_rule, StandardCritRule
+    ):
+        for effect_id in effect_ids:
+            diagnostics.append(
+                _diagnostic(
+                    str(effect_id),
+                    "guaranteed-crit-event",
+                    DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                    "guaranteed crit Effects require a standard-crit Direct or Penetration event",
+                )
+            )
+        return event
+    return replace(
+        event,
+        crit_rule=replace(event.crit_rule, guaranteed=True),
+    )
+
+
 def _apply_event_multiplier_modifiers(
     event: DamageEvent,
     modifiers,
@@ -1017,10 +1061,15 @@ def _diagnostic(
     suffix: str,
     kind: DiagnosticKind,
     message: str,
+    *,
+    original_text: str | None = None,
+    candidates: tuple[str, ...] = (),
 ) -> CalculationDiagnostic:
     return CalculationDiagnostic(
         diagnostic_id=DiagnosticId(f"application:{subject_id}:{suffix}"),
         kind=kind,
         message=message,
         blocking=True,
+        original_text=original_text,
+        candidates=candidates,
     )

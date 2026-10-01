@@ -123,6 +123,7 @@ class CalculationNode(StrEnum):
 
     # Penetration damage.
     PENETRATION_FORCE = "penetration.force"
+    PENETRATION_FORCE_BONUS = "penetration.force-bonus"
     PENETRATION_DAMAGE_BONUS = "penetration.damage-bonus"
     PENETRATION_DAMAGE_BONUS_REGION = "penetration.damage-bonus-region"
 

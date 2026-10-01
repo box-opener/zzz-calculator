@@ -209,6 +209,47 @@ describe("complete character config v2", () => {
     });
   });
 
+  it("round-trips Lucia's core, cinema, and skill levels through v2", () => {
+    const lucia = createCharacterConfig(
+      "character:1451",
+      60,
+      "equipment-build",
+      {
+        core_level: 7,
+        cinema_level: 6,
+        skill_levels: {
+          "basic-attack": 12,
+          dodge: 14,
+          "special-attack": 16,
+          "chain-attack": 12,
+          assist: 14,
+          ultimate: 16,
+        },
+      },
+      null,
+      [],
+      null,
+    );
+    const parsed = parseCharacterConfig(
+      serializeCharacterConfig(lucia),
+      "character:1451",
+      catalog,
+    );
+
+    expect(parsed).toEqual({
+      ok: true,
+      config: lucia,
+      equipment: {
+        schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+        character_id: "character:1451",
+        wengine: null,
+        drive_discs: [],
+      },
+      source: "v2",
+      wengineProvided: true,
+    });
+  });
+
   it("keeps current weapon semantics distinct for v1 null and drive-only legacy files", () => {
     const v1 = JSON.stringify({
       schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,

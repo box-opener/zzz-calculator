@@ -142,7 +142,10 @@ def character_base_stats(
             # level-60 panel when present on an ascension record.
             "anomaly_proficiency": source_number("element_mystery") + extra_number("31201"),
             "penetration_rate": source_number("pen_rate") / 10000.0,
-            "energy_regen": source_number("sp_recover") / 100.0,
+            "energy_regen": (
+                source_number("sp_recover") / 100.0
+                + extra_number("30501") / 100.0
+            ),
         }
         raw_elements = raw.get("element_type", {})
         if isinstance(raw_elements, Mapping) and raw_elements:
