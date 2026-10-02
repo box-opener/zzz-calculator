@@ -652,6 +652,45 @@ the target's later settlement state. `13014` applies its current 0–3 stacks on
 the owner's Penetration Force lane.
 
 
+## W-Engine live 3.2 sixth batch: result-lane limitations
+
+This batch adds `14003`, `14105`, `14107`, `14109`, `14110`, `14114`, `14116`,
+`14117`, `14118`, and `14122` from the exact live Nanoka catalog order. No new
+game-text identity or multiplier ambiguity was found. The limitations below are
+calculator result lanes that the current request does not produce; each keeps its
+source rule and a non-blocking diagnostic while the known panel or damage effects
+remain active.
+
+`14003` says `每层充能效果使招式造成的失衡值提升`. Its EX Special Daze modifier
+is typed and matched, but the damage request has no Daze result. The explicit
+0–6 charge selection represents the current pre-cast count; accrual, consumption,
+and elapsed-time history are not replayed.
+
+`14107` says `装备者施加的护盾值提升` and also grants team Daze after a teammate
+triggers `破招` or `极限闪避`. Shield strength has no result in the current request
+and Daze has no result lane, so these known modifiers stay in their respective
+typed paths with a non-blocking diagnostic. The current team damage buff continues
+to calculate from its selected active state.
+
+`14114` raises Basic-attack damage and Daze per active stack. Its ordinary damage
+effect is applied to Basic-tagged events; the Daze modifier remains typed but has
+no result lane. The active 0–5 count is explicit; same-move trigger caps and
+eight-second stack expiry are not replayed.
+
+For `14117`, the source grants AP when a damage stack is gained while the stack
+count is at least five. The current AP increase therefore has its own
+`anomaly-proficiency-buff-active` state, separate from the current damage-stack
+count, so a previously triggered AP buff can remain active after the count falls.
+This records the known trigger relation without replaying its stack-generation
+rate, doubled backline generation, internal cooldown, or six-second timer.
+
+`14122`'s Disorder damage effect checks the wearer's formal current AP at the
+375-point inclusive threshold and requires that the wearer be the typed Disorder
+triggerer. Its Electric buildup effect is capability-gated; the current registry
+has no Electric-capable Anomaly owner, so no actor is invented to exercise that
+branch. The source's 15-second AP buff is represented as an explicit current state.
+
+
 ## W-Engine live 3.2 fourth queue batch (non-authoritative implementation notes)
 
 The next ten uncovered index rows are `13016`–`13021`, `13101`, `13106`, `13108`,

@@ -1158,6 +1158,175 @@ def test_fifth_nanoka_batch_reviewed_rules_keep_local_unresolved_sources_and_exa
     )
 
 
+def test_sixth_nanoka_batch_refinement_values_match_each_live_source_text() -> None:
+    expected = {
+        "14003": {"daze_bonus_per_charge": (0.04, 0.046, 0.052, 0.058, 0.064)},
+        "14105": {
+            "penetration_damage_bonus_per_stack": (0.06, 0.07, 0.08, 0.09, 0.10),
+            "crit_rate_at_half_hp": (0.20, 0.23, 0.26, 0.29, 0.32),
+        },
+        "14107": {
+            "shield_strength_bonus": (0.30, 0.38, 0.46, 0.52, 0.60),
+            "team_damage_bonus": (0.18, 0.225, 0.27, 0.315, 0.36),
+            "team_daze_bonus": (0.12, 0.15, 0.18, 0.21, 0.24),
+        },
+        "14109": {
+            "crit_damage_bonus": (0.50, 0.57, 0.65, 0.72, 0.80),
+            "ice_damage_bonus_per_stack": (0.20, 0.23, 0.26, 0.29, 0.32),
+        },
+        "14110": {
+            "energy_regen_flat_while_backline": (0.60, 0.75, 0.90, 1.05, 1.20),
+            "impact_percent_per_stack": (0.10, 0.125, 0.15, 0.175, 0.20),
+        },
+        "14114": {
+            "basic_damage_bonus_per_stack": (0.06, 0.075, 0.09, 0.105, 0.12),
+            "basic_daze_bonus_per_stack": (0.06, 0.075, 0.09, 0.105, 0.12),
+        },
+        "14116": {
+            "impact_percent_after_assist": (0.25, 0.2875, 0.325, 0.3625, 0.40),
+            "depression_crit_damage_bonus_per_stack": (
+                0.015,
+                0.0172,
+                0.0195,
+                0.0217,
+                0.024,
+            ),
+        },
+        "14117": {
+            "energy_regen_flat_while_backline": (0.60, 0.75, 0.90, 1.05, 1.20),
+            "damage_bonus_per_stack": (0.035, 0.044, 0.052, 0.061, 0.07),
+            "anomaly_proficiency_bonus_at_threshold": (50, 62, 75, 87, 100),
+        },
+        "14118": {
+            "attack_percent": (0.12, 0.15, 0.18, 0.21, 0.24),
+            "anomaly_proficiency_per_stack": (25, 31, 37, 43, 50),
+        },
+        "14122": {
+            "electric_buildup_efficiency": (0.30, 0.35, 0.40, 0.45, 0.50),
+            "anomaly_proficiency_on_anomalous_target": (75, 85, 95, 105, 115),
+            "disorder_damage_bonus": (0.25, 0.275, 0.30, 0.325, 0.35),
+        },
+    }
+    percent_keys = {
+        "daze_bonus_per_charge",
+        "penetration_damage_bonus_per_stack",
+        "crit_rate_at_half_hp",
+        "shield_strength_bonus",
+        "team_damage_bonus",
+        "team_daze_bonus",
+        "crit_damage_bonus",
+        "ice_damage_bonus_per_stack",
+        "impact_percent_per_stack",
+        "basic_damage_bonus_per_stack",
+        "basic_daze_bonus_per_stack",
+        "impact_percent_after_assist",
+        "depression_crit_damage_bonus_per_stack",
+        "damage_bonus_per_stack",
+        "attack_percent",
+        "electric_buildup_efficiency",
+        "disorder_damage_bonus",
+    }
+    for numeric_id, expected_values in expected.items():
+        record = load_wengine_record(f"wengine:{numeric_id}")
+        raw = load_wengine_raw_record(f"wengine:{numeric_id}")
+        assert raw.source_version == "3.2"
+        assert raw.source_url == (
+            f"https://static.nanoka.cc/zzz/3.2/zh/weapon/{numeric_id}.json"
+        )
+        assert record["source_index_url"] == "https://static.nanoka.cc/zzz/3.2/weapon.json"
+        assert tuple(item.refinement for item in raw.talents) == (1, 2, 3, 4, 5)
+        for refinement, talent in enumerate(raw.talents, start=1):
+            original = record["raw_nanoka_detail"]["talents"][str(refinement)]["desc"]
+            assert talent.text == original
+            source_text = re.sub(r"<[^>]+>", "", original)
+            for key, values in expected_values.items():
+                value = values[refinement - 1]
+                assert talent.numeric_values[key] == pytest.approx(value)
+                displayed = value * 100 if key in percent_keys else value
+                assert re.search(rf"(?<![\d.]){displayed:g}(?![\d.])", source_text), (
+                    numeric_id,
+                    refinement,
+                    key,
+                    original,
+                )
+
+
+def test_sixth_nanoka_batch_builds_and_compilers_keep_role_and_event_scopes() -> None:
+    from core.types import AllCondition, DynamicIdentity, DynamicIdentityCondition, PanelStatThresholdCondition
+
+    cases = (
+        ("14003", "character:1361", CharacterStat.IMPACT, 0.15),
+        ("14105", "character:1371", CharacterStat.HP, 0.30),
+        ("14107", "character:1341", CharacterStat.IMPACT, 0.18),
+        ("14109", "character:1401", CharacterStat.CRIT_RATE, 0.24),
+        ("14110", "character:1361", CharacterStat.IMPACT, 0.18),
+        ("14114", "character:1361", CharacterStat.IMPACT, 0.18),
+        ("14116", "character:1361", CharacterStat.IMPACT, 0.18),
+        ("14117", "character:1401", CharacterStat.ATTACK, 0.30),
+        ("14118", "character:1401", CharacterStat.PENETRATION_RATE, 0.24),
+        ("14122", "character:1401", CharacterStat.ATTACK, 0.30),
+    )
+    for numeric_id, owner_text, stat, value in cases:
+        owner = CharacterId(owner_text)
+        result = compile_wengine(
+            WEngineBuildInput(WEngineId(f"wengine:{numeric_id}"), owner, refinement=5),
+            owner_capabilities=registration_for(owner).equipment_capabilities,
+        )
+        assert result.complete is True
+        assert result.contributions[1].stat is stat
+        assert result.contributions[1].value == Resolved(value)
+        assert result.rule_items
+
+    cradle = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14105"), CharacterId("character:1371")),
+        owner_capabilities=registration_for("character:1371").equipment_capabilities,
+    )
+    assert cradle.rule_items[0].eligibility is RuleEligibility.INELIGIBLE
+    assert cradle.rule_items[1].eligibility is RuleEligibility.ELIGIBLE
+
+    depression = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14116"), CharacterId("character:1361")),
+        owner_capabilities=registration_for("character:1361").equipment_capabilities,
+    )
+    depression_rule = next(
+        item for item in depression.rule_items if item.rule_id.endswith("depression-target-stacks")
+    )
+    effect = depression_rule.effects[0]
+    assert effect.rule.target.value == "enemy"
+    assert effect.result.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE
+    assert depression_rule.stack_max == 20
+    assert depression_rule.non_stacking_group_id == "wengine:14116:depression-target-crit-damage"
+
+    shaker = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14117"), CharacterId("character:1401")),
+        owner_capabilities=registration_for("character:1401").equipment_capabilities,
+    )
+    ap_rule = next(
+        item for item in shaker.rule_items if item.rule_id.endswith("anomaly-proficiency-at-five-stacks")
+    )
+    assert ap_rule.condition_ids == (
+        shaker.scenario_conditions[0].condition_id,
+    )
+    assert ap_rule.condition_ids[0] != shaker.rule_items[1].rule_id
+
+    timeweaver = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14122"), CharacterId("character:1401")),
+        owner_capabilities=registration_for("character:1401").equipment_capabilities,
+    )
+    disorder_rule = next(
+        item for item in timeweaver.rule_items if item.rule_id.endswith("over-threshold-disorder-damage")
+    )
+    condition = disorder_rule.effects[0].rule.condition
+    assert isinstance(condition, AllCondition)
+    assert DynamicIdentityCondition(DynamicIdentity.DISORDER_TRIGGER) in condition.conditions
+    threshold = next(
+        item for item in condition.conditions if isinstance(item, PanelStatThresholdCondition)
+    )
+    assert threshold.source_character_id == CharacterId("character:1401")
+    assert threshold.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY
+    assert threshold.minimum == 375.0
+
+
 def test_big_cylinder_proc_matches_wearer_attack_while_another_team_member_is_operator() -> None:
     wearer = CharacterId("character:1341")
     operator = CharacterId("character:1431")

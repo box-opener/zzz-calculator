@@ -317,6 +317,7 @@ def _panel_threshold_value(
     if condition.source_node in {
         CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
         CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+        CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
     }:
         current_snapshot = next(
             (
@@ -330,6 +331,8 @@ def _panel_threshold_value(
             value = None
         elif condition.source_node is CalculationNode.CHARACTER_CURRENT_CRIT_RATE:
             value = current_snapshot.settlement_stats.crit_rate
+        elif condition.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY:
+            value = current_snapshot.settlement_stats.anomaly_proficiency
         else:
             value = current_snapshot.settlement_stats.anomaly_mastery
     else:

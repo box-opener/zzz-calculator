@@ -86,6 +86,7 @@ from core.types import (
     NoCritRule,
     OperationState,
     OperationStateFilter,
+    PanelStatThresholdCondition,
     Resolved,
     RuleSource,
     RuleSourceId,
@@ -1011,3 +1012,76 @@ def test_attribute_event_and_record_trigger_mismatch_is_blocking_data_quality() 
     assert resolution.identities is None
     assert resolution.diagnostic is not None
     assert resolution.diagnostic.blocking is True
+
+
+def test_timeweaver_disorder_bonus_uses_current_ap_and_actual_disorder_triggerer() -> None:
+    from core.application.equipment import compile_wengine
+    from core.types import WEngineBuildInput, WEngineId
+
+    owner = CharacterId("character:1401")
+    operator = CharacterId("character:operator")
+    record_id = AnomalyRecordId("anomaly:timeweaver")
+    record = _record(record_id, owner)
+    compiled = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14122"), owner, refinement=5),
+        equipped_character_role=CharacterRole.ANOMALY,
+    )
+    rule = next(
+        item
+        for item in compiled.rule_items
+        if str(item.rule_id).endswith("over-threshold-disorder-damage")
+    )
+
+    def matching_result(current_ap: float, triggerer: CharacterId):
+        event = DisorderDamageEvent(
+            metadata=DamageEventMetadata(
+                event_id=DamageEventId("damage:timeweaver-disorder"),
+                battle_state_id=BattleStateId("battle:matcher"),
+                damage_dealer=owner,
+                target_enemy=EnemyId("enemy:matcher"),
+                element=Element.PHYSICAL,
+                created_at=2.0,
+            ),
+            disorder_triggerer=triggerer,
+            base_settlement_data_source=AnomalyRecordValueSource(record_id),
+            history_record_source=record_id,
+            multiplier=FixedMultiplier(Resolved(5.25)),
+            crit_rule=NoCritRule(),
+        )
+        scenario = CalculationScenario(
+            scenario_id="scenario:timeweaver-disorder",
+            current_operator=operator,
+            enabled_rule_item_ids=frozenset({rule.rule_id}),
+        )
+        context = _context(
+            event,
+            scenario,
+            owner=owner,
+            owner_role=CharacterRole.ANOMALY,
+            history_records=(record,),
+        )
+        snapshots = tuple(
+            CharacterSnapshot(
+                item.character_id,
+                item.level,
+                replace(
+                    item.settlement_stats,
+                    anomaly_proficiency=Resolved(
+                        current_ap if item.character_id == owner else 100.0
+                    ),
+                ),
+            )
+            for item in context.calculation_context.character_snapshots
+        )
+        context = replace(
+            context,
+            calculation_context=replace(
+                context.calculation_context,
+                character_snapshots=snapshots,
+            ),
+        )
+        return EffectMatcher().match_rule_items((rule,), context)[0]
+
+    assert matching_result(374.99, owner).status is EffectMatchStatus.NOT_MATCHED
+    assert matching_result(375.0, owner).status is EffectMatchStatus.MATCHED
+    assert matching_result(500.0, operator).status is EffectMatchStatus.NOT_MATCHED

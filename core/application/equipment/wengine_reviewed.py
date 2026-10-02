@@ -77,6 +77,16 @@ from .wengine_ids import (
     WENGINE_GRILL_O_WISP_ID,
     WENGINE_CANNON_ROTOR_ID,
     WENGINE_UNFETTERED_GAME_BALL_ID,
+    WENGINE_SIX_SHOOTER_ID,
+    WENGINE_KRAKENS_CRADLE_ID,
+    WENGINE_TUSKS_OF_FURY_ID,
+    WENGINE_HAILSTORM_SHRINE_ID,
+    WENGINE_HELLFIRE_GEARS_ID,
+    WENGINE_RESTRAINED_ID,
+    WENGINE_BLAZING_LAUREL_ID,
+    WENGINE_FLAMEMAKER_SHAKER_ID,
+    WENGINE_FUSION_COMPILER_ID,
+    WENGINE_TIMEWEAVER_ID,
 )
 
 
@@ -89,6 +99,66 @@ class WEngineReviewedMapping:
 
 
 WENGINE_REVIEWED_MAPPINGS: Mapping[WEngineId, WEngineReviewedMapping] = {
+    WENGINE_SIX_SHOOTER_ID: WEngineReviewedMapping(
+        WENGINE_SIX_SHOOTER_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-six-shooter",
+    ),
+    WENGINE_KRAKENS_CRADLE_ID: WEngineReviewedMapping(
+        WENGINE_KRAKENS_CRADLE_ID,
+        CharacterStat.HP,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "rupture-krakens-cradle",
+    ),
+    WENGINE_TUSKS_OF_FURY_ID: WEngineReviewedMapping(
+        WENGINE_TUSKS_OF_FURY_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-tusks-of-fury",
+    ),
+    WENGINE_HAILSTORM_SHRINE_ID: WEngineReviewedMapping(
+        WENGINE_HAILSTORM_SHRINE_ID,
+        CharacterStat.CRIT_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "anomaly-hailstorm-shrine",
+    ),
+    WENGINE_HELLFIRE_GEARS_ID: WEngineReviewedMapping(
+        WENGINE_HELLFIRE_GEARS_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-hellfire-gears",
+    ),
+    WENGINE_RESTRAINED_ID: WEngineReviewedMapping(
+        WENGINE_RESTRAINED_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-restrained",
+    ),
+    WENGINE_BLAZING_LAUREL_ID: WEngineReviewedMapping(
+        WENGINE_BLAZING_LAUREL_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-blazing-laurel",
+    ),
+    WENGINE_FLAMEMAKER_SHAKER_ID: WEngineReviewedMapping(
+        WENGINE_FLAMEMAKER_SHAKER_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "anomaly-flamemaker-shaker",
+    ),
+    WENGINE_FUSION_COMPILER_ID: WEngineReviewedMapping(
+        WENGINE_FUSION_COMPILER_ID,
+        CharacterStat.PENETRATION_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "anomaly-fusion-compiler",
+    ),
+    WENGINE_TIMEWEAVER_ID: WEngineReviewedMapping(
+        WENGINE_TIMEWEAVER_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "anomaly-timeweaver",
+    ),
     WENGINE_BIG_CYLINDER_ID: WEngineReviewedMapping(
         WENGINE_BIG_CYLINDER_ID,
         CharacterStat.DEFENSE,

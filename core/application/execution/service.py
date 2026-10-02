@@ -17,6 +17,8 @@ from core.types import (
     DamageMultiplier,
     DirectDamageEvent,
     DamageTypeFilter,
+    DamageTagFilter,
+    ElementFilter,
     DisorderDamageEvent,
     PenetrationDamageEvent,
     EffectId,
@@ -686,11 +688,11 @@ def _conflicting_non_stacking_event_groups(
     rules: dict,
     diagnostics: list[CalculationDiagnostic] | None,
 ) -> frozenset[str]:
-    """Block conflicting fixed target-scoped crit buffs instead of picking one.
+    """Block conflicting fixed event-scoped non-stacking modifiers.
 
-    This handles statically comparable event-stat modifiers (for example a
-    target-specific team crit-rate passive). The existing panel conflict path
-    remains responsible for SELF/TEAM panel values and condition-sensitive rules.
+    This handles statically comparable target-scoped crit modifiers and simple
+    TEAM damage/Daze modifiers. The existing panel conflict path remains
+    responsible for SELF/TEAM panel values and condition-sensitive rules.
     """
 
     grouped: dict[str, list[tuple[tuple[tuple[object, ...], ...], CalculationRuleItem]]] = {}
@@ -702,13 +704,19 @@ def _conflicting_non_stacking_event_groups(
         effects = tuple(match.matched_effects)
         if not all(
             isinstance(effect, ModifierEffect)
-            and effect.rule.target is EffectTarget.ENEMY
+            and effect.rule.target in {EffectTarget.ENEMY, EffectTarget.TEAM}
             and effect.rule.condition is None
             and effect.rule.trigger is None
-            and effect.result.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
+            and effect.result.modifier_path
+            in {
+                CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+                CalculationNode.DAMAGE_NORMAL_BONUS,
+                CalculationNode.DAZE_OUTGOING_BONUS,
+            }
             and effect.result.operation is EffectOperation.ADD
             and isinstance(effect.result.value, Resolved)
-            and _has_only_damage_type_filters(effect.rule.filters)
+            and _has_only_static_event_filters(effect.rule.filters)
             for effect in effects
         ):
             continue
@@ -735,9 +743,9 @@ def _conflicting_non_stacking_event_groups(
             diagnostics.append(
                 _diagnostic(
                     group_id,
-                    "conflicting-target-event-stat-values",
+                    "conflicting-non-stacking-event-values",
                     DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                    "Active same-name target-scoped event-stat effects resolve to "
+                    "Active same-name event-scope effects resolve to "
                     "different values; the source does not define which copy wins, "
                     "so none is applied.",
                     original_text=items[0][1].original_text,
@@ -747,18 +755,18 @@ def _conflicting_non_stacking_event_groups(
     return conflicts
 
 
-def _has_only_damage_type_filters(filters) -> bool:
+def _has_only_static_event_filters(filters) -> bool:
     if not filters:
         return True
-    for item in filters:
-        if isinstance(item, DamageTypeFilter):
-            continue
-        if isinstance(item, AnyFilter) and all(
-            isinstance(nested, DamageTypeFilter) for nested in item.filters
-        ):
-            continue
+
+    def is_static_target_filter(item) -> bool:
+        if isinstance(item, (DamageTypeFilter, ElementFilter, DamageTagFilter)):
+            return True
+        if isinstance(item, AnyFilter):
+            return all(is_static_target_filter(nested) for nested in item.filters)
         return False
-    return True
+
+    return all(is_static_target_filter(item) for item in filters)
 
 
 def _matched_event_creations(
