@@ -191,6 +191,13 @@ class DynamicIdentityFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class DamageDealerIdentityFilter:
+    """Match the event dealer against an identity resolved from typed facts."""
+
+    identity: DynamicIdentity
+
+
+@dataclass(frozen=True, slots=True)
 class CreatedByEffectFilter:
     """Match application provenance carried by an instantiated event wrapper."""
 
@@ -223,6 +230,7 @@ AtomicFilter: TypeAlias = (
     | DamageDealerFilter
     | CharacterRoleFilter
     | DynamicIdentityFilter
+    | DamageDealerIdentityFilter
     | CreatedByEffectFilter
     | EnemyStateFilter
     | FieldPositionFilter
@@ -264,10 +272,9 @@ class PanelStatDerivedValue:
     """A deliberately small value source for build-time panel-derived Effects.
 
     Reviewed character effects can read a character's immutable initial
-    attack or maximum HP, or the final settlement anomaly mastery or crit
-    rate. Anomaly-mastery effects use ``threshold`` (and its compatibility
-    alias ``minimum``) to express ``max(current - threshold, 0)`` before
-    applying the coefficient.
+    attack, maximum HP, or crit rate, or the final settlement anomaly mastery
+    or crit rate. ``threshold`` (and its compatibility alias ``minimum``)
+    expresses ``max(source - threshold, 0)`` before applying the coefficient.
     Keeping the source node and threshold explicit prevents a compiler from
     accidentally reading an initial panel value or inventing a cap.
     """
@@ -292,12 +299,13 @@ class PanelStatDerivedValue:
         if self.source_node not in {
             CalculationNode.CHARACTER_INITIAL_ATTACK,
             CalculationNode.CHARACTER_INITIAL_HP,
+            CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
         }:
             raise ValueError(
-                "panel derived values only support initial attack/HP, current crit "
-                "rate, or current anomaly mastery"
+                "panel derived values only support initial attack/HP/crit rate, "
+                "current crit rate, or current anomaly mastery"
             )
         if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
             raise ValueError("derived panel value coefficient must be non-negative")

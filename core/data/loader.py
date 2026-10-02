@@ -21,6 +21,7 @@ _CHARACTER_FILES = {
     "character:1091": "miyabi.json",
     "character:1371": "yixuan.json",
     "character:1451": "lucia.json",
+    "character:1481": "dialyn.json",
 }
 
 

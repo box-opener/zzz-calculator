@@ -44,6 +44,12 @@ from core.application.characters.lucia import (
     compile_lucia,
     load_raw_record as load_lucia_raw_record,
 )
+from core.application.characters.dialyn import (
+    DIALYN_ID,
+    DialynCompileConfig,
+    compile_dialyn,
+    load_raw_record as load_dialyn_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -306,6 +312,31 @@ def _lucia_fields(
         _integer_field(
             "cinema_level",
             "卢西娅影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _dialyn_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "琉音核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "琉音影画",
             int(values.get("cinema_level", 0)),
             0,
             6,
@@ -739,6 +770,35 @@ def _compile_lucia(
     )
 
 
+def _dialyn_eligibility(team_ids: Sequence[CharacterId]) -> bool:
+    return any(
+        character_id != DIALYN_ID
+        and _REGISTRATIONS[character_id].role
+        in {CharacterRole.ATTACK, CharacterRole.RUPTURE}
+        for character_id in team_ids
+    )
+
+
+def _compile_dialyn(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_dialyn(
+        DialynCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=_dialyn_eligibility(team_ids),
+            after_sound_eligible=any(item != DIALYN_ID for item in team_ids),
+        ),
+        load_dialyn_raw_record(load_character_record(str(DIALYN_ID))),
+    )
+
+
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
@@ -931,6 +991,30 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"lucia-dream-song", "lucia-ether-curtain"}),
+        ),
+    ),
+    CharacterId("character:1481"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1481"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1481",
+            display_name="琉音",
+            rarity="S",
+            element="physical",
+            specialty="stun",
+            image_path="/characters/IconRole54.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_dialyn,
+        config_fields=_dialyn_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1481"),
+            role=CharacterRole.STUN,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"dialyn-good-review", "dialyn-after-sound"}),
         ),
     ),
 }

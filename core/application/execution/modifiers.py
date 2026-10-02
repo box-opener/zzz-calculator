@@ -918,17 +918,16 @@ def _resolve_effect_value(
                 )
             )
             return None
-        source_panel_value = (
-            source.initial_stats.hp
-            if value.source_node is CalculationNode.CHARACTER_INITIAL_HP
-            else source.initial_stats.attack
-        )
+        if value.source_node is CalculationNode.CHARACTER_INITIAL_HP:
+            source_panel_value = source.initial_stats.hp
+            source_stat_label = "initial maximum HP"
+        elif value.source_node is CalculationNode.CHARACTER_INITIAL_CRIT_RATE:
+            source_panel_value = source.initial_stats.crit_rate
+            source_stat_label = "initial crit rate"
+        else:
+            source_panel_value = source.initial_stats.attack
+            source_stat_label = "initial attack"
         if not isinstance(source_panel_value, Resolved):
-            source_stat_label = (
-                "initial maximum HP"
-                if value.source_node is CalculationNode.CHARACTER_INITIAL_HP
-                else "initial attack"
-            )
             diagnostics.append(
                 _diagnostic(
                     str(effect.rule.effect_id),
@@ -938,7 +937,23 @@ def _resolve_effect_value(
                 )
             )
             return None
-        result = source_panel_value.value * coefficient.value
+        if value.source_node is CalculationNode.CHARACTER_INITIAL_CRIT_RATE:
+            threshold = value.threshold if value.threshold is not None else value.minimum
+            if threshold is None:
+                threshold = Resolved(0.0)
+            if not isinstance(threshold, Resolved):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "derived-value-threshold",
+                        DiagnosticKind.MISSING_DATA,
+                        threshold.notes,
+                    )
+                )
+                return None
+            result = max(source_panel_value.value - threshold.value, 0.0) * coefficient.value
+        else:
+            result = source_panel_value.value * coefficient.value
     if cap_max is not None:
         if not isinstance(cap_max, Resolved):
             diagnostics.append(

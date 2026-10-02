@@ -18,6 +18,7 @@ from .trigger import TriggerCompileConfig, compile_trigger
 from .miyabi import MiyabiCompileConfig, compile_miyabi
 from .lucia import LuciaCompileConfig, compile_lucia
 from .yixuan import YixuanCompileConfig, compile_yixuan
+from .dialyn import DialynCompileConfig, compile_dialyn
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -43,4 +44,6 @@ __all__ = [
     "compile_yixuan",
     "LuciaCompileConfig",
     "compile_lucia",
+    "DialynCompileConfig",
+    "compile_dialyn",
 ]

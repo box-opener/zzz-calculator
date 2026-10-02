@@ -49,6 +49,7 @@ from core.types import (
     DamageEventId,
     DamageEventMetadata,
     DamageEvent,
+    DamageDealerIdentityFilter,
     DamageSubtype,
     DamageSubtypeFilter,
     DamageTag,
@@ -533,6 +534,50 @@ def test_state_position_operation_and_dynamic_identity_filters() -> None:
         ),
     )
     assert result.status is EffectMatchStatus.MATCHED
+
+
+def test_damage_dealer_identity_filter_matches_support_entry_actor_not_operator() -> None:
+    operator = CharacterId("character:operator")
+    holder = CharacterId("character:entry-holder")
+    effect_id = EffectId("effect:entry-holder")
+    scenario = _scenario(
+        enabled=(str(effect_id),),
+        trigger_facts=(
+            ScenarioTriggerFact(
+                effect_id=effect_id,
+                event_kind=BattleEventKind.SUPPORT_ENTRY,
+                actor=holder,
+            ),
+        ),
+    )
+    effect = _effect(
+        str(effect_id),
+        owner=holder,
+        target=EffectTarget.TEAM,
+        trigger=EventSelector(BattleEventKind.SUPPORT_ENTRY),
+        filters=(
+            DamageDealerIdentityFilter(DynamicIdentity.SUPPORT_ENTRY_CHARACTER),
+        ),
+    )
+
+    holder_event = replace(
+        _event(),
+        metadata=replace(_event().metadata, damage_dealer=holder),
+    )
+    matched = EffectMatcher().match_rule_item(
+        _rule(effect, scenario),
+        _context(holder_event, scenario, owner=holder),
+    )
+    assert matched.status is EffectMatchStatus.MATCHED
+    assert scenario.current_operator == operator
+    assert holder != operator
+
+    operator_event = _event()
+    not_matched = EffectMatcher().match_rule_item(
+        _rule(effect, scenario),
+        _context(operator_event, scenario, owner=holder),
+    )
+    assert not_matched.status is EffectMatchStatus.NOT_MATCHED
 
 
 def test_enemy_state_filter_and_or_not_filters() -> None:

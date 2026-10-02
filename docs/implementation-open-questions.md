@@ -220,3 +220,100 @@ separate static anomaly result: 20 ticks at 62.5% each over the 10-second
 assumption; max-duration Disorder uses `450% + 20 × 62.5% = 1700%`. These use
 the Ether anomaly/disorder calculators with no standard crit or penetration
 force contribution.
+
+## Dialyn (`character:1481`)
+
+### Nanoka source and packaged panel
+
+The raw record is retained in `core/data/characters/dialyn.json` from
+`https://static.nanoka.cc/zzz/3.2/zh/character/1481.json`, with the live `3.2`
+version and URL recorded in the file. The index confirms name 琉音, code Dialyn,
+source rarity field `4` (displayed as S by this project's catalog), Break specialty,
+Physical base element, and `IconRole54`. Its reviewed level-60 panel is HP
+`8250.5871`, attack `758.2048`, defense `612.6038`, impact `110`, crit rate
+`0.194`, crit damage `0.50`, anomaly mastery `94`, anomaly proficiency `93`, and
+energy recovery `1.20` before equipment.
+
+Core impact reads Dialyn's **initial** crit rate: `min(max(initial crit rate -
+0.50, 0) × 100 × core coefficient, 100)`, where the per-one-percent
+coefficient rises from `1.4` at Core 1 to `2.0` at Core 7. For example,
+initial crit `0.80` at Core 7 adds `60` impact. Later settlement crit changes do
+not change this value.
+
+### Good Review and malicious complaint
+
+Good Review is exposed as a current-state input. Its damage bonus, Cinema 1
+resistance ignore, and Cinema 4 self attack bonus are available only when the
+Additional Ability is team-eligible (another Attack or Rupture teammate is
+present). Cinema 4's attack bonus is `+500` to Dialyn's own settlement panel;
+Good Review's team damage bonus is `+40%`; Cinema 1 ignores `15%` of all
+attribute resistance.
+
+Malicious Complaint is another current-state input. When it is active and the
+enemy is stunned, the Core stun vulnerability bonus is `15%` through `30%` over
+Core levels 1–7, with an additional `20%` from Cinema 2. Cinema 2 separately
+adds `15%` normal damage bonus against a complained-about enemy for every team
+member, regardless of which character or damage type produced the hit. The
+calculator does not extend stun duration or replay complaint expiry.
+
+### Previous teammate and Guessing Game identities
+
+The Additional Ability source gives an extra `320%` of an Attack teammate's
+attack or `400%` of a Rupture teammate's penetration force for the three
+Rock/Scissors/Paper EX hits. It identifies the source as Dialyn's “previous
+teammate,” but the request contains only the primary and supporting character
+IDs, with no ordered active-party history or typed previous-teammate reference.
+It also does not fully identify the generated hit's damage dealer, element, or
+crit owner. Only this added hit is blocked on a selected Stone, Scissors, or
+Paper EX calculation; the known EX damage and other buffs remain available.
+The unresolved diagnostic preserves both source formulas.
+
+The raw Guessing Game entry gives unique, numbered stage curves `1481005`–
+`1481008`, while its prose says there are up to two stages after Stone or
+Scissors. Each numbered curve is a separately selectable damage entry, with
+its exact source label and value. The source does not assign which two numbered
+curves belong to each preceding move or how the two pairs aggregate. The
+implementation does not infer those pairings or combine their values.
+
+### Cinema 6 AfterSound and static resource states
+
+Cinema 6 states that a teammate who entered through Dialyn's forced-Ultimate
+Core effect receives AfterSound; that teammate's hits can trigger one extra
+Physical hit by Dialyn. The calculator requires a typed Support Entry actor
+fact for the selected hit and matches the actual damage dealer against that
+actor. It never infers the holder from `current_operator`. The raw gives no
+named MoveId for that independent hit, so its event keeps `move_id=None`; its
+confirmed `SPECIAL_ATTACK` group and EX Special damage tag
+remain explicit. The derived event uses Dialyn as dealer, current attack and
+crit owner, and an explicitly selected `0`–`12` hit count. The `1`-second
+interval is not simulated. Count zero adds no event; without a count, only the
+selected C6 hit path is partial.
+
+Good Review, Malicious Complaint, AfterSound ownership/hit, and the two
+Guessing Game numbered states are current-state inputs. The calculator does not
+replay Good Review point generation or its 15-second duration/extension,
+Rock→Scissors→Paper EX transitions and their 8-second windows, complaint
+accumulation/expiry, review-triggered chain windows, C1 review accumulation,
+C4's opening `20` energy or `180`-second limit, or Cinema 4's `100` decibels.
+These non-damage resource and timing gaps are surfaced as non-blocking rule
+diagnostics. Defensive Assist source entries contain daze multipliers but no
+damage multiplier and are not fabricated as damage events.
+
+### Static Physical Assault and Disorder
+
+The two additional selectable entries are the shared static Physical Assault
+and Physical Disorder paths. Assault uses multiplier `7.13`; the calculator
+creates its anomaly record under the single-character, full-gauge static
+assumption and applies `NoCritRule`. Disorder uses the same typed physical
+anomaly record, with a `4.5` base multiplier plus `0.075` per selected remaining second (0–10,
+default 10), also with `NoCritRule`.
+
+Core's initial-crit-to-impact bonus is applied to Dialyn's settlement panel
+before the static anomaly record is assembled, so the record retains the
+resulting impact strength. Cinema 2's all-unit `+15%` is received as a matched
+`DAMAGE_NORMAL_BONUS` during record generation and is incorporated once in the
+anomaly effect-strength normal region. The Anomaly and Disorder calculators
+then use that historical strength without applying a second generic bonus.
+For Attack `1000`, anomaly proficiency `100`, level `60`, and Physical bonus
+`0.30`, the C2 bonus changes the record's normal region from `1.30` to `1.45`
+and effect strength from `2600` to `2900`.

@@ -124,6 +124,7 @@ from .effect import (
     DamageTagFilter,
     DamageTypeFilter,
     DamageDealerFilter,
+    DamageDealerIdentityFilter,
     DynamicIdentityCondition,
     DynamicIdentityFilter,
     Effect,

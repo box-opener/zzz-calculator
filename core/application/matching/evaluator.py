@@ -11,6 +11,7 @@ from core.types import (
     CharacterRoleFilter,
     CalculationNode,
     CreatedByEffectFilter,
+    DamageDealerIdentityFilter,
     DamageSubtypeFilter,
     DamageTagFilter,
     DamageTypeFilter,
@@ -421,6 +422,16 @@ def match_filter(
             assert resolution.diagnostic is not None
             return EffectMatchStatus.BLOCKED, (resolution.diagnostic,)
         return _bool_decision(context.current_operator in resolution.identities)
+    if isinstance(item, DamageDealerIdentityFilter):
+        resolution = DynamicIdentityResolver().resolve(
+            item.identity,
+            context,
+            effect_id,
+        )
+        if resolution.identities is None:
+            assert resolution.diagnostic is not None
+            return EffectMatchStatus.BLOCKED, (resolution.diagnostic,)
+        return _bool_decision(event.metadata.damage_dealer in resolution.identities)
     if isinstance(item, CreatedByEffectFilter):
         return _bool_decision(context.created_by_effect_id == item.effect_id)
     raise TypeError(f"unsupported filter type: {type(item).__name__}")
