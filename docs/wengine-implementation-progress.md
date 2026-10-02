@@ -4,9 +4,9 @@ This is a resumable queue, not a game-semantics source. Ordering is the insertio
 `https://static.nanoka.cc/zzz/3.2/weapon.json` on 2026-10-02. The engine detail records use the already verified live-3.2 route
 `https://static.nanoka.cc/zzz/3.2/zh/weapon/{id}.json`.
 
-The index contains 100 entries. The current loader and reviewed mapping both cover 85 matching IDs. The remaining ordered queue contains 15 index-visible engines. There are currently no packaged raw-only IDs and no reviewed-mapping-only IDs. The existing 15 fixtures remain unchanged and retain their legacy source metadata. New engines keep their complete live detail payload and separate source-index URL. The adapter closes the reviewed W-Engine slice at level 60 and includes Refinement 1–5 values. Non-60 build levels remain an explicit missing-data diagnostic, not a range silently approximated from level-60 values.
+The index contains 100 entries. The current loader and reviewed mapping cover all 100 matching IDs, with no raw-only or reviewed-mapping-only IDs. The original 15 fixtures remain unchanged and retain their legacy source metadata. The other 85 engines keep complete live detail payloads and separate source-index URLs. The adapter closes the reviewed W-Engine slice at level 60 and includes Refinement 1–5 values. Non-60 build levels remain an explicit missing-data diagnostic, not a range silently approximated from level-60 values.
 
-The rows marked “已实现” have a raw fixture, reviewed mapping, and compiler branch. Refinement values are selected from their own raw refinement text. Rows marked “部分实现” preserve the known Build/Rule behavior and show a non-blocking diagnostic for result types outside the current damage-request contract.
+The rows marked “已实现” have a raw fixture, reviewed mapping, and compiler branch. Refinement values are selected from their own raw refinement text. Rows marked “部分实现” preserve known Build/Rule behavior and identify capability-ineligible branches, unmodeled timing/history, or result types outside the current damage-request contract.
 
 | Nanoka order | ID | Chinese catalog name | Rank | Specialty | Current state |
 |---:|---:|---|:---:|---|---|
@@ -94,24 +94,24 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 082 | `14141` | 狸法七变化 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 083 | `14143` | 云霓孤光 | S | 强攻 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 084 | `14145` | 铸梦炉歌 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
-| 085 | `14146` | 机巧心种 | S | 强攻 | 待实现（仅索引） |
-| 086 | `14147` | 怒目金刚 | S | 命破 | 待实现（仅索引） |
-| 087 | `14148` | 昨夜来电 | S | 击破 | 待实现（仅索引） |
+| 085 | `14146` | 机巧心种 | S | 强攻 | 已实现（live raw + Build + 暴击率 + 当前层电伤/满层Basic与终结技无视防御 + R1–R5） |
+| 086 | `14147` | 怒目金刚 | S | 命破 | 部分实现（raw + 暴击率 + 当前火贯穿伤害层；当前命破角色不具火伤能力） |
+| 087 | `14148` | 昨夜来电 | S | 击破 | 部分实现（raw + 后场回复结构门控 + 当前物理强化特殊层/满层暴伤；Daze结果无输出） |
 | 088 | `14149` | 思络成歌 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
-| 089 | `14150` | 壳中之灵 | S | 异常 | 待实现（仅索引） |
-| 090 | `14151` | 霓虹妄想 | S | 击破 | 待实现（仅索引） |
-| 091 | `14152` | 鳞齿寻踪 | S | 强攻 | 待实现（仅索引） |
-| 092 | `14153` | 辉骑面铠 | S | 命破 | 待实现（仅索引） |
-| 093 | `14154` | 朔月裁霜 | S | 异常 | 待实现（仅索引） |
-| 094 | `14155` | 日冕遗蜕 | S | 强攻 | 待实现（仅索引） |
-| 095 | `14156` | 琳琅鎏心 | S | 异常 | 待实现（仅索引） |
-| 096 | `14157` | 首席跟班 | S | 击破 | 待实现（仅索引） |
-| 097 | `14158` | 空羽复归之诗 | S | 异常 | 待实现（仅索引） |
-| 098 | `14159` | 骁骑礼赞 | S | 强攻 | 待实现（仅索引） |
-| 099 | `14161` | 猩红渴望 | S | 锋御 | 待实现（仅索引） |
-| 100 | `14162` | 绯月银棺 | S | 击破 | 待实现（仅索引） |
+| 089 | `14150` | 壳中之灵 | S | 异常 | 已实现（raw + 异常精通Build + 前场状态下异常目标/属性异常/紊乱各自伤害区） |
+| 090 | `14151` | 霓虹妄想 | S | 击破 | 部分实现（raw + 常驻异常精通 + Ether Basic/EX触发层与满层精通；当前击破角色不具Ether能力） |
+| 091 | `14152` | 鳞齿寻踪 | S | 强攻 | 部分实现（raw + Energy回复Build + Crit Rate面板 + 当前电伤无视防御；Energy触发历史不回放） |
+| 092 | `14153` | 辉骑面铠 | S | 命破 | 部分实现（raw + 暴击率 + 当前物理贯穿伤害层；当前命破角色无物理伤能力） |
+| 093 | `14154` | 朔月裁霜 | S | 异常 | 部分实现（raw + Ice伤害当前层 + 满层Discharge独立区；触发和计时以当前状态表示） |
+| 094 | `14155` | 日冕遗蜕 | S | 强攻 | 部分实现（raw + 常驻暴击率 + Pellois专属以太抗性无视未映射到其他角色） |
+| 095 | `14156` | 琳琅鎏心 | S | 异常 | 部分实现（raw + 常驻异常精通 + 当前风化/乱流层与满层TEAM精通；当前异常角色无风伤能力） |
+| 096 | `14157` | 首席跟班 | S | 击破 | 部分实现（raw + 冲击力/暴击率/抗性与后场回复 + Fire EX触发TEAM层；Daze结果无输出） |
+| 097 | `14158` | 空羽复归之诗 | S | 异常 | 部分实现（raw + 常驻异常精通 + 异化反应当前态下TEAM伤害和自身属性异常伤害；不增加紊乱伤害） |
+| 098 | `14159` | 骁骑礼赞 | S | 强攻 | 已实现（raw + 暴伤当前层 + 满层冰抗性无视 + R1–R5） |
+| 099 | `14161` | 猩红渴望 | S | 锋御 | 部分实现（typed DEF白值/DEF%Build + Crit Rate/电伤；Vanguard无角色注册，Sharp结果无结算节点） |
+| 100 | `14162` | 绯月银棺 | S | 击破 | 部分实现（raw + 暴击率/风抗性无视 + TEAM_OTHER当前增益；Daze结果无输出且当前击破角色无风EX） |
 
-The first seven ten-entry batches cover `12001`–`12005`, `12007`–`12016`, `13001`–`13021`, `13101`–`13111` excluding existing `13103`, `13112`–`13115`, `13127`–`13128`, `13135`, `13142`, `13144`, `14001`–`14003`, `14105`–`14118`, `14122`, and the seventh-batch set below (existing `12006`, `13103`, `14102`, `14104`, `14119`–`14121`, `14124`, `14131`, and `14136` were already supported). The typed Vanguard entries `12016`, `13017`, and `13021` have no registered character path. The next unimplemented catalog row is `14146` (机巧心种); the final 15 pending rows are handled as one batch.
+The first seven W-Engine batches cover the pending catalog entries through `14139`; the final 15 rows were completed together. Previously supported IDs such as `12006`, `13103`, `14102`, `14104`, `14119`–`14121`, `14124`, `14131`, and `14136` remain included in the 100-entry catalog but were not rebuilt. The typed Vanguard entries `12016`, `13017`, `13021`, and `14161` have no registered character path.
 
 The sixth batch uses the exact remaining Nanoka index entries `14003`, `14105`, `14107`, `14109`, `14110`, `14114`, `14116`, `14117`, `14118`, and `14122`; index rows 054–055 and 064–066 were already implemented and were skipped. All ten raw fixtures retain the full live-3.2 detail record and separate index URL. Their fixed level-60 advanced stats and R1–R5 values use each refinement's own source text.
 
@@ -160,3 +160,15 @@ an Electric-capable Attack owner, absent from the current registry. `14139` keep
 EX Special/Chain/Ultimate Daze in the Daze node, and its team damage stack applies
 to current team damage after an eligible Fire Chain/Ultimate trigger. Daze has no
 result lane, and no current Stun owner can produce that Fire trigger.
+
+## W-Engine live 3.2 final batch (non-authoritative implementation notes)
+
+The final source-order batch is `14146`, `14147`, `14148`, `14150`–`14159`, `14161`, and `14162`. All 15 fixtures retain the full live-3.2 detail payload and each Refinement 1–5 source description. The loader and reviewed mappings now cover all 100 index entries. The build adapter remains level-60 only; other levels return the existing missing-data diagnostic.
+
+`14148` requires a physical EX Special for its physical-layer trigger. Owner capability eligibility is based on element/skill-group/tag combinations from the same reviewed move, so Qingyi's physical Dash and Electric EX do not combine into a fictional Physical EX. Dialyn's registered Physical EX capability remains eligible. For `14151`, the source says Ether EX Special **or** Basic Attack; those are evaluated as two alternative scopes, not as one event carrying both tags. The registered Stun owners currently have no Ether damage capability. `14157`'s Fire EX team effect likewise remains ineligible for Stun owners with no Fire EX.
+
+`14150`'s current buff input represents the Ether owner's entry/Special trigger state; actual event bonuses require the owner to be the current operator because the source removes the buff after returning to the backline. Its anomalous-target normal damage, Attribute Anomaly, and Disorder effects retain separate conditions and lanes. `14158` is worded as an **异化** reaction, distinct from the separately named 异放 mechanic: its current buff state controls the owner Attribute Anomaly bonus and TEAM damage bonus. The owner also receives the unconditional AP passive. This source does not grant a Disorder bonus. Trigger and 30-second refresh history are not replayed.
+
+`14151` includes the exact sentence `拥有2层效果时，装备者的异常精通额外提升96点，该效果全队唯一`. The compiler represents the currently known single-holder TEAM stack and full-stack owner AP. Whether the uniqueness phrase scopes only to the AP effect or to the composite stack effect cannot be established for multiple holders; that multi-holder interpretation remains unreviewed.
+
+`14161` is retained as white Defense plus Defense-percent Build data, not Attack. It has no registered Vanguard owner. Its Electric Sharp damage bonus remains a typed source rule with a non-blocking limitation because the current request has no Sharp result lane; no Anomaly or Direct event is fabricated. `14162` retains the current TEAM_OTHER damage buff and excludes the holder. Its Daze modifier is typed with a non-blocking result limitation, and the currently registered Stun owners cannot produce Wind EX Special.

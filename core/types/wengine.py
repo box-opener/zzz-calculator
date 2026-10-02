@@ -35,6 +35,15 @@ class WEngineBuildInput:
 
 
 @dataclass(frozen=True, slots=True)
+class EquipmentDamageScope:
+    """One reviewed element/skill/tag combination an owner can produce."""
+
+    element: Element
+    skill_group: SkillGroup
+    damage_tags: frozenset[DamageTag]
+
+
+@dataclass(frozen=True, slots=True)
 class EquipmentOwnerCapabilities:
     """Reviewed static capabilities used for equipment eligibility.
 
@@ -49,6 +58,7 @@ class EquipmentOwnerCapabilities:
     skill_groups: frozenset[SkillGroup] = frozenset()
     damage_tags: frozenset[DamageTag] = frozenset()
     mechanisms: frozenset[str] = frozenset()
+    damage_scopes: frozenset[EquipmentDamageScope] | None = None
 
     def __post_init__(self) -> None:
         if not str(self.character_id):
@@ -69,8 +79,39 @@ class EquipmentOwnerCapabilities:
     def can_produce_tag(self, tag: DamageTag) -> bool:
         return tag in self.damage_tags
 
+    def can_produce_damage_scope(
+        self,
+        *,
+        element: Element | None,
+        skill_groups: tuple[SkillGroup, ...],
+        tags: tuple[DamageTag, ...],
+    ) -> bool:
+        if self.damage_scopes is None:
+            return (
+                (element is None or self.can_produce_element(element))
+                and (
+                    not skill_groups
+                    or any(self.can_use_skill_group(group) for group in skill_groups)
+                )
+                and all(self.can_produce_tag(tag) for tag in tags)
+            )
+        return any(
+            (
+                element is None
+                or BASE_ELEMENT_BY_ELEMENT.get(scope.element, scope.element)
+                is BASE_ELEMENT_BY_ELEMENT.get(element, element)
+            )
+            and (not skill_groups or scope.skill_group in skill_groups)
+            and all(tag in scope.damage_tags for tag in tags)
+            for scope in self.damage_scopes
+        )
+
     def has_mechanism(self, mechanism: str) -> bool:
         return mechanism in self.mechanisms
 
 
-__all__ = ["EquipmentOwnerCapabilities", "WEngineBuildInput"]
+__all__ = [
+    "EquipmentDamageScope",
+    "EquipmentOwnerCapabilities",
+    "WEngineBuildInput",
+]

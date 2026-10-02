@@ -661,6 +661,10 @@ def test_live_raw_advanced_stats_apply_max_star_growth_for_percent_and_flat_valu
         f"wengine:{numeric_id}" for numeric_id in range(13006, 13016)
     } <= set(live_records)
     assert "wengine:12011" in live_records
+    assert {
+        f"wengine:{numeric_id}"
+        for numeric_id in (14146, 14147, 14148, 14150, 14151, 14152, 14153, 14154, 14155, 14156, 14157, 14158, 14159, 14161, 14162)
+    } <= set(live_records)
     for record in live_records.values():
         raw_detail = record["raw_nanoka_detail"]
         rand_property = raw_detail["rand_property"]
@@ -1987,3 +1991,168 @@ def test_seventh_nanoka_batch_compilers_keep_build_and_effect_scopes() -> None:
     assert fox.rule_items[0].effects[0].result.modifier_path is CalculationNode.DAZE_OUTGOING_BONUS
     assert fox.rule_items[1].eligibility is RuleEligibility.INELIGIBLE
     assert fox.rule_items[1].non_stacking_group_id == "wengine:14139:team-damage"
+
+
+def test_final_nanoka_wengine_batch_compiles_both_endpoint_refinements_and_exact_scopes() -> None:
+    from core.application.equipment.wengine_reviewed import reviewed_mapping_for
+    from core.types import AllCondition, DynamicIdentity, DynamicIdentityCondition
+
+    expected = {
+        "14146": (CharacterStat.CRIT_RATE, BuildContributionLayer.DIRECT_RATIO, "crit_rate"),
+        "14147": (CharacterStat.HP, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "hp_percent"),
+        "14148": (CharacterStat.CRIT_RATE, BuildContributionLayer.DIRECT_RATIO, "crit_rate"),
+        "14150": (CharacterStat.ANOMALY_MASTERY, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "anomaly_mastery_percent"),
+        "14151": (CharacterStat.ANOMALY_MASTERY, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "anomaly_mastery_percent"),
+        "14152": (CharacterStat.ENERGY_REGEN, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "energy_regen"),
+        "14153": (CharacterStat.HP, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "hp_percent"),
+        "14154": (CharacterStat.ANOMALY_MASTERY, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "anomaly_mastery_percent"),
+        "14155": (CharacterStat.ATTACK, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "attack_percent"),
+        "14156": (CharacterStat.ENERGY_REGEN, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "energy_regen"),
+        "14157": (CharacterStat.CRIT_RATE, BuildContributionLayer.DIRECT_RATIO, "crit_rate"),
+        "14158": (CharacterStat.ATTACK, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "attack_percent"),
+        "14159": (CharacterStat.CRIT_DAMAGE, BuildContributionLayer.DIRECT_RATIO, "crit_damage"),
+        "14161": (CharacterStat.DEFENSE, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "defense_percent"),
+        "14162": (CharacterStat.ENERGY_REGEN, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "energy_regen"),
+    }
+    for numeric_id, (advanced_stat, layer, raw_key) in expected.items():
+        wengine_id = WEngineId(f"wengine:{numeric_id}")
+        raw = load_wengine_raw_record(str(wengine_id))
+        source_record = load_wengine_record(str(wengine_id))
+        mapping = reviewed_mapping_for(wengine_id)
+        assert raw.source_version == "3.2"
+        assert raw.source_url == (
+            f"https://static.nanoka.cc/zzz/3.2/zh/weapon/{numeric_id}.json"
+        )
+        assert source_record["resolved_level_60"]["advanced_stat_key"] == raw_key
+        assert mapping.advanced_stat is advanced_stat
+        assert mapping.advanced_layer is layer
+        for refinement in (1, 5):
+            result = compile_wengine(
+                WEngineBuildInput(
+                    wengine_id,
+                    CharacterId("character:1431"),
+                    refinement=refinement,
+                ),
+                equipped_character_role=raw.specialty,
+            )
+            talent = raw.talents[refinement - 1]
+            assert talent.text == source_record["raw_nanoka_detail"]["talents"][
+                str(refinement)
+            ]["desc"]
+            assert result.rule_items
+            assert result.contributions[0].stat is raw.base_stat
+            assert result.contributions[0].value == Resolved(raw.static_base_value)
+            assert result.contributions[1].stat is advanced_stat
+            assert result.contributions[1].layer is layer
+            assert result.contributions[1].value == Resolved(raw.advanced_stat_value)
+
+    crimson_id = WEngineId("wengine:14161")
+    crimson = load_wengine_raw_record(str(crimson_id))
+    assert crimson.base_stat is CharacterStat.DEFENSE
+    assert crimson.static_base_value == 431.0
+    assert crimson.base_attack == 0.0
+    assert crimson.advanced_stat_name == "防御力"
+
+    qingyi = registration_for("character:1251").equipment_capabilities
+    dialyn = registration_for("character:1481").equipment_capabilities
+    physical_ex = {
+        "element": Element.PHYSICAL,
+        "skill_groups": (SkillGroup.SPECIAL_ATTACK,),
+        "tags": (DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK),
+    }
+    assert qingyi.damage_scopes is not None
+    assert not qingyi.can_produce_damage_scope(**physical_ex)
+    assert dialyn.can_produce_damage_scope(**physical_ex)
+
+    qingyi_call = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14148"), qingyi.character_id),
+        owner_capabilities=qingyi,
+    )
+    dialyn_call = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14148"), dialyn.character_id),
+        owner_capabilities=dialyn,
+    )
+    qingyi_team_cd = next(
+        item for item in qingyi_call.rule_items
+        if item.rule_id.endswith("team-crit-damage-at-max-daze-stacks")
+    )
+    dialyn_team_cd = next(
+        item for item in dialyn_call.rule_items
+        if item.rule_id.endswith("team-crit-damage-at-max-daze-stacks")
+    )
+    assert qingyi_team_cd.eligibility is RuleEligibility.INELIGIBLE
+    assert dialyn_team_cd.eligibility is RuleEligibility.ELIGIBLE
+
+    qingyi_vivian = registration_for("character:1331").equipment_capabilities
+    soul = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14150"), qingyi_vivian.character_id),
+        owner_capabilities=qingyi_vivian,
+    )
+    owner_frontfield_damage = next(
+        item for item in soul.rule_items
+        if item.rule_id.endswith("anomalous-target-damage")
+    ).effects[0]
+    assert isinstance(owner_frontfield_damage.rule.condition, AllCondition)
+    assert DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR) in (
+        owner_frontfield_damage.rule.condition.conditions
+    )
+
+    neon = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14151"), qingyi.character_id),
+        owner_capabilities=qingyi,
+    )
+    assert neon.rule_items[0].eligibility is RuleEligibility.ELIGIBLE
+    assert all(item.eligibility is RuleEligibility.INELIGIBLE for item in neon.rule_items[1:])
+    neon_r5 = compile_wengine(
+        WEngineBuildInput(
+            WEngineId("wengine:14151"), qingyi.character_id, refinement=5
+        ),
+        owner_capabilities=qingyi,
+    )
+    assert neon.rule_items[0].effects[0].result.value == Resolved(90.0)
+    assert neon_r5.rule_items[0].effects[0].result.value == Resolved(145.0)
+    attendant = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14157"), qingyi.character_id),
+        owner_capabilities=qingyi,
+    )
+    fire_trigger = next(
+        item for item in attendant.rule_items
+        if item.rule_id.endswith("team-damage-per-fire-ex-stack")
+    )
+    assert fire_trigger.eligibility is RuleEligibility.INELIGIBLE
+
+    miyabi = registration_for("character:1091").equipment_capabilities
+    feather = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14158"), miyabi.character_id),
+        owner_capabilities=miyabi,
+    )
+    ap_rule = next(
+        item for item in feather.rule_items
+        if item.rule_id.endswith("anomaly-proficiency-flat")
+    )
+    assert ap_rule.effects[0].result.modifier_path is (
+        CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS
+    )
+    assert not any(
+        effect.result.modifier_path is CalculationNode.DISORDER_TRIGGER_DAMAGE_BONUS
+        for rule in feather.rule_items
+        for effect in rule.effects
+    )
+    feather_r5 = compile_wengine(
+        WEngineBuildInput(
+            WEngineId("wengine:14158"), miyabi.character_id, refinement=5
+        ),
+        owner_capabilities=miyabi,
+    )
+    ap_rule_r5 = next(
+        item for item in feather_r5.rule_items
+        if item.rule_id.endswith("anomaly-proficiency-flat")
+    )
+    assert ap_rule.effects[0].result.value == Resolved(96.0)
+    assert ap_rule_r5.effects[0].result.value == Resolved(135.0)
+    team_rule = next(
+        item for item in feather.rule_items
+        if item.rule_id.endswith("team-damage-after-mutation-reaction")
+    )
+    assert team_rule.effects[0].rule.target.value == "team"
+    assert team_rule.effects[0].rule.condition is None

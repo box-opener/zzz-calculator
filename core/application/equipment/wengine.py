@@ -45,6 +45,7 @@ from core.types import (
     Element,
     ElementFilter,
     NotCondition,
+    NotFilter,
     ModifierEffect,
     ModifierResult,
     PanelStatDerivedValue,
@@ -140,6 +141,21 @@ from .wengine_ids import (
     WENGINE_CYAN_CAGE_ID,
     WENGINE_FUYUAN_CLEAN_ID,
     WENGINE_FOX_FURNACE_ID,
+    WENGINE_MACHINERY_SEED_ID,
+    WENGINE_VAJRA_ID,
+    WENGINE_LAST_NIGHT_ID,
+    WENGINE_SOUL_IN_SHELL_ID,
+    WENGINE_NEON_FANTASY_ID,
+    WENGINE_SCALE_TOOTH_ID,
+    WENGINE_GLOWING_HELM_ID,
+    WENGINE_MOON_CUTS_FROST_ID,
+    WENGINE_ECLIPSE_REMAINS_ID,
+    WENGINE_LUXURY_CORE_ID,
+    WENGINE_HEAD_ATTENDANT_ID,
+    WENGINE_RETURNING_FEATHER_ID,
+    WENGINE_CAVALRY_PRAISE_ID,
+    WENGINE_CRIMSON_DESIRE_ID,
+    WENGINE_SCARLET_MOON_COFFIN_ID,
 )
 from .wengine_reviewed import reviewed_mapping_for
 
@@ -487,11 +503,6 @@ def _wengine_result_diagnostics(
             "explicit current-state inputs. HP-loss history, the 0.5-second trigger "
             "limit, and independent 25-second stack timers are not replayed."
         ),
-        WENGINE_TUSKS_OF_FURY_ID: (
-            "The source's shield-strength increase and outgoing Daze modifier are "
-            "preserved because this request has no shield-value result and does not "
-            "calculate Daze. The active 20-second team damage state is explicit."
-        ),
         WENGINE_HAILSTORM_SHRINE_ID: (
             "The source's always-on Crit Damage is calculated. EX/Anomaly-triggered "
             "Ice bonus uses an explicit current 0–2 stack count; trigger history "
@@ -579,6 +590,85 @@ def _wengine_result_diagnostics(
             "but the damage request does not calculate Daze. The current 0–2 team "
             "damage stacks are explicit; eligible Fire Chain/Ultimate triggers, "
             "same-move limits, and 30-second timers are not replayed."
+        ),
+        WENGINE_MACHINERY_SEED_ID: (
+            "Current stacks are explicit. Basic/EX hits can generate them regardless "
+            "of element; the Electric bonus is filtered to Electric damage, while "
+            "the full-stack Basic/Ultimate Defense ignore is not Electric-filtered. "
+            "Per-type caps and 40-second timers are not replayed."
+        ),
+        WENGINE_VAJRA_ID: (
+            "The current 0–2 Fire Penetration damage stacks are explicit. EX Special "
+            "trigger history and 20-second stack timers are not replayed; its Fire "
+            "branch is capability-gated."
+        ),
+        WENGINE_LAST_NIGHT_ID: (
+            "Backline flat Energy Regeneration is structurally gated by the owner's "
+            "current operator status. The current 0–3 EX Special/Daze stacks and "
+            "separate team Crit Damage state at three stacks are explicit; Daze has "
+            "no result and their 10/40-second timers are not replayed."
+        ),
+        WENGINE_SOUL_IN_SHELL_ID: (
+            "The current active Ether-owner buff state is explicit. The anomalous-target "
+            "condition is separate from activation, and event bonuses apply only while "
+            "the owner is the actual current operator. Entry/Special triggers, returning "
+            "to the backline, and the 15-second timer are not replayed."
+        ),
+        WENGINE_NEON_FANTASY_ID: (
+            "The current 0–2 Ether-hit team damage layers are explicit. The additional "
+            "Proficiency effect is applied at two layers; Ether-hit history, the "
+            "same-move cap, and 40-second timers are not replayed."
+        ),
+        WENGINE_SCALE_TOOTH_ID: (
+            "Energy spent and the duration/extension of the Electric Defense-ignore "
+            "state have no resource-history result in this request. The current active "
+            "state is explicit and is not forced to track current_operator, because "
+            "the source preserves its duration while off field."
+        ),
+        WENGINE_MOON_CUTS_FROST_ID: (
+            "The current 0–2 Ice damage stacks and the full-stack Discharge bonus are "
+            "explicit, separate lanes. Special-hit history, 40-second timers, and "
+            "same-move limits are not replayed."
+        ),
+        WENGINE_ECLIPSE_REMAINS_ID: (
+            "The permanent Crit Rate is calculated. The timed Ether resistance-ignore "
+            "state is exclusive to the named agent 佩洛伊斯, whose identity is absent "
+            "from the current character registry. The state is retained as source data "
+            "and is not enabled for another Attack owner."
+        ),
+        WENGINE_LUXURY_CORE_ID: (
+            "The current 0–2 EX Special Wind stacks and full-stack TEAM Anomaly "
+            "Proficiency state are explicit. The Turbulence and Wind Attribute Anomaly "
+            "bonuses remain in their separate result lanes; EX-hit history and 40-second "
+            "timers are not replayed. The stack branch is capability-gated for Wind."
+        ),
+        WENGINE_HEAD_ATTENDANT_ID: (
+            "Backline flat Energy Regeneration uses the owner's actual current-operator "
+            "relationship. The current 0–2 Fire EX Special team damage layers are "
+            "explicit and unique; Fire-trigger history, same-move limits, and "
+            "30-second timers are not replayed."
+        ),
+        WENGINE_RETURNING_FEATHER_ID: (
+            "The current post-异化 buff state is explicit. Its owner Attribute Anomaly "
+            "bonus and TEAM damage bonus are separate effects. The source trigger and "
+            "30-second refresh timing are not replayed. It does not add a Disorder bonus."
+        ),
+        WENGINE_CAVALRY_PRAISE_ID: (
+            "The current 0–2 Blade Edge stacks are explicit. The source's heavy-hit "
+            "classification and independent 25-second layer timers are not replayed; "
+            "the full-stack Ice resistance-ignore state applies only to Ice damage."
+        ),
+        WENGINE_CRIMSON_DESIRE_ID: (
+            "The source is typed as a Vanguard engine, but the current character "
+            "registry has no Vanguard owner. Its Defense Build value remains typed "
+            "for direct domain validation. The Electric Sharp-damage effect stays in "
+            "source data with a non-blocking diagnostic because the calculator has no "
+            "Sharp Explosion result lane; it is not converted to Anomaly or Direct damage."
+        ),
+        WENGINE_SCARLET_MOON_COFFIN_ID: (
+            "The Daze modifier is typed for the triggering EX Special. Its Daze result "
+            "is outside this request. The separate 50-second TEAM_OTHER damage state "
+            "excludes the holder's events and is capability-gated by the Wind EX Special trigger."
         ),
     }
     message = limitations.get(raw.wengine_id)
@@ -845,6 +935,58 @@ def _reviewed_rules(
         )
     if effect_family == "stun-fox-furnace":
         return _fox_furnace_rules(raw, build_input, talent, source, eligibility, owner_capabilities)
+    if effect_family == "attack-machinery-seed":
+        return _machinery_seed_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "rupture-vajra":
+        return _vajra_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "stun-last-night":
+        return _last_night_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "anomaly-soul-in-shell":
+        return _soul_in_shell_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "stun-neon-fantasy":
+        return _neon_fantasy_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "attack-scale-tooth":
+        return _scale_tooth_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "rupture-glowing-helm":
+        return _glowing_helm_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "anomaly-moon-cuts-frost":
+        return _moon_cuts_frost_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "attack-eclipse-remains":
+        return _eclipse_remains_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "anomaly-luxury-core":
+        return _luxury_core_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "stun-head-attendant":
+        return _head_attendant_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
+    if effect_family == "anomaly-returning-feather":
+        return _returning_feather_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-cavalry-praise":
+        return _cavalry_praise_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "vanguard-crimson-desire":
+        return _crimson_desire_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "stun-scarlet-moon-coffin":
+        return _scarlet_moon_coffin_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     if effect_family == "attack-starlight-engine":
         return _starlight_engine_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "stun-human-is-meat":
@@ -2521,12 +2663,21 @@ def _drill_rig_red_axis_rules(
                 source=source,
                 suffix="basic-dash-electric-damage",
                 label=f"{raw.name}·普通攻击与冲刺攻击电伤提升",
-                eligibility=_capability_eligibility(
+                eligibility=_any_capability_eligibility(
                     eligibility,
                     capabilities,
-                    element=Element.ELECTRIC,
-                    skill_groups=(SkillGroup.BASIC_ATTACK, SkillGroup.DODGE),
-                    tags=(DamageTag.BASIC_ATTACK, DamageTag.DASH_ATTACK),
+                    scopes=(
+                        (
+                            Element.ELECTRIC,
+                            SkillGroup.BASIC_ATTACK,
+                            (DamageTag.BASIC_ATTACK,),
+                        ),
+                        (
+                            Element.ELECTRIC,
+                            SkillGroup.DODGE,
+                            (DamageTag.DASH_ATTACK,),
+                        ),
+                    ),
                 ),
                 condition_ids=(active_id,),
                 effects=(
@@ -4017,19 +4168,55 @@ def _capability_eligibility(
 ) -> RuleEligibility:
     if base_eligibility is RuleEligibility.INELIGIBLE:
         return RuleEligibility.INELIGIBLE
-    if element is not None and not capabilities.can_produce_element(element):
-        return RuleEligibility.INELIGIBLE
-    if skill_group is not None and not capabilities.can_use_skill_group(skill_group):
-        return RuleEligibility.INELIGIBLE
-    if skill_groups and not any(
-        capabilities.can_use_skill_group(group) for group in skill_groups
+    requested_groups = (
+        ((skill_group,) if skill_group is not None else ()) + skill_groups
+    )
+    if capabilities.damage_scopes is not None and (
+        element is not None or requested_groups or tags
     ):
-        return RuleEligibility.INELIGIBLE
-    if any(not capabilities.can_produce_tag(tag) for tag in tags):
-        return RuleEligibility.INELIGIBLE
+        if not capabilities.can_produce_damage_scope(
+            element=element,
+            skill_groups=requested_groups,
+            tags=tags,
+        ):
+            return RuleEligibility.INELIGIBLE
+    else:
+        if element is not None and not capabilities.can_produce_element(element):
+            return RuleEligibility.INELIGIBLE
+        if skill_group is not None and not capabilities.can_use_skill_group(skill_group):
+            return RuleEligibility.INELIGIBLE
+        if skill_groups and not any(
+            capabilities.can_use_skill_group(group) for group in skill_groups
+        ):
+            return RuleEligibility.INELIGIBLE
+        if any(not capabilities.can_produce_tag(tag) for tag in tags):
+            return RuleEligibility.INELIGIBLE
     if mechanism is not None and not capabilities.has_mechanism(mechanism):
         return RuleEligibility.INELIGIBLE
     return base_eligibility
+
+
+def _any_capability_eligibility(
+    base_eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+    *,
+    scopes: tuple[tuple[Element | None, SkillGroup | None, tuple[DamageTag, ...]], ...],
+) -> RuleEligibility:
+    return (
+        RuleEligibility.ELIGIBLE
+        if any(
+            _capability_eligibility(
+                base_eligibility,
+                capabilities,
+                element=element,
+                skill_group=skill_group,
+                tags=tags,
+            )
+            is RuleEligibility.ELIGIBLE
+            for element, skill_group, tags in scopes
+        )
+        else RuleEligibility.INELIGIBLE
+    )
 
 
 def _wearer_modifier(
@@ -4518,11 +4705,17 @@ def _defense_patrol_rules(
             source=source,
             suffix="charged-ether-damage",
             label=f"{raw.name}·充能以太伤害提升",
-            eligibility=_capability_eligibility(
+            eligibility=_any_capability_eligibility(
                 eligibility,
                 capabilities,
-                element=Element.ETHER,
-                tags=(DamageTag.BASIC_ATTACK, DamageTag.DASH_ATTACK),
+                scopes=(
+                    (
+                        Element.ETHER,
+                        SkillGroup.BASIC_ATTACK,
+                        (DamageTag.BASIC_ATTACK,),
+                    ),
+                    (Element.ETHER, SkillGroup.DODGE, (DamageTag.DASH_ATTACK,)),
+                ),
             ),
             condition_ids=(charge_id,),
             effects=(
@@ -4896,12 +5089,17 @@ def _yuzuha_metanukimorphosis_rules(
         "狸法七变化：全队异常精通增益已触发",
         "装备者的追加攻击命中敌人时",
     )
-    physical_eligible = _capability_eligibility(
+    physical_eligible = _any_capability_eligibility(
         eligibility,
         owner_capabilities,
-        element=Element.PHYSICAL,
-        skill_groups=(SkillGroup.SPECIAL_ATTACK, SkillGroup.ULTIMATE),
-        tags=(DamageTag.EX_SPECIAL_ATTACK,),
+        scopes=(
+            (
+                Element.PHYSICAL,
+                SkillGroup.SPECIAL_ATTACK,
+                (DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK),
+            ),
+            (Element.PHYSICAL, SkillGroup.ULTIMATE, (DamageTag.ULTIMATE,)),
+        ),
     )
     follow_up_eligible = _capability_eligibility(
         eligibility,
@@ -5897,6 +6095,1229 @@ def _fox_furnace_rules(
             diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
         ),
     ), ()
+
+
+def _machinery_seed_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    stack_suffix = "electric-damage-per-stack"
+    stack_rule_id = _instance_rule_id(raw.wengine_id, owner, stack_suffix)
+    basic_ultimate = AnyFilter(
+        (
+            DamageTagFilter(DamageTag.BASIC_ATTACK),
+            DamageTagFilter(DamageTag.ULTIMATE),
+        )
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix=stack_suffix,
+            label=f"{raw.name}·当前增益层数电伤",
+            eligibility=eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="electric-damage-per-stack",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["electric_damage_bonus_per_stack"]),
+                    filters=(element_scope_filter(Element.ELECTRIC),),
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="basic-ultimate-defense-ignore-at-max-stacks",
+            label=f"{raw.name}·满层普通攻击/终结技无视防御",
+            eligibility=eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="defense-ignore-at-max-stacks",
+                    path=CalculationNode.DAMAGE_DEFENSE_IGNORE,
+                    value=float(values["defense_ignore_at_max_stacks"]),
+                    filters=(basic_ultimate,),
+                    condition=RuleStackCondition(
+                        stack_rule_id,
+                        int(values["max_stacks"]),
+                    ),
+                ),
+            ),
+        ),
+    ), ()
+
+
+def _vajra_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    fire_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.FIRE,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="fire-penetration-damage-per-stack",
+            label=f"{raw.name}·当前火属性贯穿伤害层数",
+            eligibility=fire_eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="fire-penetration-damage-per-stack",
+                    path=CalculationNode.PENETRATION_DAMAGE_BONUS,
+                    value=float(values["fire_penetration_damage_bonus_per_stack"]),
+                    filters=(element_scope_filter(Element.FIRE),),
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), ()
+
+
+def _last_night_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    backline_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="backline-energy-regen-flat",
+        path=CalculationNode.CHARACTER_COMBAT_ENERGY_REGEN_FLAT_BONUS,
+        value=float(values["energy_regen_flat_while_backline"]),
+        condition=NotCondition(
+            DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR)
+        ),
+    )
+    physical_ex_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.PHYSICAL,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        tags=(DamageTag.EX_SPECIAL_ATTACK,),
+    )
+    stack_suffix = "ex-special-physical-daze-per-stack"
+    stack_rule_id = _instance_rule_id(raw.wengine_id, owner, stack_suffix)
+    team_active_id, team_active_condition = _condition(
+        raw,
+        owner,
+        "full-stack-team-crit-damage-active",
+        f"{raw.name}：离崖三层触发的全队暴伤增益当前有效",
+        "叠加到3层时，全队角色暴击伤害提升，持续40秒",
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="backline-energy-regen-flat",
+            label=f"{raw.name}·后场能量自动回复",
+            eligibility=eligibility,
+            effects=(backline_effect,),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix=stack_suffix,
+            label=f"{raw.name}·强化特殊技物理命中的当前失衡层数",
+            eligibility=physical_ex_eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="daze-per-current-stack",
+                    path=CalculationNode.DAZE_OUTGOING_BONUS,
+                    value=float(values["daze_bonus_per_stack"]),
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-crit-damage-at-max-daze-stacks",
+            label=f"{raw.name}·三层时全队暴击伤害提升",
+            eligibility=physical_ex_eligibility,
+            condition_ids=(team_active_id,),
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="team-crit-damage-at-max-daze-stacks",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+                    value=float(values["team_crit_damage_at_max_stacks"]),
+                    target=EffectTarget.TEAM,
+                ),
+            ),
+            non_stacking_group_id="wengine:14148:team-crit-damage",
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), (team_active_condition,)
+
+
+def _soul_in_shell_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    ether_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.ETHER,
+    )
+    buff_id, buff_condition = _condition(
+        raw,
+        owner,
+        "ether-frontfield-boost-active",
+        f"{raw.name}：以太装备者进入前场或发动特殊技后获得的增益当前有效",
+        "以太属性的装备者进入前场或发动特殊技/强化特殊技时获得增益；换回后场时移除",
+    )
+    target_anomaly_id, target_anomaly_condition = _condition(
+        raw,
+        owner,
+        "target-attribute-anomaly-active",
+        f"{raw.name}：本次伤害目标当前处于属性异常状态",
+        "对处于属性异常状态下的敌人造成的伤害提升",
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="anomaly-proficiency-flat",
+            label=f"{raw.name}·异常精通提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="anomaly-proficiency-flat",
+                    path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+                    value=float(values["anomaly_proficiency_flat_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="anomalous-target-damage",
+            label=f"{raw.name}·异化增益对异常目标伤害提升",
+            eligibility=ether_eligibility,
+            condition_ids=(buff_id, target_anomaly_id),
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="anomalous-target-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["damage_bonus_vs_anomalous_target"]),
+                    condition=DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="attribute-anomaly-damage",
+            label=f"{raw.name}·异化期间属性异常伤害提升",
+            eligibility=ether_eligibility,
+            condition_ids=(buff_id,),
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="attribute-anomaly-damage",
+                    path=CalculationNode.ANOMALY_DAMAGE_BONUS,
+                    value=float(values["anomaly_damage_bonus"]),
+                    filters=(
+                        DamageTypeFilter(DamageType.ANOMALY),
+                        DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
+                    ),
+                    condition=AllCondition(
+                        (
+                            DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR),
+                            DynamicIdentityCondition(DynamicIdentity.ANOMALY_TRIGGER),
+                        )
+                    ),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="disorder-damage",
+            label=f"{raw.name}·异化期间紊乱伤害提升",
+            eligibility=ether_eligibility,
+            condition_ids=(buff_id,),
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="disorder-damage",
+                    path=CalculationNode.DISORDER_TRIGGER_DAMAGE_BONUS,
+                    value=float(values["disorder_damage_bonus"]),
+                    filters=(DamageTypeFilter(DamageType.DISORDER),),
+                    condition=AllCondition(
+                        (
+                            DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR),
+                            DynamicIdentityCondition(DynamicIdentity.DISORDER_TRIGGER),
+                        )
+                    ),
+                ),
+            ),
+        ),
+    ), (buff_condition, target_anomaly_condition)
+
+
+def _neon_fantasy_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    ether_trigger_eligibility = _any_capability_eligibility(
+        eligibility,
+        capabilities,
+        scopes=(
+            (Element.ETHER, SkillGroup.BASIC_ATTACK, (DamageTag.BASIC_ATTACK,)),
+            (
+                Element.ETHER,
+                SkillGroup.SPECIAL_ATTACK,
+                (DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK),
+            ),
+        ),
+    )
+    team_stack_suffix = "team-damage-per-ether-hit-stack"
+    team_stack_rule_id = _instance_rule_id(raw.wengine_id, owner, team_stack_suffix)
+    full_stack_ap = _rule(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="anomaly-proficiency-at-max-stacks",
+        label=f"{raw.name}·两层时装备者异常精通提升",
+        eligibility=ether_trigger_eligibility,
+        effects=(
+            _panel_modifier(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="anomaly-proficiency-at-max-stacks",
+                path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+                value=float(values["anomaly_proficiency_bonus_at_max_stacks"]),
+                condition=RuleStackCondition(team_stack_rule_id, int(values["max_stacks"])),
+            ),
+        ),
+        non_stacking_group_id="wengine:14151:full-stack-anomaly-proficiency",
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="anomaly-proficiency-flat",
+            label=f"{raw.name}·异常精通提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="anomaly-proficiency-flat",
+                    path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+                    value=float(values["anomaly_proficiency_flat_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-damage-per-ether-hit-stack",
+            label=f"{raw.name}·以太命中后的当前全队伤害层数",
+            eligibility=ether_trigger_eligibility,
+            effects=(
+                _team_damage_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="team-damage-per-ether-hit-stack",
+                    value=float(values["team_damage_bonus_per_stack"]),
+                    target=EffectTarget.TEAM,
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            non_stacking_group_id="wengine:14151:team-damage",
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        full_stack_ap,
+    ), ()
+
+
+def _scale_tooth_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    active_id, active_condition = _condition(
+        raw,
+        owner,
+        "electric-defense-ignore-active",
+        f"{raw.name}：能量消耗/接战触发的电属性无视防御增益当前有效",
+        "达到能量消耗门槛后获得电伤无视防御增益，接战时直接获得该效果",
+    )
+    electric_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.ELECTRIC,
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="electric-defense-ignore",
+            label=f"{raw.name}·增益期间电伤无视防御",
+            eligibility=electric_eligibility,
+            condition_ids=(active_id,),
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="electric-defense-ignore",
+                    path=CalculationNode.DAMAGE_DEFENSE_IGNORE,
+                    value=float(values["defense_ignore_electric_damage"]),
+                    filters=(element_scope_filter(Element.ELECTRIC),),
+                ),
+            ),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), (active_condition,)
+
+
+def _glowing_helm_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    physical_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.PHYSICAL,
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="physical-penetration-damage-per-stack",
+            label=f"{raw.name}·当前物理贯穿伤害层数",
+            eligibility=physical_eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="physical-penetration-damage-per-stack",
+                    path=CalculationNode.PENETRATION_DAMAGE_BONUS,
+                    value=float(values["physical_penetration_damage_bonus_per_stack"]),
+                    filters=(element_scope_filter(Element.PHYSICAL),),
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), ()
+
+
+def _moon_cuts_frost_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    ice_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.ICE,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+    )
+    ice_rule_suffix = "ice-damage-per-special-stack"
+    ice_rule_id = _instance_rule_id(raw.wengine_id, owner, ice_rule_suffix)
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix=ice_rule_suffix,
+            label=f"{raw.name}·当前冰伤层数",
+            eligibility=ice_eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="ice-damage-per-special-stack",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["ice_damage_bonus_per_stack"]),
+                    filters=(element_scope_filter(Element.ICE),),
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="discharge-damage-at-max-stacks",
+            label=f"{raw.name}·冰伤两层后的异放伤害提升",
+            eligibility=ice_eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="discharge-damage-at-max-stacks",
+                    path=CalculationNode.DISCHARGE_DAMAGE_BONUS,
+                    value=float(values["discharge_damage_bonus_at_max_stacks"]),
+                    filters=(
+                        DamageTypeFilter(DamageType.ANOMALY),
+                        DamageSubtypeFilter(DamageSubtype.DISCHARGE),
+                    ),
+                    condition=RuleStackCondition(ice_rule_id, int(values["max_stacks"])),
+                ),
+            ),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), ()
+
+
+def _eclipse_remains_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(talent.numeric_values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="pellois-eclipse-ether-resistance-ignore-source-only",
+            label=f"{raw.name}·佩洛伊斯专属日蚀效果",
+            eligibility=RuleEligibility.INELIGIBLE,
+            effects=(),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), ()
+
+
+def _luxury_core_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    wind_ex_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.WIND,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        tags=(DamageTag.EX_SPECIAL_ATTACK,),
+    )
+    stack_suffix = "turbulence-weathering-damage-per-stack"
+    stack_rule_id = _instance_rule_id(raw.wengine_id, owner, stack_suffix)
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="anomaly-proficiency-flat",
+            label=f"{raw.name}·异常精通提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="anomaly-proficiency-flat",
+                    path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+                    value=float(values["anomaly_proficiency_flat_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix=stack_suffix,
+            label=f"{raw.name}·强化特殊技风属性后的当前乱流/风化层数",
+            eligibility=wind_ex_eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="turbulence-damage-per-stack",
+                    path=CalculationNode.TURBULENCE_DAMAGE_BONUS,
+                    value=float(values["turbulence_damage_bonus_per_stack"]),
+                    filters=(
+                        DamageTypeFilter(DamageType.ANOMALY),
+                        DamageSubtypeFilter(DamageSubtype.TURBULENCE),
+                    ),
+                ),
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="wind-attribute-anomaly-damage-per-stack",
+                    path=CalculationNode.ANOMALY_DAMAGE_BONUS,
+                    value=float(values["wind_anomaly_damage_bonus_per_stack"]),
+                    filters=(
+                        DamageTypeFilter(DamageType.ANOMALY),
+                        DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
+                        element_scope_filter(Element.WIND),
+                    ),
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-anomaly-proficiency-at-max-stacks",
+            label=f"{raw.name}·两层时全队异常精通提升",
+            eligibility=wind_ex_eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="team-anomaly-proficiency-at-max-stacks",
+                    path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+                    value=float(values["team_anomaly_proficiency_at_max_stacks"]),
+                    target=EffectTarget.TEAM,
+                    condition=RuleStackCondition(stack_rule_id, int(values["max_stacks"])),
+                ),
+            ),
+            non_stacking_group_id="wengine:14156:team-anomaly-proficiency",
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), ()
+
+
+def _head_attendant_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    fire_ex_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.FIRE,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        tags=(DamageTag.EX_SPECIAL_ATTACK,),
+    )
+    backline_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="backline-energy-regen-flat",
+        path=CalculationNode.CHARACTER_COMBAT_ENERGY_REGEN_FLAT_BONUS,
+        value=float(values["energy_regen_flat_while_backline"]),
+        condition=NotCondition(DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR)),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="impact-flat",
+            label=f"{raw.name}·冲击力提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="impact-flat",
+                    path=CalculationNode.CHARACTER_COMBAT_IMPACT_FLAT_BONUS,
+                    value=float(values["impact_flat_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="fire-resistance-ignore",
+            label=f"{raw.name}·火属性伤害抗性无视",
+            eligibility=eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="fire-resistance-ignore",
+                    path=CalculationNode.DAMAGE_RESISTANCE_IGNORE,
+                    value=float(values["fire_resistance_ignore"]),
+                    filters=(element_scope_filter(Element.FIRE),),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="backline-energy-regen-flat",
+            label=f"{raw.name}·后场能量自动回复",
+            eligibility=eligibility,
+            effects=(backline_effect,),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-damage-per-fire-ex-stack",
+            label=f"{raw.name}·火属性强化特殊技后的全队伤害层数",
+            eligibility=fire_ex_eligibility,
+            effects=(
+                _team_damage_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="team-damage-per-fire-ex-stack",
+                    value=float(values["team_damage_bonus_per_stack"]),
+                    target=EffectTarget.TEAM,
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_team_damage_stacks"]),
+            non_stacking_group_id="wengine:14157:team-damage",
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), ()
+
+
+def _returning_feather_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    buff_id, buff_condition = _condition(
+        raw,
+        owner,
+        "mutation-reaction-buffs-active",
+        f"{raw.name}：装备者触发异化反应后获得的增益当前有效",
+        "装备者触发异化反应时获得自身属性异常伤害与全队伤害提升，持续30秒",
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="anomaly-proficiency-flat",
+            label=f"{raw.name}·异常精通提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="anomaly-proficiency-flat",
+                    path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+                    value=float(values["anomaly_proficiency_flat_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-damage-after-mutation-reaction",
+            label=f"{raw.name}·异化反应增益期间全队伤害提升",
+            eligibility=eligibility,
+            condition_ids=(buff_id,),
+            effects=(
+                ModifierEffect(
+                    rule=_effect_rule(
+                        effect_id=_instance_effect_id(
+                            raw.wengine_id, owner, "team-damage-after-mutation-reaction"
+                        ),
+                        source=source,
+                        owner=owner,
+                        target=EffectTarget.TEAM,
+                    ),
+                    result=ModifierResult(
+                        modifier_path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                        operation=EffectOperation.ADD,
+                        value=Resolved(float(values["team_damage_bonus"])),
+                    ),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="attribute-anomaly-damage",
+            label=f"{raw.name}·异化反应增益期间属性异常伤害提升",
+            eligibility=eligibility,
+            condition_ids=(buff_id,),
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="attribute-anomaly-damage",
+                    path=CalculationNode.ANOMALY_DAMAGE_BONUS,
+                    value=float(values["anomaly_damage_bonus"]),
+                    filters=(
+                        DamageTypeFilter(DamageType.ANOMALY),
+                        DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
+                    ),
+                    condition=AllCondition(
+                        (
+                            DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR),
+                            DynamicIdentityCondition(DynamicIdentity.ANOMALY_TRIGGER),
+                        )
+                    ),
+                ),
+            ),
+        ),
+    ), (buff_condition,)
+
+
+def _cavalry_praise_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    stack_suffix = "crit-damage-per-blade-edge-stack"
+    stack_rule_id = _instance_rule_id(raw.wengine_id, owner, stack_suffix)
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix=stack_suffix,
+            label=f"{raw.name}·当前兵锋暴击伤害层数",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-damage-per-blade-edge-stack",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+                    value=float(values["crit_damage_bonus_per_stack"]),
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="ice-resistance-ignore-at-max-stacks",
+            label=f"{raw.name}·两层兵锋后冰属性伤害抗性无视",
+            eligibility=eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="ice-resistance-ignore-at-max-stacks",
+                    path=CalculationNode.DAMAGE_RESISTANCE_IGNORE,
+                    value=float(values["ice_resistance_ignore_at_max_stacks"]),
+                    filters=(element_scope_filter(Element.ICE),),
+                    condition=RuleStackCondition(stack_rule_id, int(values["max_stacks"])),
+                ),
+            ),
+        ),
+    ), ()
+
+
+def _crimson_desire_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    sharp_id, sharp_condition = _condition(
+        raw,
+        owner,
+        "electric-sharp-damage-active",
+        f"{raw.name}：强化特殊技/毁伤触发的电属性锐化伤害提升当前有效",
+        "装备者发动强化特殊技或触发毁伤时，造成的电属性锐化伤害提升，持续40秒",
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(talent.numeric_values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="electric-damage",
+            label=f"{raw.name}·电属性伤害提升",
+            eligibility=eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="electric-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(talent.numeric_values["electric_damage_bonus"]),
+                    filters=(element_scope_filter(Element.ELECTRIC),),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="electric-sharp-damage-source-only",
+            label=f"{raw.name}·电属性锐化伤害提升（暂不结算）",
+            eligibility=eligibility,
+            condition_ids=(sharp_id,),
+            effects=(),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), (sharp_condition,)
+
+
+def _scarlet_moon_coffin_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    wind_ex_eligibility = _capability_eligibility(
+        eligibility,
+        capabilities,
+        element=Element.WIND,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        tags=(DamageTag.EX_SPECIAL_ATTACK,),
+    )
+    team_buff_id, team_buff_condition = _condition(
+        raw,
+        owner,
+        "team-other-wind-ex-damage-active",
+        f"{raw.name}：风属性强化特殊技触发的其他队员伤害提升当前有效",
+        "发动强化特殊技造成风属性伤害时，全队其他角色造成的伤害提升，持续50秒；该伤害提升效果全队唯一",
+    )
+    other_team_effect = ModifierEffect(
+        rule=_effect_rule(
+            effect_id=_instance_effect_id(raw.wengine_id, owner, "team-other-damage"),
+            source=source,
+            owner=owner,
+            target=EffectTarget.TEAM_OTHER,
+            filters=(NotFilter(DamageDealerFilter(owner)),),
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.DAMAGE_NORMAL_BONUS,
+            operation=EffectOperation.ADD,
+            value=Resolved(float(values["team_other_damage_bonus"])),
+        ),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate",
+            label=f"{raw.name}·暴击率提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="crit-rate",
+                    path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    value=float(values["crit_rate_bonus"]),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="wind-resistance-ignore",
+            label=f"{raw.name}·风属性伤害抗性无视",
+            eligibility=eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="wind-resistance-ignore",
+                    path=CalculationNode.DAMAGE_RESISTANCE_IGNORE,
+                    value=float(values["wind_resistance_ignore"]),
+                    filters=(element_scope_filter(Element.WIND),),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="ex-special-wind-daze",
+            label=f"{raw.name}·强化特殊技风属性失衡提升",
+            eligibility=wind_ex_eligibility,
+            effects=(
+                _owner_event_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="ex-special-wind-daze",
+                    path=CalculationNode.DAZE_OUTGOING_BONUS,
+                    value=float(values["ex_special_daze_bonus"]),
+                    filters=(
+                        DamageTagFilter(DamageTag.EX_SPECIAL_ATTACK),
+                        element_scope_filter(Element.WIND),
+                    ),
+                ),
+            ),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-other-damage-after-wind-ex-special",
+            label=f"{raw.name}·其他队员当前风伤触发全队伤害提升",
+            eligibility=wind_ex_eligibility,
+            condition_ids=(team_buff_id,),
+            effects=(other_team_effect,),
+            non_stacking_group_id="wengine:14162:team-other-damage",
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), (team_buff_condition,)
 
 
 __all__ = [

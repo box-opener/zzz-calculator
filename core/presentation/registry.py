@@ -80,6 +80,7 @@ from core.types import (
     CharacterRole,
     DamageTag,
     Element,
+    EquipmentDamageScope,
     EquipmentOwnerCapabilities,
     SkillGroup,
 )
@@ -1291,6 +1292,62 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"qingyi-flashover", "qingyi-subjugation"}),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset(
+                            {DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK}
+                        ),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
+                    ),
+                }
+            ),
         ),
     ),
 }

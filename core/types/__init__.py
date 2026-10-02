@@ -188,7 +188,11 @@ from .vulnerability import (
     VeilVulnerabilityPolicy,
     VulnerabilitySettlementPolicy,
 )
-from .wengine import EquipmentOwnerCapabilities, WEngineBuildInput
+from .wengine import (
+    EquipmentDamageScope,
+    EquipmentOwnerCapabilities,
+    WEngineBuildInput,
+)
 from .drive_disc import (
     DRIVE_DISC_MAIN_STATS_BY_SLOT,
     DRIVE_DISC_MAIN_STAT_VALUES,
