@@ -4,7 +4,7 @@ This is a resumable queue, not a game-semantics source. Ordering is the insertio
 `https://static.nanoka.cc/zzz/3.2/weapon.json` on 2026-10-02. The engine detail records use the already verified live-3.2 route
 `https://static.nanoka.cc/zzz/3.2/zh/weapon/{id}.json`.
 
-The index contains 100 entries. The current loader and reviewed mapping both cover 75 matching IDs. The remaining ordered queue contains 25 index-visible engines. There are currently no packaged raw-only IDs and no reviewed-mapping-only IDs. The existing 15 fixtures remain unchanged and retain their legacy source metadata. New engines keep their complete live detail payload and separate source-index URL. The adapter closes the reviewed W-Engine slice at level 60 and includes Refinement 1–5 values. Non-60 build levels remain an explicit missing-data diagnostic, not a range silently approximated from level-60 values.
+The index contains 100 entries. The current loader and reviewed mapping both cover 85 matching IDs. The remaining ordered queue contains 15 index-visible engines. There are currently no packaged raw-only IDs and no reviewed-mapping-only IDs. The existing 15 fixtures remain unchanged and retain their legacy source metadata. New engines keep their complete live detail payload and separate source-index URL. The adapter closes the reviewed W-Engine slice at level 60 and includes Refinement 1–5 values. Non-60 build levels remain an explicit missing-data diagnostic, not a range silently approximated from level-60 values.
 
 The rows marked “已实现” have a raw fixture, reviewed mapping, and compiler branch. Refinement values are selected from their own raw refinement text. Rows marked “部分实现” preserve the known Build/Rule behavior and show a non-blocking diagnostic for result types outside the current damage-request contract.
 
@@ -78,18 +78,18 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 066 | `14121` | 啜泣摇篮 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 067 | `14122` | 时流贤者 | S | 异常 | 部分实现（Electric积蓄能力门控 + 命中异常目标AP面板状态 + 当前AP门槛紊乱增伤 + ATK Build + R1–R5） |
 | 068 | `14124` | 防暴者Ⅵ型 | S | 强攻 | 已实现（raw + reviewed + level-60 Build/Rule） |
-| 069 | `14125` | 玉壶青冰 | S | 击破 | 待实现（仅索引） |
-| 070 | `14126` | 淬锋钳刺 | S | 异常 | 待实现（仅索引） |
-| 071 | `14129` | 千面日陨 | S | 强攻 | 待实现（仅索引） |
-| 072 | `14130` | 嚣枪喧焰 | S | 强攻 | 待实现（仅索引） |
+| 069 | `14125` | 玉壶青冰 | S | 击破 | 已实现（Impact当前0–30层 + 独立15层触发的全队伤害状态 + R1–R5） |
+| 070 | `14126` | 淬锋钳刺 | S | 异常 | 已实现（异常精通Build + Physical当前层 + 满层积蓄效率 + R1–R5） |
+| 071 | `14129` | 千面日陨 | S | 强攻 | 部分实现（CritDamage面板 + 冰伤触发无视防御状态；当前强攻角色无冰伤能力） |
+| 072 | `14130` | 嚣枪喧焰 | S | 强攻 | 部分实现（CritRate面板 + 追击火伤后的无视防御层；当前强攻角色无火伤能力） |
 | 073 | `14131` | 玲珑妆匣 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
-| 074 | `14132` | 心弦夜响 | S | 强攻 | 待实现（仅索引） |
-| 075 | `14133` | 飞鸟星梦 | S | 异常 | 待实现（仅索引） |
-| 076 | `14134` | 半糖雪兔 | S | 防护 | 待实现（仅索引） |
+| 074 | `14132` | 心弦夜响 | S | 强攻 | 部分实现（CritDamage面板 + Chain/Ultimate火伤抗性无视层；当前强攻角色无火伤能力） |
+| 075 | `14133` | 飞鸟星梦 | S | 异常 | 已实现（Anomaly Buildup Efficiency + 以太触发AP当前层 + AP Build + R1–R5） |
+| 076 | `14134` | 半糖雪兔 | S | 防护 | 已实现（HP%Build + 单独Energy flat + TEAM ATK/HP + Zhao帷幕CritDamage状态） |
 | 077 | `14136` | 索魂影眸 | S | 击破 | 已实现（raw + reviewed + level-60 Build/Rule） |
-| 078 | `14137` | 青溟笼舍 | S | 命破 | 待实现（仅索引） |
-| 079 | `14138` | 牺牲洁纯 | S | 强攻 | 待实现（仅索引） |
-| 080 | `14139` | 福虓炉炉 | S | 击破 | 待实现（仅索引） |
+| 078 | `14137` | 青溟笼舍 | S | 命破 | 已实现（CritRate + Ether普通伤/EX或ULT贯穿独立层 + HP%Build + R1–R5） |
+| 079 | `14138` | 牺牲洁纯 | S | 强攻 | 部分实现（CritDamage Build/当前层 + 满层Electric伤；当前强攻角色无电伤能力） |
+| 080 | `14139` | 福虓炉炉 | S | 击破 | 部分实现（EX/Chain/ULT Daze + TEAM伤害当前层；Daze非阻断、当前击破角色无火伤能力） |
 | 081 | `14140` | 十方锻星 | S | 异常 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 082 | `14141` | 狸法七变化 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 083 | `14143` | 云霓孤光 | S | 强攻 | 已实现（raw + reviewed + level-60 Build/Rule） |
@@ -111,7 +111,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 099 | `14161` | 猩红渴望 | S | 锋御 | 待实现（仅索引） |
 | 100 | `14162` | 绯月银棺 | S | 击破 | 待实现（仅索引） |
 
-The first six ten-entry batches cover `12001`–`12005`, `12007`–`12016`, `13001`–`13021`, `13101`–`13111` excluding existing `13103`, `13112`–`13115`, `13127`–`13128`, `13135`, `13142`, `13144`, `14001`–`14003`, and `14105`–`14118` plus `14122` (existing `12006`, `13103`, `14102`, `14104`, `14119`, `14120`, and `14121` were already supported). The typed Vanguard entries `12016`, `13017`, and `13021` have no registered character path. The next unimplemented catalog row is `14125` (玉壶青冰); continue in index order.
+The first seven ten-entry batches cover `12001`–`12005`, `12007`–`12016`, `13001`–`13021`, `13101`–`13111` excluding existing `13103`, `13112`–`13115`, `13127`–`13128`, `13135`, `13142`, `13144`, `14001`–`14003`, `14105`–`14118`, `14122`, and the seventh-batch set below (existing `12006`, `13103`, `14102`, `14104`, `14119`–`14121`, `14124`, `14131`, and `14136` were already supported). The typed Vanguard entries `12016`, `13017`, and `13021` have no registered character path. The next unimplemented catalog row is `14146` (机巧心种); the final 15 pending rows are handled as one batch.
 
 The sixth batch uses the exact remaining Nanoka index entries `14003`, `14105`, `14107`, `14109`, `14110`, `14114`, `14116`, `14117`, `14118`, and `14122`; index rows 054–055 and 064–066 were already implemented and were skipped. All ten raw fixtures retain the full live-3.2 detail record and separate index URL. Their fixed level-60 advanced stats and R1–R5 values use each refinement's own source text.
 
@@ -122,3 +122,41 @@ The sixth batch uses the exact remaining Nanoka index entries `14003`, `14105`, 
 `14116` keeps the owner's support-triggered Impact state separate from the target's current Depression stack count. The latter is an enemy-target event Crit Damage modifier for standard-crit Ice/Fire Direct and Penetration damage, so it does not change formal panels or No-Crit results. `14117` likewise derives backline energy from current-operator structure. Its current damage stack count and the six-second AP-buff active condition are independent inputs: the source grants AP when gaining damage stacks at five or more, so later falling below five does not silently clear a still-active AP buff. Stack generation, the doubled backline rate, cooldown, and timers are not replayed. `14118` applies its Attack panel bonus and current 0–3 AP stacks.
 
 `14122` gates Electric anomaly accumulation by owner capability, exposes the AP after a Special hit on an anomalous target as a current state, and checks the Disorder modifier against the owner's formal current AP, including active panel buffs. The registered Anomaly owner has no Electric damage capability; no Electric character is synthesized. The pure Disorder threshold reads the actual Disorder triggerer, not the record's historical contributors or the current operator. Its current-AP threshold is inclusive at 375.
+
+The seventh batch follows rows 069–080 and skips already implemented `14131` and
+`14136`; its ten IDs are `14125`, `14126`, `14129`, `14130`, `14132`, `14133`,
+`14134`, `14137`, `14138`, and `14139`. Each raw fixture contains the complete
+live-3.2 detail and source-index URL, and R1–R5 numeric values are stored from each
+refinement's own source text.
+
+`14125` applies the current 0–30 Tea Power stacks to the wearer's Impact panel. Its
+team damage buff is a separate active state because it is triggered when a new
+stack is acquired at 15 or more and can persist after the stack count falls. The
+same-name team effect uses one stable group across holders and blocks mixed active
+refinement values rather than choosing a copy. `14126` applies the current 0–3
+Hunter's Intent stacks to Physical damage and applies Anomaly Buildup Efficiency
+only at three selected stacks; it does not retest the current action as the
+triggering Dash hit.
+
+`14129` keeps its permanent Crit Damage panel from the three-second zero-degree
+state that ignores Defense on subsequent owner hits. Its activation requires an
+Ice-capable Attack owner, which the current Attack registry does not provide. `14130`
+keeps its permanent Crit Rate panel separate from active Defense-ignore stacks after
+a Fire Follow-up Attack; the current Attack roster has no Fire-capable owner. `14132`
+limits active Fire resistance-ignore stacks to the owner's Chain/Ultimate Fire
+damage; its Crit Damage panel is independent. `14133` adds its permanent Anomaly
+Buildup Efficiency to owner buildup events and expresses Ether-triggered Anomaly
+Proficiency as a current 0–6 panel stack. AP-stack eligibility requires Ether damage
+capability.
+
+`14134`'s level-60 advanced source property is HP% (`hp_percent`, +30% at max star),
+not Energy Regeneration. Its R1–R5 Energy effect remains separate flat points per
+second (+0.46 to +0.74). The team Attack/HP passive is a unique current panel group;
+the 60-second team Crit Damage state is separately gated by the registered Zhao
+Ether Curtain mechanism. `14137` uses separate ordinary Ether and EX/Ultimate Ether
+Penetration lanes under the current 0–2 stack count. `14138` applies its current
+0–3 stack Crit Damage to the panel; the additional Electric damage effect requires
+an Electric-capable Attack owner, absent from the current registry. `14139` keeps
+EX Special/Chain/Ultimate Daze in the Daze node, and its team damage stack applies
+to current team damage after an eligible Fire Chain/Ultimate trigger. Daze has no
+result lane, and no current Stun owner can produce that Fire trigger.

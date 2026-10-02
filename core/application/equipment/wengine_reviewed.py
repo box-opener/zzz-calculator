@@ -87,6 +87,16 @@ from .wengine_ids import (
     WENGINE_FLAMEMAKER_SHAKER_ID,
     WENGINE_FUSION_COMPILER_ID,
     WENGINE_TIMEWEAVER_ID,
+    WENGINE_JADE_TEA_ID,
+    WENGINE_STINGING_RAZOR_ID,
+    WENGINE_SUNFALL_EDGE_ID,
+    WENGINE_HELLHOUND_BOOMSTICK_ID,
+    WENGINE_NIGHT_HARPS_ID,
+    WENGINE_BIRD_DREAM_ID,
+    WENGINE_SWEETBUNNY_ID,
+    WENGINE_CYAN_CAGE_ID,
+    WENGINE_FUYUAN_CLEAN_ID,
+    WENGINE_FOX_FURNACE_ID,
 )
 
 
@@ -158,6 +168,66 @@ WENGINE_REVIEWED_MAPPINGS: Mapping[WEngineId, WEngineReviewedMapping] = {
         CharacterStat.ATTACK,
         BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
         "anomaly-timeweaver",
+    ),
+    WENGINE_JADE_TEA_ID: WEngineReviewedMapping(
+        WENGINE_JADE_TEA_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-jade-tea",
+    ),
+    WENGINE_STINGING_RAZOR_ID: WEngineReviewedMapping(
+        WENGINE_STINGING_RAZOR_ID,
+        CharacterStat.ANOMALY_PROFICIENCY,
+        BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+        "anomaly-stinging-razor",
+    ),
+    WENGINE_SUNFALL_EDGE_ID: WEngineReviewedMapping(
+        WENGINE_SUNFALL_EDGE_ID,
+        CharacterStat.CRIT_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "attack-sunfall-edge",
+    ),
+    WENGINE_HELLHOUND_BOOMSTICK_ID: WEngineReviewedMapping(
+        WENGINE_HELLHOUND_BOOMSTICK_ID,
+        CharacterStat.ENERGY_REGEN,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "attack-hellhound-boomstick",
+    ),
+    WENGINE_NIGHT_HARPS_ID: WEngineReviewedMapping(
+        WENGINE_NIGHT_HARPS_ID,
+        CharacterStat.CRIT_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "attack-night-harps",
+    ),
+    WENGINE_BIRD_DREAM_ID: WEngineReviewedMapping(
+        WENGINE_BIRD_DREAM_ID,
+        CharacterStat.ANOMALY_PROFICIENCY,
+        BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+        "anomaly-bird-dream",
+    ),
+    WENGINE_SWEETBUNNY_ID: WEngineReviewedMapping(
+        WENGINE_SWEETBUNNY_ID,
+        CharacterStat.HP,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-sweetbunny",
+    ),
+    WENGINE_CYAN_CAGE_ID: WEngineReviewedMapping(
+        WENGINE_CYAN_CAGE_ID,
+        CharacterStat.HP,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "rupture-cyan-cage",
+    ),
+    WENGINE_FUYUAN_CLEAN_ID: WEngineReviewedMapping(
+        WENGINE_FUYUAN_CLEAN_ID,
+        CharacterStat.CRIT_DAMAGE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "attack-fuyuan-clean",
+    ),
+    WENGINE_FOX_FURNACE_ID: WEngineReviewedMapping(
+        WENGINE_FOX_FURNACE_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-fox-furnace",
     ),
     WENGINE_BIG_CYLINDER_ID: WEngineReviewedMapping(
         WENGINE_BIG_CYLINDER_ID,

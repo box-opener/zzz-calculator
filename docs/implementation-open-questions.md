@@ -691,6 +691,44 @@ has no Electric-capable Anomaly owner, so no actor is invented to exercise that
 branch. The source's 15-second AP buff is represented as an explicit current state.
 
 
+## W-Engine live 3.2 seventh batch: capability and result boundaries
+
+This batch covers `14125`, `14126`, `14129`, `14130`, `14132`, `14133`, `14134`,
+`14137`, `14138`, and `14139` from the live index. Each complete detail JSON and
+each refinement's original text are retained. The R1–R5 values use the corresponding
+refinement, not a copied R1 value.
+
+`14125`'s team damage effect is unique. A separate active state represents a
+qualifying Tea Power stack gain at 15 or more; the current stack count does not
+recompute whether its ten-second team state has expired. Same-refinement copies
+apply once. When duplicate holders have different refinement values, the shared
+non-stacking guard blocks that local event effect with an ambiguity diagnostic
+instead of choosing an instance.
+
+`14129`, `14130`, and `14132` retain their always-on Crit Damage/Crit Rate panels
+when the owner lacks the event capability required to trigger their timed state.
+Their activation requires Ice damage, Fire Follow-up Attack damage, and Fire
+Chain/Ultimate damage respectively. The current Attack roster has no such Ice or
+Fire trigger source, so those specific RuleItems are ineligible rather than
+checkbox-enabled on an incompatible owner. `14138` likewise keeps its Crit Damage
+and stack panel while its full-stack Electric branch is ineligible for the
+registered Attack owner.
+
+`14133` separates the general wearer Anomaly Buildup Efficiency effect from the
+Ether-hit AP stacks, which are eligible only when the owner can produce Ether
+damage. `14134`'s source advanced property is HP% (`rand_property.name` is `生命值`),
+while its points-per-second Energy increase remains a flat current Energy
+Regeneration contribution. Its team Crit Damage state requires the registered
+`zhao-ether-curtain` mechanism; the permanent team Attack/HP panel effect is
+independent of that state.
+
+`14139`'s Daze modifier remains typed on EX Special, Chain, and Ultimate events,
+but the request has no Daze result; a non-blocking diagnostic preserves that
+limitation. Its unique team damage stacks are separate current state after an
+eligible Fire Chain/Ultimate trigger. The registered Stun roster has no Fire-capable
+owner, so that team-buff RuleItem is ineligible and does not invent a Fire event.
+
+
 ## W-Engine live 3.2 fourth queue batch (non-authoritative implementation notes)
 
 The next ten uncovered index rows are `13016`–`13021`, `13101`, `13106`, `13108`,

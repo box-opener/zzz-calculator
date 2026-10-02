@@ -1772,3 +1772,218 @@ def test_wengine_element_filters_expand_base_elements_to_variants() -> None:
         assert {
             item.element for item in element_scope.filters if isinstance(item, ElementFilter)
         } == expected
+
+
+def test_seventh_nanoka_batch_refinements_match_live_text_and_growth_metadata() -> None:
+    expected = {
+        "14125": {
+            "impact_percent_per_stack": (.007, .0088, .0105, .0122, .014),
+            "team_damage_bonus_at_threshold": (.20, .23, .26, .29, .32),
+        },
+        "14126": {
+            "physical_damage_bonus_per_stack": (.12, .15, .18, .21, .24),
+            "anomaly_buildup_efficiency_at_max": (.40, .50, .60, .70, .80),
+        },
+        "14129": {
+            "crit_damage_bonus": (.45, .5175, .585, .6525, .72),
+            "defense_ignore_bonus": (.25, .2875, .325, .3625, .40),
+        },
+        "14130": {
+            "crit_rate_bonus": (.20, .23, .26, .29, .32),
+            "defense_ignore_per_stack": (.15, .172, .195, .217, .24),
+        },
+        "14132": {
+            "crit_damage_bonus": (.50, .575, .65, .725, .80),
+            "fire_resistance_ignore_per_stack": (.125, .145, .165, .185, .20),
+        },
+        "14133": {
+            "anomaly_buildup_efficiency": (.40, .46, .52, .58, .64),
+            "anomaly_proficiency_per_stack": (20, 23, 26, 29, 32),
+        },
+        "14134": {
+            "energy_regen_flat_bonus": (.46, .53, .60, .67, .74),
+            "team_attack_percent": (.10, .115, .13, .145, .16),
+            "team_hp_percent": (.10, .115, .13, .145, .16),
+            "team_crit_damage_bonus": (.30, .345, .39, .435, .48),
+        },
+        "14137": {
+            "crit_rate_bonus": (.20, .23, .26, .29, .32),
+            "ether_damage_bonus_per_stack": (.08, .092, .104, .116, .128),
+            "ultimate_ex_penetration_damage_bonus_per_stack": (
+                .10,
+                .115,
+                .13,
+                .145,
+                .16,
+            ),
+        },
+        "14138": {
+            "crit_damage_bonus": (.30, .345, .39, .435, .48),
+            "crit_damage_per_stack": (.10, .115, .13, .145, .16),
+            "electric_damage_bonus_at_max_stacks": (.20, .23, .26, .29, .32),
+        },
+        "14139": {
+            "ex_chain_ultimate_daze_bonus": (.28, .322, .364, .406, .448),
+            "team_damage_bonus_per_stack": (.10, .115, .13, .145, .16),
+        },
+    }
+    percent_keys = {
+        "impact_percent_per_stack",
+        "team_damage_bonus_at_threshold",
+        "physical_damage_bonus_per_stack",
+        "anomaly_buildup_efficiency_at_max",
+        "crit_damage_bonus",
+        "defense_ignore_bonus",
+        "crit_rate_bonus",
+        "defense_ignore_per_stack",
+        "fire_resistance_ignore_per_stack",
+        "anomaly_buildup_efficiency",
+        "team_attack_percent",
+        "team_hp_percent",
+        "team_crit_damage_bonus",
+        "ether_damage_bonus_per_stack",
+        "ultimate_ex_penetration_damage_bonus_per_stack",
+        "crit_damage_per_stack",
+        "electric_damage_bonus_at_max_stacks",
+        "ex_chain_ultimate_daze_bonus",
+        "team_damage_bonus_per_stack",
+    }
+    for numeric_id, expected_values in expected.items():
+        record = load_wengine_record(f"wengine:{numeric_id}")
+        raw = load_wengine_raw_record(f"wengine:{numeric_id}")
+        assert raw.source_version == "3.2"
+        assert raw.source_url == (
+            f"https://static.nanoka.cc/zzz/3.2/zh/weapon/{numeric_id}.json"
+        )
+        assert record["source_index_url"] == "https://static.nanoka.cc/zzz/3.2/weapon.json"
+        assert tuple(item.refinement for item in raw.talents) == (1, 2, 3, 4, 5)
+        for refinement, talent in enumerate(raw.talents, start=1):
+            source_text = record["raw_nanoka_detail"]["talents"][str(refinement)]["desc"]
+            assert talent.text == source_text
+            plain_text = re.sub(r"<[^>]+>", "", source_text)
+            for key, values in expected_values.items():
+                value = values[refinement - 1]
+                assert talent.numeric_values[key] == pytest.approx(value)
+                displayed = value * 100 if key in percent_keys else value
+                assert re.search(rf"(?<![\d.]){displayed:g}(?![\d.])", plain_text), (
+                    numeric_id,
+                    refinement,
+                    key,
+                    source_text,
+                )
+
+
+def test_seventh_nanoka_batch_compilers_keep_build_and_effect_scopes() -> None:
+    from core.types import AllCondition, DynamicIdentity, DynamicIdentityCondition
+    from core.application.equipment.wengine_reviewed import reviewed_mapping_for
+
+    cases = (
+        ("14125", "character:1361", CharacterStat.IMPACT, .18, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "impact_percent"),
+        ("14126", "character:1401", CharacterStat.ANOMALY_PROFICIENCY, 90.0, BuildContributionLayer.OUT_OF_COMBAT_FLAT, "anomaly_proficiency_flat"),
+        ("14129", "character:1431", CharacterStat.CRIT_RATE, .24, BuildContributionLayer.DIRECT_RATIO, "crit_rate"),
+        ("14130", "character:1431", CharacterStat.ENERGY_REGEN, .60, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "energy_regen"),
+        ("14132", "character:1431", CharacterStat.CRIT_RATE, .24, BuildContributionLayer.DIRECT_RATIO, "crit_rate"),
+        ("14133", "character:1331", CharacterStat.ANOMALY_PROFICIENCY, 90.0, BuildContributionLayer.OUT_OF_COMBAT_FLAT, "anomaly_proficiency_flat"),
+        ("14134", "character:1341", CharacterStat.HP, .30, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "hp_percent"),
+        ("14137", "character:1371", CharacterStat.HP, .30, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "hp_percent"),
+        ("14138", "character:1431", CharacterStat.CRIT_DAMAGE, .48, BuildContributionLayer.DIRECT_RATIO, "crit_damage"),
+        ("14139", "character:1361", CharacterStat.ATTACK, .30, BuildContributionLayer.OUT_OF_COMBAT_PERCENT, "attack_percent"),
+    )
+    for numeric_id, owner_text, stat, advanced_value, layer, source_key in cases:
+        owner = CharacterId(owner_text)
+        wengine_id = WEngineId(f"wengine:{numeric_id}")
+        result = compile_wengine(
+            WEngineBuildInput(wengine_id, owner, refinement=5),
+            owner_capabilities=registration_for(owner).equipment_capabilities,
+        )
+        raw = load_wengine_raw_record(f"wengine:{numeric_id}")
+        source_record = load_wengine_record(str(wengine_id))
+        mapping = reviewed_mapping_for(wengine_id)
+        assert result.complete is True
+        assert result.contributions[0].value == Resolved(raw.base_attack)
+        assert result.contributions[1].stat is stat
+        assert result.contributions[1].value == Resolved(advanced_value)
+        assert result.contributions[1].layer is layer
+        assert mapping.advanced_stat is stat
+        assert mapping.advanced_layer is layer
+        assert source_record["resolved_level_60"]["advanced_stat_key"] == source_key
+        assert result.rule_items
+
+    tea = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14125"), CharacterId("character:1361")),
+        owner_capabilities=registration_for("character:1361").equipment_capabilities,
+    )
+    tea_rule = next(item for item in tea.rule_items if item.rule_id.endswith("impact-per-tea-stack"))
+    tea_team = next(item for item in tea.rule_items if item.rule_id.endswith("tea-threshold-team-damage"))
+    assert tea_rule.stack_max == 30
+    assert tea_team.condition_ids == (tea.scenario_conditions[0].condition_id,)
+    assert tea_team.non_stacking_group_id == "wengine:14125:tea-threshold-team-damage"
+
+    razor = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14126"), CharacterId("character:1401")),
+        owner_capabilities=registration_for("character:1401").equipment_capabilities,
+    )
+    razor_stack = razor.rule_items[0]
+    buildup_effect = razor.rule_items[1].effects[0]
+    assert razor_stack.stack_max == 3
+    assert buildup_effect.rule.target.value == "team"
+    assert isinstance(buildup_effect.rule.condition, AllCondition)
+    assert DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER) in buildup_effect.rule.condition.conditions
+    assert RuleStackCondition(razor_stack.rule_id, 3) in buildup_effect.rule.condition.conditions
+
+    sunfall = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14129"), CharacterId("character:1431")),
+        owner_capabilities=registration_for("character:1431").equipment_capabilities,
+    )
+    assert sunfall.rule_items[0].eligibility is RuleEligibility.ELIGIBLE
+    assert sunfall.rule_items[1].eligibility is RuleEligibility.INELIGIBLE
+    assert sunfall.rule_items[1].condition_ids == (sunfall.scenario_conditions[0].condition_id,)
+
+    night_harps = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14132"), CharacterId("character:1431")),
+        owner_capabilities=registration_for("character:1431").equipment_capabilities,
+    )
+    ignore = night_harps.rule_items[1]
+    assert ignore.stack_max == 2
+    filters = ignore.effects[0].rule.filters
+    assert any(isinstance(item, AnyFilter) for item in filters)
+    elements = {
+        child.element
+        for item in filters
+        for child in (item.filters if isinstance(item, AnyFilter) else (item,))
+        if isinstance(child, ElementFilter)
+    }
+    assert elements == {Element.FIRE}
+
+    curtain = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14134"), CharacterId("character:1341")),
+        owner_capabilities=registration_for("character:1341").equipment_capabilities,
+    )
+    assert curtain.rule_items[1].non_stacking_group_id == "wengine:14134:team-attack-hp"
+    assert all(effect.rule.target.value == "team" for effect in curtain.rule_items[1].effects)
+    assert curtain.rule_items[2].condition_ids == (curtain.scenario_conditions[0].condition_id,)
+
+    cyan = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14137"), CharacterId("character:1371")),
+        owner_capabilities=registration_for("character:1371").equipment_capabilities,
+    )
+    cyan_stacks = cyan.rule_items[1]
+    assert cyan_stacks.stack_max == 2
+    assert {
+        effect.result.modifier_path for effect in cyan_stacks.effects
+    } == {CalculationNode.DAMAGE_NORMAL_BONUS, CalculationNode.PENETRATION_DAMAGE_BONUS}
+
+    fuyuan = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14138"), CharacterId("character:1431")),
+        owner_capabilities=registration_for("character:1431").equipment_capabilities,
+    )
+    assert fuyuan.rule_items[1].stack_max == 3
+    assert fuyuan.rule_items[2].eligibility is RuleEligibility.INELIGIBLE
+
+    fox = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14139"), CharacterId("character:1361")),
+        owner_capabilities=registration_for("character:1361").equipment_capabilities,
+    )
+    assert fox.rule_items[0].effects[0].result.modifier_path is CalculationNode.DAZE_OUTGOING_BONUS
+    assert fox.rule_items[1].eligibility is RuleEligibility.INELIGIBLE
+    assert fox.rule_items[1].non_stacking_group_id == "wengine:14139:team-damage"

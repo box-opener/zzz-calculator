@@ -490,6 +490,16 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
         "wengine:14121",
         "wengine:14122",
         "wengine:14124",
+        "wengine:14125",
+        "wengine:14126",
+        "wengine:14129",
+        "wengine:14130",
+        "wengine:14132",
+        "wengine:14133",
+        "wengine:14134",
+        "wengine:14137",
+        "wengine:14138",
+        "wengine:14139",
         "wengine:14131",
         "wengine:14143",
         "wengine:14145",
@@ -2915,6 +2925,282 @@ def test_timeweaver_ap_state_uses_current_panel_value_and_electric_buildup_is_ca
     assert result["resolved_character_snapshots"][0]["stats"][
         "anomaly_proficiency"
     ] == pytest.approx(415.0)
+    assert result["totals"]["expected"]["complete"] is True
+
+
+def test_jade_tea_stacks_and_qualifying_team_buff_are_independent_current_states() -> None:
+    payload = _with_supporting_wengine(
+        _valid_calculation_payload(),
+        [("character:1361", "wengine:14125", 5, "electric")],
+    )
+    impact_rule = "rule:wengine:14125:owner:1361:impact-per-tea-stack"
+    team_rule = "rule:wengine:14125:owner:1361:tea-threshold-team-damage"
+    team_condition = "condition:wengine:14125:owner:1361:tea-threshold-team-damage-active"
+    baseline = client.post("/api/v1/moves/calculate", json=payload)
+    assert baseline.status_code == 200, baseline.text
+    before_impact = next(
+        item["stats"]["impact"]
+        for item in baseline.json()["resolved_character_snapshots"]
+        if item["character_id"] == "character:1361"
+    )
+
+    payload["enabled_rule_item_ids"] = [impact_rule, team_rule]
+    payload["rule_stack_counts"] = {impact_rule: 10}
+    payload["condition_values"] = {team_condition: True}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    trigger_stats = next(
+        item["stats"]
+        for item in result["resolved_character_snapshots"]
+        if item["character_id"] == "character:1361"
+    )
+    assert trigger_stats["impact"] == pytest.approx(before_impact * 1.14)
+    assert _breakdown_value(result["events"][0], "damage.normal-bonus") == pytest.approx(0.32)
+    assert result["totals"]["expected"]["complete"] is True
+
+
+@pytest.mark.parametrize(
+    ("refinements", "expected_bonus", "complete"),
+    (((1, 1), 0.20, True), ((1, 5), 0.0, False)),
+)
+def test_jade_tea_team_unique_bonus_applies_once_or_blocks_mixed_refinements(
+    refinements: tuple[int, int],
+    expected_bonus: float,
+    complete: bool,
+) -> None:
+    owners = (
+        ("character:1361", "wengine:14125", refinements[0], "electric"),
+        ("character:1251", "wengine:14125", refinements[1], "electric"),
+    )
+    payload = _with_supporting_wengine(_valid_calculation_payload(), list(owners))
+    rule_ids = [
+        "rule:wengine:14125:owner:1361:tea-threshold-team-damage",
+        "rule:wengine:14125:owner:1251:tea-threshold-team-damage",
+    ]
+    payload["enabled_rule_item_ids"] = rule_ids
+    payload["condition_values"] = {
+        "condition:wengine:14125:owner:1361:tea-threshold-team-damage-active": True,
+        "condition:wengine:14125:owner:1251:tea-threshold-team-damage-active": True,
+    }
+    baseline_payload = deepcopy(payload)
+    baseline_payload["enabled_rule_item_ids"] = []
+    baseline_payload["condition_values"] = {}
+    baseline_response = client.post("/api/v1/moves/calculate", json=baseline_payload)
+    assert baseline_response.status_code == 200, baseline_response.text
+    baseline_region = _breakdown_value(
+        baseline_response.json()["events"][0], "damage.normal-bonus-region"
+    )
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    event = result["events"][0]
+    assert result["totals"]["expected"]["complete"] is complete
+    if complete:
+        assert _breakdown_value(event, "damage.normal-bonus-region") == pytest.approx(
+            baseline_region + expected_bonus
+        )
+    else:
+        assert not any(
+            item["effect_id"].startswith("effect:wengine:14125:owner:")
+            and item["modifier_path"] == "damage.normal-bonus"
+            for item in event["common_application_trace"]["applied_modifiers"]
+        )
+        assert any(
+            item["kind"] == "ambiguous-semantics" and item["blocking"]
+            for item in result["diagnostics"]
+        )
+
+
+def test_stinging_razor_current_stacks_apply_physical_damage_and_max_stack_buildup() -> None:
+    owner = "character:1401"
+    payload = _single_wengine_payload(
+        owner,
+        "move-entry:alice:1401:basic-star-opera-1",
+        "wengine:14126",
+        5,
+        element="physical",
+    )
+    damage_rule = "rule:wengine:14126:owner:1401:physical-damage-per-hunter-intent"
+    buildup_rule = "rule:wengine:14126:owner:1401:buildup-efficiency-at-max-hunter-intent"
+    payload["enabled_rule_item_ids"] = [damage_rule, buildup_rule]
+    payload["rule_stack_counts"] = {damage_rule: 3}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    event = result["events"][0]
+    assert _breakdown_value(event, "damage.normal-bonus") == pytest.approx(0.72)
+    buildup_values = [
+        item["value"]
+        for item in event["common_application_trace"]["applied_modifiers"]
+        if item["source_type"] == "weapon"
+        and item["modifier_path"] == "anomaly-buildup.efficiency"
+    ]
+    assert buildup_values == [pytest.approx(0.80)]
+    assert result["totals"]["expected"]["complete"] is True
+
+
+def test_bird_dream_buildup_applies_to_wearer_while_ether_stacks_change_formal_ap() -> None:
+    owner = "character:1331"
+    payload = _single_wengine_payload(
+        owner,
+        "move-entry:character:1331:basic-lady-dance",
+        "wengine:14133",
+        5,
+        element="ether",
+    )
+    efficiency_rule = "rule:wengine:14133:owner:1331:anomaly-buildup-efficiency"
+    ap_rule = "rule:wengine:14133:owner:1331:anomaly-proficiency-per-ether-stack"
+    payload["enabled_rule_item_ids"] = [efficiency_rule, ap_rule]
+    payload["rule_stack_counts"] = {ap_rule: 6}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    stats = result["resolved_character_snapshots"][0]["stats"]
+    assert stats["anomaly_proficiency"] == pytest.approx(382.0)
+    buildup_values = [
+        item["value"]
+        for item in result["events"][0]["common_application_trace"]["applied_modifiers"]
+        if item["source_type"] == "weapon"
+        and item["modifier_path"] == "anomaly-buildup.efficiency"
+    ]
+    assert buildup_values == [pytest.approx(0.64)]
+    assert result["totals"]["expected"]["complete"] is True
+
+
+def test_sweetbunny_team_stats_and_ether_curtain_crit_state_have_separate_scopes() -> None:
+    payload = _with_supporting_wengine(
+        _valid_calculation_payload(),
+        [("character:1341", "wengine:14134", 5, "ice")],
+    )
+    team_rule = "rule:wengine:14134:owner:1341:team-attack-hp"
+    veil_rule = "rule:wengine:14134:owner:1341:team-crit-damage-after-ether-veil"
+    energy_rule = "rule:wengine:14134:owner:1341:energy-regen-flat"
+    veil_condition = "condition:wengine:14134:owner:1341:ether-veil-team-crit-damage-active"
+    baseline = client.post("/api/v1/moves/calculate", json=payload)
+    assert baseline.status_code == 200, baseline.text
+    before = {
+        item["character_id"]: item["stats"]
+        for item in baseline.json()["resolved_character_snapshots"]
+    }
+    assert before["character:1341"]["hp"] == pytest.approx(14800.0)
+    assert before["character:1341"]["energy_regen"] == pytest.approx(1.2)
+    payload["enabled_rule_item_ids"] = [energy_rule, team_rule, veil_rule]
+    payload["condition_values"] = {veil_condition: True}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    after = {
+        item["character_id"]: item["stats"]
+        for item in result["resolved_character_snapshots"]
+    }
+    for character_id in ("character:1431", "character:1341"):
+        assert after[character_id]["attack"] == pytest.approx(before[character_id]["attack"] * 1.16)
+        assert after[character_id]["hp"] == pytest.approx(before[character_id]["hp"] * 1.16)
+        assert after[character_id]["crit_damage"] == pytest.approx(
+            before[character_id]["crit_damage"] + 0.48
+        )
+    assert after["character:1341"]["energy_regen"] == pytest.approx(1.94)
+    assert after["character:1341"]["hp"] == pytest.approx(17168.0)
+    assert result["totals"]["expected"]["complete"] is True
+
+
+@pytest.mark.parametrize(
+    ("move_entry_id", "expected_damage_bonus", "expected_pen_bonus"),
+    (
+        ("move-entry:character:1371:basic-xiaoyun-jin-1", 0.256, 0.0),
+        ("move-entry:character:1371:ex-qingming-shock-break", 0.256, 0.32),
+    ),
+)
+def test_cyan_cage_keeps_ether_damage_and_ultimate_ex_penetration_lanes_separate(
+    move_entry_id: str,
+    expected_damage_bonus: float,
+    expected_pen_bonus: float,
+) -> None:
+    payload = _single_wengine_payload(
+        "character:1371",
+        move_entry_id,
+        "wengine:14137",
+        5,
+        element="ether",
+    )
+    rule_id = "rule:wengine:14137:owner:1371:ether-damage-per-cyan-journey-stack"
+    payload["enabled_rule_item_ids"] = [rule_id]
+    payload["rule_stack_counts"] = {rule_id: 2}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert _breakdown_value(result["events"][0], "damage.normal-bonus") == pytest.approx(
+        expected_damage_bonus
+    )
+    penetration_events = [
+        item for item in result["events"] if item["damage_type"] == "penetration"
+    ]
+    if expected_pen_bonus:
+        assert penetration_events
+        penetration_modifiers = [
+            item["value"]
+            for event in penetration_events
+            for item in event["common_application_trace"]["applied_modifiers"]
+            if item["source_type"] == "weapon"
+            and item["modifier_path"] == "penetration.damage-bonus"
+        ]
+        assert penetration_modifiers == [pytest.approx(expected_pen_bonus)]
+    else:
+        assert not any(
+            item["source_type"] == "weapon"
+            and item["modifier_path"] == "penetration.damage-bonus"
+            for event in penetration_events
+            for item in event["common_application_trace"]["applied_modifiers"]
+        )
+    assert result["totals"]["expected"]["complete"] is True
+
+
+def test_fuyuan_clean_stacks_change_crit_damage_but_not_ineligible_electric_damage() -> None:
+    payload = _single_wengine_payload(
+        "character:1431",
+        "move-entry:ye:1431:basic-fast-1",
+        "wengine:14138",
+        5,
+        element="physical",
+    )
+    stack_rule = "rule:wengine:14138:owner:1431:crit-damage-per-hit-category-stack"
+    electric_rule = "rule:wengine:14138:owner:1431:electric-damage-at-three-stacks"
+    payload["enabled_rule_item_ids"] = [stack_rule, electric_rule]
+    payload["rule_stack_counts"] = {stack_rule: 3}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["resolved_character_snapshots"][0]["stats"][
+        "crit_damage"
+    ] == pytest.approx(1.46)
+    assert _breakdown_value(result["events"][0], "damage.normal-bonus") == pytest.approx(0.0)
+    assert result["totals"]["expected"]["complete"] is True
+
+
+def test_fox_furnace_applies_tagged_daze_without_inventing_fire_team_buff() -> None:
+    payload = _single_wengine_payload(
+        "character:1361",
+        "move-entry:trigger:1361:special-ghost-bloom",
+        "wengine:14139",
+        5,
+        element="electric",
+    )
+    daze_rule = "rule:wengine:14139:owner:1361:ex-chain-ultimate-daze"
+    team_rule = "rule:wengine:14139:owner:1361:team-damage-per-fire-chain-ultimate-stack"
+    payload["enabled_rule_item_ids"] = [daze_rule, team_rule]
+    payload["rule_stack_counts"] = {team_rule: 2}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    daze_values = [
+        item["value"]
+        for item in result["events"][0]["common_application_trace"]["applied_modifiers"]
+        if item["source_type"] == "weapon"
+        and item["modifier_path"] == "daze.outgoing-bonus"
+    ]
+    assert daze_values == [pytest.approx(0.448)]
+    assert _breakdown_value(result["events"][0], "damage.normal-bonus") == pytest.approx(0.0)
     assert result["totals"]["expected"]["complete"] is True
 
 
