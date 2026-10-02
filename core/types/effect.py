@@ -301,12 +301,13 @@ class PanelStatDerivedValue:
             CalculationNode.CHARACTER_INITIAL_HP,
             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            CalculationNode.CHARACTER_CURRENT_IMPACT,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
         }:
             raise ValueError(
                 "panel derived values only support initial attack/HP/crit rate, "
-                "current crit rate, anomaly mastery, or anomaly proficiency"
+                "current crit rate/impact, anomaly mastery, or anomaly proficiency"
             )
         if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
             raise ValueError("derived panel value coefficient must be non-negative")

@@ -62,6 +62,12 @@ from core.application.characters.zhao import (
     compile_zhao,
     load_raw_record as load_zhao_raw_record,
 )
+from core.application.characters.qingyi import (
+    QINGYI_ID,
+    QingyiCompileConfig,
+    compile_qingyi,
+    load_raw_record as load_qingyi_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -399,6 +405,31 @@ def _zhao_fields(
         _integer_field(
             "cinema_level",
             "照影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _qingyi_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "青衣核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "青衣影画",
             int(values.get("cinema_level", 0)),
             0,
             6,
@@ -929,6 +960,49 @@ def _compile_zhao(
     )
 
 
+def _nanoka_camp_ids(character_id: CharacterId) -> frozenset[str]:
+    raw = load_character_record(str(character_id))
+    camps = raw.get("camp", {})
+    if not isinstance(camps, Mapping):
+        return frozenset()
+    return frozenset(str(key) for key in camps)
+
+
+def _qingyi_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    qingyi_camps = _nanoka_camp_ids(QINGYI_ID)
+    for character_id in team_ids:
+        if character_id == QINGYI_ID or character_id not in _REGISTRATIONS:
+            continue
+        if _REGISTRATIONS[character_id].role is CharacterRole.ATTACK:
+            return True
+        if qingyi_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _compile_qingyi(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_qingyi(
+        QingyiCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _qingyi_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_qingyi_raw_record(load_character_record(str(QINGYI_ID))),
+    )
+
+
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
@@ -1193,6 +1267,30 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"zhao-ether-curtain", "zhao-frostbite", "zhao-charged-max-hp"}),
+        ),
+    ),
+    CharacterId("character:1251"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1251"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1251",
+            display_name="青衣",
+            rarity="S",
+            element="electric",
+            specialty="stun",
+            image_path="/characters/IconRole29.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_qingyi,
+        config_fields=_qingyi_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1251"),
+            role=CharacterRole.STUN,
+            possible_elements=frozenset({Element.ELECTRIC}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"qingyi-flashover", "qingyi-subjugation"}),
         ),
     ),
 }

@@ -114,6 +114,7 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1481",
         "character:1331",
         "character:1341",
+        "character:1251",
     )
     assert load_character_record("character:1311")["name"] == "耀嘉音"
     assert load_character_record("character:1431")["name"] == "叶瞬光"
@@ -136,6 +137,9 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
     assert load_character_record("character:1341")["name"] == "照"
     assert load_character_record("character:1341")["source_version"] == "3.2"
     assert load_character_record("character:1341")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1341.json"
+    assert load_character_record("character:1251")["name"] == "青衣"
+    assert load_character_record("character:1251")["source_version"] == "3.2"
+    assert load_character_record("character:1251")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1251.json"
 
 
 def test_character_editor_exposes_static_conditions_and_trigger_inputs() -> None:

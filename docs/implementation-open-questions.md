@@ -432,7 +432,7 @@ Cinema 6 rule. Charge accumulation and consumption timing are not simulated.
 ### Static Ice anomaly and non-damage state limits
 
 The separate static Ice entries assume one complete anomaly gauge and use
-`NoCritRule`: Shatter uses `500%`; Disorder uses `1300% + floor(t) × 7.5%`,
+`NoCritRule`: Shatter uses `500%`; Disorder uses the default `450% + floor(t) × 7.5%`,
 where the user-selected remaining duration is an integer from zero through ten
 seconds and defaults to ten. Anomaly strength uses the current reviewed panel
 and ordinary damage bonus once when the historical static record is created.
@@ -442,3 +442,95 @@ than replaying their accumulation, opening, expiry, 3-second hit throttle, or
 180-second limit. Healing ticks, current-HP costs, Decibels, automatic Quick
 Assist ordering, and preserved-charge timeline effects remain non-damage
 resource gaps with non-blocking diagnostics.
+
+## Qingyi (青衣, `character:1251`)
+
+### Nanoka source and level-60 panel
+
+The complete Qingyi record is the live Nanoka 3.2 source at
+`https://static.nanoka.cc/zzz/3.2/zh/character/1251.json`. It identifies an
+Electric Stun character in faction 7. The reviewed level-60 panel includes the
+raw `extra_level[6]` Attack `+75` and Impact `+18`, yielding HP `8250.5871`,
+Attack `758.2048`, Impact `136`, Anomaly Mastery `94`, and Anomaly Proficiency
+`93` before equipment.
+
+### Current Impact conversion, Subjugation, and the chain hit
+
+The Additional Ability is eligible when another Attack character is on the
+team or another teammate has the same Nanoka faction ID. If eligible, Qingyi's
+current Impact above 120 adds `+6` Attack per point, capped at `+600`. This is a
+formal self Panel effect sourced from the current settlement Impact after
+equipment and other panel effects. For example, the base Impact `136` adds
+`+96` Attack; the supported W-Engine Soul Lock case moves current Impact to
+`163.2`, which adds `+259.2` Attack while the equipment-built base Attack stays
+`1471.2048`.
+
+The Core effect and Cinema 2 both read one selected current Subjugation count
+from 0 to 20. At Core 1 each layer adds `2%` target Stun Vulnerability; this
+grows to `4%` at Core 7. Cinema 2 raises that per-layer value to 135% of its
+original value when enabled. The standard Calculator applies Stun Vulnerability
+only while the enemy is stunned. Chain damage separately adds `3%` normal
+damage bonus per current Subjugation layer, whether or not the enemy is stunned.
+The calculator does not replay finisher stack application, each dash's extra
+layer, Perfect Dodge layers, the Normal/Elite doubling rule, or stack reset
+when stun ends. The selected count represents the current enemy status.
+
+The Additional Ability's `+20%` Basic Daze and Cinema 2's conditional `+15%`
+Daze at max Subjugation are not included in damage totals because the current
+`calculate_payload` path returns damage only and does not instantiate Daze
+outcomes. Raw Prop 1002 Daze curves, including the three Defensive Assist curves
+that have no damage parameter, remain in the lossless raw record; the
+implementation creates no false Direct events for them.
+
+### C1, Flashover, Cinema 6, and static anomalies
+
+Cinema 1's current-target status applies `15%` Enemy Defense Reduction to all
+teammate damage and a separate `+20%` event Crit Rate to Qingyi Direct hits
+against that target. Flashover's excess voltage over 75% is a selected integer
+from zero to 25 percentage points. Each adds `+1%` in the move's normal damage
+bonus region to the Moon Turn components; it does not multiply the source skill
+curve. The separate `+0.5%` Daze coefficient is outside the damage output.
+
+Cinema 6's `+100%` Crit Damage is event-stat scoped to Qingyi's Moon Turn move;
+it does not change her formal Crit Damage panel. The all-attribute `-20%`
+resistance effect is represented as a current target status with no damage
+event filter, so any teammate's later damage can benefit. The calculator does
+not infer either status from the selected attack or model its 15-second expiry.
+
+Static Electric anomaly uses the specification's full 10-second Shock record:
+10 ticks at `125%` each, all under `NoCritRule`. Electric Disorder uses the
+default `450%` base plus `floor(t) × 125%`, where selected remaining time is an
+integer from zero through ten seconds and defaults to ten. These route through
+the shared typed AnomalyRecord, Attribute Anomaly, and Disorder templates;
+Core stun vulnerability and Cinema 6 resistance reduction are applied by the
+same generic calculator path.
+
+### Curves whose hit relation remains unresolved
+
+The Basic: 一煞 prose says that its sequence causes both Physical and Electric
+damage but the raw record gives one damage curve per displayed stage without
+per-element shares. The implementation retains each source curve and blocks
+only the selected Basic stage with an explicit ambiguity diagnostic. It also
+keeps source `1251002`, labeled “一段伤害倍率（派生）”, separate; the prose does
+not establish which action or hit it replaces or adds.
+
+Moon Turn gives distinct rush `1251008` and finisher `1251009` curves, and its
+prose says there are five rush attacks. The source does not identify whether
+`1251008` is a per-rush ratio or the aggregate five-rush ratio. The rush curve
+and isolated final-hit curve are preserved as separate entries; selecting the
+full sequence is blocked with both plausible total ratios shown. No count is
+multiplied into the curve by assumption.
+
+The EX Special base parameter explicitly adds curves `1251011`, `1251021`,
+and `1251022`; that source sum is calculated at the effective Special level.
+Holding the button can consume additional energy to increase turn-in attacks,
+but the text does not map that extension to a repeat count and another curve.
+Selecting the extra-turn state keeps the known base event and reports
+`MISSING_DATA` for only that extension branch.
+
+Cinema 3 and 5 each add two levels to Basic, Dodge, Assist, Special, and Chain;
+Ultimate receives neither bonus. The compilers apply these to the raw curves
+before event construction, up to effective level 16. The calculator does not
+replay Flashover charge, entry restoration, interruption level, shields,
+support-point consumption, energy refreshes, or battle durations; those limits
+have non-blocking diagnostics where they affect the selected rule.

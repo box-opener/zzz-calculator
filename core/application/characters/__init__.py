@@ -22,6 +22,7 @@ from .yixuan import YixuanCompileConfig, compile_yixuan
 from .dialyn import DialynCompileConfig, compile_dialyn
 from .vivian import VivianCompileConfig, compile_vivian
 from .zhao import ZhaoCompileConfig, compile_zhao
+from .qingyi import QingyiCompileConfig, compile_qingyi
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -54,4 +55,6 @@ __all__ = [
     "compile_vivian",
     "ZhaoCompileConfig",
     "compile_zhao",
+    "QingyiCompileConfig",
+    "compile_qingyi",
 ]

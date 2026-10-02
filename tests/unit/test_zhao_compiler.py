@@ -473,10 +473,17 @@ def test_static_ice_anomaly_and_disorder_are_no_crit_and_use_full_duration() -> 
     )
     disorder_event = _event(disorder)
     assert disorder_event["damage_type"] == "disorder"
-    assert _node(disorder_event, "disorder.total-multiplier") == pytest.approx(13.75)
+    assert _node(disorder_event, "disorder.total-multiplier") == pytest.approx(5.25)
     assert disorder["totals"]["non-crit"]["value"] == pytest.approx(
         disorder["totals"]["expected"]["value"]
     )
+    disorder_t0 = calculate_payload(
+        _payload(
+            move_entry_id="move-entry:character:1341:ice-disorder",
+            parameter_values={"parameter:zhao:ice-disorder-remaining-seconds": 0},
+        )
+    )
+    assert _node(_event(disorder_t0), "disorder.total-multiplier") == pytest.approx(4.5)
 
 
 def test_zhao_additional_ability_eligibility_is_derived_from_team_roles() -> None:
