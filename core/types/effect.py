@@ -324,12 +324,11 @@ class PanelStatDerivedValue:
             raise ValueError("derived panel value threshold and minimum must agree")
         if self.source_node in {
             CalculationNode.CHARACTER_INITIAL_ATTACK,
-            CalculationNode.CHARACTER_INITIAL_HP,
         } and (
             self.threshold is not None or self.minimum is not None
         ):
             raise ValueError(
-                "initial-panel derived values cannot declare a current-panel threshold"
+                "initial attack derived values cannot declare a panel threshold"
             )
 
 

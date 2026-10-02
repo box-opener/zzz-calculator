@@ -115,6 +115,7 @@ class EffectTarget(StrEnum):
 
     SELF = "self"
     TEAM = "team"
+    TEAM_OTHER = "team-other"
     ENEMY = "enemy"
 
 

@@ -69,7 +69,10 @@ from core.presentation.registry import (
     registration_for,
     compile_registered_definition,
 )
-from core.presentation.base_stats import character_base_stats
+from core.presentation.base_stats import (
+    character_base_stat_contributions,
+    character_base_stats,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -534,7 +537,9 @@ def _build_records(
             base_stats = _character_stats(build.base_stats, character_id)
         rule_items: tuple[CalculationRuleItem, ...] = ()
         conditions: tuple[ScenarioCondition, ...] = ()
-        contributions: tuple[BuildStatContribution, ...] = ()
+        contributions: tuple[BuildStatContribution, ...] = (
+            character_base_stat_contributions(character_id)
+        )
         if build.wengine_id is not None:
             wengine = compile_wengine(
                 WEngineBuildInput(
@@ -548,7 +553,7 @@ def _build_records(
             if not wengine.complete:
                 messages = "; ".join(item.message for item in wengine.diagnostics)
                 raise ValueError(messages)
-            contributions = wengine.contributions
+            contributions = (*contributions, *wengine.contributions)
             rule_items = wengine.rule_items
             conditions = wengine.scenario_conditions
         if build.drive_discs:

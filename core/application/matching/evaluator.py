@@ -113,7 +113,20 @@ def match_target(
             )
         if owner != context.current_operator:
             return EffectMatchStatus.NOT_MATCHED, ()
-    elif target is EffectTarget.TEAM:
+    elif target in {EffectTarget.TEAM, EffectTarget.TEAM_OTHER}:
+        if target is EffectTarget.TEAM_OTHER and owner is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    diagnostic(
+                        effect_id,
+                        "missing-owner",
+                        DiagnosticKind.MISSING_DATA,
+                        "team-other Effect requires an owner to exclude",
+                        blocking=True,
+                    ),
+                ),
+            )
         if context.current_operator not in {
             profile.character_id for profile in context.team
         }:
@@ -451,6 +464,10 @@ def _state_profiles(subject, owner, context: EffectMatchContext):
         return (context.target,)
     if subject is EffectTarget.TEAM:
         return context.team
+    if subject is EffectTarget.TEAM_OTHER:
+        if owner is None:
+            return None
+        return tuple(item for item in context.team if item.character_id != owner)
     if subject is EffectTarget.SELF:
         if owner is None:
             return None

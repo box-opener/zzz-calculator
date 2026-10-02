@@ -10,10 +10,12 @@ record:
 * ``extra_level[6]``: base ATK +75 / CRIT +1440 (1/10000 units)
 * raw growth fields are applied for levels 1 through 60
 
-The resulting values are kept in the same normalized shape as Astra's
-``stats`` object, so the rest of the build pipeline has one input contract.
-Only level 60 is currently reviewed in the packaged source records.  A
-different level is rejected instead of silently using a level-60 panel.
+The resulting white values are kept in the same normalized shape as Astra's
+``stats`` object. Nanoka out-of-combat percentage properties are returned
+separately by ``character_base_stat_contributions`` so equipment percentages
+add in the same layer. Only level 60 is currently reviewed in the packaged
+source records. A different level is rejected instead of silently using a
+level-60 panel.
 """
 
 from __future__ import annotations
@@ -21,7 +23,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from core.data.loader import load_character_record
-from core.types import CharacterId, CharacterStats, Element, Resolved
+from core.types import (
+    BuildContributionLayer,
+    BuildSource,
+    BuildSourceType,
+    BuildStatContribution,
+    CharacterId,
+    CharacterStat,
+    CharacterStats,
+    Element,
+    Resolved,
+)
 
 
 BASE_STATS_LEVEL = 60
@@ -171,6 +183,54 @@ def character_base_stats(
     )
 
 
+def character_base_stat_contributions(
+    character_id: str | CharacterId,
+) -> tuple[BuildStatContribution, ...]:
+    """Return level-60 character modifiers that belong in Build's percent layer.
+
+    Nanoka property 11102 is an out-of-combat HP percentage.  Keep it separate
+    from the white HP value so equipment percentages add in the same layer.
+    """
+
+    raw = load_character_record(str(character_id))
+    stats = raw.get("stats")
+    if not isinstance(stats, Mapping) or "atk" in stats:
+        return ()
+    extra_values = raw.get("extra_level")
+    if not isinstance(extra_values, Mapping):
+        return ()
+    extra_60 = extra_values.get("6")
+    if not isinstance(extra_60, Mapping):
+        return ()
+    extra_map = extra_60.get("extra", {})
+    if not isinstance(extra_map, Mapping):
+        return ()
+    raw_hp_percent = extra_map.get("11102", {})
+    if not isinstance(raw_hp_percent, Mapping):
+        return ()
+    value = raw_hp_percent.get("value", 0.0)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"character extra stat '11102' is not numeric: {character_id}")
+    percentage = float(value) / 10000.0
+    if percentage == 0.0:
+        return ()
+    owner = CharacterId(str(character_id))
+    source = BuildSource(
+        source_id=f"{owner}:extra-level-6:11102",
+        source_type=BuildSourceType.CHARACTER,
+        label="角色额外等级·生命值百分比",
+    )
+    return (
+        BuildStatContribution(
+            contribution_id=f"{source.source_id}:hp-percent",
+            source=source,
+            stat=CharacterStat.HP,
+            layer=BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            value=Resolved(percentage),
+        ),
+    )
+
+
 def _element(value: str) -> Element:
     mapping = {
         "物理": Element.PHYSICAL,
@@ -194,4 +254,8 @@ def _element(value: str) -> Element:
         raise ValueError(f"unsupported character base element: {value}") from exc
 
 
-__all__ = ["BASE_STATS_LEVEL", "character_base_stats"]
+__all__ = [
+    "BASE_STATS_LEVEL",
+    "character_base_stat_contributions",
+    "character_base_stats",
+]

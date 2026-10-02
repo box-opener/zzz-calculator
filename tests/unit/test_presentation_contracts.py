@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 
+import pytest
+
 from core.application import CritDisplayMode
 from core.application.characters.astra import (
     AstraCompileConfig,
@@ -40,6 +42,9 @@ from core.presentation.calculation import panel_snapshot_view
 from core.presentation.serialization import to_jsonable
 from core.types import (
     CharacterId,
+    InitialCharacterSnapshot,
+    CharacterSnapshot,
+    CharacterStats,
     DamageType,
     Element,
     EffectId,
@@ -108,6 +113,7 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1451",
         "character:1481",
         "character:1331",
+        "character:1341",
     )
     assert load_character_record("character:1311")["name"] == "耀嘉音"
     assert load_character_record("character:1431")["name"] == "叶瞬光"
@@ -127,6 +133,9 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
     assert load_character_record("character:1331")["name"] == "薇薇安"
     assert load_character_record("character:1331")["source_version"] == "3.2"
     assert load_character_record("character:1331")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1331.json"
+    assert load_character_record("character:1341")["name"] == "照"
+    assert load_character_record("character:1341")["source_version"] == "3.2"
+    assert load_character_record("character:1341")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1341.json"
 
 
 def test_character_editor_exposes_static_conditions_and_trigger_inputs() -> None:
@@ -238,8 +247,6 @@ def test_panel_application_emits_recipient_provenance() -> None:
             value=Resolved(120.0),
         ),
     )
-    from core.types import CharacterSnapshot, CharacterStats
-
     stats = CharacterStats(
         hp=Resolved(10000.0),
         attack=Resolved(1000.0),
@@ -266,3 +273,55 @@ def test_panel_application_emits_recipient_provenance() -> None:
     assert panel_snapshot_view(result.character_snapshots[0]).stats["element_damage_bonus"] == {
         "physical": 0.0,
     }
+
+
+def test_team_other_panel_target_excludes_effect_owner() -> None:
+    owner = CharacterId("character:team-other-owner")
+    teammate = CharacterId("character:team-other-teammate")
+    effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:presentation:team-other-panel"),
+            source=RuleSource(
+                source_id=RuleSourceId("source:presentation:team-other-panel"),
+                source_type=EffectSourceType.CINEMA,
+                label="其他队员攻击力提升",
+            ),
+            owner=owner,
+            target=EffectTarget.TEAM_OTHER,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+            operation=EffectOperation.ADD,
+            value=Resolved(0.15),
+        ),
+    )
+    stats = CharacterStats(
+        hp=Resolved(10000.0),
+        attack=Resolved(1000.0),
+        defense=Resolved(500.0),
+        impact=Resolved(100.0),
+        crit_rate=Resolved(0.5),
+        crit_damage=Resolved(0.5),
+        anomaly_mastery=Resolved(100.0),
+        anomaly_proficiency=Resolved(100.0),
+        penetration_rate=Resolved(0.0),
+        penetration_flat=Resolved(0.0),
+        energy_regen=Resolved(1.2),
+        element_damage_bonus={Element.PHYSICAL: Resolved(0.0)},
+    )
+    result = apply_matched_modifiers(
+        (CharacterSnapshot(owner, 60, stats), CharacterSnapshot(teammate, 60, stats)),
+        (),
+        (MatchedEffectApplication(effect, rule_item_id="rule:presentation:team-other-panel"),),
+        owner,
+        initial_character_snapshots=(
+            InitialCharacterSnapshot(owner, 60, stats),
+            InitialCharacterSnapshot(teammate, 60, stats),
+        ),
+    )
+    assert [item.recipient_character_id for item in result.panel_traces] == [teammate]
+    assert result.panel_traces[0].resolved_value == pytest.approx(150.0)
+    snapshots = {item.character_id: item.settlement_stats for item in result.character_snapshots}
+    assert snapshots[owner].attack == Resolved(1000.0)
+    assert snapshots[teammate].attack == Resolved(1150.0)

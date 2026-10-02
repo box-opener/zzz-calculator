@@ -21,6 +21,7 @@ from .lucia import LuciaCompileConfig, compile_lucia
 from .yixuan import YixuanCompileConfig, compile_yixuan
 from .dialyn import DialynCompileConfig, compile_dialyn
 from .vivian import VivianCompileConfig, compile_vivian
+from .zhao import ZhaoCompileConfig, compile_zhao
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -51,4 +52,6 @@ __all__ = [
     "compile_dialyn",
     "VivianCompileConfig",
     "compile_vivian",
+    "ZhaoCompileConfig",
+    "compile_zhao",
 ]

@@ -376,3 +376,69 @@ record is generated. The Disorder calculator uses that historical strength
 without a second normal-bonus region. The bonus is not copied to the independent
 Discharge bonus region, and explicit historical records or another character's
 source record are not rewritten.
+
+## Zhao (照, `character:1341`)
+
+### Nanoka source and level-60 HP layers
+
+The lossless raw record is the live Nanoka 3.2 source at
+`https://static.nanoka.cc/zzz/3.2/zh/character/1341.json`. It identifies Zhao
+as an Ice Defense character. At level 60, the white HP value is `9117.4144`;
+raw `extra_level[6].extra[11102]` contributes another 18% in the same
+out-of-combat percentage layer as equipment. With a 30% HP Drive Disc main
+stat, the real build is `9117.4144 × (1 + 0.18 + 0.30) = 13493.773312` before
+flat HP. The preview provenance retains white HP, the raw 18%, and the disc
+percentage as separate sources. A bare panel therefore resolves to
+`10758.548992` HP after the character's 18% contribution.
+
+### Skill curves, charge damage, and stat sources
+
+The Fifth Basic and Ultimate source parameters explicitly combine source IDs
+`1341005 + 1341006` and `1341014 + 1341023`; both component curves are kept in
+the move text and their same-level values are added. C3 and C5 raise the
+effective Basic, Dodge, Special, Chain, and Assist skill levels by two each;
+Ultimate is not raised by them. Dash Attack has one source curve for combined
+Physical and Ice damage but no per-element split, so only that selected entry
+is blocked as ambiguous.
+
+The Core Crit Rate conversion reads Zhao's **initial** Max HP at 0.8% per 1000
+HP at Core 1, increasing to 1.4% at Core 7. Cinema 6 multiplies that converted
+gain by 1.25 only when its rule is enabled. Spring Curtain's team `+5%` Max HP
+uses a separately selected current state; its 50-second team Attack increase
+has its own current-state input. The former can increase current Max HP used by
+charge damage without changing the initial-HP source used for Crit Rate or the
+Additional Ability.
+
+The Additional Ability is eligible with another Attack, Anomaly, or Support
+character. Its current-state input means that Zhao herself is under any Ether
+Curtain. The team damage bonus starts at `+10%`; Zhao's initial HP above 15,000
+adds `+1%` per 400 HP, capped at `+40%` total. Cinema 1's team resistance
+ignore and Cinema 2's owner `+20%`/other-character `+15%` Attack buffs require
+their own current-state inputs. The Cinema 2 panel effect targets every active
+teammate except Zhao and uses each recipient's own initial Attack.
+
+Cinema 4's `+40%` Crit Damage is limited to Final Judgment, Chain, and Ultimate
+damage, including the HP component attached to each of those same moves; it
+does not apply to Support Follow-Up. The three named Final Judgment, Chain, and
+Support Follow-Up finishers can each receive an HP damage component based on
+current Max HP: `(0.12 + 0.01 × effective Basic level) × selected whole
+seconds`, from zero through five. The component keeps its parent's real MoveId,
+skill group, tags, Zhao dealer and Crit owner, Ice element, and Standard Crit
+rule; creation provenance distinguishes it from the move's ATK component.
+Cinema 6 multiplies only that component by `1.40` when its rule is enabled. At
+effective Basic level 16, the per-second ratio is `0.28`, or `0.392` with that
+Cinema 6 rule. Charge accumulation and consumption timing are not simulated.
+
+### Static Ice anomaly and non-damage state limits
+
+The separate static Ice entries assume one complete anomaly gauge and use
+`NoCritRule`: Shatter uses `500%`; Disorder uses `1300% + floor(t) × 7.5%`,
+where the user-selected remaining duration is an integer from zero through ten
+seconds and defaults to ten. Anomaly strength uses the current reviewed panel
+and ordinary damage bonus once when the historical static record is created.
+
+The calculator exposes current Frostbite, Curtain, C1, and C2 states rather
+than replaying their accumulation, opening, expiry, 3-second hit throttle, or
+180-second limit. Healing ticks, current-HP costs, Decibels, automatic Quick
+Assist ordering, and preserved-charge timeline effects remain non-damage
+resource gaps with non-blocking diagnostics.

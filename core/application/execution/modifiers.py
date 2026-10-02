@@ -769,6 +769,13 @@ def _panel_recipients(
             for item in snapshots
             if team_character_ids is None or item.character_id in team_character_ids
         )
+    if rule.target is EffectTarget.TEAM_OTHER:
+        return tuple(
+            item.character_id
+            for item in snapshots
+            if item.character_id != rule.owner
+            and (team_character_ids is None or item.character_id in team_character_ids)
+        )
     return ()
 
 
@@ -942,7 +949,10 @@ def _resolve_effect_value(
                 )
             )
             return None
-        if value.source_node is CalculationNode.CHARACTER_INITIAL_CRIT_RATE:
+        if value.source_node in {
+            CalculationNode.CHARACTER_INITIAL_HP,
+            CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
+        }:
             threshold = value.threshold if value.threshold is not None else value.minimum
             if threshold is None:
                 threshold = Resolved(0.0)
@@ -980,7 +990,7 @@ def _resolve_effect_value(
 def _is_recipient_panel_effect(effect: ModifierEffect) -> bool:
     rule = effect.rule
     return (
-        rule.target in {EffectTarget.SELF, EffectTarget.TEAM}
+        rule.target in {EffectTarget.SELF, EffectTarget.TEAM, EffectTarget.TEAM_OTHER}
         and not rule.filters
         and _is_event_independent_condition(rule.condition)
     )
@@ -1181,6 +1191,22 @@ def _apply_panel_effects_to_recipients(
             team_character_ids,
         )
         if not recipients:
+            owner_is_active = (
+                effect.rule.owner is not None
+                and any(
+                    item.character_id == effect.rule.owner
+                    for item in updated_snapshots
+                )
+                and (
+                    team_character_ids is None
+                    or effect.rule.owner in team_character_ids
+                )
+            )
+            if effect.rule.target is EffectTarget.TEAM_OTHER and owner_is_active:
+                # An owner-only team has no recipients by definition; the
+                # effect is valid and has no-op semantics in that roster.
+                applied_ids.add(effect.rule.effect_id)
+                continue
             diagnostics.append(
                 _diagnostic(
                     str(effect.rule.effect_id),
