@@ -60,13 +60,23 @@ from .wengine_ids import (
     WENGINE_ASTRA_ID,
     WENGINE_ELECTRO_STORM_I_ID,
     WENGINE_ELECTRO_STORM_II_ID,
+    WENGINE_ELECTRO_STORM_III_ID,
+    WENGINE_ASH_COBALT_BLUE_ID,
+    WENGINE_IDENTITY_ALTERNATE_ID,
+    WENGINE_IDENTITY_STANDARD_ID,
+    WENGINE_LUNAR_STRING_ID,
     WENGINE_LUNAR_DECRESCENT_ID,
     WENGINE_LUNAR_NOVILUNA_ID,
+    WENGINE_TIME_SLICE_ID,
+    WENGINE_HUMAN_IS_MEAT_ID,
+    WENGINE_RAINFOREST_GOURMAND_ID,
     WENGINE_REVERB_MARK_I_ID,
     WENGINE_REVERB_MARK_II_ID,
     WENGINE_TURBULENCE_ARROW_ID,
     WENGINE_TURBULENCE_AXE_ID,
     WENGINE_TURBULENCE_CANNON_ID,
+    WENGINE_STREET_SUPERSTAR_ID,
+    WENGINE_STARLIGHT_ENGINE_ID,
     WENGINE_TRIGGER_ID,
     WENGINE_YE_ID,
     WENGINE_YUZUHA_ID,
@@ -115,6 +125,13 @@ class WEngineRawTalent:
 
 @dataclass(frozen=True, slots=True)
 class WEngineRawRecord:
+    """Lossless normalized source values for one supported level-60 engine.
+
+    ``base_attack`` remains for existing Attack-primary fixtures. The typed
+    ``base_stat``/``base_value`` pair identifies the actual white primary value
+    when the source names a different stat.
+    """
+
     source_version: str
     source_url: str
     wengine_id: WEngineId
@@ -127,6 +144,8 @@ class WEngineRawRecord:
     advanced_stat_name: str
     advanced_stat_value: float
     talents: tuple[WEngineRawTalent, ...]
+    base_stat: CharacterStat = CharacterStat.ATTACK
+    base_value: float | None = None
 
     def __post_init__(self) -> None:
         if not self.source_version.strip() or not self.source_url.strip():
@@ -137,12 +156,18 @@ class WEngineRawRecord:
             raise ValueError("reviewed W-Engine rarity must be S, A, or B")
         if self.max_level != 60:
             raise ValueError("Stage18-2.5 W-Engine max level must be 60")
-        if not math.isfinite(self.base_attack) or not math.isfinite(
-            self.advanced_stat_value
+        if (
+            not math.isfinite(self.base_attack)
+            or not math.isfinite(self.static_base_value)
+            or not math.isfinite(self.advanced_stat_value)
         ):
             raise ValueError("W-Engine static values must be finite")
         if tuple(item.refinement for item in self.talents) != (1, 2, 3, 4, 5):
             raise ValueError("W-Engine raw talents must contain refinements 1 through 5")
+
+    @property
+    def static_base_value(self) -> float:
+        return self.base_value if self.base_value is not None else self.base_attack
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,6 +193,8 @@ def load_wengine_raw_record(wengine_id: str) -> WEngineRawRecord:
         talents = payload["talents"]
         specialty = _role(str(payload["specialty"]))
         advanced_name = str(details["rand_property"]["name"])
+        base_stat = _base_stat(str(resolved.get("base_stat_key", "attack")))
+        base_value = float(resolved.get("base_stat_value", resolved["base_attack"]))
         return WEngineRawRecord(
             source_version=str(payload["source_version"]),
             source_url=str(payload["source_url"]),
@@ -189,6 +216,8 @@ def load_wengine_raw_record(wengine_id: str) -> WEngineRawRecord:
                 )
                 for refinement, item in sorted(talents.items(), key=lambda item: int(item[0]))
             ),
+            base_stat=base_stat,
+            base_value=base_value,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError(f"invalid W-Engine raw record: {wengine_id}") from exc
@@ -275,6 +304,31 @@ def _wengine_result_diagnostics(
             "owner Daze modifier is preserved for matching and trace, but no Daze "
             "result is included in damage totals."
         ),
+        WENGINE_ELECTRO_STORM_III_ID: (
+            "One-shot Energy restoration after a teammate applies an Attribute "
+            "Anomaly is preserved in the source record, but the current calculation "
+            "request has no Energy resource result."
+        ),
+        WENGINE_IDENTITY_ALTERNATE_ID: (
+            "This passive reduces the attacking enemy's outgoing damage, but the "
+            "current calculation request has no incoming enemy-damage result. "
+            "It is retained as source data instead of changing player outgoing "
+            "damage or enemy damage reduction against the player."
+        ),
+        WENGINE_TIME_SLICE_ID: (
+            "Decibel gains and one-shot Energy restoration are retained in the "
+            "source record, but neither resource has a result field in the current "
+            "calculation request."
+        ),
+        WENGINE_HUMAN_IS_MEAT_ID: (
+            "The source assigns Impact tiers from current Energy and retains them "
+            "after Energy use. The active 0–8 tier count is an explicit current-state "
+            "input because Energy history and tier expiry timing are not modeled."
+        ),
+        WENGINE_LUNAR_STRING_ID: (
+            "The source is typed as a Vanguard W-Engine, but the current character "
+            "registry has no Vanguard owner that can reach calculate_payload."
+        ),
     }
     message = limitations.get(raw.wengine_id)
     if message is None:
@@ -320,12 +374,12 @@ def _static_contributions(
         BuildStatContribution(
             contribution_id=(
                 f"{raw.wengine_id}:owner:{_owner_token(build_input.equipped_character_id)}"
-                ":base-attack"
+                f":base-{raw.base_stat.value}"
             ),
             source=source,
-            stat=CharacterStat.ATTACK,
+            stat=raw.base_stat,
             layer=BuildContributionLayer.WHITE_VALUE,
-            value=Resolved(raw.base_attack),
+            value=Resolved(raw.static_base_value),
         )
     ]
     stat, layer = _advanced_stat(raw)
@@ -388,6 +442,32 @@ def _reviewed_rules(
         return _electro_storm_i_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "anomaly-electro-storm-ii":
         return _electro_storm_ii_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "anomaly-electro-storm-iii":
+        return _result_only_wengine_rules(
+            raw, build_input, source, eligibility, "anomaly-energy-restore"
+        ), ()
+    if effect_family == "defense-identity-standard":
+        return _identity_standard_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "defense-identity-alternate":
+        return _result_only_wengine_rules(
+            raw, build_input, source, eligibility, "enemy-outgoing-damage-reduction"
+        ), ()
+    if effect_family == "rupture-ash-cobalt-blue":
+        return _ash_cobalt_blue_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "vanguard-lunar-string":
+        return _lunar_string_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-street-superstar":
+        return _street_superstar_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "support-time-slice":
+        return _result_only_wengine_rules(
+            raw, build_input, source, eligibility, "resource-gains"
+        ), ()
+    if effect_family == "anomaly-rainforest-gourmand":
+        return _rainforest_gourmand_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-starlight-engine":
+        return _starlight_engine_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "stun-human-is-meat":
+        return _human_is_meat_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "ye-cloudcleave-radiance":
         return _ye_rules(raw, build_input, talent, source, eligibility), ()
     if effect_family == "astra-elegant-vanity":
@@ -556,6 +636,28 @@ def _lunar_noviluna_rules(
             source=source,
             suffix="energy-restore",
             label=f"{raw.name}·强化特殊技触发能量回复",
+            eligibility=eligibility,
+            effects=(),
+            diagnostics=limitation,
+        ),
+    )
+
+
+def _result_only_wengine_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    suffix: str,
+) -> tuple[CalculationRuleItem, ...]:
+    limitation = _wengine_result_diagnostics(raw, build_input.refinement)
+    return (
+        _rule(
+            raw=raw,
+            owner=build_input.equipped_character_id,
+            source=source,
+            suffix=suffix,
+            label=f"{raw.name}·当前请求外效果",
             eligibility=eligibility,
             effects=(),
             diagnostics=limitation,
@@ -846,6 +948,281 @@ def _electro_storm_ii_rules(
             ),
         ),
         (condition,),
+    )
+
+
+def _identity_standard_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "defense-active",
+        f"{raw.name}：受到攻击后的防御力提升已生效",
+        talent.text,
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="defense",
+        path=CalculationNode.CHARACTER_COMBAT_DEFENSE_PERCENT_BONUS,
+        value=float(talent.numeric_values["defense_percent"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="defense",
+                label=f"{raw.name}·防御力提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _ash_cobalt_blue_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "attack-active",
+        f"{raw.name}：接战切入操作角色后的攻击力提升已生效",
+        talent.text,
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="attack",
+        path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+        value=float(talent.numeric_values["attack_percent"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="attack",
+                label=f"{raw.name}·攻击力提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _lunar_string_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "basic-damage-active",
+        f"{raw.name}：强化特殊技后的普通攻击增伤已生效",
+        talent.text,
+    )
+    effect = _wearer_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="basic-damage",
+        path=CalculationNode.DAMAGE_NORMAL_BONUS,
+        value=float(talent.numeric_values["basic_damage_bonus"]),
+        filters=(DamageTagFilter(DamageTag.BASIC_ATTACK),),
+    )
+    limitation = _wengine_result_diagnostics(raw, build_input.refinement)
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="basic-damage",
+                label=f"{raw.name}·普通攻击伤害提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+                diagnostics=limitation,
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _street_superstar_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    effect = _wearer_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="ultimate-damage-per-charge",
+        path=CalculationNode.DAMAGE_NORMAL_BONUS,
+        value=float(values["ultimate_bonus_per_charge"]),
+        filters=(DamageTagFilter(DamageTag.ULTIMATE),),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="ultimate-damage-per-charge",
+                label=f"{raw.name}·终结技每层充能增伤",
+                eligibility=eligibility,
+                effects=(effect,),
+                stack_count=0,
+                stack_min=0,
+                stack_max=int(values["max_charges"]),
+            ),
+        ),
+        (),
+    )
+
+
+def _rainforest_gourmand_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="attack-per-energy-stack",
+        path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+        value=float(values["attack_percent_per_stack"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="attack-per-energy-stack",
+                label=f"{raw.name}·当前能量消耗增益层数",
+                eligibility=eligibility,
+                effects=(effect,),
+                stack_count=0,
+                stack_min=0,
+                stack_max=int(values["max_stacks"]),
+            ),
+        ),
+        (),
+    )
+
+
+def _starlight_engine_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "attack-active",
+        f"{raw.name}：闪避反击/快速支援触发的攻击力提升已生效",
+        talent.text,
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="attack",
+        path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+        value=float(talent.numeric_values["attack_percent"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="attack",
+                label=f"{raw.name}·攻击力提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _human_is_meat_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="impact-per-energy-tier",
+        path=CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+        value=float(values["impact_percent_per_energy_stack"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="impact-per-energy-tier",
+                label=f"{raw.name}·当前能量冲击力层数",
+                eligibility=eligibility,
+                effects=(effect,),
+                stack_count=0,
+                stack_min=0,
+                stack_max=int(values["max_stacks"]),
+                diagnostics=_wengine_result_diagnostics(
+                    raw, build_input.refinement
+                ),
+            ),
+        ),
+        (),
     )
 
 
@@ -2077,15 +2454,32 @@ def _role(value: str) -> CharacterRole:
         "support": CharacterRole.SUPPORT,
         "anomaly": CharacterRole.ANOMALY,
         "stun": CharacterRole.STUN,
+        "defense": CharacterRole.DEFENSE,
+        "rupture": CharacterRole.RUPTURE,
+        "vanguard": CharacterRole.VANGUARD,
         "击破": CharacterRole.STUN,
         "异常": CharacterRole.ANOMALY,
         "支援": CharacterRole.SUPPORT,
         "强攻": CharacterRole.ATTACK,
+        "防护": CharacterRole.DEFENSE,
+        "命破": CharacterRole.RUPTURE,
+        "锋御": CharacterRole.VANGUARD,
     }
     try:
         return mapping[value]
     except KeyError as exc:
         raise ValueError(f"unsupported W-Engine specialty: {value}") from exc
+
+
+def _base_stat(value: str) -> CharacterStat:
+    mapping = {
+        "attack": CharacterStat.ATTACK,
+        "defense": CharacterStat.DEFENSE,
+    }
+    try:
+        return mapping[value]
+    except KeyError as exc:
+        raise ValueError(f"unsupported W-Engine base stat: {value}") from exc
 
 
 def _diagnostic(

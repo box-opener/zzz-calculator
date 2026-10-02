@@ -564,3 +564,49 @@ enabled and active, no source priority is stated; the application skips all
 members of that non-stacking panel group and emits a blocking local ambiguity
 diagnostic instead of selecting the first or largest value. This does not block
 single-copy use or same-refinement duplicates.
+
+
+## W-Engine live 3.2 second queue batch (non-authoritative implementation notes)
+
+The second ten uncovered index rows are `12012`–`12016` and `13001`–`13005`.
+R1–R5 numeric values are extracted independently from each raw talent description.
+`12016`'s source `base_property.name` is `基础防御力` with value 19. The live
+index's level-60 value is normalized as white Defense 282 (the index's generic
+`atk` key is not treated as Attack for this row); its 32% secondary Defense
+contribution then aggregates in the same percent layer. The domain has a typed
+Vanguard role but no registered Vanguard character, so the compiler preserves
+this build/effect mapping without claiming an actual `calculate_payload` path.
+
+`12012` says `队伍中任意角色对敌人施加属性异常效果时，装备者回复5.5点能量` at
+R5. Its penetration-rate Build contribution and source-linked resource rule are
+retained, but the current request has no Energy resource result; the selected
+RuleItem reports a non-blocking diagnostic and applies no substitute stat.
+
+`12014` says `受到敌方攻击时，攻击者造成的伤害降低10%，持续12秒` at R5. This
+is an enemy outgoing-damage effect. The current request calculates player damage
+only, so it keeps the source RuleItem and a non-blocking diagnostic; it does not
+map the effect onto player outgoing damage or an enemy defensive modifier.
+
+`13002` says team Dodge Counter, EX Special, Assist Attack, and Chain Attack each
+grant distinct Decibel amounts, and the wearer recovers Energy; it also says the
+four cooldowns are independent and same-name passives do not stack. Those resource
+results remain in the raw/refinement mapping with a non-blocking diagnostic
+because neither Decibel nor Energy has a result contract here.
+
+Current stacks and active-state buffs are explicit inputs where their numeric
+results are known: `13001` uses 0–3 charges on the wearer's Ultimate; `13003` uses
+0–10 current attack stacks; `13005` uses 0–8 current Impact tiers. Event ordering,
+Energy history, and per-stack expiration times are not replayed. `12013`, `12015`,
+`12016`, and `13004` likewise expose the current buff-active state rather than
+simulating hits, swaps, or durations.
+
+
+All live W-Engine advanced properties use the max-star source growth factor
+`1 + stars[5].rand_rate / 10000`. Percent-formatted values are then divided by
+10000 to become ratios; flat-formatted values retain the grown flat number. This
+corrects the previously shipped `12011` flat Anomaly Proficiency from 24 to 60
+and models `13003` as 75, while keeping raw source values and star-growth fields
+unchanged. A regression derives the expected normalized result for every live
+3.2 fixture, covering both percent and flat formats. Thus `12011` with base AP
+100 and an active R5 +40 buff resolves to AP 200; `13003`'s max-level static AP
+contribution is 75 before its energy-stack attack buff.

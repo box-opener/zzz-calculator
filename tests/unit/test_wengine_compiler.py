@@ -20,14 +20,24 @@ from core.application.equipment.wengine import (
 from core.application.equipment.wengine_ids import (
     WENGINE_ELECTRO_STORM_I_ID,
     WENGINE_ELECTRO_STORM_II_ID,
+    WENGINE_ELECTRO_STORM_III_ID,
+    WENGINE_IDENTITY_STANDARD_ID,
+    WENGINE_IDENTITY_ALTERNATE_ID,
+    WENGINE_ASH_COBALT_BLUE_ID,
     WENGINE_LUNAR_DECRESCENT_ID,
     WENGINE_LUNAR_NOVILUNA_ID,
     WENGINE_LUNAR_PLENILUNA_ID,
+    WENGINE_LUNAR_STRING_ID,
     WENGINE_REVERB_MARK_I_ID,
     WENGINE_REVERB_MARK_II_ID,
     WENGINE_TURBULENCE_ARROW_ID,
     WENGINE_TURBULENCE_AXE_ID,
     WENGINE_TURBULENCE_CANNON_ID,
+    WENGINE_STREET_SUPERSTAR_ID,
+    WENGINE_TIME_SLICE_ID,
+    WENGINE_RAINFOREST_GOURMAND_ID,
+    WENGINE_STARLIGHT_ENGINE_ID,
+    WENGINE_HUMAN_IS_MEAT_ID,
     WENGINE_ATTACK_SAMPLE_IDS,
     WENGINE_SUPPORT_SAMPLE_IDS,
 )
@@ -37,6 +47,9 @@ from core.application.rules import RuleEligibility
 from core.types import (
     BuildContributionLayer,
     BuildMode,
+    BuildSource,
+    BuildSourceType,
+    BuildStatContribution,
     CharacterId,
     CharacterBuildDefinition,
     CharacterStats,
@@ -48,12 +61,14 @@ from core.types import (
     DamageSubtypeFilter,
     DamageTypeFilter,
     DamageType,
+    EquipmentOwnerCapabilities,
     EffectOperation,
     Element,
     ElementFilter,
     Resolved,
     RuleStackCondition,
     CalculationNode,
+    SkillGroup,
     WEngineBuildInput,
     WEngineId,
 )
@@ -258,11 +273,107 @@ def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_ref
             CharacterRole.ANOMALY,
             CharacterStat.ANOMALY_PROFICIENCY,
             BuildContributionLayer.OUT_OF_COMBAT_FLAT,
-            24.0,
+            60.0,
             CharacterId("character:1401"),
             CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
             "anomaly_proficiency_flat",
             (25, 28, 32, 36, 40),
+        ),
+        (
+            WENGINE_ELECTRO_STORM_III_ID,
+            "「电磁暴」-叁式",
+            CharacterRole.ANOMALY,
+            CharacterStat.PENETRATION_RATE,
+            BuildContributionLayer.DIRECT_RATIO,
+            0.16,
+            CharacterId("character:1401"),
+            None,
+            "energy_restore",
+            (3.5, 4, 4.5, 5, 5.5),
+        ),
+        (
+            WENGINE_IDENTITY_STANDARD_ID,
+            "「恒等式」-本格",
+            CharacterRole.DEFENSE,
+            CharacterStat.DEFENSE,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.32,
+            CharacterId("character:1341"),
+            CalculationNode.CHARACTER_COMBAT_DEFENSE_PERCENT_BONUS,
+            "defense_percent",
+            (0.20, 0.23, 0.26, 0.29, 0.32),
+        ),
+        (
+            WENGINE_IDENTITY_ALTERNATE_ID,
+            "「恒等式」-变格",
+            CharacterRole.DEFENSE,
+            CharacterStat.DEFENSE,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.32,
+            CharacterId("character:1341"),
+            None,
+            "enemy_damage_reduction",
+            (0.06, 0.07, 0.08, 0.09, 0.10),
+        ),
+        (
+            WENGINE_ASH_COBALT_BLUE_ID,
+            "「灰烬」-钴蓝",
+            CharacterRole.RUPTURE,
+            CharacterStat.HP,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.20,
+            CharacterId("character:1371"),
+            CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+            "attack_percent",
+            (0.072, 0.082, 0.093, 0.104, 0.115),
+        ),
+        (
+            WENGINE_STREET_SUPERSTAR_ID,
+            "街头巨星",
+            CharacterRole.ATTACK,
+            CharacterStat.ATTACK,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.25,
+            CharacterId("character:1431"),
+            CalculationNode.DAMAGE_NORMAL_BONUS,
+            "ultimate_bonus_per_charge",
+            (0.15, 0.172, 0.195, 0.217, 0.24),
+        ),
+        (
+            WENGINE_RAINFOREST_GOURMAND_ID,
+            "雨林饕客",
+            CharacterRole.ANOMALY,
+            CharacterStat.ANOMALY_PROFICIENCY,
+            BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+            75.0,
+            CharacterId("character:1401"),
+            CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+            "attack_percent_per_stack",
+            (0.025, 0.028, 0.032, 0.036, 0.04),
+        ),
+        (
+            WENGINE_STARLIGHT_ENGINE_ID,
+            "星徽引擎",
+            CharacterRole.ATTACK,
+            CharacterStat.ATTACK,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.25,
+            CharacterId("character:1431"),
+            CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+            "attack_percent",
+            (0.12, 0.138, 0.156, 0.174, 0.192),
+        ),
+        (
+            WENGINE_HUMAN_IS_MEAT_ID,
+            "人为刀俎",
+            CharacterRole.STUN,
+            CharacterStat.ENERGY_REGEN,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.50,
+            CharacterId("character:1361"),
+            CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+            "impact_percent_per_energy_stack",
+            (0.02, 0.023, 0.026, 0.029, 0.032),
         ),
     )
     for (
@@ -280,15 +391,17 @@ def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_ref
         record = load_wengine_record(str(wengine_id))
         raw = load_wengine_raw_record(str(wengine_id))
         numeric_id = str(wengine_id).split(":")[-1]
+        expected_base = 475.0 if numeric_id.startswith("12") else 594.0
         assert raw.name == name
-        assert raw.rarity == "B"
+        assert raw.rarity == ("A" if numeric_id.startswith("13") else "B")
         assert raw.specialty is role
+        assert raw.base_stat is CharacterStat.ATTACK
         assert raw.source_version == "3.2"
         assert raw.source_url == f"https://static.nanoka.cc/zzz/3.2/zh/weapon/{numeric_id}.json"
         assert record["source_index_url"] == "https://static.nanoka.cc/zzz/3.2/weapon.json"
         assert record["raw_nanoka_detail"]["id"] == int(numeric_id)
-        assert record["catalog"]["atk"] == 475
-        assert raw.base_attack == 475.0
+        assert record["catalog"]["atk"] == expected_base
+        assert raw.base_attack == expected_base
         assert (raw.advanced_stat_name, raw.advanced_stat_value) == (
             record["nanoka_detail_fields"]["rand_property"]["name"],
             advanced_value,
@@ -308,6 +421,12 @@ def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_ref
                 "ex_daze_bonus",
                 "primary_target_daze_bonus",
                 "impact_percent",
+                "defense_percent",
+                "enemy_damage_reduction",
+                "attack_percent",
+                "ultimate_bonus_per_charge",
+                "attack_percent_per_stack",
+                "impact_percent_per_energy_stack",
             }:
                 text_value = float(re.search(r"([\d.]+)%", plain_text).group(1)) / 100
             elif numeric_key == "energy_restore":
@@ -319,12 +438,19 @@ def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_ref
                 assert talent.numeric_values["team_anomaly_proficiency_flat"] == pytest.approx(
                     text_value
                 )
+            if numeric_key == "ultimate_bonus_per_charge":
+                assert talent.numeric_values["max_charges"] == 3
+            if numeric_key in {"attack_percent_per_stack", "impact_percent_per_energy_stack"}:
+                assert talent.numeric_values["energy_per_stack"] == 10
+                assert talent.numeric_values["max_stacks"] == (
+                    10 if numeric_key == "attack_percent_per_stack" else 8
+                )
             result = compile_wengine(
                 WEngineBuildInput(wengine_id, owner, refinement=refinement),
                 owner_capabilities=capabilities,
             )
             assert result.complete is True
-            assert result.contributions[0].value == Resolved(475.0)
+            assert result.contributions[0].value == Resolved(expected_base)
             assert result.contributions[1].stat is stat
             assert result.contributions[1].layer is layer
             assert result.contributions[1].value == Resolved(advanced_value)
@@ -337,6 +463,16 @@ def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_ref
             effect = result.rule_items[0].effects[0]
             assert effect.result.modifier_path is effect_path
             assert effect.result.value == Resolved(value)
+            if numeric_key == "ultimate_bonus_per_charge":
+                assert (result.rule_items[0].stack_count, result.rule_items[0].stack_min, result.rule_items[0].stack_max) == (
+                    0,
+                    0,
+                    3,
+                )
+            if numeric_key == "attack_percent_per_stack":
+                assert result.rule_items[0].stack_max == 10
+            if numeric_key == "impact_percent_per_energy_stack":
+                assert result.rule_items[0].stack_max == 8
 
     reverb = compile_wengine(
         WEngineBuildInput(WENGINE_REVERB_MARK_II_ID, CharacterId("character:1311")),
@@ -346,6 +482,178 @@ def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_ref
         CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS
     )
     assert reverb.non_stacking_group_id == "wengine:12005:sound-wave-team-anomaly-stats"
+
+
+def test_vanguard_lunar_string_uses_white_defense_then_additive_defense_percent() -> None:
+    owner = CharacterId("character:vanguard-test")
+    capabilities = EquipmentOwnerCapabilities(
+        owner,
+        CharacterRole.VANGUARD,
+        skill_groups=frozenset({SkillGroup.BASIC_ATTACK}),
+        damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
+    )
+    expected_bonuses = (0.18, 0.21, 0.24, 0.27, 0.30)
+    weapons = tuple(
+        compile_wengine(
+            WEngineBuildInput(WENGINE_LUNAR_STRING_ID, owner, refinement=refinement),
+            owner_capabilities=capabilities,
+        )
+        for refinement in range(1, 6)
+    )
+    weapon = weapons[-1]
+    record = load_wengine_record(str(WENGINE_LUNAR_STRING_ID))
+
+    assert weapon.raw.base_attack == 0.0
+    assert weapon.raw.base_stat is CharacterStat.DEFENSE
+    assert weapon.raw.static_base_value == 282.0
+    assert record["catalog"]["atk"] == 282
+    assert record["resolved_level_60"]["base_stat_key"] == "defense"
+    assert record["resolved_level_60"]["base_stat_value"] == 282.0
+    assert record["raw_nanoka_detail"][
+        "base_property"
+    ]["name"] == "基础防御力"
+    assert tuple((item.stat, item.layer, item.value) for item in weapon.contributions) == (
+        (CharacterStat.DEFENSE, BuildContributionLayer.WHITE_VALUE, Resolved(282.0)),
+        (
+            CharacterStat.DEFENSE,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            Resolved(0.32),
+        ),
+    )
+    assert weapon.rule_items[0].eligibility is RuleEligibility.ELIGIBLE
+    assert weapon.rule_items[0].effects[0].result.value == Resolved(0.30)
+    assert any("no Vanguard owner" in item.message for item in weapon.diagnostics)
+    assert tuple(result.rule_items[0].effects[0].result.value for result in weapons) == tuple(
+        Resolved(value) for value in expected_bonuses
+    )
+    assert tuple(result.raw.talents[index].text for index, result in enumerate(weapons)) == tuple(
+        record["raw_nanoka_detail"]["talents"][str(index + 1)]["desc"]
+        for index in range(5)
+    )
+
+    defense_disc = BuildStatContribution(
+        contribution_id="drive-disc:vanguard-test:defense-percent",
+        source=BuildSource(
+            source_id="drive-disc:test-defense-percent",
+            source_type=BuildSourceType.DRIVE_DISC,
+            label="Test DEF% Drive Disc",
+        ),
+        stat=CharacterStat.DEFENSE,
+        layer=BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        value=Resolved(0.30),
+    )
+    build = assemble_build(
+        CharacterBuildDefinition(
+            character_id=owner,
+            level=60,
+            mode=BuildMode.EQUIPMENT_BUILD,
+            base_stats=_base_stats(attack=1000.0),
+            contributions=(*weapon.contributions, defense_disc),
+        )
+    )
+    assert build.initial_stats.attack == Resolved(1000.0)
+    assert build.initial_stats.defense.value == pytest.approx(1266.84)
+
+    fixed_defense = BuildStatContribution(
+        contribution_id="drive-disc:vanguard-test:defense-flat",
+        source=BuildSource(
+            source_id="drive-disc:test-defense-flat",
+            source_type=BuildSourceType.DRIVE_DISC,
+            label="Test flat DEF Drive Disc",
+        ),
+        stat=CharacterStat.DEFENSE,
+        layer=BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+        value=Resolved(50.0),
+    )
+    with_fixed_defense = assemble_build(
+        CharacterBuildDefinition(
+            character_id=owner,
+            level=60,
+            mode=BuildMode.EQUIPMENT_BUILD,
+            base_stats=_base_stats(attack=1000.0),
+            contributions=(*weapon.contributions, defense_disc, fixed_defense),
+        )
+    )
+    assert with_fixed_defense.initial_stats.defense.value == pytest.approx(1316.84)
+    assert with_fixed_defense.initial_stats.attack == Resolved(1000.0)
+
+    wrong_role = compile_wengine(
+        WEngineBuildInput(WENGINE_LUNAR_STRING_ID, CharacterId("character:1431")),
+        owner_capabilities=registration_for("character:1431").equipment_capabilities,
+    )
+    assert wrong_role.contributions[0].stat is CharacterStat.DEFENSE
+    assert wrong_role.contributions[0].value == Resolved(282.0)
+    assert all(item.eligibility is RuleEligibility.INELIGIBLE for item in wrong_role.rule_items)
+
+
+def test_time_slice_numeric_values_are_extracted_by_trigger_and_refinement() -> None:
+    expected = {
+        "dodge_counter_decibel": (20, 23, 26, 29, 32),
+        "ex_special_decibel": (25, 28.5, 32, 35.5, 40),
+        "assist_attack_decibel": (30, 34.5, 39, 43.5, 48),
+        "chain_attack_decibel": (35, 40, 45, 50, 55),
+        "energy_restore": (0.7, 0.8, 0.9, 1.0, 1.1),
+    }
+    owner = CharacterId("character:1311")
+    capabilities = registration_for(owner).equipment_capabilities
+    for refinement in range(1, 6):
+        record = load_wengine_record(str(WENGINE_TIME_SLICE_ID))
+        raw = load_wengine_raw_record(str(WENGINE_TIME_SLICE_ID))
+        talent = raw.talents[refinement - 1]
+        plain_text = re.sub(r"<[^>]+>", "", talent.text)
+        source_values = tuple(float(item) for item in re.findall(r"[\d.]+", plain_text))
+        assert tuple(source_values[:5]) == tuple(
+            values[refinement - 1] for values in expected.values()
+        )
+        assert {
+            key: talent.numeric_values[key] for key in expected
+        } == {
+            key: values[refinement - 1] for key, values in expected.items()
+        }
+        assert talent.text == record["raw_nanoka_detail"]["talents"][
+            str(refinement)
+        ]["desc"]
+        result = compile_wengine(
+            WEngineBuildInput(WENGINE_TIME_SLICE_ID, owner, refinement=refinement),
+            owner_capabilities=capabilities,
+        )
+        assert result.rule_items[0].effects == ()
+        assert result.rule_items[0].diagnostics[0].original_text == talent.text
+
+
+def test_live_raw_advanced_stats_apply_max_star_growth_for_percent_and_flat_values() -> None:
+    ids = (
+        "12001",
+        "12002",
+        "12003",
+        "12004",
+        "12005",
+        "12007",
+        "12008",
+        "12009",
+        "12010",
+        "12011",
+        "12012",
+        "12013",
+        "12014",
+        "12015",
+        "12016",
+        "13001",
+        "13002",
+        "13003",
+        "13004",
+        "13005",
+    )
+    for numeric_id in ids:
+        record = load_wengine_record(f"wengine:{numeric_id}")
+        raw_detail = record["raw_nanoka_detail"]
+        rand_property = raw_detail["rand_property"]
+        max_star_rate = raw_detail["stars"]["5"]["rand_rate"]
+        grown_value = rand_property["value"] * (1 + max_star_rate / 10_000)
+        expected = grown_value / 10_000 if "%" in rand_property["format"] else grown_value
+        assert record["resolved_level_60"]["advanced_stat_value"] == pytest.approx(
+            expected
+        )
 
 
 def test_new_signature_raw_records_use_resolved_level_60_percentages() -> None:

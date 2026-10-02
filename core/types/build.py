@@ -59,10 +59,10 @@ class BuildSource:
 
 _WHITE_VALUE_STATS = frozenset(
     {
-        # Stage18-1 explicitly models the W-Engine attack contribution as
-        # white attack.  Other character white values are supplied by
-        # CharacterBuildDefinition.base_stats, not by equipment contributions.
+        # W-Engine primary base values are white Attack, except the Vanguard
+        # engine whose live source explicitly names white Defense.
         CharacterStat.ATTACK,
+        CharacterStat.DEFENSE,
     }
 )
 
@@ -136,9 +136,7 @@ class BuildStatContribution:
             self.layer is BuildContributionLayer.WHITE_VALUE
             and self.source.source_type is not BuildSourceType.WENGINE
         ):
-            raise ValueError(
-                "WHITE_VALUE attack contributions must come from a WENGINE"
-            )
+            raise ValueError("WHITE_VALUE contributions must come from a WENGINE")
         if self.stat is CharacterStat.ELEMENT_DAMAGE_BONUS:
             if self.element is None:
                 raise ValueError("element damage contribution requires an element")

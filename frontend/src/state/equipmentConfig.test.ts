@@ -9,7 +9,7 @@ import {
   serializeEquipmentConfig,
 } from "./equipmentConfig";
 
-const firstBatchWengines = [
+const roundTripWengines = [
   { id: "wengine:12001", characterId: "character:1431", specialty: "attack" },
   { id: "wengine:12002", characterId: "character:1431", specialty: "attack" },
   { id: "wengine:12003", characterId: "character:1431", specialty: "attack" },
@@ -20,12 +20,21 @@ const firstBatchWengines = [
   { id: "wengine:12009", characterId: "character:1251", specialty: "stun" },
   { id: "wengine:12010", characterId: "character:1401", specialty: "anomaly" },
   { id: "wengine:12011", characterId: "character:1401", specialty: "anomaly" },
+  { id: "wengine:12012", characterId: "character:1401", specialty: "anomaly" },
+  { id: "wengine:12013", characterId: "character:1341", specialty: "defense" },
+  { id: "wengine:12014", characterId: "character:1341", specialty: "defense" },
+  { id: "wengine:12015", characterId: "character:1371", specialty: "rupture" },
+  { id: "wengine:13001", characterId: "character:1431", specialty: "attack" },
+  { id: "wengine:13002", characterId: "character:1311", specialty: "support" },
+  { id: "wengine:13003", characterId: "character:1401", specialty: "anomaly" },
+  { id: "wengine:13004", characterId: "character:1431", specialty: "attack" },
+  { id: "wengine:13005", characterId: "character:1361", specialty: "stun" },
 ];
 
 const catalog = {
   wengines: [
     { wengine_id: "wengine:demo", specialty: "attack" },
-    ...firstBatchWengines.map((wengine) => ({
+    ...roundTripWengines.map((wengine) => ({
       wengine_id: wengine.id,
       specialty: wengine.specialty,
     })),
@@ -144,7 +153,7 @@ describe("complete character config v2", () => {
     });
   });
 
-  it.each(firstBatchWengines)(
+  it.each(roundTripWengines)(
     "round-trips $id and refinement through v2",
     ({ id: wengineId, characterId, specialty }) => {
       const pleniluna = createCharacterConfig(

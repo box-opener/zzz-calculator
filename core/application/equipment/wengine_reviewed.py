@@ -37,6 +37,16 @@ from .wengine_ids import (
     WENGINE_TURBULENCE_AXE_ID,
     WENGINE_ELECTRO_STORM_I_ID,
     WENGINE_ELECTRO_STORM_II_ID,
+    WENGINE_ELECTRO_STORM_III_ID,
+    WENGINE_IDENTITY_STANDARD_ID,
+    WENGINE_IDENTITY_ALTERNATE_ID,
+    WENGINE_ASH_COBALT_BLUE_ID,
+    WENGINE_LUNAR_STRING_ID,
+    WENGINE_STREET_SUPERSTAR_ID,
+    WENGINE_TIME_SLICE_ID,
+    WENGINE_RAINFOREST_GOURMAND_ID,
+    WENGINE_STARLIGHT_ENGINE_ID,
+    WENGINE_HUMAN_IS_MEAT_ID,
 )
 
 
@@ -49,6 +59,66 @@ class WEngineReviewedMapping:
 
 
 WENGINE_REVIEWED_MAPPINGS: Mapping[WEngineId, WEngineReviewedMapping] = {
+    WENGINE_ELECTRO_STORM_III_ID: WEngineReviewedMapping(
+        WENGINE_ELECTRO_STORM_III_ID,
+        CharacterStat.PENETRATION_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "anomaly-electro-storm-iii",
+    ),
+    WENGINE_IDENTITY_STANDARD_ID: WEngineReviewedMapping(
+        WENGINE_IDENTITY_STANDARD_ID,
+        CharacterStat.DEFENSE,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-identity-standard",
+    ),
+    WENGINE_IDENTITY_ALTERNATE_ID: WEngineReviewedMapping(
+        WENGINE_IDENTITY_ALTERNATE_ID,
+        CharacterStat.DEFENSE,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-identity-alternate",
+    ),
+    WENGINE_ASH_COBALT_BLUE_ID: WEngineReviewedMapping(
+        WENGINE_ASH_COBALT_BLUE_ID,
+        CharacterStat.HP,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "rupture-ash-cobalt-blue",
+    ),
+    WENGINE_LUNAR_STRING_ID: WEngineReviewedMapping(
+        WENGINE_LUNAR_STRING_ID,
+        CharacterStat.DEFENSE,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "vanguard-lunar-string",
+    ),
+    WENGINE_STREET_SUPERSTAR_ID: WEngineReviewedMapping(
+        WENGINE_STREET_SUPERSTAR_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "attack-street-superstar",
+    ),
+    WENGINE_TIME_SLICE_ID: WEngineReviewedMapping(
+        WENGINE_TIME_SLICE_ID,
+        CharacterStat.PENETRATION_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "support-time-slice",
+    ),
+    WENGINE_RAINFOREST_GOURMAND_ID: WEngineReviewedMapping(
+        WENGINE_RAINFOREST_GOURMAND_ID,
+        CharacterStat.ANOMALY_PROFICIENCY,
+        BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+        "anomaly-rainforest-gourmand",
+    ),
+    WENGINE_STARLIGHT_ENGINE_ID: WEngineReviewedMapping(
+        WENGINE_STARLIGHT_ENGINE_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "attack-starlight-engine",
+    ),
+    WENGINE_HUMAN_IS_MEAT_ID: WEngineReviewedMapping(
+        WENGINE_HUMAN_IS_MEAT_ID,
+        CharacterStat.ENERGY_REGEN,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-human-is-meat",
+    ),
     WENGINE_LUNAR_DECRESCENT_ID: WEngineReviewedMapping(
         WENGINE_LUNAR_DECRESCENT_ID,
         CharacterStat.ATTACK,

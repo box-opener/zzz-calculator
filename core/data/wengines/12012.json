@@ -2,16 +2,16 @@
   "schema_version": "nanoka-wengine-raw-v1",
   "source_provider": "nanoka",
   "source_version": "3.2",
-  "source_url": "https://static.nanoka.cc/zzz/3.2/zh/weapon/12011.json",
+  "source_url": "https://static.nanoka.cc/zzz/3.2/zh/weapon/12012.json",
   "source_index_url": "https://static.nanoka.cc/zzz/3.2/weapon.json",
-  "id": "12011",
-  "name": "「电磁暴」-贰式",
+  "id": "12012",
+  "name": "「电磁暴」-叁式",
   "rarity": "B",
   "specialty": "anomaly",
   "catalog": {
-    "icon": "Weapon_B_Common_11",
+    "icon": "Weapon_B_Common_12",
     "atk": 475,
-    "sub": "Anomaly Proficiency"
+    "sub": "PEN Ratio"
   },
   "nanoka_detail_fields": {
     "base_property": {
@@ -21,10 +21,10 @@
       "value": 32
     },
     "rand_property": {
-      "name": "异常精通",
-      "name2": "异常精通",
-      "format": "{0:0}",
-      "value": 24
+      "name": "穿透率",
+      "name2": "穿透率",
+      "format": "{0:0.#%}",
+      "value": 640
     },
     "level_60": {
       "exp": 0,
@@ -38,55 +38,55 @@
   },
   "resolved_level_60": {
     "base_attack": 475.0,
-    "advanced_stat_key": "anomaly_proficiency_flat",
-    "advanced_stat_value": 60.0
+    "advanced_stat_key": "penetration_rate",
+    "advanced_stat_value": 0.16
   },
   "talents": {
     "1": {
-      "name": "高压电涌",
-      "text": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>25</color>点，持续10秒，20秒内最多触发一次。",
+      "name": "过载电荷",
+      "text": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>3.5</color>点能量，12秒内最多触发一次。",
       "numeric_values": {
-        "anomaly_proficiency_flat": 25.0
+        "energy_restore": 3.5
       }
     },
     "2": {
-      "name": "高压电涌",
-      "text": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>28</color>点，持续10秒，20秒内最多触发一次。",
+      "name": "过载电荷",
+      "text": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>4</color>点能量，12秒内最多触发一次。",
       "numeric_values": {
-        "anomaly_proficiency_flat": 28.0
+        "energy_restore": 4
       }
     },
     "3": {
-      "name": "高压电涌",
-      "text": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>32</color>点，持续10秒，20秒内最多触发一次。",
+      "name": "过载电荷",
+      "text": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>4.5</color>点能量，12秒内最多触发一次。",
       "numeric_values": {
-        "anomaly_proficiency_flat": 32.0
+        "energy_restore": 4.5
       }
     },
     "4": {
-      "name": "高压电涌",
-      "text": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>36</color>点，持续10秒，20秒内最多触发一次。",
+      "name": "过载电荷",
+      "text": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>5</color>点能量，12秒内最多触发一次。",
       "numeric_values": {
-        "anomaly_proficiency_flat": 36.0
+        "energy_restore": 5
       }
     },
     "5": {
-      "name": "高压电涌",
-      "text": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>40</color>点，持续10秒，20秒内最多触发一次。",
+      "name": "过载电荷",
+      "text": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>5.5</color>点能量，12秒内最多触发一次。",
       "numeric_values": {
-        "anomaly_proficiency_flat": 40.0
+        "energy_restore": 5.5
       }
     }
   },
   "raw_nanoka_detail": {
-    "id": 12011,
-    "code_name": "Weapon_B_Common_11",
-    "name": "「电磁暴」-贰式",
-    "desc": "强化了动作检测功能的输出型音擎，能实时检测到使用者的作战状态，以便在关键的动作节点提高输出功率，达到最佳的作战效果。在动作结束后，该音擎会发出炫目的五彩闪光，并对本次动作的难度和完成度作出评分。",
+    "id": 12012,
+    "code_name": "Weapon_B_Common_12",
+    "name": "「电磁暴」-叁式",
+    "desc": "大容量供能型音擎，内置有电流发生器，即使不用装备者额外操作，也可持续性储备电能。在战斗中装备此款音擎，有时可以出其不意地将麻烦的敌人一击击晕。",
     "desc2": "装备后可提升[异常]代理人的战斗能力",
-    "desc3": "强化了动作检测功能的输出型音擎，能瞬间变化输出功率，达到最佳的作战效果。",
+    "desc3": "大容量供能型音擎，内置有电流发生器，可持续性储备电能。",
     "rarity": 2,
-    "icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/ItemIconWeapon/UnPacker/Weapon_B_Common_11.png",
+    "icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/ItemIconWeapon/UnPacker/Weapon_B_Common_12.png",
     "weapon_type": {
       "3": "异常"
     },
@@ -97,10 +97,10 @@
       "value": 32
     },
     "rand_property": {
-      "name": "异常精通",
-      "name2": "异常精通",
-      "format": "{0:0}",
-      "value": 24
+      "name": "穿透率",
+      "name2": "穿透率",
+      "format": "{0:0.#%}",
+      "value": 640
     },
     "level": {
       "0": {
@@ -438,24 +438,24 @@
     "materials": "10:7200,101012:2|10:16800,101022:7|10:36000,101022:12|10:60000,101032:6|10:120000,101032:12",
     "talents": {
       "1": {
-        "name": "高压电涌",
-        "desc": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>25</color>点，持续10秒，20秒内最多触发一次。"
+        "name": "过载电荷",
+        "desc": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>3.5</color>点能量，12秒内最多触发一次。"
       },
       "2": {
-        "name": "高压电涌",
-        "desc": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>28</color>点，持续10秒，20秒内最多触发一次。"
+        "name": "过载电荷",
+        "desc": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>4</color>点能量，12秒内最多触发一次。"
       },
       "3": {
-        "name": "高压电涌",
-        "desc": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>32</color>点，持续10秒，20秒内最多触发一次。"
+        "name": "过载电荷",
+        "desc": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>4.5</color>点能量，12秒内最多触发一次。"
       },
       "4": {
-        "name": "高压电涌",
-        "desc": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>36</color>点，持续10秒，20秒内最多触发一次。"
+        "name": "过载电荷",
+        "desc": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>5</color>点能量，12秒内最多触发一次。"
       },
       "5": {
-        "name": "高压电涌",
-        "desc": "累积属性异常积蓄值时，装备者的异常精通提升<color=#2BAD00>40</color>点，持续10秒，20秒内最多触发一次。"
+        "name": "过载电荷",
+        "desc": "队伍中任意角色对敌人施加属性异常效果时，装备者回复<color=#2BAD00>5.5</color>点能量，12秒内最多触发一次。"
       }
     }
   }
