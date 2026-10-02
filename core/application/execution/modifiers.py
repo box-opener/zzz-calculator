@@ -493,6 +493,7 @@ def _active_non_stacking_panel_conflicts(
             or rule.rule_id not in scenario.enabled_rule_item_ids
             or rule.eligibility is RuleEligibility.INELIGIBLE
             or any(condition_values.get(condition_id) is not True for condition_id in rule.condition_ids)
+            or any(condition_values.get(condition_id) is not False for condition_id in rule.condition_not_ids)
         ):
             continue
         panel_effects = tuple(
@@ -762,11 +763,15 @@ def _resolve_rule_conditions(
     rule: CalculationRuleItem,
     scenario: CalculationScenario,
 ) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
-    if not rule.condition_ids:
+    if not rule.condition_ids and not rule.condition_not_ids:
         return EffectMatchStatus.MATCHED, ()
     values = {item.condition_id: item.value for item in scenario.conditions}
     evaluations: list[tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]] = []
-    for condition_id in rule.condition_ids:
+    requirements = (
+        *((condition_id, True) for condition_id in rule.condition_ids),
+        *((condition_id, False) for condition_id in rule.condition_not_ids),
+    )
+    for condition_id, expected_value in requirements:
         if condition_id not in values:
             evaluations.append(
                 (
@@ -795,7 +800,7 @@ def _resolve_rule_conditions(
                     ),
                 )
             )
-        elif values[condition_id]:
+        elif values[condition_id] is expected_value:
             evaluations.append((EffectMatchStatus.MATCHED, ()))
         else:
             evaluations.append((EffectMatchStatus.NOT_MATCHED, ()))

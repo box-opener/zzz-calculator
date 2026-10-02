@@ -69,6 +69,7 @@ class RuleItemView:
     toggleable: bool
     stack: RuleStackView
     condition_ids: tuple[str, ...]
+    condition_not_ids: tuple[str, ...]
     diagnostics: tuple[DiagnosticView, ...]
 
 

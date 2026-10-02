@@ -47,6 +47,16 @@ from .wengine_ids import (
     WENGINE_RAINFOREST_GOURMAND_ID,
     WENGINE_STARLIGHT_ENGINE_ID,
     WENGINE_HUMAN_IS_MEAT_ID,
+    WENGINE_PRECIOUS_FOSSIL_ID,
+    WENGINE_PRECISE_TRANSFORMER_ID,
+    WENGINE_TWIN_CRYING_STARS_ID,
+    WENGINE_ELECTRIC_LIP_GLOSS_ID,
+    WENGINE_BUNNY_BAND_ID,
+    WENGINE_SPRING_WARMTH_ID,
+    WENGINE_FANTASY_CUBE_ID,
+    WENGINE_GILDED_BLOSSOM_ID,
+    WENGINE_RADIO_WAVE_WALK_ID,
+    WENGINE_STRONG_ENOUGH_ID,
 )
 
 
@@ -59,6 +69,66 @@ class WEngineReviewedMapping:
 
 
 WENGINE_REVIEWED_MAPPINGS: Mapping[WEngineId, WEngineReviewedMapping] = {
+    WENGINE_PRECIOUS_FOSSIL_ID: WEngineReviewedMapping(
+        WENGINE_PRECIOUS_FOSSIL_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-precious-fossil",
+    ),
+    WENGINE_PRECISE_TRANSFORMER_ID: WEngineReviewedMapping(
+        WENGINE_PRECISE_TRANSFORMER_ID,
+        CharacterStat.HP,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-precise-transformer",
+    ),
+    WENGINE_TWIN_CRYING_STARS_ID: WEngineReviewedMapping(
+        WENGINE_TWIN_CRYING_STARS_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "anomaly-twin-crying-stars",
+    ),
+    WENGINE_ELECTRIC_LIP_GLOSS_ID: WEngineReviewedMapping(
+        WENGINE_ELECTRIC_LIP_GLOSS_ID,
+        CharacterStat.ANOMALY_PROFICIENCY,
+        BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+        "anomaly-electric-lip-gloss",
+    ),
+    WENGINE_BUNNY_BAND_ID: WEngineReviewedMapping(
+        WENGINE_BUNNY_BAND_ID,
+        CharacterStat.DEFENSE,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-bunny-band",
+    ),
+    WENGINE_SPRING_WARMTH_ID: WEngineReviewedMapping(
+        WENGINE_SPRING_WARMTH_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-spring-warmth",
+    ),
+    WENGINE_FANTASY_CUBE_ID: WEngineReviewedMapping(
+        WENGINE_FANTASY_CUBE_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "rupture-fantasy-cube",
+    ),
+    WENGINE_GILDED_BLOSSOM_ID: WEngineReviewedMapping(
+        WENGINE_GILDED_BLOSSOM_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "attack-gilded-blossom",
+    ),
+    WENGINE_RADIO_WAVE_WALK_ID: WEngineReviewedMapping(
+        WENGINE_RADIO_WAVE_WALK_ID,
+        CharacterStat.HP,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "rupture-radio-wave-walk",
+    ),
+    WENGINE_STRONG_ENOUGH_ID: WEngineReviewedMapping(
+        WENGINE_STRONG_ENOUGH_ID,
+        CharacterStat.CRIT_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "attack-strong-enough",
+    ),
     WENGINE_ELECTRO_STORM_III_ID: WEngineReviewedMapping(
         WENGINE_ELECTRO_STORM_III_ID,
         CharacterStat.PENETRATION_RATE,

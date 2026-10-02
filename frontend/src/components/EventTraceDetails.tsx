@@ -42,6 +42,7 @@ export type TraceRuleDefinition = {
   source_type?: string;
   availability: string;
   condition_ids: readonly string[];
+  condition_not_ids?: readonly string[];
 };
 
 export type TraceConditionDefinition = {
@@ -97,11 +98,39 @@ function conditionSummary(
 ): string[] {
   if (!rule) return [];
   const byId = new Map(conditions.map((condition) => [condition.condition_id, condition]));
-  return rule.condition_ids.flatMap((conditionId) => {
+  const positive = rule.condition_ids.flatMap((conditionId) => {
     const condition = byId.get(conditionId);
     if (!condition) return [];
     const value = selectedConditionValue(condition, values);
     return `${condition.label}：${value === true ? "是" : value === false ? "否" : "待指定"}`;
+  });
+  const negative = (rule.condition_not_ids ?? []).flatMap((conditionId) => {
+    const condition = byId.get(conditionId);
+    if (!condition) return [];
+    const value = selectedConditionValue(condition, values);
+    return `${condition.label}：${value === true ? "是" : value === false ? "否" : "待指定"}（本分支要求否）`;
+  });
+  return [...positive, ...negative];
+}
+
+function ruleHasActiveConditionForDisplay(
+  rule: TraceRuleDefinition | undefined,
+  conditions: readonly TraceConditionDefinition[],
+  values: Record<string, boolean | null>,
+) {
+  if (!rule) return false;
+  const positiveIds = rule.condition_ids;
+  const negativeIds = rule.condition_not_ids ?? [];
+  if (positiveIds.length + negativeIds.length === 0) return false;
+  const byId = new Map(conditions.map((condition) => [condition.condition_id, condition]));
+  const positiveGateActive = positiveIds.some((id) => {
+    const condition = byId.get(id);
+    return condition !== undefined && selectedConditionValue(condition, values) === true;
+  });
+  if (positiveIds.length > 0) return positiveGateActive;
+  return negativeIds.some((id) => {
+    const condition = byId.get(id);
+    return condition !== undefined && selectedConditionValue(condition, values) === false;
   });
 }
 
@@ -123,16 +152,11 @@ export function selectTraceRulesForDisplay(
   enabledRuleIds: ReadonlySet<string>,
 ): DisplayTraceRule[] {
   const definitions = new Map(rules.map((rule) => [rule.rule_id, rule]));
-  const activeConditionIds = new Set(
-    conditions
-      .filter((condition) => selectedConditionValue(condition, conditionValues) === true)
-      .map((condition) => condition.condition_id),
-  );
   const displayed = new Map<string, DisplayTraceRule>();
 
   for (const match of trace.rule_matches) {
     const definition = definitions.get(match.rule_id);
-    const active = Boolean(definition?.condition_ids.some((id) => activeConditionIds.has(id)));
+    const active = ruleHasActiveConditionForDisplay(definition, conditions, conditionValues);
     if (match.status === "not-matched" && !active) continue;
     const effects = match.effects.length > 0
       ? match.effects
@@ -155,7 +179,7 @@ export function selectTraceRulesForDisplay(
 
   for (const definition of rules) {
     if (displayed.has(definition.rule_id)) continue;
-    const active = definition.condition_ids.some((id) => activeConditionIds.has(id));
+    const active = ruleHasActiveConditionForDisplay(definition, conditions, conditionValues);
     // A blocked rule can be omitted from enabled_rule_item_ids by the editor
     // reconciliation. Preserve its real blocked state in the trace context.
     if (!active || definition.availability !== "blocked") continue;
@@ -175,7 +199,7 @@ export function selectTraceRulesForDisplay(
 
   for (const definition of rules) {
     if (displayed.has(definition.rule_id)) continue;
-    const active = definition.condition_ids.some((id) => activeConditionIds.has(id));
+    const active = ruleHasActiveConditionForDisplay(definition, conditions, conditionValues);
     if (!active || definition.availability !== "available" || enabledRuleIds.has(definition.rule_id)) continue;
     displayed.set(definition.rule_id, {
       rule_id: definition.rule_id,

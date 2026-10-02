@@ -107,6 +107,7 @@ type Rule = {
   enabled_by_default: boolean;
   toggleable: boolean;
   condition_ids: string[];
+  condition_not_ids: string[];
   stack: { default: number | null; minimum: number | null; maximum: number | null };
 };
 

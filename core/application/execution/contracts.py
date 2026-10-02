@@ -160,7 +160,9 @@ class MoveCalculationRequest:
         rule_map = {item.rule_id: item for item in rule_items}
         known_condition_ids = set(condition_ids)
         for rule in self.additional_rule_items:
-            unknown = set(rule.condition_ids) - known_condition_ids
+            unknown = (
+                set(rule.condition_ids) | set(rule.condition_not_ids)
+            ) - known_condition_ids
             if unknown:
                 raise ValueError(
                     "additional RuleItem references unknown scenario conditions: "
@@ -184,6 +186,10 @@ class MoveCalculationRequest:
                 or any(
                     scenario_condition_values.get(condition_id) is not True
                     for condition_id in rule.condition_ids
+                )
+                or any(
+                    scenario_condition_values.get(condition_id) is not False
+                    for condition_id in rule.condition_not_ids
                 )
             ):
                 continue

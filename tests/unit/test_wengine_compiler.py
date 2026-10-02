@@ -622,30 +622,24 @@ def test_time_slice_numeric_values_are_extracted_by_trigger_and_refinement() -> 
 
 
 def test_live_raw_advanced_stats_apply_max_star_growth_for_percent_and_flat_values() -> None:
-    ids = (
-        "12001",
-        "12002",
-        "12003",
-        "12004",
-        "12005",
-        "12007",
-        "12008",
-        "12009",
-        "12010",
-        "12011",
-        "12012",
-        "12013",
-        "12014",
-        "12015",
-        "12016",
-        "13001",
-        "13002",
-        "13003",
-        "13004",
-        "13005",
-    )
-    for numeric_id in ids:
-        record = load_wengine_record(f"wengine:{numeric_id}")
+    records = {
+        wengine_id: load_wengine_record(wengine_id)
+        for wengine_id in supported_wengine_ids()
+    }
+    live_records = {
+        wengine_id: record
+        for wengine_id, record in records.items()
+        if record.get("source_version") == "3.2"
+        and str(record.get("source_url", "")).startswith(
+            "https://static.nanoka.cc/zzz/3.2/zh/weapon/"
+        )
+        and isinstance(record.get("raw_nanoka_detail"), dict)
+    }
+    assert {
+        f"wengine:{numeric_id}" for numeric_id in range(13006, 13016)
+    } <= set(live_records)
+    assert "wengine:12011" in live_records
+    for record in live_records.values():
         raw_detail = record["raw_nanoka_detail"]
         rand_property = raw_detail["rand_property"]
         max_star_rate = raw_detail["stars"]["5"]["rand_rate"]
@@ -654,6 +648,193 @@ def test_live_raw_advanced_stats_apply_max_star_growth_for_percent_and_flat_valu
         assert record["resolved_level_60"]["advanced_stat_value"] == pytest.approx(
             expected
         )
+
+
+def test_third_nanoka_batch_refinement_values_match_each_live_talent_description() -> None:
+    expected = {
+        "13006": {
+            "daze_bonus_at_50": (0.10, 0.115, 0.13, 0.145, 0.16),
+            "daze_extra_bonus_at_75": (0.10, 0.115, 0.13, 0.145, 0.16),
+        },
+        "13007": {
+            "hp_percent": (0.08, 0.09, 0.10, 0.11, 0.125),
+            "impact_percent_after_hit": (0.10, 0.115, 0.13, 0.145, 0.16),
+        },
+        "13008": {"anomaly_proficiency_per_stack": (30, 34, 38, 42, 48)},
+        "13009": {
+            "attack_percent": (0.10, 0.115, 0.13, 0.145, 0.16),
+            "target_damage_bonus": (0.15, 0.175, 0.20, 0.225, 0.25),
+        },
+        "13010": {
+            "hp_percent": (0.08, 0.092, 0.104, 0.116, 0.128),
+            "attack_percent_with_shield": (0.10, 0.115, 0.13, 0.145, 0.16),
+        },
+        "13011": {
+            "damage_taken_reduction": (0.075, 0.085, 0.095, 0.105, 0.12),
+            "energy_recovery_efficiency": (0.10, 0.115, 0.13, 0.145, 0.16),
+        },
+        "13012": {
+            "crit_damage_bonus": (0.16, 0.184, 0.208, 0.232, 0.256),
+            "ex_damage_bonus_below_half_hp": (0.20, 0.23, 0.26, 0.29, 0.32),
+        },
+        "13013": {
+            "attack_percent": (0.06, 0.069, 0.078, 0.087, 0.096),
+            "ex_damage_bonus": (0.15, 0.172, 0.195, 0.218, 0.24),
+        },
+        "13014": {"penetration_force_per_stack": (80, 92, 104, 116, 128)},
+        "13015": {
+            "attack_percent": (0.06, 0.069, 0.078, 0.087, 0.096),
+            "extra_attack_percent_if_target_anomalous": (
+                0.06,
+                0.069,
+                0.078,
+                0.087,
+                0.096,
+            ),
+        },
+    }
+    for numeric_id, expected_values in expected.items():
+        record = load_wengine_record(f"wengine:{numeric_id}")
+        raw_record = load_wengine_raw_record(f"wengine:{numeric_id}")
+        assert raw_record.source_version == "3.2"
+        assert raw_record.source_url.endswith(f"/zh/weapon/{numeric_id}.json")
+        for refinement, talent in enumerate(raw_record.talents, start=1):
+            raw_text = record["raw_nanoka_detail"]["talents"][str(refinement)]["desc"]
+            assert talent.text == raw_text
+            plain_text = re.sub(r"<[^>]+>", "", raw_text)
+            text_cursor = 0
+            for key, values in expected_values.items():
+                value = values[refinement - 1]
+                assert talent.numeric_values[key] == pytest.approx(value)
+                displayed = (
+                    value * 100
+                    if 0 <= value <= 1 and key != "anomaly_proficiency_per_stack"
+                    else value
+                )
+                number = f"{displayed:g}"
+                text_position = plain_text.find(number, text_cursor)
+                assert text_position >= text_cursor, (
+                    numeric_id,
+                    refinement,
+                    key,
+                    raw_text,
+                )
+                text_cursor = text_position + len(number)
+
+
+def test_third_nanoka_batch_reviewed_compilers_keep_refinement_values_and_typed_nodes() -> None:
+    cases = (
+        (
+            "13006",
+            "character:1361",
+            CharacterStat.IMPACT,
+            0.15,
+            "daze-bonus-at-50",
+            CalculationNode.DAZE_OUTGOING_BONUS,
+            (0.10, 0.16),
+        ),
+        (
+            "13007",
+            "character:1341",
+            CharacterStat.HP,
+            0.25,
+            "impact-after-hit",
+            CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+            (0.10, 0.16),
+        ),
+        (
+            "13008",
+            "character:1401",
+            CharacterStat.ATTACK,
+            0.25,
+            "anomaly-proficiency-per-stack",
+            CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+            (30, 48),
+        ),
+        (
+            "13009",
+            "character:1401",
+            CharacterStat.ANOMALY_PROFICIENCY,
+            75.0,
+            "target-anomaly-damage",
+            CalculationNode.DAMAGE_NORMAL_BONUS,
+            (0.15, 0.25),
+        ),
+        (
+            "13010",
+            "character:1341",
+            CharacterStat.DEFENSE,
+            0.40,
+            "shield-stat",
+            CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+            (0.10, 0.16),
+        ),
+        (
+            "13011",
+            "character:1341",
+            CharacterStat.ATTACK,
+            0.25,
+            "incoming-damage-and-resource-effects",
+            None,
+            (None, None),
+        ),
+        (
+            "13012",
+            "character:1371",
+            CharacterStat.ATTACK,
+            0.25,
+            "ex-special-low-hp-damage",
+            CalculationNode.DAMAGE_NORMAL_BONUS,
+            (0.20, 0.32),
+        ),
+        (
+            "13013",
+            "character:1431",
+            CharacterStat.ATTACK,
+            0.25,
+            "ex-special-damage",
+            CalculationNode.DAMAGE_NORMAL_BONUS,
+            (0.15, 0.24),
+        ),
+        (
+            "13014",
+            "character:1371",
+            CharacterStat.HP,
+            0.25,
+            "penetration-force-per-stack",
+            CalculationNode.PENETRATION_FORCE_BONUS,
+            (80, 128),
+        ),
+        (
+            "13015",
+            "character:1431",
+            CharacterStat.CRIT_RATE,
+            0.20,
+            "anomalous-target-extra-attack-buff",
+            CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+            (0.06, 0.096),
+        ),
+    )
+    for numeric_id, owner_string, stat, advanced, suffix, node, values in cases:
+        owner = CharacterId(owner_string)
+        capabilities = registration_for(owner).equipment_capabilities
+        raw_id = WEngineId(f"wengine:{numeric_id}")
+        for refinement, expected_value in zip((1, 5), values, strict=True):
+            result = compile_wengine(
+                WEngineBuildInput(raw_id, owner, refinement=refinement),
+                owner_capabilities=capabilities,
+            )
+            assert result.complete is True
+            assert result.contributions[0].value == Resolved(594.0)
+            assert result.contributions[1].stat is stat
+            assert result.contributions[1].value == Resolved(advanced)
+            rule = next(item for item in result.rule_items if item.rule_id.endswith(suffix))
+            if node is None:
+                assert rule.effects == ()
+            else:
+                matching = [item for item in rule.effects if item.result.modifier_path is node]
+                assert len(matching) == 1
+                assert matching[0].result.value == Resolved(expected_value)
 
 
 def test_new_signature_raw_records_use_resolved_level_60_percentages() -> None:

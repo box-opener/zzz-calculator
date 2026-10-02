@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import EventTraceDetails, { type EventTraceEnvelope, type TraceConditionDefinition, type TraceRuleDefinition } from "./EventTraceDetails";
+import EventTraceDetails, { selectTraceRulesForDisplay, type EventTraceEnvelope, type TraceConditionDefinition, type TraceRuleDefinition } from "./EventTraceDetails";
 
 const aria = "condition:astra:aria-active";
 const energy = "condition:astra:energy-derived-active";
@@ -106,5 +106,45 @@ describe("EventTraceDetails", () => {
     expect(markup).toContain("卢西娅6影：合唱必定暴击");
     expect(markup).toContain(ruleId);
     expect(markup).toContain("effect:lucia:cinema6:chorus-guaranteed-crit");
+  });
+
+  it("shows a negated scenario fact when its positive field condition is active", () => {
+    const fieldAnomaly = "condition:wengine:13009:owner:1401:field-anomaly";
+    const targetAnomaly = "condition:wengine:13009:owner:1401:target-anomaly";
+    const scopeRule: TraceRuleDefinition = {
+      rule_id: "rule:wengine:13009:owner:1401:target-damage-scope-ambiguous",
+      source_label: "触电唇彩·目标增伤范围",
+      availability: "available",
+      condition_ids: [fieldAnomaly],
+      condition_not_ids: [targetAnomaly],
+    };
+    const fieldConditions: TraceConditionDefinition[] = [
+      { condition_id: fieldAnomaly, label: "场上有敌人处于异常状态", value: false, editable: true },
+      { condition_id: targetAnomaly, label: "本次目标处于异常状态", value: false, editable: true },
+    ];
+    const fieldTrace: EventTraceEnvelope = {
+      ...emptyModifiers,
+      rule_matches: [{
+        rule_id: scopeRule.rule_id,
+        source_label: scopeRule.source_label,
+        status: "blocked",
+        effects: [],
+        diagnostics: [{ message: "target anomaly damage scope is ambiguous", blocking: true }],
+      }],
+    };
+    const displayed = selectTraceRulesForDisplay(
+      fieldTrace,
+      [scopeRule],
+      fieldConditions,
+      { [fieldAnomaly]: true, [targetAnomaly]: false },
+      new Set([scopeRule.rule_id]),
+    );
+
+    expect(displayed).toHaveLength(1);
+    expect(displayed[0].status).toBe("blocked");
+    expect(displayed[0].condition_summary).toEqual([
+      "场上有敌人处于异常状态：是",
+      "本次目标处于异常状态：否（本分支要求否）",
+    ]);
   });
 });

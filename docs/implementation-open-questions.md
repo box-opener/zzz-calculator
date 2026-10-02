@@ -610,3 +610,43 @@ unchanged. A regression derives the expected normalized result for every live
 3.2 fixture, covering both percent and flat formats. Thus `12011` with base AP
 100 and an active R5 +40 buff resolves to AP 200; `13003`'s max-level static AP
 contribution is 75 before its energy-stack attack buff.
+
+
+## W-Engine live 3.2 third queue batch (non-authoritative implementation notes)
+
+The next ten rows in Nanoka index order are `13006`–`13015`. Their live detail
+payloads and each R1–R5 description are preserved in the raw fixtures. The
+max-star static values use each fixture's raw `stars[5].rand_rate` growth, including
+flat values; the R1–R5 passive values are parsed independently from each talent.
+
+`13006`'s source conditions its outgoing Daze bonus on target HP being at least 50%
+and adds the same amount at 75%. Both thresholds are explicit current target states;
+the request keeps each modifier in the Daze lane. Since damage requests do not
+calculate Daze, the selected rules carry a non-blocking result limitation.
+
+`13007`'s always-on maximum HP bonus and its 12-second Impact increase after being
+hit are separate effects. The latter uses an explicit “after hit Impact buff active”
+state; it is not gated by a shield. `13008`'s Anomaly Proficiency stacks are also a
+current count from 0 to 4. The request does not replay individual stack expiry or
+cleanup timing.
+
+For `13009`, the source says `当场上存在处于属性异常状态下的敌人时，装备者的攻击力提升…，对目标造成的伤害额外提升…`.
+The field condition independently activates the owner's Attack panel bonus. When
+the current damage target is anomalous, the target damage bonus is unambiguous. If
+another enemy is anomalous but the current target is normal, the source does not
+resolve whether “对目标” means only an anomalous target or any target while the
+field condition holds. That precise state produces a branch-local blocking
+`AMBIGUOUS_TEXT` diagnostic; unrelated moves and the Attack panel remain available.
+
+`13011` says `受到敌方攻击时，装备者的能量获得效率提升…；装备者换回后场时，该增益效果将传递给当前操作中的角色`.
+The current request has no incoming damage or resource result and does not provide a
+typed recipient for the swap transfer. Its original descriptions and R1–R5 values
+remain attached to a source-only rule with a non-blocking limitation; it does not
+create Energy Regeneration or alter player outgoing damage.
+
+`13012` uses separate current states for the post-EX Crit Damage panel buff and a
+below-half-HP target at the time of the EX hit. `13015` likewise uses one current
+state for its EX/Chain Attack buff and a second state for the extra amount earned
+when the target was anomalous at trigger time; it does not infer the latter from
+the target's later settlement state. `13014` applies its current 0–3 stacks only to
+the owner's Penetration Force lane.

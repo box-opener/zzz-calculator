@@ -530,9 +530,15 @@ def _rule_view(
     availability = "available"
     if rule.eligibility is RuleEligibility.INELIGIBLE:
         availability = "unavailable"
-    elif any(values.get(str(condition)) is False for condition in rule.condition_ids):
+    elif (
+        any(values.get(str(condition)) is False for condition in rule.condition_ids)
+        or any(values.get(str(condition)) is True for condition in rule.condition_not_ids)
+    ):
         availability = "unavailable"
-    elif any(values.get(str(condition)) is None for condition in rule.condition_ids):
+    elif any(
+        values.get(str(condition)) is None
+        for condition in (*rule.condition_ids, *rule.condition_not_ids)
+    ):
         availability = "blocked"
     elif any(item.blocking for item in rule.diagnostics):
         availability = "blocked"
@@ -548,6 +554,9 @@ def _rule_view(
         toggleable=availability == "available",
         stack=RuleStackView(rule.stack_count, rule.stack_min, rule.stack_max),
         condition_ids=tuple(str(condition) for condition in rule.condition_ids),
+        condition_not_ids=tuple(
+            str(condition) for condition in rule.condition_not_ids
+        ),
         diagnostics=tuple(diagnostic_view(item) for item in rule.diagnostics),
     )
 

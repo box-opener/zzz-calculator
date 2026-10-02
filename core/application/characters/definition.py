@@ -102,7 +102,10 @@ class CharacterCalculationDefinition:
             item.parameter_id for item in self.scenario_parameters
         }
         for rule in self.rule_items:
-            self._assert_condition_references(rule.condition_ids, condition_ids)
+            self._assert_condition_references(
+                (*rule.condition_ids, *rule.condition_not_ids),
+                condition_ids,
+            )
 
         event_creation_template_ids: set[EventTemplateId] = set()
         for rule in self.rule_items:

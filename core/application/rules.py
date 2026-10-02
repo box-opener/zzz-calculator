@@ -31,6 +31,7 @@ class CalculationRuleItem:
     stack_max: int | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
     non_stacking_group_id: str | None = None
+    condition_not_ids: tuple[ScenarioConditionId, ...] = ()
 
     def __post_init__(self) -> None:
         if not str(self.rule_id):
@@ -43,9 +44,16 @@ class CalculationRuleItem:
         ):
             raise ValueError("non-stacking group ID must not be empty")
         condition_ids = tuple(self.condition_ids)
+        condition_not_ids = tuple(self.condition_not_ids)
         if len(set(condition_ids)) != len(condition_ids):
             raise ValueError("rule condition IDs must be unique")
-        if self.eligibility is RuleEligibility.SCENARIO_REQUIRED and not condition_ids:
+        if len(set(condition_not_ids)) != len(condition_not_ids):
+            raise ValueError("rule negated condition IDs must be unique")
+        if set(condition_ids) & set(condition_not_ids):
+            raise ValueError("a rule condition cannot be both required and negated")
+        if self.eligibility is RuleEligibility.SCENARIO_REQUIRED and not (
+            condition_ids or condition_not_ids
+        ):
             raise ValueError(
                 "scenario-required rules must reference at least one condition"
             )

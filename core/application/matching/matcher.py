@@ -158,14 +158,18 @@ class EffectMatcher:
         rule_item: CalculationRuleItem,
         context: EffectMatchContext,
     ):
-        if not rule_item.condition_ids:
+        if not rule_item.condition_ids and not rule_item.condition_not_ids:
             return EffectMatchStatus.MATCHED, ()
         condition_map = {
             item.condition_id: item
             for item in context.scenario.conditions
         }
         evaluations: list[MatchEvaluation] = []
-        for condition_id in rule_item.condition_ids:
+        requirements = (
+            *((condition_id, True) for condition_id in rule_item.condition_ids),
+            *((condition_id, False) for condition_id in rule_item.condition_not_ids),
+        )
+        for condition_id, expected_value in requirements:
             condition = condition_map.get(condition_id)
             if condition is None:
                 evaluations.append(
@@ -197,7 +201,7 @@ class EffectMatcher:
                         ),
                     )
                 )
-            elif condition.value:
+            elif condition.value is expected_value:
                 evaluations.append((EffectMatchStatus.MATCHED, ()))
             else:
                 evaluations.append((EffectMatchStatus.NOT_MATCHED, ()))
