@@ -170,6 +170,13 @@ class MoveIdFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class EventTemplateIdFilter:
+    """Match one exact authored event template, including its move stage."""
+
+    template_id: EventTemplateId
+
+
+@dataclass(frozen=True, slots=True)
 class CharacterFilter:
     character_id: CharacterId
 
@@ -227,6 +234,7 @@ AtomicFilter: TypeAlias = (
     | DamageTagFilter
     | SkillGroupFilter
     | MoveIdFilter
+    | EventTemplateIdFilter
     | CharacterFilter
     | DamageDealerFilter
     | CharacterRoleFilter

@@ -23,6 +23,11 @@ describe("signature W-Engine defaults", () => {
       rarity: "S",
       signature_character_id: "character:1361",
     },
+    {
+      wengine_id: "wengine:14102",
+      rarity: "S",
+      signature_character_id: "character:1021",
+    },
   ] as const;
 
   it("defaults A-rank signatures to R5 and S-rank signatures to R1", () => {
@@ -34,11 +39,13 @@ describe("signature W-Engine defaults", () => {
     expect(defaultSignatureWengineSelections(signatures)).toEqual({
       "character:1011": { id: "wengine:13101", level: 60, refinement: 5 },
       "character:1361": { id: "wengine:14136", level: 60, refinement: 1 },
+      "character:1021": { id: "wengine:14102", level: 60, refinement: 1 },
     });
   });
 });
 
 const roundTripWengines = [
+  { id: "wengine:14102", characterId: "character:1021", specialty: "attack" },
   { id: "wengine:12001", characterId: "character:1431", specialty: "attack" },
   { id: "wengine:12002", characterId: "character:1431", specialty: "attack" },
   { id: "wengine:12003", characterId: "character:1431", specialty: "attack" },
@@ -227,6 +234,44 @@ describe("complete character config v2", () => {
       },
       source: "v2",
       wengineProvided: true,
+    });
+  });
+
+  it("round-trips Nekomata's compile fields and signature W-Engine through v2", () => {
+    const nekomata = createCharacterConfig(
+      "character:1021",
+      60,
+      "equipment-build",
+      {
+        core_level: 7,
+        cinema_level: 6,
+        skill_levels: {
+          "basic-attack": 12,
+          dodge: 12,
+          "special-attack": 12,
+          "chain-attack": 12,
+          assist: 12,
+          ultimate: 12,
+        },
+      },
+      { id: "wengine:14102", level: 60, refinement: 1 },
+      [],
+      null,
+    );
+    const parsed = parseCharacterConfig(
+      serializeCharacterConfig(nekomata),
+      "character:1021",
+      { ...catalog, characterSpecialty: "attack" },
+    );
+    expect(parsed).toMatchObject({
+      ok: true,
+      config: nekomata,
+      source: "v2",
+      wengineProvided: true,
+      equipment: {
+        character_id: "character:1021",
+        wengine: { id: "wengine:14102", level: 60, refinement: 1 },
+      },
     });
   });
 

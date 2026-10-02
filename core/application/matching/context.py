@@ -11,6 +11,7 @@ from core.types import (
     DamageEvent,
     EffectId,
     EnemyId,
+    EventTemplateId,
     FieldPosition,
     InitialCharacterSnapshot,
     MoveId,
@@ -55,6 +56,7 @@ class EffectMatchContext:
     target: EnemyMatchProfile
     initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = ()
     created_by_effect_id: EffectId | None = None
+    current_template_id: EventTemplateId | None = None
 
     def __post_init__(self) -> None:
         if self.calculation_context.event != self.current_event:

@@ -329,6 +329,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     payload = response.json()
     assert {item["character_id"] for item in payload} == {
         "character:1011",
+        "character:1021",
         "character:1311",
         "character:1431",
         "character:1401",
@@ -349,6 +350,11 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert anby["rarity"] == "A"
     assert anby["specialty"] == "stun"
     assert anby["image_path"] == "/characters/portrait-placeholder.svg"
+    nekomata = next(item for item in payload if item["character_id"] == "character:1021")
+    assert nekomata["rarity"] == "S"
+    assert nekomata["specialty"] == "attack"
+    assert nekomata["element"] == "physical"
+    assert nekomata["image_path"] == "/characters/portrait-placeholder.svg"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
     assert (asset_root / "IconRole46.webp").is_file()

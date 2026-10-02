@@ -1,13 +1,13 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. The catalog order for this queue is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 13 are now present in the calculator registry, leaving 47 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. The catalog order for this queue is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 14 are now present in the calculator registry, leaving 46 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
 | Character ID | Nanoka code | Chinese catalog name | Rank value | Type value | Status |
 |---:|---|---|---:|---:|---|
 | `1011` | Anby | 安比 | 3 | 2 | 部分实现（live raw + level-60 panel + 13 direct damage moves + electric anomaly/disorder + C2/C6; Daze/Energy results remain outside current calculator contract） |
-| `1021` | Nekomata | 猫又 | 4 | 1 | 待实现 |
+| `1021` | Nekomata | 猫又 | 4 | 1 | 部分实现（live raw + potential-0 baseline, all mapped Direct moves, static Physical Anomaly/Disorder and confirmed core/cinema rules; Potential variants and random repeat hit multiplier remain local source limitations） |
 | `1031` | Nicole | 妮可 | 3 | 4 | 待实现 |
 | `1041` | Soldier 11 | 「11号」 | 4 | 1 | 待实现 |
 | `1051` | Yidhari | 伊德海莉 | 4 | 6 | 待实现 |
@@ -69,10 +69,20 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Next unsupported ID: `1021` (猫又 / Nekomata). The queue proceeds by ascending numeric ID, skipping the 13 entries already marked supported above. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each new character.
+Next unsupported ID: `1031` (妮可 / Nicole). The queue proceeds by ascending numeric ID, skipping the 14 entries already marked supported above. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each new character.
 
 ## Anby (`character:1011`)
 
 The complete Nanoka raw payload is stored from `https://static.nanoka.cc/zzz/3.2/zh/character/1011.json`, with source version `3.2`. The reviewed direct mapping preserves separate source skill IDs: Basic Voltaic Assault stages 1–3 are Physical and stage 4 is Electric; Falling Thunder is Electric; Arc Slash is Physical; the remaining damage entries follow their explicit Electric source text. The raw Daze curves remain intact; core and Cinema Daze bonuses use the Daze modifier node, while no Daze result is emitted. Energy Gain Efficiency and one-shot Energy restoration stay in non-blocking source diagnostics and are not converted to Energy Regeneration.
 
 Cinema 6 uses an explicit current 0–8 charge selection. A selected positive count enables one +45% ordinary damage bonus on the current Basic or Dash hit; remaining charges do not multiply that bonus and charge creation/consumption timing is not replayed. The A-rank UI defaults are Cinema 6 and skill level 16, including Ultimate. The reviewed signature mapping is Anby → `wengine:13101` (the Nanoka catalog identifies the Demara Battery Mark II icon as `Weapon_A_1011` and says the model is often used by Anby); its default selection is Refinement 5. Nanoka's `IconRole01` portrait asset is not included locally, so the catalog uses a neutral placeholder without borrowing another character's image.
+
+## Nekomata (`character:1021`)
+
+The full live-3.2 detail is retained at `core/data/characters/nekomata.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1021.json`. The reviewed compile view selects the seven core levels whose raw potential is `[0]`; all raw potential records remain preserved. The `potential_detail` records identify IDs `102100`–`102105` as 猫的报恩 I–VI / 潜能觉醒, a separate Potential progression for which the calculator has no selector. Its modified skill descriptions, extra evade move, and extra dodge counter are therefore not treated as Cinema or merged into the baseline.
+
+All 14 baseline direct entries use the raw physical damage curves and source skill IDs, including the five separate Cat Claw stages and the Red Blade attack. The source's 33.33% repeat text applies to the fifth Cat Claw hit and Red Blade, but Nanoka exposes no separate repeat multiplier or event identity. The main hit stays calculated; when the current repeated-hit result is explicitly selected for one of those exact event templates, a blocking ambiguity diagnostic preserves the known main hit and leaves only the repeated damage unresolved. Other Cat Claw stages are unaffected. Static Physical Assault and Disorder use the standard single-character 100% buildup assumption and NoCrit.
+
+Core damage and Cinema stack effects use explicit current-state inputs. Cinema 1 applies to Nekomata's Direct Physical attack events: it reads the actual enemy-stunned state and otherwise requires the current event's back-hit condition, so the two routes cannot double the 16% Physical resistance ignore. Cinema 2's Energy Gain Efficiency and Support Parry Daze curves remain source notes because the request has no Energy or Daze result. The catalog uses a neutral placeholder because the source `IconRole11` image is not packaged locally.
+
+The existing Nanoka `14102` Steel Cushion record has catalog icon `Weapon_S_1021` and is exposed as Nekomata's signature selection; the S-rank default is R1. The real equipment-build path applies its level-60 white ATK/CR substat and separates the physical-damage bonus from the current back-hit damage bonus.

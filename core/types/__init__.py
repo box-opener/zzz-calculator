@@ -132,6 +132,7 @@ from .effect import (
     EffectRule,
     ElementFilter,
     EnemyStateFilter,
+    EventTemplateIdFilter,
     EventCreationEffect,
     EventCreationResult,
     EventSelector,

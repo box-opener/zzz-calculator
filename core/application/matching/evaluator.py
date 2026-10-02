@@ -22,6 +22,7 @@ from core.types import (
     EffectTarget,
     ElementFilter,
     EnemyStateFilter,
+    EventTemplateIdFilter,
     FieldPositionFilter,
     MoveIdFilter,
     NotCondition,
@@ -407,6 +408,21 @@ def match_filter(
         return _bool_decision(event.metadata.skill_group is item.skill_group)
     if isinstance(item, MoveIdFilter):
         return _bool_decision(event.metadata.move_id == item.move_id)
+    if isinstance(item, EventTemplateIdFilter):
+        if context.current_template_id is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    diagnostic(
+                        effect_id,
+                        "missing-event-template-identity",
+                        DiagnosticKind.MISSING_DATA,
+                        "event-template filter requires the instantiated event template identity",
+                        blocking=True,
+                    ),
+                ),
+            )
+        return _bool_decision(context.current_template_id == item.template_id)
     if isinstance(item, EnemyStateFilter):
         return _bool_decision(item.state_id in context.target.states)
     if isinstance(item, CharacterFilter):

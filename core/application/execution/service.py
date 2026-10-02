@@ -179,6 +179,7 @@ class DirectMoveApplicationService:
             main_event.event,
             global_panel_application.character_snapshots,
             request.base_calculation_modifiers,
+            current_template_id=main_event.template_id,
         )
         main_matches = self._matcher.match_rule_items(rule_items, main_context)
         non_stacking_event_diagnostics: list[CalculationDiagnostic] = []
@@ -333,6 +334,7 @@ class DirectMoveApplicationService:
                     application.character_snapshots,
                     request.base_calculation_modifiers,
                     created_by_effect_id=child.created_by_effect_id,
+                    current_template_id=child.template_id,
                 )
                 child_matches = self._matcher.match_rule_items(
                     rule_items, child_context
@@ -859,6 +861,7 @@ def _match_context(
     modifiers,
     *,
     created_by_effect_id: EffectId | None = None,
+    current_template_id: EventTemplateId | None = None,
 ) -> EffectMatchContext:
     context = CalculationContext(
         event=event,
@@ -876,6 +879,7 @@ def _match_context(
         target=request.target_profile,
         initial_character_snapshots=request.initial_character_snapshots,
         created_by_effect_id=created_by_effect_id,
+        current_template_id=current_template_id,
     )
 
 

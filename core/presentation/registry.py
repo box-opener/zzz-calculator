@@ -74,6 +74,12 @@ from core.application.characters.qingyi import (
     compile_qingyi,
     load_raw_record as load_qingyi_raw_record,
 )
+from core.application.characters.nekomata import (
+    NEKOMATA_ID,
+    NekomataCompileConfig,
+    compile_nekomata,
+    load_raw_record as load_nekomata_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -518,6 +524,73 @@ def _anby_fields(
             "A级角色默认按6影配置；已解锁影画等级",
         ),
         *_skill_level_fields(values, default_level=16),
+    )
+
+
+def _nekomata_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "猫又核心被动等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级；仅编译Nanoka明确标为潜能0的基础核心曲线",
+        ),
+        _integer_field(
+            "cinema_level",
+            "猫又影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁影画等级；潜能觉醒单独记录且当前配置无潜能选择器",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _nekomata_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    nekomata_camps = {
+        str(value)
+        for value in load_character_record(str(NEKOMATA_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == NEKOMATA_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.base_element is Element.PHYSICAL:
+            return True
+        camps = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camps, Mapping) and nekomata_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
+def _compile_nekomata(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_nekomata(
+        NekomataCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=_nekomata_additional_ability_eligibility(
+                team_ids
+            ),
+        ),
+        load_nekomata_raw_record(load_character_record(str(NEKOMATA_ID))),
     )
 
 
@@ -1080,6 +1153,42 @@ def _compile_qingyi(
 
 
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
+    NEKOMATA_ID: CharacterPresentationRegistration(
+        character_id=NEKOMATA_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1021",
+            display_name="猫又",
+            rarity="S",
+            element="physical",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_nekomata,
+        config_fields=_nekomata_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=NEKOMATA_ID,
+            role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.DODGE, frozenset({DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.DODGE, frozenset({DamageTag.DODGE_COUNTER})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.CHAIN_ATTACK, frozenset({DamageTag.CHAIN_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.ULTIMATE, frozenset({DamageTag.ULTIMATE})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK})),
+                }
+            ),
+        ),
+    ),
     CharacterId("character:1011"): CharacterPresentationRegistration(
         character_id=ANBY_ID,
         catalog=CharacterCatalogItem(
