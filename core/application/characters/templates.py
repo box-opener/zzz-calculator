@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from core.types import (
     AnomalyRecordId,
+    AnomalyRecordValueSource,
+    DischargeDamageEvent,
     CurrentAnomalyEffectStrengthValueSource,
     CurrentAnomalyProficiencyValueSource,
     CurrentMaxHPValueSource,
@@ -19,6 +21,7 @@ from core.types import (
     RecordedAnomalyCritRule,
     Unresolved,
     StandardCritRule,
+    RecordedAnomalyCritRule,
 )
 
 from ..moves import DamageEventTemplateRef
@@ -151,6 +154,30 @@ class DisorderDamageEventTemplate:
 
 
 @dataclass(frozen=True, slots=True)
+class DischargeDamageEventTemplate:
+    """Typed discharge child that can inherit the source anomaly record/multiplier."""
+
+    ref: DamageEventTemplateRef
+    damage_dealer: CharacterId
+    element: Element
+    discharge_triggerer: CharacterId
+    history_record_source: AnomalyRecordId | None
+    crit_rule: RecordedAnomalyCritRule | NoCritRule | Unresolved
+    move_id: MoveId | None
+    multiplier_from_source_event: bool = True
+
+    def __post_init__(self) -> None:
+        if self.ref.damage_type is not DamageType.ANOMALY:
+            raise ValueError("DischargeDamageEventTemplate requires anomaly damage type")
+        if self.ref.damage_subtype is not DamageSubtype.DISCHARGE:
+            raise ValueError("discharge template requires discharge subtype")
+        if self.ref.element is not self.element:
+            raise ValueError("template ref element must match typed template element")
+        if self.ref.skill_group is not None or self.move_id is not None:
+            raise ValueError("synthetic discharge damage must not invent a move identity")
+
+
+@dataclass(frozen=True, slots=True)
 class SettledAnomalyDamageEventTemplate:
     """Template for an anomaly child based on a prior final damage result."""
 
@@ -178,6 +205,7 @@ DamageEventTemplate = (
     | AttributeAnomalyDamageEventTemplate
     | CurrentAttributeAnomalyDamageEventTemplate
     | DisorderDamageEventTemplate
+    | DischargeDamageEventTemplate
     | SettledAnomalyDamageEventTemplate
 )
 
@@ -189,5 +217,6 @@ __all__ = [
     "DirectDamageEventTemplate",
     "PenetrationDamageEventTemplate",
     "DisorderDamageEventTemplate",
+    "DischargeDamageEventTemplate",
     "SettledAnomalyDamageEventTemplate",
 ]

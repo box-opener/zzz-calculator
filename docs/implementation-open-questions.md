@@ -317,3 +317,62 @@ then use that historical strength without applying a second generic bonus.
 For Attack `1000`, anomaly proficiency `100`, level `60`, and Physical bonus
 `0.30`, the C2 bonus changes the record's normal region from `1.30` to `1.45`
 and effect strength from `2600` to `2900`.
+
+### Vivian (薇薇安, character:1331)
+
+Vivian's raw record is the live Nanoka 3.2 file at
+`https://static.nanoka.cc/zzz/3.2/zh/character/1331.json`. The earlier pinned
+3.2.4+18409985 character path returned 404; this implementation retains the
+retrievable source URL/version on the raw record without changing any existing
+character source version.
+
+The static Ether Corrosion entry uses the specification's complete 10-second
+record: 20 ticks at `0.625` each. The separate static Disorder entry uses the
+matching full-duration `17.0` multiplier. The Extra Ability's team Corrosion
+and Corrosion-settled Disorder bonuses are independent of whether Vivian has a
+Protective Feather available for the follow-up hit.
+
+The source marks Feather Flurry, Feather Blade Counter, Silver Aria, and Quick
+Assist: Feather Guard as both Physical and Ether damage, but supplies one
+combined curve for each hit and no per-element shares. Those entries retain
+their exact raw parameter identity and curve text, but a selected hit returns
+an ambiguity diagnostic instead of assigning the entire multiplier to one
+element. Other single-element moves remain calculable.
+
+Cinema 6 only specifies the maximum Anomaly Mutation ratio: five spent
+Protective Feathers make it five times the base ratio. The mapping for one to
+four feathers is absent. The maximum case is calculable; selecting the
+intermediate-count condition blocks only that mutation event with an explicit
+diagnostic. Other known Cinema 6 effects continue to apply.
+
+Prophecy deals 55% ATK Ether damage every 0.55 seconds while the target remains
+anomalous. The calculator requires an explicit integer tick count and does not
+derive a count from duration. Feather gains/consumption, stance changes, the
+0.5-second extra-ability throttle, and Prophecy end timing are not replayed;
+the relevant current states are exposed as explicit inputs.
+
+Anomaly Mutation is emitted as a typed Discharge event sourced from the exact
+typed historical Attribute Anomaly record. That record supplies its own
+effect strength, element, stored anomaly bonus, and damage owner; Vivian's
+current anomaly proficiency supplies only the Discharge multiplier. Cinema 2's
+1.30 proficiency gain and 15% resistance ignore are separate enabled rules and
+match only these Discharge events. This uses the dedicated
+`DISCHARGE_PROFICIENCY_MULTIPLIER` node and leaves the existing
+`ANOMALY_MUTATION_COEFFICIENT` meaning unchanged.
+
+The direct Feathering Blossoms entry does not carry the target's existing
+anomaly-record identity in the current calculation request. If the selected
+direct Blossom is marked as hitting an anomalous target, the hit remains
+calculated and the mutation child reports `MISSING_DATA`; the compiler does
+not recalculate the target anomaly from Vivian's panel. Selecting a typed
+Attribute Anomaly event as the source allows the mutation to use that exact
+record.
+
+Cinema 4's 12% ATK buff lasts for 12 seconds after either named Basic hit, so a
+separate current-buff condition controls Vivian's formal self panel. It is not
+coupled to Prophecy. Cinema 6's 40% Ether bonus is applied through the ordinary
+normal-damage input when a Vivian-owned Ether/Xuanmo anomaly or Disorder source
+record is generated. The Disorder calculator uses that historical strength
+without a second normal-bonus region. The bonus is not copied to the independent
+Discharge bonus region, and explicit historical records or another character's
+source record are not rewritten.

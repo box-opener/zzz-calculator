@@ -9,6 +9,7 @@ from .templates import (
     DirectDamageEventTemplate,
     PenetrationDamageEventTemplate,
     DisorderDamageEventTemplate,
+    DischargeDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
 )
 from .astra import AstraCompileConfig, compile_astra
@@ -19,6 +20,7 @@ from .miyabi import MiyabiCompileConfig, compile_miyabi
 from .lucia import LuciaCompileConfig, compile_lucia
 from .yixuan import YixuanCompileConfig, compile_yixuan
 from .dialyn import DialynCompileConfig, compile_dialyn
+from .vivian import VivianCompileConfig, compile_vivian
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -29,6 +31,7 @@ __all__ = [
     "AttributeAnomalyDamageEventTemplate",
     "CurrentAttributeAnomalyDamageEventTemplate",
     "DisorderDamageEventTemplate",
+    "DischargeDamageEventTemplate",
     "SettledAnomalyDamageEventTemplate",
     "AstraCompileConfig",
     "compile_astra",
@@ -46,4 +49,6 @@ __all__ = [
     "compile_lucia",
     "DialynCompileConfig",
     "compile_dialyn",
+    "VivianCompileConfig",
+    "compile_vivian",
 ]

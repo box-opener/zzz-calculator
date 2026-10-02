@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from core.types import (
+    AnomalyRecordId,
     BattleEventKind,
     CalculationContext,
     CalculationNode,
@@ -12,6 +13,7 @@ from core.types import (
     AttributeAnomalyDamageEvent,
     DamageEvent,
     DamageEventId,
+    DamageMultiplier,
     DirectDamageEvent,
     DisorderDamageEvent,
     PenetrationDamageEvent,
@@ -75,6 +77,19 @@ from .multiplier import (
 )
 from .router import CalculationRouter, CalculatorExecutionResult
 from .static_records import static_attribute_anomaly_record
+
+
+def _complete_anomaly_multiplier(
+    instantiated: InstantiatedDamageEvent,
+) -> DamageMultiplier:
+    """Carry the source anomaly's complete multiplier into a Discharge child."""
+
+    multiplier = instantiated.event.multiplier
+    if isinstance(multiplier, FixedMultiplier) and isinstance(multiplier.value, Resolved):
+        return FixedMultiplier(
+            Resolved(multiplier.value.value * instantiated.repeat_count)
+        )
+    return multiplier
 
 
 class DirectMoveApplicationService:
@@ -271,6 +286,16 @@ class DirectMoveApplicationService:
                     ancestry,
                     seen_semantics,
                     source_event_id=instantiated.event.metadata.event_id,
+                    source_history_record_id=(
+                        instantiated.event.history_record_source
+                        if isinstance(instantiated.event, AttributeAnomalyDamageEvent)
+                        else None
+                    ),
+                    source_anomaly_multiplier=(
+                        _complete_anomaly_multiplier(instantiated)
+                        if isinstance(instantiated.event, AttributeAnomalyDamageEvent)
+                        else None
+                    ),
                 )
                 if isinstance(created, CalculationDiagnostic):
                     move_diagnostics.append(created)
@@ -420,6 +445,8 @@ class DirectMoveApplicationService:
         seen_semantics,
         *,
         source_event_id: DamageEventId | None = None,
+        source_history_record_id: AnomalyRecordId | None = None,
+        source_anomaly_multiplier: DamageMultiplier | None = None,
     ) -> (
         tuple[InstantiatedDamageEvent, tuple[EventTemplateId, ...]]
         | CalculationDiagnostic
@@ -529,6 +556,8 @@ class DirectMoveApplicationService:
             created_by_effect_id=effect.rule.effect_id,
             repeat_count=repeat_count,
             source_event_id=source_event_id,
+            source_history_record_id=source_history_record_id,
+            source_anomaly_multiplier=source_anomaly_multiplier,
         )
         return child, (*ancestry, template_id)
 

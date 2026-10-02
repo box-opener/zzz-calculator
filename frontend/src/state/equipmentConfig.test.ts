@@ -291,6 +291,47 @@ describe("complete character config v2", () => {
     });
   });
 
+  it("round-trips Vivian's core, cinema, and skill levels through v2", () => {
+    const vivian = createCharacterConfig(
+      "character:1331",
+      60,
+      "equipment-build",
+      {
+        core_level: 7,
+        cinema_level: 6,
+        skill_levels: {
+          "basic-attack": 16,
+          dodge: 14,
+          "special-attack": 15,
+          "chain-attack": 12,
+          assist: 13,
+          ultimate: 10,
+        },
+      },
+      null,
+      [],
+      null,
+    );
+    const parsed = parseCharacterConfig(
+      serializeCharacterConfig(vivian),
+      "character:1331",
+      catalog,
+    );
+
+    expect(parsed).toEqual({
+      ok: true,
+      config: vivian,
+      equipment: {
+        schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+        character_id: "character:1331",
+        wengine: null,
+        drive_discs: [],
+      },
+      source: "v2",
+      wengineProvided: true,
+    });
+  });
+
   it("keeps current weapon semantics distinct for v1 null and drive-only legacy files", () => {
     const v1 = JSON.stringify({
       schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,

@@ -201,6 +201,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1371",
         "character:1451",
         "character:1481",
+        "character:1331",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
@@ -213,6 +214,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert (asset_root / "IconRole44.webp").is_file()
     assert (asset_root / "IconRole50.webp").is_file()
     assert (asset_root / "IconRole54.webp").is_file()
+    assert (asset_root / "IconRole41.webp").is_file()
 
 
 def test_calculation_accepts_a_primary_and_two_supporting_characters() -> None:

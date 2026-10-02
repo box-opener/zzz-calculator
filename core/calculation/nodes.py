@@ -67,6 +67,7 @@ _MODIFIER_NODES = frozenset(
         CalculationNode.CHARACTER_COMBAT_ENERGY_REGEN_FLAT_BONUS,
         CalculationNode.DAMAGE_NORMAL_BONUS,
         CalculationNode.ANOMALY_MUTATION_COEFFICIENT,
+        CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER,
         CalculationNode.ANOMALY_DAMAGE_BONUS,
         CalculationNode.DISCHARGE_DAMAGE_BONUS,
         CalculationNode.TURBULENCE_EXTRA_MULTIPLIER,
@@ -148,6 +149,7 @@ _RATIO_NODES = frozenset(
 _MULTIPLIER_MODIFIER_NODES = frozenset(
     {
         CalculationNode.ANOMALY_MUTATION_COEFFICIENT,
+        CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER,
         CalculationNode.TURBULENCE_EXTRA_MULTIPLIER,
         CalculationNode.DISORDER_BASE_MULTIPLIER,
         CalculationNode.DISORDER_EXTRA_MULTIPLIER,

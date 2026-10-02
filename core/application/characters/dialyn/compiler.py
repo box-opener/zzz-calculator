@@ -331,7 +331,7 @@ def _previous_teammate_extra_damage(
         notes=(
             "The Additional Ability states two formulas for the 'previous teammate' "
             "but the calculation request carries only primary and supporting team "
-            "membership, not an ordered active-party history or typed previous-" 
+            "membership, not an ordered active-party history or typed previous-"
             "teammate reference. It also does not fully identify the generated hit's "
             "damage dealer, element, or crit owner. No teammate panel or damage value "
             "is selected."

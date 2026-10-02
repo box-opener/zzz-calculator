@@ -854,6 +854,7 @@ def _resolve_effect_value(
 
     if value.source_node in {
         CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+        CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
         CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
     }:
         current = next(
@@ -868,12 +869,16 @@ def _resolve_effect_value(
             current_stat = None
         elif value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY:
             current_stat = current.settlement_stats.anomaly_mastery
+        elif value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY:
+            current_stat = current.settlement_stats.anomaly_proficiency
         else:
             current_stat = current.settlement_stats.crit_rate
         if not isinstance(current_stat, Resolved):
             label = (
                 "current anomaly mastery"
                 if value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY
+                else "current anomaly proficiency"
+                if value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY
                 else "current crit rate"
             )
             diagnostics.append(
@@ -988,6 +993,7 @@ def _is_current_panel_derived_effect(effect: ModifierEffect) -> bool:
         and value.source_node
         in {
             CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+            CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
         }
     )

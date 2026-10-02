@@ -70,6 +70,7 @@ class CalculationNode(StrEnum):
     ANOMALY_ATTACK_LEVEL_COEFFICIENT = "anomaly.attack-level-coefficient"
     ANOMALY_PROFICIENCY_REGION = "anomaly.proficiency-region"
     ANOMALY_MUTATION_COEFFICIENT = "anomaly.mutation-coefficient"
+    DISCHARGE_PROFICIENCY_MULTIPLIER = "discharge.proficiency-multiplier"
     ANOMALY_EFFECT_STRENGTH = "anomaly.effect-strength"
     ATTRIBUTE_ANOMALY_MULTIPLIER = "anomaly.attribute.multiplier"
     ANOMALY_CRIT_REGION = "anomaly.attribute.crit-region"

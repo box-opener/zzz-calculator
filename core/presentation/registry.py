@@ -50,6 +50,12 @@ from core.application.characters.dialyn import (
     compile_dialyn,
     load_raw_record as load_dialyn_raw_record,
 )
+from core.application.characters.vivian import (
+    VIVIAN_ID,
+    VivianCompileConfig,
+    compile_vivian,
+    load_raw_record as load_vivian_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -337,6 +343,31 @@ def _dialyn_fields(
         _integer_field(
             "cinema_level",
             "琉音影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _vivian_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "薇薇安核心等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "薇薇安影画",
             int(values.get("cinema_level", 0)),
             0,
             6,
@@ -799,6 +830,41 @@ def _compile_dialyn(
     )
 
 
+def _vivian_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != VIVIAN_ID
+        and character_id in _REGISTRATIONS
+        and (
+            _REGISTRATIONS[character_id].role is CharacterRole.ANOMALY
+            or _REGISTRATIONS[character_id].base_element is Element.ETHER
+        )
+        for character_id in team_ids
+    )
+
+
+def _compile_vivian(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_vivian(
+        VivianCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _vivian_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_vivian_raw_record(load_character_record(str(VIVIAN_ID))),
+    )
+
+
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
@@ -1015,6 +1081,30 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"dialyn-good-review", "dialyn-after-sound"}),
+        ),
+    ),
+    CharacterId("character:1331"): CharacterPresentationRegistration(
+        character_id=CharacterId("character:1331"),
+        catalog=CharacterCatalogItem(
+            character_id="character:1331",
+            display_name="薇薇安",
+            rarity="S",
+            element="ether",
+            specialty="anomaly",
+            image_path="/characters/IconRole41.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.ETHER,
+        compile_definition=_compile_vivian,
+        config_fields=_vivian_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CharacterId("character:1331"),
+            role=CharacterRole.ANOMALY,
+            possible_elements=frozenset({Element.ETHER, Element.XUANMO}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"vivian-prophecy", "vivian-discharge"}),
         ),
     ),
 }

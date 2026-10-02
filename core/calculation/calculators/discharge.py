@@ -43,7 +43,10 @@ from .errors import InvalidCalculationContextError
 
 
 _SUPPORTED_MODIFIER_PATHS = COMMON_MODIFIER_PATHS | frozenset(
-    {CalculationNode.DISCHARGE_DAMAGE_BONUS}
+    {
+        CalculationNode.DISCHARGE_DAMAGE_BONUS,
+        CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER,
+    }
 )
 
 
@@ -159,6 +162,13 @@ class DischargeDamageCalculator:
             "DischargeDamageCalculator",
             unresolved,
         )
+        if multiplier is not None:
+            proficiency_ratio = modifiers[CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER]
+            has_proficiency_ratio = any(
+                item.modifier_path is CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER
+                for item in context.modifiers
+            )
+            multiplier *= proficiency_ratio if has_proficiency_ratio else 1.0
         required = (
             effect_strength,
             historical_anomaly_bonus,
@@ -250,6 +260,10 @@ class DischargeDamageCalculator:
             breakdown=(
                 node_value(CalculationNode.ANOMALY_EFFECT_STRENGTH, effect_strength),
                 node_value(CalculationNode.DISCHARGE_TOTAL_MULTIPLIER, multiplier),
+                node_value(
+                    CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER,
+                    modifiers[CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER],
+                ),
                 node_value(CalculationNode.DAMAGE_BASE_VALUE, base_damage),
                 node_value(
                     CalculationNode.ANOMALY_DAMAGE_BONUS_REGION,

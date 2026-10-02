@@ -4,13 +4,17 @@ from __future__ import annotations
 
 from core.types import (
     AnomalyRecordValueSource,
+    AnomalyRecordId,
     AttributeAnomalyDamageEvent,
     BattleStateId,
     BattleTime,
     DamageEventId,
     DamageEventMetadata,
+    DamageMultiplier,
     DirectDamageEvent,
     DisorderDamageEvent,
+    DischargeDamageEvent,
+    DamageSubtype,
     CurrentAttributeAnomalyDamageEvent,
     PenetrationDamageEvent,
     SettledAnomalyDamageEvent,
@@ -26,6 +30,7 @@ from ..characters.templates import (
     DirectDamageEventTemplate,
     PenetrationDamageEventTemplate,
     DisorderDamageEventTemplate,
+    DischargeDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
 )
 from ..ids import DamageEventSemanticId, RuleItemId
@@ -83,6 +88,8 @@ def instantiate_damage_event(
     created_by_effect_id: EffectId | None = None,
     repeat_count: int = 1,
     source_event_id: DamageEventId | None = None,
+    source_history_record_id: AnomalyRecordId | None = None,
+    source_anomaly_multiplier: DamageMultiplier | None = None,
 ) -> InstantiatedDamageEvent:
     """Instantiate any typed template without collapsing anomaly identity."""
 
@@ -156,6 +163,23 @@ def instantiate_damage_event(
             ),
             history_record_source=template.history_record_source,
             multiplier=multiplier,
+            crit_rule=template.crit_rule,
+        )
+    elif isinstance(template, DischargeDamageEventTemplate):
+        record_id = template.history_record_source or source_history_record_id
+        if record_id is None:
+            raise ValueError("discharge event requires a typed source anomaly record")
+        event = DischargeDamageEvent(
+            metadata=metadata,
+            discharge_triggerer=template.discharge_triggerer,
+            base_settlement_data_source=AnomalyRecordValueSource(record_id),
+            history_record_source=record_id,
+            multiplier=(
+                source_anomaly_multiplier
+                if template.multiplier_from_source_event
+                and source_anomaly_multiplier is not None
+                else multiplier
+            ),
             crit_rule=template.crit_rule,
         )
     elif isinstance(template, SettledAnomalyDamageEventTemplate):
