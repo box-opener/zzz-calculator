@@ -41,6 +41,8 @@ class DynamicIdentityResolver:
         effect_id: str | None = None,
     ) -> IdentityResolution:
         event = context.current_event
+        if identity is DynamicIdentity.CURRENT_OPERATOR:
+            return IdentityResolution(frozenset({context.current_operator}))
         if identity is DynamicIdentity.DAMAGE_DEALER:
             return IdentityResolution(frozenset({event.metadata.damage_dealer}))
 

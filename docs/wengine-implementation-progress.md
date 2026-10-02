@@ -4,7 +4,7 @@ This is a resumable queue, not a game-semantics source. Ordering is the insertio
 `https://static.nanoka.cc/zzz/3.2/weapon.json` on 2026-10-02. The engine detail records use the already verified live-3.2 route
 `https://static.nanoka.cc/zzz/3.2/zh/weapon/{id}.json`.
 
-The index contains 100 entries. The current loader and reviewed mapping both cover 45 matching IDs. The remaining ordered queue contains 55 index-visible engines. There are currently no packaged raw-only IDs and no reviewed-mapping-only IDs. The existing 15 fixtures remain unchanged and retain their legacy source metadata. New engines keep their complete live detail payload and separate source-index URL. The adapter closes the reviewed W-Engine slice at level 60 and includes Refinement 1–5 values. Non-60 build levels remain an explicit missing-data diagnostic, not a range silently approximated from level-60 values.
+The index contains 100 entries. The current loader and reviewed mapping both cover 55 matching IDs. The remaining ordered queue contains 45 index-visible engines. There are currently no packaged raw-only IDs and no reviewed-mapping-only IDs. The existing 15 fixtures remain unchanged and retain their legacy source metadata. New engines keep their complete live detail payload and separate source-index URL. The adapter closes the reviewed W-Engine slice at level 60 and includes Refinement 1–5 values. Non-60 build levels remain an explicit missing-data diagnostic, not a range silently approximated from level-60 values.
 
 The rows marked “已实现” have a raw fixture, reviewed mapping, and compiler branch. Refinement values are selected from their own raw refinement text. Rows marked “部分实现” preserve the known Build/Rule behavior and show a non-blocking diagnostic for result types outside the current damage-request contract.
 
@@ -41,17 +41,17 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 029 | `13013` | 鎏金花信 | A | 强攻 | 已实现（raw + ATK% Build + 强化特殊技增伤 + R1–R5） |
 | 030 | `13014` | 电波漫步 | A | 命破 | 已实现（raw + HP% Build + 贯穿力当前层数0–3 + R1–R5） |
 | 031 | `13015` | 强音热望 | A | 强攻 | 已实现（raw + 暴击率Build + EX/连携攻击增益与异常目标额外当前状态 + R1–R5） |
-| 032 | `13016` | 光影刻刀 | A | 防护 | 待实现（仅索引） |
-| 033 | `13017` | 喵运当头 | A | 锋御 | 待实现（仅索引） |
-| 034 | `13018` | 咚哒回声 | A | 异常 | 待实现（仅索引） |
-| 035 | `13019` | 青漪灵鼎 | A | 命破 | 待实现（仅索引） |
-| 036 | `13020` | 炎炙沸釜 | A | 击破 | 待实现（仅索引） |
-| 037 | `13021` | 血髓秘匣 | A | 锋御 | 待实现（仅索引） |
-| 038 | `13101` | 德玛拉电池Ⅱ型 | A | 击破 | 待实现（仅索引） |
+| 032 | `13016` | 光影刻刀 | A | 防护 | 部分实现（raw + Impact Build + 结果类型源Rule；受伤/秽息无结果诊断） |
+| 033 | `13017` | 喵运当头 | A | 锋御 | 部分实现（raw + 白DEF/DEF%Build + EX后当前防御增益；无已注册Vanguard角色） |
+| 034 | `13018` | 咚哒回声 | A | 异常 | 部分实现（raw + AP75 Build + 异常目标伤害；乱流后能量结果诊断） |
+| 035 | `13019` | 青漪灵鼎 | A | 命破 | 部分实现（raw + HP%Build + 当前叠层伤害/满层暴击率；层数时间轴非阻断诊断） |
+| 036 | `13020` | 炎炙沸釜 | A | 击破 | 部分实现（raw + Impact Build + 支援突击状态Daze/普通增伤；Daze结果非阻断诊断） |
+| 037 | `13021` | 血髓秘匣 | A | 锋御 | 部分实现（raw + 白DEF/暴击率Build + 当前暴击率超100%增伤；无已注册Vanguard角色） |
+| 038 | `13101` | 德玛拉电池Ⅱ型 | A | 击破 | 部分实现（raw + Impact Build + 电伤 + 能量效率当前态源Rule；资源结果诊断） |
 | 039 | `13103` | 聚宝箱 | A | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
-| 040 | `13106` | 家政员 | A | 强攻 | 待实现（仅索引） |
-| 041 | `13108` | 仿制星徽引擎 | A | 强攻 | 待实现（仅索引） |
-| 042 | `13111` | 旋钻机-赤轴 | A | 强攻 | 待实现（仅索引） |
+| 040 | `13106` | 家政员 | A | 强攻 | 已实现（raw + ATK%Build + 非当前操作角色的后场能量自动回复/当前物理层0–15 + R1–R5） |
+| 041 | `13108` | 仿制星徽引擎 | A | 强攻 | 已实现（raw + ATK%Build + 远距触发当前物理增益，后续同持有人物理招式适用 + R1–R5） |
+| 042 | `13111` | 旋钻机-赤轴 | A | 强攻 | 部分实现（raw + 能量回复Build + Basic/Dash电伤分支；登记强攻角色不含电属性） |
 | 043 | `13112` | 比格气缸 | A | 防护 | 待实现（仅索引） |
 | 044 | `13113` | 含羞恶面 | A | 支援 | 待实现（仅索引） |
 | 045 | `13115` | 好斗的阿炮 | A | 支援 | 待实现（仅索引） |
@@ -111,4 +111,4 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 099 | `14161` | 猩红渴望 | S | 锋御 | 待实现（仅索引） |
 | 100 | `14162` | 绯月银棺 | S | 击破 | 待实现（仅索引） |
 
-The first three ten-entry batches cover `12001`–`12005`, `12007`–`12016`, and `13001`–`13015` (existing `12006` was already supported). The typed Vanguard entry `12016` has no registered character path. The next unimplemented catalog row is `13016` (光影刻刀); continue in index order.
+The first four ten-entry batches cover `12001`–`12005`, `12007`–`12016`, `13001`–`13021`, and `13101`, `13106`, `13108`, and `13111` (existing `12006` and `13103` were already supported). The typed Vanguard entries `12016`, `13017`, and `13021` have no registered character path. The next unimplemented catalog row is `13112` (比格气缸); continue in index order.

@@ -67,6 +67,7 @@ from core.types import (
     ElementFilter,
     Resolved,
     RuleStackCondition,
+    PanelStatDerivedValue,
     CalculationNode,
     SkillGroup,
     WEngineBuildInput,
@@ -835,6 +836,151 @@ def test_third_nanoka_batch_reviewed_compilers_keep_refinement_values_and_typed_
                 matching = [item for item in rule.effects if item.result.modifier_path is node]
                 assert len(matching) == 1
                 assert matching[0].result.value == Resolved(expected_value)
+
+
+def test_fourth_nanoka_batch_each_refinement_matches_its_own_live_source_text() -> None:
+    expected = {
+        "13016": {
+            "damage_taken_reduction": (0.075, 0.086, 0.097, 0.108, 0.12),
+            "malaise_buildup_reduction": (0.10, 0.115, 0.13, 0.145, 0.16),
+        },
+        "13017": {
+            "defense_percent": (0.08, 0.09, 0.10, 0.11, 0.12),
+            "ex_special_defense_percent": (0.08, 0.09, 0.10, 0.11, 0.12),
+        },
+        "13018": {
+            "energy_restore": (2, 2.3, 2.6, 2.9, 3.2),
+            "energy_restore_cooldown_seconds": (10, 10, 10, 10, 10),
+            "damage_bonus_vs_anomalous_target": (0.115, 0.132, 0.15, 0.167, 0.184),
+        },
+        "13019": {
+            "damage_bonus_per_stack": (0.04, 0.046, 0.052, 0.058, 0.064),
+            "max_stacks": (3, 3, 3, 3, 3),
+            "duration_seconds": (20, 20, 20, 20, 20),
+            "max_trigger_rate_interval_seconds": (0.5, 0.5, 0.5, 0.5, 0.5),
+            "crit_rate_at_max_stacks": (0.065, 0.075, 0.085, 0.094, 0.104),
+        },
+        "13020": {
+            "daze_bonus": (0.072, 0.082, 0.092, 0.102, 0.115),
+            "damage_bonus": (0.072, 0.082, 0.092, 0.102, 0.115),
+            "duration_seconds": (30, 30, 30, 30, 30),
+        },
+        "13021": {
+            "crit_rate_threshold": (1, 1, 1, 1, 1),
+            "damage_bonus_per_crit_rate_ratio": (0.48, 0.56, 0.64, 0.72, 0.8),
+            "damage_bonus_cap": (0.24, 0.28, 0.32, 0.36, 0.40),
+        },
+        "13101": {
+            "electric_damage_bonus": (0.15, 0.175, 0.20, 0.22, 0.24),
+            "energy_recovery_efficiency_bonus": (0.18, 0.205, 0.23, 0.25, 0.275),
+            "duration_seconds": (8, 8, 8, 8, 8),
+        },
+        "13106": {
+            "energy_regen_flat_while_backline": (0.45, 0.52, 0.58, 0.65, 0.72),
+            "physical_damage_bonus_per_stack": (0.03, 0.035, 0.04, 0.044, 0.048),
+            "max_stacks": (15, 15, 15, 15, 15),
+            "duration_seconds": (1, 1, 1, 1, 1),
+        },
+        "13108": {
+            "minimum_distance_meters": (6, 6, 6, 6, 6),
+            "physical_damage_bonus_beyond_minimum_distance": (0.36, 0.41, 0.465, 0.52, 0.575),
+            "duration_seconds": (8, 8, 8, 8, 8),
+        },
+        "13111": {
+            "electric_damage_bonus": (0.50, 0.575, 0.65, 0.725, 0.80),
+            "duration_seconds": (10, 10, 10, 10, 10),
+            "internal_cooldown_seconds": (15, 15, 15, 15, 15),
+        },
+    }
+    for numeric_id, expected_values in expected.items():
+        source_record = load_wengine_record(f"wengine:{numeric_id}")
+        raw = load_wengine_raw_record(f"wengine:{numeric_id}")
+        assert raw.source_version == "3.2"
+        assert raw.source_url.endswith(f"/zh/weapon/{numeric_id}.json")
+        for refinement, talent in enumerate(raw.talents, start=1):
+            original_text = source_record["raw_nanoka_detail"]["talents"][
+                str(refinement)
+            ]["desc"]
+            assert talent.text == original_text
+            plain_text = re.sub(r"<[^>]+>", "", original_text)
+            for key, values in expected_values.items():
+                value = values[refinement - 1]
+                assert talent.numeric_values[key] == pytest.approx(value)
+                if key in {
+                    "damage_taken_reduction",
+                    "malaise_buildup_reduction",
+                    "defense_percent",
+                    "ex_special_defense_percent",
+                    "damage_bonus_vs_anomalous_target",
+                    "damage_bonus_per_stack",
+                    "crit_rate_at_max_stacks",
+                    "daze_bonus",
+                    "damage_bonus",
+                    "damage_bonus_cap",
+                    "electric_damage_bonus",
+                    "energy_recovery_efficiency_bonus",
+                    "physical_damage_bonus_per_stack",
+                    "physical_damage_bonus_beyond_minimum_distance",
+                }:
+                    displayed = value * 100
+                elif key == "damage_bonus_per_crit_rate_ratio":
+                    displayed = value
+                else:
+                    displayed = value
+                assert f"{displayed:g}" in plain_text
+
+
+def test_fourth_nanoka_batch_preserves_defense_white_values_and_current_panel_formula_sources() -> None:
+    vanguard_owner = CharacterId("vanguard:wengine-test")
+    vanguard = EquipmentOwnerCapabilities(vanguard_owner, CharacterRole.VANGUARD)
+    defense_stats = {
+        "13017": (
+            CharacterStat.DEFENSE,
+            356.0,
+            CharacterStat.DEFENSE,
+            0.40,
+            "defense-percent",
+        ),
+        "13021": (
+            CharacterStat.DEFENSE,
+            356.0,
+            CharacterStat.CRIT_RATE,
+            0.20,
+            "overcap-crit-damage",
+        ),
+    }
+    for numeric_id, (base_stat, base_value, advanced_stat, advanced_value, suffix) in defense_stats.items():
+        raw_id = WEngineId(f"wengine:{numeric_id}")
+        raw = load_wengine_raw_record(str(raw_id))
+        assert raw.base_stat is base_stat
+        assert raw.base_value == pytest.approx(base_value)
+        assert raw.base_attack == 0.0
+        for refinement in (1, 5):
+            result = compile_wengine(
+                WEngineBuildInput(raw_id, vanguard_owner, refinement=refinement),
+                owner_capabilities=vanguard,
+            )
+            assert result.contributions[0].stat is base_stat
+            assert result.contributions[0].value == Resolved(base_value)
+            assert result.contributions[1].stat is advanced_stat
+            assert result.contributions[1].value == Resolved(advanced_value)
+            assert next(item for item in result.rule_items if item.rule_id.endswith(suffix))
+        if numeric_id == "13021":
+            rule = result.rule_items[0]
+            derived = rule.effects[0].result.value
+            assert isinstance(derived, PanelStatDerivedValue)
+            assert derived.source_node is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
+            assert derived.threshold == Resolved(1.0)
+            assert derived.coefficient == Resolved(0.8)
+            assert derived.cap_max == Resolved(0.4)
+
+    attack_capabilities = registration_for("character:1431").equipment_capabilities
+    drill = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:13111"), CharacterId("character:1431")),
+        owner_capabilities=attack_capabilities,
+    )
+    assert drill.rule_items[0].eligibility is RuleEligibility.INELIGIBLE
+    assert drill.contributions[0].stat is CharacterStat.ATTACK
 
 
 def test_new_signature_raw_records_use_resolved_level_60_percentages() -> None:

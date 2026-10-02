@@ -15,6 +15,7 @@ from core.types import (
     DirectDamageEvent,
     PenetrationDamageEvent,
     DynamicIdentity,
+    DynamicIdentityCondition,
     EffectId,
     EffectOperation,
     EventCreationEffect,
@@ -602,6 +603,7 @@ def _resolve_panel_effect_condition(
                 scenario,
                 initial_character_snapshots,
                 current_character_snapshots,
+                effect.rule.owner,
             )
             for item in condition.conditions
         )
@@ -622,6 +624,7 @@ def _resolve_panel_effect_condition(
                 scenario,
                 initial_character_snapshots,
                 current_character_snapshots,
+                effect.rule.owner,
             )
             for item in condition.conditions
         )
@@ -641,6 +644,7 @@ def _resolve_panel_effect_condition(
             scenario,
             initial_character_snapshots,
             current_character_snapshots,
+            effect.rule.owner,
         )
         if status is EffectMatchStatus.MATCHED:
             return EffectMatchStatus.NOT_MATCHED, diagnostics
@@ -653,6 +657,7 @@ def _resolve_panel_effect_condition(
         scenario,
         initial_character_snapshots,
         current_character_snapshots,
+        effect.rule.owner,
     )
 
 
@@ -662,6 +667,7 @@ def _resolve_panel_condition(
     scenario: CalculationScenario,
     initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = (),
     current_character_snapshots: tuple[CharacterSnapshot, ...] = (),
+    owner: CharacterId | None = None,
 ) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
     if condition is None or isinstance(condition, AlwaysCondition):
         return EffectMatchStatus.MATCHED, ()
@@ -692,6 +698,17 @@ def _resolve_panel_condition(
             ),
             (),
         )
+    if isinstance(condition, DynamicIdentityCondition):
+        if condition.identity is DynamicIdentity.CURRENT_OPERATOR and owner is not None:
+            return (
+                (
+                    EffectMatchStatus.MATCHED
+                    if owner == scenario.current_operator
+                    else EffectMatchStatus.NOT_MATCHED
+                ),
+                (),
+            )
+        return EffectMatchStatus.NOT_MATCHED, ()
     if isinstance(condition, PanelStatThresholdCondition):
         if condition.source_node in {
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
@@ -1107,6 +1124,8 @@ def _is_event_independent_condition(condition) -> bool:
         )
     if isinstance(condition, NotCondition):
         return _is_event_independent_condition(condition.condition)
+    if isinstance(condition, DynamicIdentityCondition):
+        return condition.identity is DynamicIdentity.CURRENT_OPERATOR
     return False
 
 

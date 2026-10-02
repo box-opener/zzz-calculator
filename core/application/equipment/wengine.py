@@ -39,8 +39,10 @@ from core.types import (
     EquipmentOwnerCapabilities,
     Element,
     ElementFilter,
+    NotCondition,
     ModifierEffect,
     ModifierResult,
+    PanelStatDerivedValue,
     Resolved,
     Unresolved,
     UnresolvedReason,
@@ -92,6 +94,16 @@ from .wengine_ids import (
     WENGINE_GILDED_BLOSSOM_ID,
     WENGINE_RADIO_WAVE_WALK_ID,
     WENGINE_STRONG_ENOUGH_ID,
+    WENGINE_REEL_PROJECTOR_ID,
+    WENGINE_CATTY_LUCK_ID,
+    WENGINE_BOISTEROUS_ECHOES_ID,
+    WENGINE_CAULDRON_OF_CLARITY_ID,
+    WENGINE_SIMMERING_POT_ID,
+    WENGINE_BLOODMARROW_COFFER_ID,
+    WENGINE_DEMARA_BATTERY_II_ID,
+    WENGINE_HOUSEKEEPER_ID,
+    WENGINE_STARLIGHT_ENGINE_REPLICA_ID,
+    WENGINE_DRILL_RIG_RED_AXIS_ID,
 )
 from .wengine_reviewed import reviewed_mapping_for
 
@@ -355,6 +367,45 @@ def _wengine_result_diagnostics(
             "as source-only effects because this request has no incoming-damage or "
             "resource result, and no typed recipient for the swap-transfer effect."
         ),
+        WENGINE_REEL_PROJECTOR_ID: (
+            "Damage taken and Malaise Infection reduction are preserved as source "
+            "data because the current request has no incoming-damage or Malaise "
+            "meter result."
+        ),
+        WENGINE_BOISTEROUS_ECHOES_ID: (
+            "The Disorder-triggered Energy restoration is preserved in the source "
+            "record because the current request has no Energy resource result; its "
+            "anomalous-target damage bonus remains separately calculable."
+        ),
+        WENGINE_SIMMERING_POT_ID: (
+            "The source's Assist Attack Daze modifier is typed and traced, but this "
+            "damage request does not calculate Daze results."
+        ),
+        WENGINE_DEMARA_BATTERY_II_ID: (
+            "Energy Recovery Efficiency after Dodge Counter or Assist Attack is "
+            "preserved as a current-state source rule because the request has no "
+            "Energy resource result."
+        ),
+        WENGINE_CATTY_LUCK_ID: (
+            "The source is typed as a Vanguard W-Engine, but the current character "
+            "registry has no Vanguard owner that can reach calculate_payload."
+        ),
+        WENGINE_BLOODMARROW_COFFER_ID: (
+            "The source is typed as a Vanguard W-Engine, but the current character "
+            "registry has no Vanguard owner that can reach calculate_payload."
+        ),
+        WENGINE_CAULDRON_OF_CLARITY_ID: (
+            "The selected 0–3 active stack count is explicit current state. The "
+            "20-second stack timing and 0.5-second trigger interval are not replayed."
+        ),
+        WENGINE_HOUSEKEEPER_ID: (
+            "The selected 0–15 Physical damage stacks are current state; the "
+            "one-second expiration and repeated EX hit timing are not replayed."
+        ),
+        WENGINE_DRILL_RIG_RED_AXIS_ID: (
+            "The active Basic/Dash Electric damage buff is an explicit current state. "
+            "The source's 15-second internal cooldown is not replayed."
+        ),
     }
     message = limitations.get(raw.wengine_id)
     if message is None:
@@ -512,6 +563,30 @@ def _reviewed_rules(
         return _radio_wave_walk_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "attack-strong-enough":
         return _strong_enough_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "defense-reel-projector":
+        return _result_only_wengine_rules(
+            raw, build_input, source, eligibility, "incoming-damage-and-malaise-reduction"
+        ), ()
+    if effect_family == "vanguard-cattery-luck":
+        return _cattery_luck_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "anomaly-boisterous-echoes":
+        return _boisterous_echoes_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "rupture-cauldron-of-clarity":
+        return _cauldron_of_clarity_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "stun-simmering-pot":
+        return _simmering_pot_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "vanguard-bloodmarrow-coffer":
+        return _bloodmarrow_coffer_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "stun-demara-battery-ii":
+        return _demara_battery_ii_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-housekeeper":
+        return _housekeeper_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-starlight-engine-replica":
+        return _starlight_engine_replica_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-drill-rig-red-axis":
+        return _drill_rig_red_axis_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     if effect_family == "attack-starlight-engine":
         return _starlight_engine_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "stun-human-is-meat":
@@ -1754,6 +1829,471 @@ def _strong_enough_rules(
             effects=(extra_effect,),
         ),
     ), (attack_buff_condition, anomalous_target_bonus_condition)
+
+
+def _cattery_luck_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    ex_id, ex_condition = _condition(
+        raw,
+        owner,
+        "ex-special-defense-buff-active",
+        f"{raw.name}：强化特殊技触发的额外防御力增益当前有效",
+        "释放强化特殊技时，防御力额外提升，持续40秒",
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="defense-percent",
+            label=f"{raw.name}·防御力提升",
+            eligibility=eligibility,
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="defense-percent",
+                    path=CalculationNode.CHARACTER_COMBAT_DEFENSE_PERCENT_BONUS,
+                    value=float(values["defense_percent"]),
+                ),
+            ),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="ex-special-defense-percent",
+            label=f"{raw.name}·强化特殊技后额外防御力提升",
+            eligibility=eligibility,
+            condition_ids=(ex_id,),
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="ex-special-defense-percent",
+                    path=CalculationNode.CHARACTER_COMBAT_DEFENSE_PERCENT_BONUS,
+                    value=float(values["ex_special_defense_percent"]),
+                ),
+            ),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), (ex_condition,)
+
+
+def _boisterous_echoes_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    anomaly_id, anomaly_condition = _condition(
+        raw,
+        owner,
+        "target-anomaly-active",
+        f"{raw.name}：本次伤害目标处于属性异常状态",
+        "装备者攻击处于属性异常状态下的敌人时",
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="anomalous-target-damage",
+            label=f"{raw.name}·攻击异常目标时伤害提升",
+            eligibility=eligibility,
+            condition_ids=(anomaly_id,),
+            effects=(
+                _wearer_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="anomalous-target-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["damage_bonus_vs_anomalous_target"]),
+                ),
+            ),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _result_only_wengine_rules(
+            raw, build_input, source, eligibility, "disorder-energy-restore"
+        )[0],
+    ), (anomaly_condition,)
+
+
+def _cauldron_of_clarity_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    damage_rule_suffix = "ex-special-damage-per-stack"
+    damage_rule_id = _instance_rule_id(raw.wengine_id, owner, damage_rule_suffix)
+    damage_effect = _wearer_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="ex-special-damage-per-stack",
+        path=CalculationNode.DAMAGE_NORMAL_BONUS,
+        value=float(values["damage_bonus_per_stack"]),
+    )
+    crit_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="crit-rate-at-max-stacks",
+        path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+        value=float(values["crit_rate_at_max_stacks"]),
+        condition=RuleStackCondition(
+            damage_rule_id,
+            int(values["max_stacks"]),
+        ),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix=damage_rule_suffix,
+            label=f"{raw.name}·当前增益层数伤害提升",
+            eligibility=eligibility,
+            effects=(damage_effect,),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="crit-rate-at-max-stacks",
+            label=f"{raw.name}·三层时暴击率提升",
+            eligibility=eligibility,
+            effects=(crit_effect,),
+            diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+        ),
+    ), ()
+
+
+def _simmering_pot_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    active_id, active_condition = _condition(
+        raw,
+        owner,
+        "assist-attack-buffs-active",
+        f"{raw.name}：支援突击触发的失衡与伤害增益当前有效",
+        "发动支援突击时，装备者获得失衡值与伤害增益，持续30秒",
+    )
+    effects = (
+        _wearer_modifier(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="assist-attack-daze",
+            path=CalculationNode.DAZE_OUTGOING_BONUS,
+            value=float(talent.numeric_values["daze_bonus"]),
+        ),
+        _wearer_modifier(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="assist-attack-damage",
+            path=CalculationNode.DAMAGE_NORMAL_BONUS,
+            value=float(talent.numeric_values["damage_bonus"]),
+        ),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="assist-attack-buffs",
+                label=f"{raw.name}·支援突击后失衡值与伤害提升",
+                eligibility=eligibility,
+                condition_ids=(active_id,),
+                effects=effects,
+                diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
+            ),
+        ),
+        (active_condition,),
+    )
+
+
+def _bloodmarrow_coffer_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    effect = ModifierEffect(
+        rule=_effect_rule(
+            effect_id=_instance_effect_id(raw.wengine_id, owner, "overcap-crit-damage"),
+            source=source,
+            owner=owner,
+            target=EffectTarget.SELF,
+            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.DAMAGE_NORMAL_BONUS,
+            operation=EffectOperation.ADD,
+            value=PanelStatDerivedValue(
+                source_character_id=owner,
+                source_node=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                coefficient=Resolved(float(values["damage_bonus_per_crit_rate_ratio"])),
+                cap_max=Resolved(float(values["damage_bonus_cap"])),
+                threshold=Resolved(float(values["crit_rate_threshold"])),
+            ),
+        ),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="overcap-crit-damage",
+                label=f"{raw.name}·超过100%暴击率的伤害加成",
+                eligibility=eligibility,
+                effects=(effect,),
+            ),
+        ),
+        (),
+    )
+
+
+def _demara_battery_ii_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    recovery_id, recovery_condition = _condition(
+        raw,
+        owner,
+        "energy-recovery-efficiency-active",
+        f"{raw.name}：闪避反击或支援攻击触发的能量获得效率增益当前有效",
+        "闪避反击或支援攻击命中敌人时，能量获得效率提升，持续8秒",
+    )
+    limitation = _wengine_result_diagnostics(raw, build_input.refinement)
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="electric-damage",
+            label=f"{raw.name}·电属性伤害提升",
+            eligibility=eligibility,
+            effects=(
+                _wearer_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="electric-damage",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["electric_damage_bonus"]),
+                    filters=(element_scope_filter(Element.ELECTRIC),),
+                ),
+            ),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="energy-recovery-efficiency",
+            label=f"{raw.name}·触发后的能量获得效率增益",
+            eligibility=eligibility,
+            condition_ids=(recovery_id,),
+            effects=(),
+            diagnostics=limitation,
+        ),
+    ), (recovery_condition,)
+
+
+def _housekeeper_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    backline_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="backline-energy-regeneration",
+        path=CalculationNode.CHARACTER_COMBAT_ENERGY_REGEN_FLAT_BONUS,
+        value=float(values["energy_regen_flat_while_backline"]),
+        condition=NotCondition(
+            DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR)
+        ),
+    )
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="backline-energy-regeneration",
+            label=f"{raw.name}·后场能量自动回复提升",
+            eligibility=eligibility,
+            effects=(backline_effect,),
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="physical-damage-per-stack",
+            label=f"{raw.name}·当前物理伤害增益层数",
+            eligibility=eligibility,
+            effects=(
+                _wearer_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="physical-damage-per-stack",
+                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                    value=float(values["physical_damage_bonus_per_stack"]),
+                    filters=(element_scope_filter(Element.PHYSICAL),),
+                ),
+            ),
+            stack_count=0,
+            stack_min=0,
+            stack_max=int(values["max_stacks"]),
+        ),
+    ), ()
+
+
+def _starlight_engine_replica_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    active_id, active_condition = _condition(
+        raw,
+        owner,
+        "distant-physical-hit-buff-active",
+        f"{raw.name}：6米外普通或冲刺攻击触发的物理增益当前有效",
+        "普通攻击或冲刺攻击命中6米外的敌人时，装备者对目标造成的物理伤害提升，持续8秒",
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="distant-physical-damage",
+                label=f"{raw.name}·远距离命中后的物理伤害提升",
+                eligibility=eligibility,
+                condition_ids=(active_id,),
+                effects=(
+                    _wearer_modifier(
+                        raw=raw,
+                        owner=owner,
+                        source=source,
+                        suffix="distant-physical-damage",
+                        path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                        value=float(
+                            values["physical_damage_bonus_beyond_minimum_distance"]
+                        ),
+                        filters=(element_scope_filter(Element.PHYSICAL),),
+                    ),
+                ),
+            ),
+        ),
+        (active_condition,),
+    )
+
+
+def _drill_rig_red_axis_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+    capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    values = talent.numeric_values
+    active_id, active_condition = _condition(
+        raw,
+        owner,
+        "ex-special-or-chain-electric-buff-active",
+        f"{raw.name}：强化特殊技或连携技触发的普攻/冲刺电伤增益当前有效",
+        "发动强化特殊技或连携技时，普通攻击和冲刺攻击造成的电属性伤害提升，持续10秒",
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="basic-dash-electric-damage",
+                label=f"{raw.name}·普通攻击与冲刺攻击电伤提升",
+                eligibility=_capability_eligibility(
+                    eligibility,
+                    capabilities,
+                    element=Element.ELECTRIC,
+                    skill_groups=(SkillGroup.BASIC_ATTACK, SkillGroup.DODGE),
+                    tags=(DamageTag.BASIC_ATTACK, DamageTag.DASH_ATTACK),
+                ),
+                condition_ids=(active_id,),
+                effects=(
+                    _wearer_modifier(
+                        raw=raw,
+                        owner=owner,
+                        source=source,
+                        suffix="basic-dash-electric-damage",
+                        path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                        value=float(values["electric_damage_bonus"]),
+                        filters=(
+                            AnyFilter(
+                                (
+                                    DamageTagFilter(DamageTag.BASIC_ATTACK),
+                                    DamageTagFilter(DamageTag.DASH_ATTACK),
+                                )
+                            ),
+                            element_scope_filter(Element.ELECTRIC),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (active_condition,),
+    )
 
 
 def _starlight_engine_rules(

@@ -57,6 +57,16 @@ from .wengine_ids import (
     WENGINE_GILDED_BLOSSOM_ID,
     WENGINE_RADIO_WAVE_WALK_ID,
     WENGINE_STRONG_ENOUGH_ID,
+    WENGINE_REEL_PROJECTOR_ID,
+    WENGINE_CATTY_LUCK_ID,
+    WENGINE_BOISTEROUS_ECHOES_ID,
+    WENGINE_CAULDRON_OF_CLARITY_ID,
+    WENGINE_SIMMERING_POT_ID,
+    WENGINE_BLOODMARROW_COFFER_ID,
+    WENGINE_DEMARA_BATTERY_II_ID,
+    WENGINE_HOUSEKEEPER_ID,
+    WENGINE_STARLIGHT_ENGINE_REPLICA_ID,
+    WENGINE_DRILL_RIG_RED_AXIS_ID,
 )
 
 
@@ -69,6 +79,66 @@ class WEngineReviewedMapping:
 
 
 WENGINE_REVIEWED_MAPPINGS: Mapping[WEngineId, WEngineReviewedMapping] = {
+    WENGINE_REEL_PROJECTOR_ID: WEngineReviewedMapping(
+        WENGINE_REEL_PROJECTOR_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-reel-projector",
+    ),
+    WENGINE_CATTY_LUCK_ID: WEngineReviewedMapping(
+        WENGINE_CATTY_LUCK_ID,
+        CharacterStat.DEFENSE,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "vanguard-cattery-luck",
+    ),
+    WENGINE_BOISTEROUS_ECHOES_ID: WEngineReviewedMapping(
+        WENGINE_BOISTEROUS_ECHOES_ID,
+        CharacterStat.ANOMALY_PROFICIENCY,
+        BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+        "anomaly-boisterous-echoes",
+    ),
+    WENGINE_CAULDRON_OF_CLARITY_ID: WEngineReviewedMapping(
+        WENGINE_CAULDRON_OF_CLARITY_ID,
+        CharacterStat.HP,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "rupture-cauldron-of-clarity",
+    ),
+    WENGINE_SIMMERING_POT_ID: WEngineReviewedMapping(
+        WENGINE_SIMMERING_POT_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-simmering-pot",
+    ),
+    WENGINE_BLOODMARROW_COFFER_ID: WEngineReviewedMapping(
+        WENGINE_BLOODMARROW_COFFER_ID,
+        CharacterStat.CRIT_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "vanguard-bloodmarrow-coffer",
+    ),
+    WENGINE_DEMARA_BATTERY_II_ID: WEngineReviewedMapping(
+        WENGINE_DEMARA_BATTERY_II_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-demara-battery-ii",
+    ),
+    WENGINE_HOUSEKEEPER_ID: WEngineReviewedMapping(
+        WENGINE_HOUSEKEEPER_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "attack-housekeeper",
+    ),
+    WENGINE_STARLIGHT_ENGINE_REPLICA_ID: WEngineReviewedMapping(
+        WENGINE_STARLIGHT_ENGINE_REPLICA_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "attack-starlight-engine-replica",
+    ),
+    WENGINE_DRILL_RIG_RED_AXIS_ID: WEngineReviewedMapping(
+        WENGINE_DRILL_RIG_RED_AXIS_ID,
+        CharacterStat.ENERGY_REGEN,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "attack-drill-rig-red-axis",
+    ),
     WENGINE_PRECIOUS_FOSSIL_ID: WEngineReviewedMapping(
         WENGINE_PRECIOUS_FOSSIL_ID,
         CharacterStat.IMPACT,

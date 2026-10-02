@@ -453,6 +453,16 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
         "wengine:13013",
         "wengine:13014",
         "wengine:13015",
+        "wengine:13016",
+        "wengine:13017",
+        "wengine:13018",
+        "wengine:13019",
+        "wengine:13020",
+        "wengine:13021",
+        "wengine:13101",
+        "wengine:13106",
+        "wengine:13108",
+        "wengine:13111",
         "wengine:13103",
         "wengine:14102",
         "wengine:14104",
@@ -1926,6 +1936,13 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "incoming-damage-and-resource-effects",
             "能量获得效率提升",
         ),
+        (
+            "character:1341",
+            "wengine:13016",
+            "ice",
+            "incoming-damage-and-malaise-reduction",
+            "秽息浸染",
+        ),
     ),
 )
 def test_result_only_weapon_effects_keep_scoped_nonblocking_diagnostics(
@@ -2249,6 +2266,240 @@ def test_strong_enough_attack_buffs_are_two_independent_current_states() -> None
     assert extra.status_code == 200, extra.text
     extra_attack = extra.json()["resolved_character_snapshots"][0]["stats"]["attack"]
     assert extra_attack == pytest.approx(first_attack + (first_attack / 1.096) * 0.096)
+
+
+def test_boisterous_echoes_keeps_anomaly_target_damage_separate_from_energy_restore() -> None:
+    payload = _single_wengine_payload(
+        "character:1401",
+        "move-entry:alice:1401:basic-star-opera-1",
+        "wengine:13018",
+        5,
+        element="physical",
+    )
+    rule_id = "rule:wengine:13018:owner:1401:anomalous-target-damage"
+    payload["enabled_rule_item_ids"] = [rule_id]
+    payload["condition_values"] = {
+        "condition:wengine:13018:owner:1401:target-anomaly-active": True
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert _breakdown_value(result["events"][0], "damage.normal-bonus") == pytest.approx(
+        0.184
+    )
+    energy_diagnostic = next(
+        item for item in result["diagnostics"] if "no Energy resource result" in item["message"]
+    )
+    assert energy_diagnostic["blocking"] is False
+
+
+def test_cauldron_of_clarity_uses_one_stack_selection_for_damage_and_full_stack_crit() -> None:
+    damage_rule = "rule:wengine:13019:owner:1371:ex-special-damage-per-stack"
+    crit_rule = "rule:wengine:13019:owner:1371:crit-rate-at-max-stacks"
+    payload = _single_wengine_payload(
+        "character:1371",
+        "move-entry:character:1371:basic-xiaoyun-jin-1",
+        "wengine:13019",
+        5,
+        element="ether",
+    )
+    payload["enabled_rule_item_ids"] = [damage_rule, crit_rule]
+    payload["rule_stack_counts"] = {damage_rule: 3}
+    full = client.post("/api/v1/moves/calculate", json=payload)
+    assert full.status_code == 200, full.text
+    full_result = full.json()
+    assert _breakdown_value(full_result["events"][0], "damage.normal-bonus") == pytest.approx(
+        0.192
+    )
+    assert full_result["resolved_character_snapshots"][0]["stats"]["crit_rate"] == pytest.approx(
+        0.604
+    )
+
+    payload["rule_stack_counts"][damage_rule] = 2
+    partial = client.post("/api/v1/moves/calculate", json=payload)
+    assert partial.status_code == 200, partial.text
+    partial_result = partial.json()
+    assert _breakdown_value(partial_result["events"][0], "damage.normal-bonus") == pytest.approx(
+        0.128
+    )
+    assert partial_result["resolved_character_snapshots"][0]["stats"]["crit_rate"] == pytest.approx(
+        0.5
+    )
+
+
+def test_simmering_pot_assist_buff_affects_wearer_damage_and_keeps_daze_in_its_node() -> None:
+    payload = _single_wengine_payload(
+        "character:1361",
+        "move-entry:trigger:1361:basic-concerto-sniping",
+        "wengine:13020",
+        5,
+        element="electric",
+    )
+    payload["condition_values"] = {
+        "condition:trigger:follow-up-active": True,
+        "condition:wengine:13020:owner:1361:assist-attack-buffs-active": True,
+    }
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:13020:owner:1361:assist-attack-buffs"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    event = response.json()["events"][0]
+    assert _breakdown_value(event, "damage.normal-bonus") == pytest.approx(
+        0.115
+    )
+    daze_modifiers = [
+        item
+        for item in event["common_application_trace"]["applied_modifiers"]
+        if item["modifier_path"] == "daze.outgoing-bonus"
+        and item["source_type"] == "weapon"
+    ]
+    assert [item["value"] for item in daze_modifiers] == [pytest.approx(0.115)]
+    assert response.json()["totals"]["expected"]["complete"] is True
+
+
+def test_demara_battery_electric_bonus_is_element_scoped_energy_efficiency_is_source_only() -> None:
+    payload = _single_wengine_payload(
+        "character:1361",
+        "move-entry:trigger:1361:basic-concerto-sniping",
+        "wengine:13101",
+        5,
+        element="electric",
+    )
+    payload["condition_values"] = {
+        "condition:trigger:follow-up-active": True,
+        "condition:wengine:13101:owner:1361:energy-recovery-efficiency-active": True,
+    }
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:13101:owner:1361:electric-damage",
+        "rule:wengine:13101:owner:1361:energy-recovery-efficiency",
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert _breakdown_value(result["events"][0], "damage.normal-bonus") == pytest.approx(
+        0.24
+    )
+    assert result["totals"]["expected"]["complete"] is True
+    energy_diagnostic = next(
+        item for item in result["diagnostics"] if "Energy resource result" in item["message"]
+    )
+    assert energy_diagnostic["blocking"] is False
+
+
+def test_housekeeper_current_backline_energy_and_physical_stack_inputs() -> None:
+    primary = "character:1401"
+    ye = "character:1431"
+    payload = _valid_calculation_payload()
+    payload["primary_character_id"] = primary
+    payload["team_character_ids"] = [primary]
+    payload["move_entry_id"] = "move-entry:alice:1401:basic-star-opera-1"
+    payload["compile_configs"] = {primary: {"core_level": 1, "cinema_level": 0}}
+    payload["character_builds"] = {
+        primary: {
+            "level": 60,
+            "out_of_combat_stats": {
+                "hp": 10000.0,
+                "attack": 1000.0,
+                "defense": 500.0,
+                "impact": 100.0,
+                "crit_rate": 0.5,
+                "crit_damage": 0.5,
+                "anomaly_mastery": 100.0,
+                "anomaly_proficiency": 100.0,
+                "penetration_rate": 0.0,
+                "penetration_flat": 0.0,
+                "energy_regen": 1.2,
+                "element_damage_bonus": {"physical": 0.0},
+            },
+        }
+    }
+    payload = _with_supporting_wengine(payload, [(ye, "wengine:13106", 5, "physical")])
+    payload["compile_configs"][ye] = {
+        "core_level": 1,
+        "cinema_level": 0,
+        "mingxin_active": False,
+        "entry_move_uses_linren": False,
+    }
+    baseline = client.post("/api/v1/moves/calculate", json=payload)
+    assert baseline.status_code == 200, baseline.text
+    before = next(
+        item["stats"]
+        for item in baseline.json()["resolved_character_snapshots"]
+        if item["character_id"] == ye
+    )
+    regen_rule = "rule:wengine:13106:owner:1431:backline-energy-regeneration"
+    payload["enabled_rule_item_ids"] = [regen_rule]
+    backline = client.post("/api/v1/moves/calculate", json=payload)
+    assert backline.status_code == 200, backline.text
+    after = next(
+        item["stats"]
+        for item in backline.json()["resolved_character_snapshots"]
+        if item["character_id"] == ye
+    )
+    assert after["energy_regen"] == pytest.approx(before["energy_regen"] + 0.72)
+
+    on_field = _single_wengine_payload(
+        ye,
+        "move-entry:ye:1431:basic-fast-1",
+        "wengine:13106",
+        5,
+        element="physical",
+    )
+    on_field["enabled_rule_item_ids"] = [regen_rule]
+    active_owner = client.post("/api/v1/moves/calculate", json=on_field)
+    assert active_owner.status_code == 200, active_owner.text
+    assert active_owner.json()["resolved_character_snapshots"][0]["stats"][
+        "energy_regen"
+    ] == pytest.approx(1.2)
+    on_field["condition_values"] = {
+        "condition:wengine:13106:owner:1431:wearer-in-backline": True
+    }
+    fabricated_backline = client.post("/api/v1/moves/calculate", json=on_field)
+    assert fabricated_backline.status_code == 400
+    assert "unknown scenario conditions" in fabricated_backline.text
+
+    physical = _single_wengine_payload(
+        ye,
+        "move-entry:ye:1431:basic-fast-1",
+        "wengine:13106",
+        5,
+        element="physical",
+    )
+    stack_rule = "rule:wengine:13106:owner:1431:physical-damage-per-stack"
+    physical["enabled_rule_item_ids"] = [stack_rule]
+    physical["rule_stack_counts"] = {stack_rule: 15}
+    stack_result = client.post("/api/v1/moves/calculate", json=physical)
+    assert stack_result.status_code == 200, stack_result.text
+    assert _breakdown_value(stack_result.json()["events"][0], "damage.normal-bonus") == pytest.approx(
+        0.72
+    )
+
+
+def test_starlight_replica_trigger_state_applies_to_later_physical_moves() -> None:
+    payload = _single_wengine_payload(
+        "character:1431",
+        "move-entry:ye:1431:basic-fast-1",
+        "wengine:13108",
+        5,
+        element="physical",
+    )
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:13108:owner:1431:distant-physical-damage"
+    ]
+    payload["condition_values"] = {
+        "condition:wengine:13108:owner:1431:distant-physical-hit-buff-active": True
+    }
+    for move in (
+        "move-entry:ye:1431:basic-fast-1",
+        "move-entry:ye:1431:special-dingfengbo",
+    ):
+        payload["move_entry_id"] = move
+        response = client.post("/api/v1/moves/calculate", json=payload)
+        assert response.status_code == 200, response.text
+        assert _breakdown_value(response.json()["events"][0], "damage.normal-bonus") == pytest.approx(
+            0.575
+        )
 
 
 def _breakdown_value(event: dict[str, object], node: str) -> float:

@@ -100,6 +100,7 @@ class DamageTag(StrEnum):
 
 
 class DynamicIdentity(StrEnum):
+    CURRENT_OPERATOR = "current-operator"
     DAMAGE_DEALER = "damage-dealer"
     ANOMALY_TRIGGER = "anomaly-trigger"
     ANOMALY_CONTRIBUTORS = "anomaly-contributors"

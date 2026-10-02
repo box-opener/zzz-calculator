@@ -650,3 +650,49 @@ state for its EX/Chain Attack buff and a second state for the extra amount earne
 when the target was anomalous at trigger time; it does not infer the latter from
 the target's later settlement state. `13014` applies its current 0–3 stacks only to
 the owner's Penetration Force lane.
+
+
+## W-Engine live 3.2 fourth queue batch (non-authoritative implementation notes)
+
+The next ten uncovered index rows are `13016`–`13021`, `13101`, `13106`, `13108`,
+and `13111`. Each fixture keeps its complete live detail JSON and each R1–R5 source
+description; static advanced properties use the max-star growth present in that
+same raw detail.
+
+`13016` says `队伍中角色生命值大于等于50%，受到的伤害降低…，受到的[秽息浸染]值降低…，该效果全队唯一`.
+Both reductions remain on an effectless source RuleItem with a non-blocking
+diagnostic because the request cannot calculate received enemy damage or Malaise
+Infection accumulation. It does not choose a team HP recipient or synthesize an
+incoming result.
+
+`13017` and `13021` are Vanguard engines, a role with no registered character
+calculation path. Their source/index level-60 white values are Defense 356, so the
+fixtures store typed white Defense rather than reusing the catalog's generic `atk`
+field as Attack. The compiler retains `13017`'s Defense and its EX Special active
+Defense state, and `13021`'s current-crit-rate-over-100% damage formula, for direct
+domain/build validation without inventing a Vanguard roster member.
+
+`13018`'s anomaly-target damage bonus is calculated from an explicit current-target
+Anomaly state. Its Disorder-triggered Energy restore stays in a source-linked,
+non-blocking RuleItem because Energy has no result contract. `13019` takes one
+current 0–3 stack selection: each stack applies its ordinary damage bonus and the
+Crit Rate panel effect is tied to that same RuleStackCondition at exactly three.
+Its 20-second duration and 0.5-second trigger interval are not simulated. `13020`
+uses a current Assist Attack buff state for its wearer Daze and ordinary damage
+bonuses; the Daze modifier is traced while its missing result remains non-blocking.
+
+`13101`'s Electric damage increase is implemented in the element damage bonus lane.
+Its Dodge Counter/Assist Attack Energy Recovery Efficiency buff is a current-state
+source rule with a non-blocking resource-result diagnostic. `13106` applies its
+flat Energy Regeneration panel amount only when its owner is not the request's
+current operator, matching the active-team structure. It does not accept a
+condition toggle that can label an on-field wearer as being in the backline. Its
+0–15 Physical damage stacks remain an independent explicit current count. `13108`
+records the greater-than-six-
+meter Basic/Dash hit as the trigger for an active current-target buff; the stored
+Physical damage bonus is applied to subsequent Physical damage events from that
+wearer without retesting settlement distance or requiring the later event itself
+to be Basic/Dash. `13111` scopes the active effect to the owner's Basic/Dash Electric
+damage tags. The registered Attack-role roster has no Electric-capable owner, so
+the compiler marks the effect ineligible for those owners instead of fabricating an
+Electric character; its 15-second internal cooldown is not replayed.
