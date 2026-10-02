@@ -463,6 +463,16 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
         "wengine:13106",
         "wengine:13108",
         "wengine:13111",
+        "wengine:13112",
+        "wengine:13113",
+        "wengine:13115",
+        "wengine:13127",
+        "wengine:13128",
+        "wengine:13135",
+        "wengine:13142",
+        "wengine:13144",
+        "wengine:14001",
+        "wengine:14002",
         "wengine:13103",
         "wengine:14102",
         "wengine:14104",
@@ -1943,6 +1953,27 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "incoming-damage-and-malaise-reduction",
             "秽息浸染",
         ),
+        (
+            "character:1341",
+            "wengine:13112",
+            "ice",
+            "incoming-damage-reduction",
+            "受到的伤害降低",
+        ),
+        (
+            "character:1341",
+            "wengine:13142",
+            "ice",
+            "team-energy-restore",
+            "回复<color=#2BAD00>3.2</color>点能量",
+        ),
+        (
+            "character:1311",
+            "wengine:13115",
+            "ether",
+            "team-attack-per-ally-stack",
+            "每名友方单位最多提供1层增益效果",
+        ),
     ),
 )
 def test_result_only_weapon_effects_keep_scoped_nonblocking_diagnostics(
@@ -2500,6 +2531,358 @@ def test_starlight_replica_trigger_state_applies_to_later_physical_moves() -> No
         assert _breakdown_value(response.json()["events"][0], "damage.normal-bonus") == pytest.approx(
             0.575
         )
+
+
+def test_unfettered_game_ball_applies_target_crit_in_event_lane_to_all_attackers_once() -> None:
+    owners = (
+        ("character:1311", "wengine:14002", 5, "ether"),
+        ("character:1411", "wengine:14002", 5, "physical"),
+    )
+    payload = _with_supporting_wengine(_valid_calculation_payload(), list(owners))
+    rule_ids = [
+        "rule:wengine:14002:owner:1311:target-crit-rate",
+        "rule:wengine:14002:owner:1411:target-crit-rate",
+    ]
+    payload["enabled_rule_item_ids"] = rule_ids
+    payload["condition_values"] = {
+        "condition:wengine:14002:owner:1311:attribute-counter-target-crit-buff-active": True,
+        "condition:wengine:14002:owner:1411:attribute-counter-target-crit-buff-active": True,
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    event = result["events"][0]
+    event_stats = event["common_application_trace"]["event_stat_modifiers"]
+    assert len(event_stats) == 1
+    assert event_stats[0]["modifier_path"] == "character.current.crit-rate"
+    assert event_stats[0]["recipient_character_id"] == "character:1431"
+    assert event_stats[0]["value"] == pytest.approx(0.20)
+    assert _breakdown_value(event, "character.current.crit-rate") == pytest.approx(
+        0.85
+    )
+    formal_crit_rates = {
+        item["character_id"]: item["stats"]["crit_rate"]
+        for item in result["resolved_character_snapshots"]
+    }
+    assert formal_crit_rates["character:1431"] == pytest.approx(0.65)
+    assert formal_crit_rates["character:1311"] == pytest.approx(0.50)
+
+
+def test_unfettered_game_ball_mixed_refinement_copies_block_without_picking_one() -> None:
+    owners = (
+        ("character:1311", "wengine:14002", 1, "ether"),
+        ("character:1411", "wengine:14002", 5, "physical"),
+    )
+    payload = _with_supporting_wengine(_valid_calculation_payload(), list(owners))
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:14002:owner:1311:target-crit-rate",
+        "rule:wengine:14002:owner:1411:target-crit-rate",
+    ]
+    payload["condition_values"] = {
+        "condition:wengine:14002:owner:1311:attribute-counter-target-crit-buff-active": True,
+        "condition:wengine:14002:owner:1411:attribute-counter-target-crit-buff-active": True,
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    event = result["events"][0]
+    assert event["common_application_trace"]["event_stat_modifiers"] == []
+    assert result["totals"]["expected"]["complete"] is False
+    assert any(
+        item["kind"] == "ambiguous-semantics"
+        and item["blocking"]
+        and "none is applied" in item["message"]
+        for item in result["diagnostics"]
+    )
+
+
+def test_unfettered_game_ball_target_crit_does_not_touch_no_crit_anomaly_events() -> None:
+    payload = _valid_calculation_payload()
+    payload["primary_character_id"] = "character:1401"
+    payload["team_character_ids"] = ["character:1401"]
+    payload["move_entry_id"] = "move-entry:alice:1401:physical-anomaly"
+    payload["compile_configs"] = {"character:1401": {"core_level": 1, "cinema_level": 0}}
+    payload["character_builds"] = {
+        "character:1401": {
+            "level": 60,
+            "out_of_combat_stats": {
+                "hp": 10000.0,
+                "attack": 1000.0,
+                "defense": 500.0,
+                "impact": 100.0,
+                "crit_rate": 0.5,
+                "crit_damage": 0.5,
+                "anomaly_mastery": 100.0,
+                "anomaly_proficiency": 100.0,
+                "penetration_rate": 0.0,
+                "penetration_flat": 0.0,
+                "energy_regen": 1.2,
+                "element_damage_bonus": {"physical": 0.0},
+            },
+        }
+    }
+    payload = _with_supporting_wengine(
+        payload, [("character:1311", "wengine:14002", 5, "ether")]
+    )
+    rule_id = "rule:wengine:14002:owner:1311:target-crit-rate"
+    payload["enabled_rule_item_ids"] = [rule_id]
+    payload["condition_values"] = {
+        "condition:wengine:14002:owner:1311:attribute-counter-target-crit-buff-active": True
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert result["events"][0]["common_application_trace"]["event_stat_modifiers"] == []
+
+
+@pytest.mark.parametrize(
+    ("owner", "move", "wengine_id", "element", "rule_suffix", "condition_suffix", "source_fragment"),
+    (
+        (
+            "character:1341",
+            "move-entry:character:1341:basic-cold-judgment-1",
+            "wengine:13112",
+            "ice",
+            "defense-counter-extra-damage",
+            "defense-counter-damage-ready",
+            "960%</color>防御力的伤害，且必定触发暴击",
+        ),
+        (
+            "character:1431",
+            "move-entry:ye:1431:basic-fast-1",
+            "wengine:14001",
+            "physical",
+            "crit-triggered-extra-damage",
+            "crit-triggered-extra-damage-current-hit",
+            "额外造成200%攻击力的伤害",
+        ),
+    ),
+)
+def test_unidentified_extra_damage_blocks_only_when_its_proc_state_is_selected(
+    owner: str,
+    move: str,
+    wengine_id: str,
+    element: str,
+    rule_suffix: str,
+    condition_suffix: str,
+    source_fragment: str,
+) -> None:
+    owner_number = owner.split(":")[-1]
+    rule_id = f"rule:{wengine_id}:owner:{owner_number}:{rule_suffix}"
+    condition_id = f"condition:{wengine_id}:owner:{owner_number}:{condition_suffix}"
+    payload = _single_wengine_payload(
+        owner,
+        move,
+        wengine_id,
+        5,
+        element=element,
+    )
+    payload["enabled_rule_item_ids"] = [rule_id]
+    payload["condition_values"] = {condition_id: False}
+    off = client.post("/api/v1/moves/calculate", json=payload)
+    assert off.status_code == 200, off.text
+    assert off.json()["totals"]["expected"]["complete"] is True
+
+    payload["condition_values"][condition_id] = True
+    on = client.post("/api/v1/moves/calculate", json=payload)
+    assert on.status_code == 200, on.text
+    result = on.json()
+    assert result["totals"]["expected"]["complete"] is False
+    assert result["events"][0]["modes"]["expected"]["value"] is not None
+    assert any(
+        item["kind"] == "ambiguous-semantics"
+        and item["blocking"]
+        and source_fragment in (item["original_text"] or "")
+        for item in result["diagnostics"]
+    )
+
+
+def test_bashful_demon_and_kaboom_cannon_apply_team_attack_from_support_owners() -> None:
+    owners = (
+        ("character:1311", "wengine:13113", 5, "ether"),
+        ("character:1411", "wengine:13113", 5, "physical"),
+    )
+    payload = _with_supporting_wengine(_valid_calculation_payload(), list(owners))
+    base_ids = [
+        "rule:wengine:13113:owner:1311:team-attack-per-stack",
+        "rule:wengine:13113:owner:1411:team-attack-per-stack",
+    ]
+    payload["enabled_rule_item_ids"] = base_ids
+    payload["condition_values"] = {
+        "condition:wengine:13113:owner:1311:ex-special-team-attack-buff-active": True,
+        "condition:wengine:13113:owner:1411:ex-special-team-attack-buff-active": True,
+    }
+    payload["rule_stack_counts"] = {rule_id: 4 for rule_id in base_ids}
+    bashful = client.post("/api/v1/moves/calculate", json=payload)
+    assert bashful.status_code == 200, bashful.text
+    bashful_result = bashful.json()
+    ye_stats = next(
+        item["stats"]
+        for item in bashful_result["resolved_character_snapshots"]
+        if item["character_id"] == "character:1431"
+    )
+    assert ye_stats["attack"] == pytest.approx(1353.6)
+    assert bashful_result["totals"]["expected"]["complete"] is True
+
+    cannon_payload = _with_supporting_wengine(
+        _valid_calculation_payload(), [("character:1311", "wengine:13115", 5, "ether")]
+    )
+    cannon_rule = "rule:wengine:13115:owner:1311:team-attack-per-ally-stack"
+    cannon_payload["enabled_rule_item_ids"] = [cannon_rule]
+    cannon_payload["rule_stack_counts"] = {cannon_rule: 3}
+    cannon = client.post("/api/v1/moves/calculate", json=cannon_payload)
+    assert cannon.status_code == 200, cannon.text
+    cannon_result = cannon.json()
+    assert cannon_result["resolved_character_snapshots"][0]["stats"]["attack"] == pytest.approx(
+        1344.0
+    )
+    assert cannon_result["totals"]["expected"]["complete"] is True
+    energy_diagnostic = next(
+        item for item in cannon_result["diagnostics"] if "Energy resource result" in item["message"]
+    )
+    assert energy_diagnostic["blocking"] is False
+
+
+def test_peacekeeper_shield_energy_regen_and_buildup_modifier_use_separate_scopes() -> None:
+    shield_rule = "rule:wengine:13127:owner:1341:shielded-energy-regeneration"
+    payload = _single_wengine_payload(
+        "character:1341",
+        "move-entry:character:1341:basic-final-judgment",
+        "wengine:13127",
+        5,
+        element="ice",
+    )
+    payload["enabled_rule_item_ids"] = [shield_rule]
+    payload["condition_values"] = {
+        "condition:wengine:13127:owner:1341:shield-active": True
+    }
+    shield = client.post("/api/v1/moves/calculate", json=payload)
+    assert shield.status_code == 200, shield.text
+    assert shield.json()["resolved_character_snapshots"][0]["stats"][
+        "energy_regen"
+    ] == pytest.approx(1.84)
+
+    buildup_rule = "rule:wengine:13127:owner:1341:ex-assist-anomaly-buildup"
+    payload["enabled_rule_item_ids"] = [buildup_rule]
+    payload["move_entry_id"] = "move-entry:character:1341:support-afterglow"
+    buildup = client.post("/api/v1/moves/calculate", json=payload)
+    assert buildup.status_code == 200, buildup.text
+    modifiers = buildup.json()["events"][0]["common_application_trace"]["applied_modifiers"]
+    assert any(
+        item["modifier_path"] == "anomaly-buildup.efficiency"
+        and item["value"] == pytest.approx(0.55)
+        for item in modifiers
+    )
+
+
+def test_roaring_ride_random_effect_states_are_independent_and_use_anomaly_proficiency() -> None:
+    payload = _single_wengine_payload(
+        "character:1401",
+        "move-entry:alice:1401:basic-star-opera-1",
+        "wengine:13128",
+        5,
+        element="physical",
+    )
+    rule = "rule:wengine:13128:owner:1401:random-anomaly-proficiency-buff"
+    payload["enabled_rule_item_ids"] = [rule]
+    payload["condition_values"] = {
+        "condition:wengine:13128:owner:1401:random-anomaly-proficiency-buff-active": True
+    }
+    result = client.post("/api/v1/moves/calculate", json=payload)
+    assert result.status_code == 200, result.text
+    stats = result.json()["resolved_character_snapshots"][0]["stats"]
+    assert stats["anomaly_proficiency"] == pytest.approx(164.0)
+    assert stats["anomaly_mastery"] == pytest.approx(100.0)
+    assert stats["attack"] == pytest.approx(2030.0)
+
+
+def test_box_cutter_followup_state_applies_physical_damage_and_daze_without_current_followup_filter() -> None:
+    payload = _single_wengine_payload(
+        "character:1251",
+        "move-entry:character:1251:dash-entry",
+        "wengine:13135",
+        5,
+        element="electric",
+    )
+    payload["character_builds"]["character:1251"]["base_stats"][
+        "element_damage_bonus"
+    ]["physical"] = 0.0
+    payload["character_builds"]["character:1251"]["base_stats"][
+        "element_damage_bonus"
+    ]["electric"] = 0.0
+    payload["enemy"]["damage_resistance"]["physical"] = 0.2
+    payload["enemy"]["damage_resistance"]["electric"] = 0.2
+    rule = "rule:wengine:13135:owner:1251:follow-up-attack-damage-daze"
+    payload["enabled_rule_item_ids"] = [rule]
+    payload["condition_values"] = {
+        "condition:wengine:13135:owner:1251:follow-up-attack-buffs-active": True
+    }
+    result = client.post("/api/v1/moves/calculate", json=payload)
+    assert result.status_code == 200, result.text
+    event = result.json()["events"][0]
+    assert _breakdown_value(event, "damage.normal-bonus") == pytest.approx(0.24)
+    assert any(
+        item["modifier_path"] == "daze.outgoing-bonus" and item["value"] == pytest.approx(0.16)
+        for item in event["common_application_trace"]["applied_modifiers"]
+    )
+
+
+def test_tremor_trigram_bonus_is_ex_and_ultimate_only() -> None:
+    payload = _single_wengine_payload(
+        "character:1341",
+        "move-entry:character:1341:ultimate-rabbit-slash",
+        "wengine:13142",
+        5,
+        element="ice",
+    )
+    damage_rule = "rule:wengine:13142:owner:1341:ex-ultimate-damage"
+    energy_rule = "rule:wengine:13142:owner:1341:team-energy-restore"
+    payload["enabled_rule_item_ids"] = [damage_rule, energy_rule]
+    ultimate = client.post("/api/v1/moves/calculate", json=payload)
+    assert ultimate.status_code == 200, ultimate.text
+    assert _breakdown_value(ultimate.json()["events"][0], "damage.normal-bonus") == pytest.approx(
+        0.40
+    )
+    assert ultimate.json()["totals"]["expected"]["complete"] is True
+
+    payload["move_entry_id"] = "move-entry:character:1341:basic-cold-judgment-1"
+    basic = client.post("/api/v1/moves/calculate", json=payload)
+    assert basic.status_code == 200, basic.text
+    assert _breakdown_value(basic.json()["events"][0], "damage.normal-bonus") == 0.0
+
+
+def test_grill_owisp_fire_bonus_and_hp_loss_crit_state_keep_distinct_scopes() -> None:
+    payload = _single_wengine_payload(
+        "character:1371",
+        "move-entry:character:1371:basic-xiaoyun-jin-1",
+        "wengine:13144",
+        5,
+        element="ether",
+    )
+    crit_rule = "rule:wengine:13144:owner:1371:crit-rate-after-hp-loss"
+    payload["enabled_rule_item_ids"] = [crit_rule]
+    payload["condition_values"] = {
+        "condition:wengine:13144:owner:1371:owner-hp-lowered-crit-buff-active": True
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["resolved_character_snapshots"][0]["stats"]["crit_rate"] == pytest.approx(
+        0.74
+    )
+    assert _breakdown_value(result["events"][0], "damage.normal-bonus") == 0.0
+    fire_rule = "rule:wengine:13144:owner:1371:fire-damage"
+    fire_match = next(
+        item
+        for item in result["events"][0]["common_application_trace"]["rule_matches"]
+        if item["rule_id"] == fire_rule
+    )
+    assert fire_match["status"] == "not-matched"
+    assert not any(
+        item["modifier_path"] == "damage.normal-bonus"
+        for item in result["events"][0]["common_application_trace"]["applied_modifiers"]
+    )
 
 
 def _breakdown_value(event: dict[str, object], node: str) -> float:

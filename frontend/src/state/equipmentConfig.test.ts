@@ -47,6 +47,16 @@ const roundTripWengines = [
   { id: "wengine:13106", characterId: "character:1431", specialty: "attack" },
   { id: "wengine:13108", characterId: "character:1431", specialty: "attack" },
   { id: "wengine:13111", characterId: "character:1431", specialty: "attack" },
+  { id: "wengine:13112", characterId: "character:1341", specialty: "defense" },
+  { id: "wengine:13113", characterId: "character:1411", specialty: "support" },
+  { id: "wengine:13115", characterId: "character:1311", specialty: "support" },
+  { id: "wengine:13127", characterId: "character:1341", specialty: "defense" },
+  { id: "wengine:13128", characterId: "character:1401", specialty: "anomaly" },
+  { id: "wengine:13135", characterId: "character:1361", specialty: "stun" },
+  { id: "wengine:13142", characterId: "character:1341", specialty: "defense" },
+  { id: "wengine:13144", characterId: "character:1371", specialty: "rupture" },
+  { id: "wengine:14001", characterId: "character:1431", specialty: "attack" },
+  { id: "wengine:14002", characterId: "character:1311", specialty: "support" },
 ];
 
 const catalog = {

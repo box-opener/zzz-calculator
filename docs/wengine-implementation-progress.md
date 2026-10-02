@@ -4,7 +4,7 @@ This is a resumable queue, not a game-semantics source. Ordering is the insertio
 `https://static.nanoka.cc/zzz/3.2/weapon.json` on 2026-10-02. The engine detail records use the already verified live-3.2 route
 `https://static.nanoka.cc/zzz/3.2/zh/weapon/{id}.json`.
 
-The index contains 100 entries. The current loader and reviewed mapping both cover 55 matching IDs. The remaining ordered queue contains 45 index-visible engines. There are currently no packaged raw-only IDs and no reviewed-mapping-only IDs. The existing 15 fixtures remain unchanged and retain their legacy source metadata. New engines keep their complete live detail payload and separate source-index URL. The adapter closes the reviewed W-Engine slice at level 60 and includes Refinement 1–5 values. Non-60 build levels remain an explicit missing-data diagnostic, not a range silently approximated from level-60 values.
+The index contains 100 entries. The current loader and reviewed mapping both cover 65 matching IDs. The remaining ordered queue contains 35 index-visible engines. There are currently no packaged raw-only IDs and no reviewed-mapping-only IDs. The existing 15 fixtures remain unchanged and retain their legacy source metadata. New engines keep their complete live detail payload and separate source-index URL. The adapter closes the reviewed W-Engine slice at level 60 and includes Refinement 1–5 values. Non-60 build levels remain an explicit missing-data diagnostic, not a range silently approximated from level-60 values.
 
 The rows marked “已实现” have a raw fixture, reviewed mapping, and compiler branch. Refinement values are selected from their own raw refinement text. Rows marked “部分实现” preserve the known Build/Rule behavior and show a non-blocking diagnostic for result types outside the current damage-request contract.
 
@@ -52,16 +52,16 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 040 | `13106` | 家政员 | A | 强攻 | 已实现（raw + ATK%Build + 非当前操作角色的后场能量自动回复/当前物理层0–15 + R1–R5） |
 | 041 | `13108` | 仿制星徽引擎 | A | 强攻 | 已实现（raw + ATK%Build + 远距触发当前物理增益，后续同持有人物理招式适用 + R1–R5） |
 | 042 | `13111` | 旋钻机-赤轴 | A | 强攻 | 部分实现（raw + 能量回复Build + Basic/Dash电伤分支；登记强攻角色不含电属性） |
-| 043 | `13112` | 比格气缸 | A | 防护 | 待实现（仅索引） |
-| 044 | `13113` | 含羞恶面 | A | 支援 | 待实现（仅索引） |
-| 045 | `13115` | 好斗的阿炮 | A | 支援 | 待实现（仅索引） |
-| 046 | `13127` | 维序者-特化型 | A | 防护 | 待实现（仅索引） |
-| 047 | `13128` | 轰鸣座驾 | A | 异常 | 待实现（仅索引） |
-| 048 | `13135` | 裁纸刀 | A | 击破 | 待实现（仅索引） |
-| 049 | `13142` | 震元奇枢 | A | 防护 | 待实现（仅索引） |
-| 050 | `13144` | 燔火胧夜 | A | 命破 | 待实现（仅索引） |
-| 051 | `14001` | 加农转子 | A | 强攻 | 待实现（仅索引） |
-| 052 | `14002` | 逍遥游球 | A | 支援 | 待实现（仅索引） |
+| 043 | `13112` | 比格气缸 | A | 防护 | 部分实现（raw + DEF%Build + incoming结果源Rule + 受击追击触发的防御额外伤害局部身份诊断） |
+| 044 | `13113` | 含羞恶面 | A | 支援 | 部分实现（raw + ATK%Build + Ice bonus capability-gated + 全队当前攻击层数0–4/non-stack） |
+| 045 | `13115` | 好斗的阿炮 | A | 支援 | 部分实现（raw + 能量自动回复Build + 全队当前攻击层0–4/non-stack；资源结果无输出） |
+| 046 | `13127` | 维序者-特化型 | A | 防护 | 已实现（raw + ATK%Build + 护盾下flat能量自动回复 + EX/支援突击积蓄效率） |
+| 047 | `13128` | 轰鸣座驾 | A | 异常 | 已实现（raw + ATK%Build + 三类独立随机结果current-state：攻击、AP、积蓄） |
+| 048 | `13135` | 裁纸刀 | A | 击破 | 部分实现（raw + Impact Build + 追击触发后的Physical/Daze增益；Daze结果非阻断诊断） |
+| 049 | `13142` | 震元奇枢 | A | 防护 | 部分实现（raw + ATK%Build + EX/ULT伤害标签范围；能量回复结果诊断） |
+| 050 | `13144` | 燔火胧夜 | A | 命破 | 部分实现（raw + HP%Build + Fire伤害能力门控 + HP下降后暴击状态；当前登记命破角色无Fire） |
+| 051 | `14001` | 加农转子 | A | 强攻 | 部分实现（raw + CritRate Build + ATK%面板；暴击触发额外伤害的必要子事件局部身份诊断） |
+| 052 | `14002` | 逍遥游球 | A | 支援 | 已实现（raw + EnergyRegen Build + 属性克制后目标暴击率event-stat/non-stack） |
 | 053 | `14003` | 左轮转子 | A | 击破 | 待实现（仅索引） |
 | 054 | `14102` | 钢铁肉垫 | S | 强攻 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 055 | `14104` | 硫磺石 | S | 强攻 | 已实现（raw + reviewed + level-60 Build/Rule） |
@@ -111,4 +111,4 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 099 | `14161` | 猩红渴望 | S | 锋御 | 待实现（仅索引） |
 | 100 | `14162` | 绯月银棺 | S | 击破 | 待实现（仅索引） |
 
-The first four ten-entry batches cover `12001`–`12005`, `12007`–`12016`, `13001`–`13021`, and `13101`, `13106`, `13108`, and `13111` (existing `12006` and `13103` were already supported). The typed Vanguard entries `12016`, `13017`, and `13021` have no registered character path. The next unimplemented catalog row is `13112` (比格气缸); continue in index order.
+The first five ten-entry batches cover `12001`–`12005`, `12007`–`12016`, `13001`–`13021`, `13101`–`13111` excluding existing `13103`, and `13112`–`13115`, `13127`–`13128`, `13135`, `13142`, `13144`, `14001`–`14002` (existing `12006` and `13103` were already supported). The typed Vanguard entries `12016`, `13017`, and `13021` have no registered character path. The next unimplemented catalog row is `14003` (左轮转子); continue in index order.

@@ -67,6 +67,16 @@ from .wengine_ids import (
     WENGINE_HOUSEKEEPER_ID,
     WENGINE_STARLIGHT_ENGINE_REPLICA_ID,
     WENGINE_DRILL_RIG_RED_AXIS_ID,
+    WENGINE_BIG_CYLINDER_ID,
+    WENGINE_BASHFUL_DEMON_ID,
+    WENGINE_KABOOM_THE_CANNON_ID,
+    WENGINE_PEACEKEEPER_SPECIALIZED_ID,
+    WENGINE_ROARING_RIDE_ID,
+    WENGINE_BOX_CUTTER_ID,
+    WENGINE_TREMOR_TRIGRAM_VESSEL_ID,
+    WENGINE_GRILL_O_WISP_ID,
+    WENGINE_CANNON_ROTOR_ID,
+    WENGINE_UNFETTERED_GAME_BALL_ID,
 )
 
 
@@ -79,6 +89,66 @@ class WEngineReviewedMapping:
 
 
 WENGINE_REVIEWED_MAPPINGS: Mapping[WEngineId, WEngineReviewedMapping] = {
+    WENGINE_BIG_CYLINDER_ID: WEngineReviewedMapping(
+        WENGINE_BIG_CYLINDER_ID,
+        CharacterStat.DEFENSE,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-big-cylinder",
+    ),
+    WENGINE_BASHFUL_DEMON_ID: WEngineReviewedMapping(
+        WENGINE_BASHFUL_DEMON_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "support-bashful-demon",
+    ),
+    WENGINE_KABOOM_THE_CANNON_ID: WEngineReviewedMapping(
+        WENGINE_KABOOM_THE_CANNON_ID,
+        CharacterStat.ENERGY_REGEN,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "support-kaboom-the-cannon",
+    ),
+    WENGINE_PEACEKEEPER_SPECIALIZED_ID: WEngineReviewedMapping(
+        WENGINE_PEACEKEEPER_SPECIALIZED_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-peacekeeper-specialized",
+    ),
+    WENGINE_ROARING_RIDE_ID: WEngineReviewedMapping(
+        WENGINE_ROARING_RIDE_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "anomaly-roaring-ride",
+    ),
+    WENGINE_BOX_CUTTER_ID: WEngineReviewedMapping(
+        WENGINE_BOX_CUTTER_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-box-cutter",
+    ),
+    WENGINE_TREMOR_TRIGRAM_VESSEL_ID: WEngineReviewedMapping(
+        WENGINE_TREMOR_TRIGRAM_VESSEL_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "defense-tremor-trigram-vessel",
+    ),
+    WENGINE_GRILL_O_WISP_ID: WEngineReviewedMapping(
+        WENGINE_GRILL_O_WISP_ID,
+        CharacterStat.HP,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "rupture-grill-o-wisp",
+    ),
+    WENGINE_CANNON_ROTOR_ID: WEngineReviewedMapping(
+        WENGINE_CANNON_ROTOR_ID,
+        CharacterStat.CRIT_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "attack-cannon-rotor",
+    ),
+    WENGINE_UNFETTERED_GAME_BALL_ID: WEngineReviewedMapping(
+        WENGINE_UNFETTERED_GAME_BALL_ID,
+        CharacterStat.ENERGY_REGEN,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "support-unfettered-game-ball",
+    ),
     WENGINE_REEL_PROJECTOR_ID: WEngineReviewedMapping(
         WENGINE_REEL_PROJECTOR_ID,
         CharacterStat.IMPACT,

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 import pytest
 
-from core.application import assemble_build
+from core.application import CalculationScenario, assemble_build
 from core.application.equipment import compile_wengine, load_wengine_raw_record
 from core.application.equipment.wengine import (
     ASTRA_DAMAGE_BUFF_CONDITION_ID,
@@ -43,6 +44,13 @@ from core.application.equipment.wengine_ids import (
 )
 from core.presentation.registry import registration_for
 from core.data.wengines.loader import load_wengine_record, supported_wengine_ids
+from core.application.matching import (
+    CharacterMatchProfile,
+    EffectMatchContext,
+    EffectMatchStatus,
+    EffectMatcher,
+    EnemyMatchProfile,
+)
 from core.application.rules import RuleEligibility
 from core.types import (
     BuildContributionLayer,
@@ -50,19 +58,29 @@ from core.types import (
     BuildSource,
     BuildSourceType,
     BuildStatContribution,
+    BattleStateId,
     CharacterId,
     CharacterBuildDefinition,
     CharacterStats,
     CharacterRole,
     CharacterStat,
     DamageTag,
+    DamageDealerFilter,
     AnyFilter,
     DamageSubtype,
     DamageSubtypeFilter,
     DamageTypeFilter,
     DamageType,
     EquipmentOwnerCapabilities,
+    EnemyId,
+    EnemySnapshot,
+    CalculationContext,
+    CharacterSnapshot,
     EffectOperation,
+    CurrentAttackValueSource,
+    DamageEventId,
+    DamageEventMetadata,
+    DirectDamageEvent,
     Element,
     ElementFilter,
     Resolved,
@@ -72,6 +90,9 @@ from core.types import (
     SkillGroup,
     WEngineBuildInput,
     WEngineId,
+    MoveId,
+    FixedMultiplier,
+    StandardCritRule,
 )
 
 
@@ -981,6 +1002,227 @@ def test_fourth_nanoka_batch_preserves_defense_white_values_and_current_panel_fo
     )
     assert drill.rule_items[0].eligibility is RuleEligibility.INELIGIBLE
     assert drill.contributions[0].stat is CharacterStat.ATTACK
+
+
+def test_fifth_nanoka_batch_refinement_values_match_live_source_text() -> None:
+    expected = {
+        "13112": {
+            "damage_taken_reduction": (0.075, 0.085, 0.095, 0.105, 0.12),
+            "extra_damage_defense_multiplier": (6.0, 6.9, 7.8, 8.7, 9.6),
+            "internal_cooldown_seconds": (7.5, 7.5, 7.5, 7.5, 7.5),
+        },
+        "13113": {
+            "ice_damage_bonus": (0.15, 0.175, 0.20, 0.22, 0.24),
+            "team_attack_per_stack": (0.02, 0.023, 0.026, 0.029, 0.032),
+            "max_stacks": (4, 4, 4, 4, 4),
+            "duration_seconds": (12, 12, 12, 12, 12),
+        },
+        "13115": {
+            "team_attack_per_stack": (0.025, 0.028, 0.032, 0.036, 0.04),
+            "max_stacks": (4, 4, 4, 4, 4),
+            "duration_seconds": (8, 8, 8, 8, 8),
+            "max_stacks_per_teammate": (1, 1, 1, 1, 1),
+        },
+        "13127": {
+            "energy_regen_flat_while_shielded": (0.4, 0.46, 0.52, 0.58, 0.64),
+            "anomaly_buildup_bonus": (0.36, 0.40, 0.45, 0.50, 0.55),
+        },
+        "13128": {
+            "duration_seconds": (5, 5, 5, 5, 5),
+            "internal_cooldown_seconds": (0.3, 0.3, 0.3, 0.3, 0.3),
+            "attack_percent": (0.08, 0.092, 0.104, 0.116, 0.128),
+            "anomaly_proficiency_flat": (40, 46, 52, 58, 64),
+            "anomaly_buildup_bonus": (0.25, 0.28, 0.32, 0.36, 0.40),
+        },
+        "13135": {
+            "physical_damage_bonus": (0.15, 0.173, 0.195, 0.218, 0.24),
+            "daze_bonus": (0.10, 0.115, 0.13, 0.145, 0.16),
+            "duration_seconds": (10, 10, 10, 10, 10),
+        },
+        "13142": {
+            "ex_special_ultimate_damage_bonus": (0.25, 0.287, 0.325, 0.362, 0.40),
+            "energy_restore": (2, 2.3, 2.6, 2.9, 3.2),
+            "energy_restore_cooldown_seconds": (5, 5, 5, 5, 5),
+        },
+        "13144": {
+            "fire_damage_bonus": (0.15, 0.1725, 0.195, 0.2175, 0.24),
+            "crit_rate_after_hp_loss": (0.15, 0.1725, 0.195, 0.2175, 0.24),
+            "duration_seconds": (5, 5, 5, 5, 5),
+        },
+        "14001": {
+            "attack_percent": (0.075, 0.086, 0.097, 0.108, 0.12),
+            "extra_damage_attack_multiplier": (2, 2, 2, 2, 2),
+            "extra_damage_cooldown_seconds": (8, 7.5, 7, 6.5, 6),
+        },
+        "14002": {
+            "team_target_crit_rate_bonus": (0.12, 0.135, 0.155, 0.175, 0.20),
+            "duration_seconds": (12, 12, 12, 12, 12),
+        },
+    }
+    for numeric_id, expected_values in expected.items():
+        source_record = load_wengine_record(f"wengine:{numeric_id}")
+        raw = load_wengine_raw_record(f"wengine:{numeric_id}")
+        assert raw.source_version == "3.2"
+        assert raw.source_url.endswith(f"/zh/weapon/{numeric_id}.json")
+        for refinement, talent in enumerate(raw.talents, start=1):
+            original = source_record["raw_nanoka_detail"]["talents"][str(refinement)]["desc"]
+            assert talent.text == original
+            plain_text = re.sub(r"<[^>]+>", "", original)
+            for key, values in expected_values.items():
+                value = values[refinement - 1]
+                assert talent.numeric_values[key] == pytest.approx(value)
+                if key in {
+                    "damage_taken_reduction",
+                    "anomaly_buildup_bonus",
+                    "attack_percent",
+                    "physical_damage_bonus",
+                    "daze_bonus",
+                    "ex_special_ultimate_damage_bonus",
+                    "fire_damage_bonus",
+                    "crit_rate_after_hp_loss",
+                    "team_target_crit_rate_bonus",
+                    "extra_damage_defense_multiplier",
+                    "extra_damage_attack_multiplier",
+                    "ice_damage_bonus",
+                    "team_attack_per_stack",
+                }:
+                    displayed = value * 100
+                else:
+                    displayed = value
+                assert f"{displayed:g}" in plain_text
+
+
+def test_fifth_nanoka_batch_reviewed_rules_keep_local_unresolved_sources_and_exact_scopes() -> None:
+    cases = (
+        ("13112", "character:1341", CharacterStat.DEFENSE, 0.40, "defense-counter-extra-damage"),
+        ("13113", "character:1411", CharacterStat.ATTACK, 0.25, "team-attack-per-stack"),
+        ("13115", "character:1311", CharacterStat.ENERGY_REGEN, 0.50, "team-attack-per-ally-stack"),
+        ("13127", "character:1341", CharacterStat.ATTACK, 0.25, "ex-assist-anomaly-buildup"),
+        ("13128", "character:1401", CharacterStat.ATTACK, 0.25, "random-anomaly-proficiency-buff"),
+        ("13135", "character:1361", CharacterStat.IMPACT, 0.15, "follow-up-attack-damage-daze"),
+        ("13142", "character:1341", CharacterStat.ATTACK, 0.25, "ex-ultimate-damage"),
+        ("13144", "character:1371", CharacterStat.HP, 0.25, "crit-rate-after-hp-loss"),
+        ("14001", "character:1431", CharacterStat.CRIT_RATE, 0.20, "crit-triggered-extra-damage"),
+        ("14002", "character:1311", CharacterStat.ENERGY_REGEN, 0.50, "target-crit-rate"),
+    )
+    for numeric_id, owner_string, advanced_stat, advanced_value, suffix in cases:
+        owner = CharacterId(owner_string)
+        raw_id = WEngineId(f"wengine:{numeric_id}")
+        capabilities = registration_for(owner).equipment_capabilities
+        for refinement in (1, 5):
+            result = compile_wengine(
+                WEngineBuildInput(raw_id, owner, refinement=refinement),
+                owner_capabilities=capabilities,
+            )
+            assert result.complete is True
+            assert result.contributions[1].stat is advanced_stat
+            assert result.contributions[1].value == Resolved(advanced_value)
+            rule = next(item for item in result.rule_items if item.rule_id.endswith(suffix))
+            if numeric_id in {"13112", "14001"}:
+                event_effect = rule.effects[0]
+                assert event_effect.result.event_template_id is None
+                assert event_effect.result.unresolved_template is not None
+                assert event_effect.result.unresolved_template.reason.value == "ambiguous-identity"
+                assert event_effect.rule.filters == (
+                    DamageDealerFilter(owner),
+                )
+
+    raw = load_wengine_raw_record("wengine:13112")
+    assert raw.base_stat is CharacterStat.ATTACK
+    assert raw.static_base_value == pytest.approx(624.0)
+    car_raw = load_wengine_raw_record("wengine:13115")
+    assert car_raw.talents[4].numeric_values["max_stacks_per_teammate"] == 1
+    ball_raw = load_wengine_raw_record("wengine:14002")
+    target_crit = next(
+        effect
+        for item in compile_wengine(
+            WEngineBuildInput(
+                WEngineId("wengine:14002"),
+                CharacterId("character:1311"),
+                refinement=5,
+            ),
+            owner_capabilities=registration_for("character:1311").equipment_capabilities,
+        ).rule_items
+        for effect in item.effects
+    )
+    assert target_crit.rule.target.value == "enemy"
+    assert target_crit.result.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
+    assert ball_raw.talents[4].numeric_values["team_target_crit_rate_bonus"] == pytest.approx(
+        0.20
+    )
+    assert registration_for("character:1341").equipment_capabilities.can_produce_element(
+        Element.PHYSICAL
+    )
+    assert registration_for("character:1251").equipment_capabilities.can_produce_element(
+        Element.PHYSICAL
+    )
+
+
+def test_big_cylinder_proc_matches_wearer_attack_while_another_team_member_is_operator() -> None:
+    wearer = CharacterId("character:1341")
+    operator = CharacterId("character:1431")
+    result = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:13112"), wearer, refinement=5),
+        owner_capabilities=registration_for(wearer).equipment_capabilities,
+    )
+    rule = next(
+        item
+        for item in result.rule_items
+        if item.rule_id.endswith("defense-counter-extra-damage")
+    )
+    selected_condition = replace(result.scenario_conditions[0], value=True)
+    scenario = CalculationScenario(
+        scenario_id="scenario:wengine-background-wearer",
+        current_operator=operator,
+        conditions=(selected_condition,),
+        enabled_rule_item_ids=frozenset({rule.rule_id}),
+    )
+    target_id = EnemyId("enemy:wengine-background-wearer")
+    event = DirectDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId("damage:zhao:background-assist"),
+            battle_state_id=BattleStateId("battle:wengine-background-wearer"),
+            damage_dealer=wearer,
+            target_enemy=target_id,
+            element=Element.ICE,
+            created_at=1.0,
+            skill_group=SkillGroup.ASSIST,
+            move_id=MoveId("move:zhao:support-afterglow"),
+            damage_tags=frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
+        ),
+        base_settlement_data_source=CurrentAttackValueSource(wearer),
+        multiplier=FixedMultiplier(Resolved(1.0)),
+        crit_rule=StandardCritRule(wearer),
+    )
+    wearer_snapshot = CharacterSnapshot(wearer, 60, _base_stats())
+    operator_snapshot = CharacterSnapshot(operator, 60, _base_stats())
+    enemy = EnemySnapshot(
+        enemy_id=target_id,
+        level=60,
+        initial_defense=Resolved(1000.0),
+        damage_resistance={Element.ICE: Resolved(0.0)},
+        anomaly_buildup_resistance={},
+        daze_resistance=Resolved(0.0),
+        damage_reduction=Resolved(0.0),
+    )
+    context = EffectMatchContext(
+        current_event=event,
+        calculation_context=CalculationContext(
+            event=event,
+            battle_state_id=event.metadata.battle_state_id,
+            character_snapshots=(wearer_snapshot, operator_snapshot),
+            target_snapshot=enemy,
+        ),
+        scenario=scenario,
+        team=(
+            CharacterMatchProfile(operator, CharacterRole.ATTACK),
+            CharacterMatchProfile(wearer, CharacterRole.DEFENSE),
+        ),
+        target=EnemyMatchProfile(target_id),
+    )
+    matches = EffectMatcher().match_rule_items((rule,), context)
+    assert matches[0].status is EffectMatchStatus.MATCHED
+    assert matches[0].matched_effects == (rule.effects[0],)
 
 
 def test_new_signature_raw_records_use_resolved_level_60_percentages() -> None:

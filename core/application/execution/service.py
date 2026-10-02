@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from core.types import (
+    AnyFilter,
     AnomalyRecordId,
     BattleEventKind,
     CalculationContext,
@@ -15,15 +16,18 @@ from core.types import (
     DamageEventId,
     DamageMultiplier,
     DirectDamageEvent,
+    DamageTypeFilter,
     DisorderDamageEvent,
     PenetrationDamageEvent,
     EffectId,
     EffectOperation,
+    EffectTarget,
     FixedMultiplier,
     EventCreationEffect,
     EventTemplateId,
     IndependentAnomalyCrit,
     IndependentAnomalyCritRule,
+    ModifierEffect,
     NoCritRule,
     RecordedAnomalyCritRule,
     Resolved,
@@ -175,10 +179,12 @@ class DirectMoveApplicationService:
             request.base_calculation_modifiers,
         )
         main_matches = self._matcher.match_rule_items(rule_items, main_context)
+        non_stacking_event_diagnostics: list[CalculationDiagnostic] = []
         matched_effects = _matched_effects(
             main_matches,
             rule_items,
             request.scenario,
+            diagnostics=non_stacking_event_diagnostics,
         )
         panel_application = apply_matched_modifiers(
             global_panel_application.character_snapshots,
@@ -191,6 +197,14 @@ class DirectMoveApplicationService:
             apply_panel=False,
             applied_panel_effect_ids=global_panel_application.applied_panel_effect_ids,
         )
+        if non_stacking_event_diagnostics:
+            panel_application = replace(
+                panel_application,
+                diagnostics=(
+                    *panel_application.diagnostics,
+                    *non_stacking_event_diagnostics,
+                ),
+            )
         panel_application = _merge_modifier_applications(
             global_panel_application,
             panel_application,
@@ -321,6 +335,7 @@ class DirectMoveApplicationService:
                 child_matches = self._matcher.match_rule_items(
                     rule_items, child_context
                 )
+                child_non_stacking_diagnostics: list[CalculationDiagnostic] = []
                 child_application = apply_matched_modifiers(
                     application.character_snapshots,
                     request.base_calculation_modifiers,
@@ -328,6 +343,7 @@ class DirectMoveApplicationService:
                         child_matches,
                         rule_items,
                         request.scenario,
+                        diagnostics=child_non_stacking_diagnostics,
                     ),
                     request.scenario.current_operator,
                     initial_character_snapshots=request.initial_character_snapshots,
@@ -336,6 +352,14 @@ class DirectMoveApplicationService:
                     apply_panel=False,
                     applied_panel_effect_ids=panel_application.applied_panel_effect_ids,
                 )
+                if child_non_stacking_diagnostics:
+                    child_application = replace(
+                        child_application,
+                        diagnostics=(
+                            *child_application.diagnostics,
+                            *child_non_stacking_diagnostics,
+                        ),
+                    )
                 queue.append((child, child_ancestry, child_matches, child_application))
 
         known_values = [
@@ -626,13 +650,22 @@ def _matched_effects(
     matches: tuple[RuleItemMatchResult, ...],
     rule_items: tuple,
     scenario,
+    *,
+    diagnostics: list[CalculationDiagnostic] | None = None,
 ) -> tuple[MatchedEffectApplication, ...]:
     rules = {item.rule_id: item for item in rule_items}
     applications: list[MatchedEffectApplication] = []
     seen_non_stacking_groups: set[str] = set()
+    conflicting_event_groups = _conflicting_non_stacking_event_groups(
+        matches,
+        rules,
+        diagnostics,
+    )
     for item in matches:
         rule = rules[item.rule_id]
         group_id = rule.non_stacking_group_id
+        if group_id is not None and group_id in conflicting_event_groups:
+            continue
         if item.matched_effects and group_id is not None:
             if group_id in seen_non_stacking_groups:
                 continue
@@ -646,6 +679,86 @@ def _matched_effects(
             for effect in item.matched_effects
         )
     return tuple(applications)
+
+
+def _conflicting_non_stacking_event_groups(
+    matches: tuple[RuleItemMatchResult, ...],
+    rules: dict,
+    diagnostics: list[CalculationDiagnostic] | None,
+) -> frozenset[str]:
+    """Block conflicting fixed target-scoped crit buffs instead of picking one.
+
+    This handles statically comparable event-stat modifiers (for example a
+    target-specific team crit-rate passive). The existing panel conflict path
+    remains responsible for SELF/TEAM panel values and condition-sensitive rules.
+    """
+
+    grouped: dict[str, list[tuple[tuple[tuple[object, ...], ...], CalculationRuleItem]]] = {}
+    for match in matches:
+        rule = rules[match.rule_id]
+        group_id = rule.non_stacking_group_id
+        if group_id is None or not match.matched_effects:
+            continue
+        effects = tuple(match.matched_effects)
+        if not all(
+            isinstance(effect, ModifierEffect)
+            and effect.rule.target is EffectTarget.ENEMY
+            and effect.rule.condition is None
+            and effect.rule.trigger is None
+            and effect.result.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
+            and effect.result.operation is EffectOperation.ADD
+            and isinstance(effect.result.value, Resolved)
+            and _has_only_damage_type_filters(effect.rule.filters)
+            for effect in effects
+        ):
+            continue
+        signature = tuple(
+            (
+                effect.result.modifier_path,
+                effect.result.operation,
+                effect.result.value,
+                effect.rule.target,
+                effect.rule.filters,
+            )
+            for effect in effects
+        )
+        grouped.setdefault(group_id, []).append((signature, rule))
+
+    conflicts = frozenset(
+        group_id
+        for group_id, items in grouped.items()
+        if len(items) > 1 and any(signature != items[0][0] for signature, _ in items[1:])
+    )
+    if diagnostics is not None:
+        for group_id in sorted(conflicts):
+            items = grouped[group_id]
+            diagnostics.append(
+                _diagnostic(
+                    group_id,
+                    "conflicting-target-event-stat-values",
+                    DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                    "Active same-name target-scoped event-stat effects resolve to "
+                    "different values; the source does not define which copy wins, "
+                    "so none is applied.",
+                    original_text=items[0][1].original_text,
+                    candidates=tuple(rule.original_text for _, rule in items),
+                )
+            )
+    return conflicts
+
+
+def _has_only_damage_type_filters(filters) -> bool:
+    if not filters:
+        return True
+    for item in filters:
+        if isinstance(item, DamageTypeFilter):
+            continue
+        if isinstance(item, AnyFilter) and all(
+            isinstance(nested, DamageTypeFilter) for nested in item.filters
+        ):
+            continue
+        return False
+    return True
 
 
 def _matched_event_creations(

@@ -696,3 +696,18 @@ to be Basic/Dash. `13111` scopes the active effect to the owner's Basic/Dash Ele
 damage tags. The registered Attack-role roster has no Electric-capable owner, so
 the compiler marks the effect ineligible for those owners instead of fabricating an
 Electric character; its 15-second internal cooldown is not replayed.
+
+
+## W-Engine live 3.2 fifth queue batch (non-authoritative implementation notes)
+
+The next ten uncovered catalog rows are `13112`, `13113`, `13115`, `13127`, `13128`,
+`13135`, `13142`, `13144`, `14001`, and `14002`. `13103` remains the already
+supported row between batches, so this batch follows the actual insertion order.
+
+`13112` says `受到敌方攻击后，下一次攻击命中敌人时，额外造成装备者960%防御力的伤害，且必定触发暴击` at R5. The incoming-damage reduction remains a source RuleItem because no incoming result exists. If the explicit “this attack triggers the ready proc” condition is selected and the wearer is the actual damage dealer, a typed EventCreation branch emits a blocking `AMBIGUOUS_IDENTITY` diagnostic: the guaranteed crit and DEF coefficient are known, while the added hit's element, damage type, MoveId/skill identity, and crit-stat owner are not. No trigger-move identity is fabricated, and the ordinary attack remains known.
+
+`13113` has an Ice damage bonus and a separate EX-triggered, current 0–4 TEAM Attack stack. The Ice effect is capability-gated; the current registered Support owners do not gain it unless their typed capabilities include Ice. The group uses a stable same-name non-stacking key across owners. `13115` likewise applies an explicit 0–4 aggregate TEAM Attack stack with a one-layer-per-friendly-unit source cap and a stable non-stacking group. The active stack count and contributors are not replayed from attacks; no untracked Bangboo or fourth teammate is synthesized. Its one-shot Energy result remains a non-blocking source-rule diagnostic.
+
+`13127` separates shield-gated flat Energy Regeneration from the unconditional EX Special/Assist Attack anomaly-buildup efficiency bonus. `13128` exposes its three random effects as independent current-state rules—Attack, Anomaly Proficiency, and buildup efficiency—because the source explicitly allows multiple outcomes to coexist; no random result or 0.3-second cooldown is replayed. `13135` treats Follow-up Attack as the trigger only; its later Physical damage and Daze effects are not restricted to the current move being Follow-up. Its Daze result is outside the current damage output and has a non-blocking diagnostic. `13142` scopes damage bonus to EX Special and Ultimate tags; Energy recovery remains source-only.
+
+`13144` has a Fire damage bonus and a separate owner HP-loss current-state Crit Rate panel buff. The Fire branch is capability-gated; the registered Rupture owner does not have Fire damage capability. `14001` keeps the permanent Attack panel bonus. Its 200%-ATK extra damage on a critical hit is a separate local unresolved-child branch when the explicit current proc fact is selected, because the source does not identify the extra hit's element, damage type, MoveId/skill identity, or crit-stat owner; its refinement-specific cooldown is not simulated. `14002`'s current target-specific all-team Crit Rate increase is an event-stat modifier for standard-crit Direct/Penetration events, so it does not alter formal team Crit Rate snapshots or No-Crit Anomaly/Disorder results. Its same-name stacking group is stable across equipment owners; differing active refinements block that target-scope effect instead of choosing a copy.
