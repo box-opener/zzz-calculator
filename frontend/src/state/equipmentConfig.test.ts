@@ -9,9 +9,26 @@ import {
   serializeEquipmentConfig,
 } from "./equipmentConfig";
 
+const firstBatchWengines = [
+  { id: "wengine:12001", characterId: "character:1431", specialty: "attack" },
+  { id: "wengine:12002", characterId: "character:1431", specialty: "attack" },
+  { id: "wengine:12003", characterId: "character:1431", specialty: "attack" },
+  { id: "wengine:12004", characterId: "character:1311", specialty: "support" },
+  { id: "wengine:12005", characterId: "character:1311", specialty: "support" },
+  { id: "wengine:12007", characterId: "character:1251", specialty: "stun" },
+  { id: "wengine:12008", characterId: "character:1251", specialty: "stun" },
+  { id: "wengine:12009", characterId: "character:1251", specialty: "stun" },
+  { id: "wengine:12010", characterId: "character:1401", specialty: "anomaly" },
+  { id: "wengine:12011", characterId: "character:1401", specialty: "anomaly" },
+];
+
 const catalog = {
   wengines: [
     { wengine_id: "wengine:demo", specialty: "attack" },
+    ...firstBatchWengines.map((wengine) => ({
+      wengine_id: wengine.id,
+      specialty: wengine.specialty,
+    })),
   ],
   driveDiscSets: [{ set_id: "drive-disc:31000" }],
   slotSchemas: [
@@ -126,6 +143,44 @@ describe("complete character config v2", () => {
       wengineProvided: true,
     });
   });
+
+  it.each(firstBatchWengines)(
+    "round-trips $id and refinement through v2",
+    ({ id: wengineId, characterId, specialty }) => {
+      const pleniluna = createCharacterConfig(
+        characterId,
+        60,
+        "equipment-build",
+        {
+          core_level: 1,
+          cinema_level: 0,
+          mingxin_active: false,
+          entry_move_uses_linren: false,
+        },
+        { id: wengineId, level: 60, refinement: 5 },
+        [],
+        null,
+      );
+      const parsed = parseCharacterConfig(
+        serializeCharacterConfig(pleniluna),
+        characterId,
+        { ...catalog, characterSpecialty: specialty },
+      );
+
+      expect(parsed).toEqual({
+        ok: true,
+        config: pleniluna,
+        equipment: {
+          schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
+          character_id: characterId,
+          wengine: { id: wengineId, level: 60, refinement: 5 },
+          drive_discs: [],
+        },
+        source: "v2",
+        wengineProvided: true,
+      });
+    },
+  );
 
   it("round-trips Miyabi's standard compiler fields through v2", () => {
     const miyabi = createCharacterConfig(

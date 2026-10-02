@@ -55,6 +55,78 @@ def _valid_calculation_payload() -> dict:
     }
 
 
+def _wengine_build(wengine_id: str, refinement: int, *, element: str) -> dict:
+    return {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": wengine_id,
+        "wengine_level": 60,
+        "wengine_refinement": refinement,
+        "base_stats": {
+            "hp": 10000.0,
+            "attack": 1000.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.50,
+            "crit_damage": 0.50,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "energy_regen": 1.2,
+            "element_damage_bonus": {element: 0.0},
+        },
+        "drive_discs": [],
+    }
+
+
+def _with_supporting_wengine(
+    payload: dict,
+    support_engines: list[tuple[str, str, int, str]],
+) -> dict:
+    support_ids = [item[0] for item in support_engines]
+    payload["supporting_character_ids"] = support_ids
+    payload["team_character_ids"] = [payload["primary_character_id"], *support_ids]
+    primary_stats = payload["character_builds"][payload["primary_character_id"]][
+        "out_of_combat_stats"
+    ]
+    primary_stats.setdefault("hp", 10000.0)
+    primary_stats.setdefault("defense", 500.0)
+    primary_stats.setdefault("impact", 100.0)
+    primary_stats.setdefault("anomaly_mastery", 100.0)
+    primary_stats.setdefault("anomaly_proficiency", 100.0)
+    primary_stats.setdefault("energy_regen", 1.2)
+    for owner, wengine_id, refinement, element in support_engines:
+        payload["compile_configs"][owner] = {"core_level": 1, "cinema_level": 0}
+        payload["character_builds"][owner] = _wengine_build(
+            wengine_id,
+            refinement,
+            element=element,
+        )
+        payload["enemy"]["damage_resistance"].setdefault(element, 0.2)
+    return payload
+
+
+def _single_wengine_payload(
+    character_id: str,
+    move_entry_id: str,
+    wengine_id: str,
+    refinement: int,
+    *,
+    element: str,
+) -> dict:
+    payload = _valid_calculation_payload()
+    payload["primary_character_id"] = character_id
+    payload["team_character_ids"] = [character_id]
+    payload["move_entry_id"] = move_entry_id
+    payload["compile_configs"] = {character_id: {"core_level": 1, "cinema_level": 0}}
+    payload["character_builds"] = {
+        character_id: _wengine_build(wengine_id, refinement, element=element)
+    }
+    payload["enemy"]["damage_resistance"] = {element: 0.2}
+    return payload
+
+
 def _ye_primary_astra_support_payload(*, aria: bool) -> dict:
     ye_stats = {
         "hp": 10000.0,
@@ -348,7 +420,17 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
     assert response.status_code == 200
     catalog = response.json()
     assert {item["wengine_id"] for item in catalog} == {
+        "wengine:12001",
+        "wengine:12002",
+        "wengine:12003",
+        "wengine:12004",
+        "wengine:12005",
         "wengine:12006",
+        "wengine:12007",
+        "wengine:12008",
+        "wengine:12009",
+        "wengine:12010",
+        "wengine:12011",
         "wengine:13103",
         "wengine:14102",
         "wengine:14104",
@@ -372,6 +454,12 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
         == "character:1311"
     )
     assert all("rule_item_ids" not in item for item in catalog)
+    assert all(
+        item["signature_character_id"] is None
+        for item in catalog
+        if item["wengine_id"].startswith("wengine:120")
+        and item["wengine_id"] != "wengine:12006"
+    )
     assert {
         (item["wengine_id"], item["signature_character_id"])
         for item in catalog
@@ -1301,6 +1389,307 @@ def test_wengine_equipment_build_reaches_build_assembly_and_execution() -> None:
             "applied_modifiers"
         ]
     )
+
+
+def test_first_remaining_wengine_flows_from_equipment_build_to_owner_direct_damage() -> None:
+    expected_bonus = {1: 0.12, 5: 0.20}
+    for refinement, bonus in expected_bonus.items():
+        payload = _valid_calculation_payload()
+        payload["character_builds"]["character:1431"] = {
+            "level": 60,
+            "build_mode": "equipment-build",
+            "wengine_id": "wengine:12001",
+            "wengine_level": 60,
+            "wengine_refinement": refinement,
+            "base_stats": {
+                "hp": 10000.0,
+                "attack": 1000.0,
+                "defense": 500.0,
+                "impact": 100.0,
+                "crit_rate": 0.50,
+                "crit_damage": 0.50,
+                "anomaly_mastery": 100.0,
+                "anomaly_proficiency": 100.0,
+                "penetration_rate": 0.0,
+                "penetration_flat": 0.0,
+                "energy_regen": 1.2,
+                "element_damage_bonus": {"physical": 0.0},
+            },
+            "drive_discs": [],
+        }
+        payload["enabled_rule_item_ids"] = [
+            "rule:wengine:12001:owner:1431:basic-dash-counter-damage"
+        ]
+        response = client.post("/api/v1/moves/calculate", json=payload)
+
+        assert response.status_code == 200, response.text
+        result = response.json()
+        snapshot = result["resolved_character_snapshots"][0]
+        assert snapshot["stats"]["attack"] == pytest.approx(1_770.0)
+        event = result["events"][0]
+        assert event["damage_type"] == "direct"
+        assert _breakdown_value(event, "damage.normal-bonus") == pytest.approx(bonus)
+        assert _breakdown_value(event, "damage.normal-bonus-region") == pytest.approx(1 + bonus)
+        assert any(
+            item["effect_id"] == "effect:wengine:12001:owner:1431:basic-dash-counter-damage"
+            and item["value"] == pytest.approx(bonus)
+            for item in event["common_application_trace"]["applied_modifiers"]
+        )
+        assert result["totals"]["expected"]["complete"] is True
+
+
+@pytest.mark.parametrize(("refinement", "expected_bonus"), ((1, 0.15), (5, 0.25)))
+def test_lunar_decrescent_state_bonus_only_applies_to_its_equipped_damage_dealer(
+    refinement: int,
+    expected_bonus: float,
+) -> None:
+    payload = _valid_calculation_payload()
+    payload["character_builds"]["character:1431"] = _wengine_build(
+        "wengine:12002", refinement, element="physical"
+    )
+    rule_id = "rule:wengine:12002:owner:1431:damage-buff"
+    condition_id = "condition:wengine:12002:owner:1431:damage-buff-active"
+    payload["enabled_rule_item_ids"] = [rule_id]
+    payload["condition_values"] = {condition_id: True}
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    event = result["events"][0]
+    assert result["resolved_character_snapshots"][0]["stats"]["attack"] == pytest.approx(
+        1_770.0
+    )
+    assert _breakdown_value(event, "damage.normal-bonus") == pytest.approx(
+        expected_bonus
+    )
+    assert result["totals"]["expected"]["complete"] is True
+
+    payload["condition_values"][condition_id] = False
+    disabled = client.post("/api/v1/moves/calculate", json=payload).json()
+    assert _breakdown_value(disabled["events"][0], "damage.normal-bonus") == 0.0
+
+
+def test_reverb_support_engines_apply_panel_stats_to_the_active_team() -> None:
+    for wengine_id, refinement, suffix, condition_suffix, stat_key, amount in (
+        ("wengine:12004", 1, "team-impact", "team-impact-active", "impact", 0.08),
+        (
+            "wengine:12005",
+            5,
+            "team-anomaly-stats",
+            "team-anomaly-stats-active",
+            "anomaly_mastery",
+            16.0,
+        ),
+    ):
+        payload = _with_supporting_wengine(
+            _valid_calculation_payload(),
+            [("character:1311", wengine_id, refinement, "ether")],
+        )
+        baseline = client.post("/api/v1/moves/calculate", json=payload).json()
+        rule_id = f"rule:{wengine_id}:owner:1311:{suffix}"
+        condition_id = f"condition:{wengine_id}:owner:1311:{condition_suffix}"
+        payload["enabled_rule_item_ids"] = [rule_id]
+        payload["condition_values"] = {condition_id: True}
+        active_response = client.post("/api/v1/moves/calculate", json=payload)
+        assert active_response.status_code == 200, active_response.text
+        active = active_response.json()
+        before = {
+            item["character_id"]: item["stats"]
+            for item in baseline["resolved_character_snapshots"]
+        }
+        after = {
+            item["character_id"]: item["stats"]
+            for item in active["resolved_character_snapshots"]
+        }
+        for character_id in ("character:1431", "character:1311"):
+            if stat_key == "impact":
+                assert after[character_id][stat_key] == pytest.approx(
+                    before[character_id][stat_key] * (1 + amount)
+                )
+            else:
+                assert after[character_id][stat_key] == pytest.approx(
+                    before[character_id][stat_key] + amount
+                )
+
+
+@pytest.mark.parametrize(
+    ("refinements", "expected_delta", "expected_complete"),
+    (((1, 1), 0.08, True), ((1, 5), 0.0, False)),
+)
+def test_duplicate_reverb_tidal_buffs_do_not_stack_or_guess_between_refinements(
+    refinements: tuple[int, int],
+    expected_delta: float,
+    expected_complete: bool,
+) -> None:
+    payload = _with_supporting_wengine(
+        _valid_calculation_payload(),
+        [
+            ("character:1311", "wengine:12004", refinements[0], "ether"),
+            ("character:1411", "wengine:12004", refinements[1], "physical"),
+        ],
+    )
+    baseline = client.post("/api/v1/moves/calculate", json=payload).json()
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:12004:owner:1311:team-impact",
+        "rule:wengine:12004:owner:1411:team-impact",
+    ]
+    payload["condition_values"] = {
+        "condition:wengine:12004:owner:1311:team-impact-active": True,
+        "condition:wengine:12004:owner:1411:team-impact-active": True,
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is expected_complete
+    if refinements[0] != refinements[1]:
+        assert any(
+            item["kind"] == "ambiguous-semantics"
+            and item["blocking"]
+            and "no candidate was applied" in item["message"]
+            for item in result["diagnostics"]
+        )
+    before = {
+        item["character_id"]: item["stats"]["impact"]
+        for item in baseline["resolved_character_snapshots"]
+    }
+    after = {
+        item["character_id"]: item["stats"]["impact"]
+        for item in result["resolved_character_snapshots"]
+    }
+    for character_id in payload["team_character_ids"]:
+        assert after[character_id] == pytest.approx(
+            before[character_id] * (1 + expected_delta)
+        )
+
+
+@pytest.mark.parametrize(
+    ("wengine_id", "suffix", "expected_bonus"),
+    (
+        ("wengine:12007", "ex-daze", 0.16),
+        ("wengine:12008", "primary-target-daze", 0.12),
+    ),
+)
+def test_turbulence_daze_rules_match_source_scope_without_changing_damage(
+    wengine_id: str,
+    suffix: str,
+    expected_bonus: float,
+) -> None:
+    payload = _single_wengine_payload(
+        "character:1251",
+        "move-entry:character:1251:ex-special-moon-over-sea-begonia",
+        wengine_id,
+        5,
+        element="electric",
+    )
+    disabled = client.post("/api/v1/moves/calculate", json=payload).json()
+    payload["enabled_rule_item_ids"] = [
+        f"rule:{wengine_id}:owner:1251:{suffix}"
+    ]
+    enabled = client.post("/api/v1/moves/calculate", json=payload).json()
+    event = enabled["events"][0]
+    daze_modifier = next(
+        item
+        for item in event["common_application_trace"]["applied_modifiers"]
+        if item["modifier_path"] == "daze.outgoing-bonus"
+    )
+    assert daze_modifier["value"] == pytest.approx(expected_bonus)
+    assert event["modes"]["expected"]["value"] == pytest.approx(
+        disabled["events"][0]["modes"]["expected"]["value"]
+    )
+    assert any(
+        not item["blocking"] and "does not calculate Daze" in item["message"]
+        for item in enabled["diagnostics"]
+    )
+
+
+def test_lunar_noviluna_keeps_energy_restore_as_a_scoped_result_diagnostic() -> None:
+    payload = _valid_calculation_payload()
+    payload["character_builds"]["character:1431"] = _wengine_build(
+        "wengine:12003", 5, element="physical"
+    )
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:12003:owner:1431:energy-restore"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert result["resolved_character_snapshots"][0]["stats"]["energy_regen"] == pytest.approx(
+        1.2
+    )
+    assert any(
+        not item["blocking"]
+        and "Energy resource result" in item["message"]
+        and "回复<color=#2BAD00>5</color>点" in item["original_text"]
+        for item in result["diagnostics"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("character_id", "entry", "wengine_id", "suffix", "condition_suffix", "stat", "expected"),
+    (
+        (
+            "character:1251",
+            "move-entry:character:1251:ex-special-moon-over-sea-begonia",
+            "wengine:12009",
+            "impact",
+            "impact-active",
+            "impact",
+            113.0,
+        ),
+        (
+            "character:1401",
+            "move-entry:alice:1401:physical-anomaly",
+            "wengine:12010",
+            "anomaly-mastery",
+            "anomaly-mastery-active",
+            "anomaly_mastery",
+            140.0,
+        ),
+        (
+            "character:1401",
+            "move-entry:alice:1401:physical-anomaly",
+            "wengine:12011",
+            "anomaly-proficiency",
+            "anomaly-proficiency-active",
+            "anomaly_proficiency",
+            164.0,
+        ),
+    ),
+)
+def test_equipped_panel_buffs_use_their_declared_live_stat_nodes(
+    character_id: str,
+    entry: str,
+    wengine_id: str,
+    suffix: str,
+    condition_suffix: str,
+    stat: str,
+    expected: float,
+) -> None:
+    payload = _single_wengine_payload(
+        character_id,
+        entry,
+        wengine_id,
+        5,
+        element="electric" if character_id == "character:1251" else "physical",
+    )
+    payload["enabled_rule_item_ids"] = [
+        f"rule:{wengine_id}:owner:{character_id.split(':')[-1]}:{suffix}"
+    ]
+    payload["condition_values"] = {
+        f"condition:{wengine_id}:owner:{character_id.split(':')[-1]}:{condition_suffix}": True
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["resolved_character_snapshots"][0]["stats"][stat] == pytest.approx(
+        expected
+    )
+
+
+def _breakdown_value(event: dict[str, object], node: str) -> float:
+    breakdown = event["modes"]["expected"]["calculation_breakdown"]
+    return next(item["value"] for item in breakdown if item["node"] == node)
 
 
 def test_astra_signature_wengine_adds_team_damage_from_equipment_build() -> None:

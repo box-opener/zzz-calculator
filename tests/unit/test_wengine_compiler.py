@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import re
+
+import pytest
+
 from core.application import assemble_build
 from core.application.equipment import compile_wengine, load_wengine_raw_record
 from core.application.equipment.wengine import (
@@ -14,10 +18,21 @@ from core.application.equipment.wengine import (
     signature_wengine_id_for,
 )
 from core.application.equipment.wengine_ids import (
+    WENGINE_ELECTRO_STORM_I_ID,
+    WENGINE_ELECTRO_STORM_II_ID,
+    WENGINE_LUNAR_DECRESCENT_ID,
+    WENGINE_LUNAR_NOVILUNA_ID,
+    WENGINE_LUNAR_PLENILUNA_ID,
+    WENGINE_REVERB_MARK_I_ID,
+    WENGINE_REVERB_MARK_II_ID,
+    WENGINE_TURBULENCE_ARROW_ID,
+    WENGINE_TURBULENCE_AXE_ID,
+    WENGINE_TURBULENCE_CANNON_ID,
     WENGINE_ATTACK_SAMPLE_IDS,
     WENGINE_SUPPORT_SAMPLE_IDS,
 )
 from core.presentation.registry import registration_for
+from core.data.wengines.loader import load_wengine_record, supported_wengine_ids
 from core.application.rules import RuleEligibility
 from core.types import (
     BuildContributionLayer,
@@ -27,6 +42,7 @@ from core.types import (
     CharacterStats,
     CharacterRole,
     CharacterStat,
+    DamageTag,
     AnyFilter,
     DamageSubtype,
     DamageSubtypeFilter,
@@ -35,7 +51,6 @@ from core.types import (
     EffectOperation,
     Element,
     ElementFilter,
-    AnyFilter,
     Resolved,
     RuleStackCondition,
     CalculationNode,
@@ -71,6 +86,266 @@ def test_signature_wengine_raw_records_keep_confirmed_max_level_values() -> None
     assert ye.base_attack == 743.0
     assert ye.advanced_stat_name == "暴击伤害"
     assert ye.advanced_stat_value == 0.48
+
+
+def test_first_nanoka_catalog_wengine_has_lossless_live_source_and_all_refinements() -> None:
+    record = load_wengine_record(str(WENGINE_LUNAR_PLENILUNA_ID))
+    raw = load_wengine_raw_record(str(WENGINE_LUNAR_PLENILUNA_ID))
+    assert raw.name == "「月相」-望"
+    assert raw.rarity == "B"
+    assert raw.specialty is CharacterRole.ATTACK
+    assert raw.source_version == "3.2"
+    assert raw.source_url == "https://static.nanoka.cc/zzz/3.2/zh/weapon/12001.json"
+    assert record["source_index_url"] == "https://static.nanoka.cc/zzz/3.2/weapon.json"
+    assert record["raw_nanoka_detail"]["level"]["60"]["rate"] == 94090
+    assert record["catalog"]["atk"] == 475
+    assert (raw.base_attack, raw.advanced_stat_name, raw.advanced_stat_value) == (
+        475.0,
+        "攻击力",
+        0.20,
+    )
+    assert str(WENGINE_LUNAR_PLENILUNA_ID) in supported_wengine_ids()
+
+    owner = CharacterId("character:1431")
+    capabilities = registration_for(owner).equipment_capabilities
+    expected_bonus = (0.12, 0.14, 0.16, 0.18, 0.20)
+    contributions = []
+    for refinement, bonus in enumerate(expected_bonus, start=1):
+        result = compile_wengine(
+            WEngineBuildInput(
+                WENGINE_LUNAR_PLENILUNA_ID,
+                owner,
+                level=60,
+                refinement=refinement,
+            ),
+            owner_capabilities=capabilities,
+        )
+        assert result.complete is True
+        assert result.rule_items[0].eligibility is RuleEligibility.ELIGIBLE
+        assert result.contributions[0].value == Resolved(475.0)
+        assert result.contributions[0].layer is BuildContributionLayer.WHITE_VALUE
+        assert result.contributions[1].stat is CharacterStat.ATTACK
+        assert result.contributions[1].layer is BuildContributionLayer.OUT_OF_COMBAT_PERCENT
+        assert result.contributions[1].value == Resolved(0.20)
+        effect = result.rule_items[0].effects[0]
+        assert effect.result.modifier_path is CalculationNode.DAMAGE_NORMAL_BONUS
+        assert effect.result.value == Resolved(bonus)
+        assert {item.damage_tag for item in effect.rule.filters[1].filters} == {
+            DamageTag.BASIC_ATTACK,
+            DamageTag.DASH_ATTACK,
+            DamageTag.DODGE_COUNTER,
+        }
+        contributions.append(result.contributions)
+    assert contributions[0] == contributions[-1]
+
+    wrong_owner = compile_wengine(
+        WEngineBuildInput(WENGINE_LUNAR_PLENILUNA_ID, CharacterId("character:1251")),
+        owner_capabilities=registration_for("character:1251").equipment_capabilities,
+    )
+    assert wrong_owner.contributions
+    assert all(item.eligibility is RuleEligibility.INELIGIBLE for item in wrong_owner.rule_items)
+
+    unsupported_level = compile_wengine(
+        WEngineBuildInput(WENGINE_LUNAR_PLENILUNA_ID, owner, level=50),
+        owner_capabilities=capabilities,
+    )
+    assert unsupported_level.complete is False
+    assert unsupported_level.contributions == ()
+    assert unsupported_level.rule_items == ()
+
+
+def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_refinements() -> None:
+    cases = (
+        (
+            WENGINE_LUNAR_DECRESCENT_ID,
+            "「月相」-晦",
+            CharacterRole.ATTACK,
+            CharacterStat.ATTACK,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.20,
+            CharacterId("character:1431"),
+            CalculationNode.DAMAGE_NORMAL_BONUS,
+            "damage_bonus",
+            (0.15, 0.175, 0.20, 0.225, 0.25),
+        ),
+        (
+            WENGINE_LUNAR_NOVILUNA_ID,
+            "「月相」-朔",
+            CharacterRole.ATTACK,
+            CharacterStat.CRIT_RATE,
+            BuildContributionLayer.DIRECT_RATIO,
+            0.16,
+            CharacterId("character:1431"),
+            None,
+            "energy_restore",
+            (3, 3.5, 4, 4.5, 5),
+        ),
+        (
+            WENGINE_REVERB_MARK_I_ID,
+            "「残响」-Ⅰ型",
+            CharacterRole.SUPPORT,
+            CharacterStat.ATTACK,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.20,
+            CharacterId("character:1311"),
+            CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+            "team_impact_percent",
+            (0.08, 0.09, 0.10, 0.11, 0.12),
+        ),
+        (
+            WENGINE_REVERB_MARK_II_ID,
+            "「残响」-Ⅱ型",
+            CharacterRole.SUPPORT,
+            CharacterStat.ENERGY_REGEN,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.40,
+            CharacterId("character:1311"),
+            CalculationNode.CHARACTER_COMBAT_ANOMALY_MASTERY_FLAT_BONUS,
+            "team_anomaly_mastery_flat",
+            (10, 12, 13, 15, 16),
+        ),
+        (
+            WENGINE_TURBULENCE_CANNON_ID,
+            "「湍流」-铳型",
+            CharacterRole.STUN,
+            CharacterStat.ATTACK,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.20,
+            CharacterId("character:1361"),
+            CalculationNode.DAZE_OUTGOING_BONUS,
+            "ex_daze_bonus",
+            (0.10, 0.115, 0.13, 0.145, 0.16),
+        ),
+        (
+            WENGINE_TURBULENCE_ARROW_ID,
+            "「湍流」-矢型",
+            CharacterRole.STUN,
+            CharacterStat.IMPACT,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.12,
+            CharacterId("character:1361"),
+            CalculationNode.DAZE_OUTGOING_BONUS,
+            "primary_target_daze_bonus",
+            (0.08, 0.09, 0.10, 0.11, 0.12),
+        ),
+        (
+            WENGINE_TURBULENCE_AXE_ID,
+            "「湍流」-斧型",
+            CharacterRole.STUN,
+            CharacterStat.ENERGY_REGEN,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.40,
+            CharacterId("character:1361"),
+            CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+            "impact_percent",
+            (0.09, 0.10, 0.11, 0.12, 0.13),
+        ),
+        (
+            WENGINE_ELECTRO_STORM_I_ID,
+            "「电磁暴」-壹式",
+            CharacterRole.ANOMALY,
+            CharacterStat.ATTACK,
+            BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+            0.20,
+            CharacterId("character:1401"),
+            CalculationNode.CHARACTER_COMBAT_ANOMALY_MASTERY_FLAT_BONUS,
+            "anomaly_mastery_flat",
+            (25, 28, 32, 36, 40),
+        ),
+        (
+            WENGINE_ELECTRO_STORM_II_ID,
+            "「电磁暴」-贰式",
+            CharacterRole.ANOMALY,
+            CharacterStat.ANOMALY_PROFICIENCY,
+            BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+            24.0,
+            CharacterId("character:1401"),
+            CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+            "anomaly_proficiency_flat",
+            (25, 28, 32, 36, 40),
+        ),
+    )
+    for (
+        wengine_id,
+        name,
+        role,
+        stat,
+        layer,
+        advanced_value,
+        owner,
+        effect_path,
+        numeric_key,
+        expected_values,
+    ) in cases:
+        record = load_wengine_record(str(wengine_id))
+        raw = load_wengine_raw_record(str(wengine_id))
+        numeric_id = str(wengine_id).split(":")[-1]
+        assert raw.name == name
+        assert raw.rarity == "B"
+        assert raw.specialty is role
+        assert raw.source_version == "3.2"
+        assert raw.source_url == f"https://static.nanoka.cc/zzz/3.2/zh/weapon/{numeric_id}.json"
+        assert record["source_index_url"] == "https://static.nanoka.cc/zzz/3.2/weapon.json"
+        assert record["raw_nanoka_detail"]["id"] == int(numeric_id)
+        assert record["catalog"]["atk"] == 475
+        assert raw.base_attack == 475.0
+        assert (raw.advanced_stat_name, raw.advanced_stat_value) == (
+            record["nanoka_detail_fields"]["rand_property"]["name"],
+            advanced_value,
+        )
+        assert tuple(item.refinement for item in raw.talents) == (1, 2, 3, 4, 5)
+        assert tuple(item.numeric_values[numeric_key] for item in raw.talents) == expected_values
+        capabilities = registration_for(owner).equipment_capabilities
+        for refinement, value in enumerate(expected_values, start=1):
+            talent = raw.talents[refinement - 1]
+            assert talent.text == record["raw_nanoka_detail"]["talents"][
+                str(refinement)
+            ]["desc"]
+            plain_text = re.sub(r"<[^>]+>", "", talent.text)
+            if numeric_key in {
+                "damage_bonus",
+                "team_impact_percent",
+                "ex_daze_bonus",
+                "primary_target_daze_bonus",
+                "impact_percent",
+            }:
+                text_value = float(re.search(r"([\d.]+)%", plain_text).group(1)) / 100
+            elif numeric_key == "energy_restore":
+                text_value = float(re.search(r"回复\s*([\d.]+)", plain_text).group(1))
+            else:
+                text_value = float(re.search(r"提升\s*([\d.]+)", plain_text).group(1))
+            assert talent.numeric_values[numeric_key] == pytest.approx(text_value)
+            if numeric_key == "team_anomaly_mastery_flat":
+                assert talent.numeric_values["team_anomaly_proficiency_flat"] == pytest.approx(
+                    text_value
+                )
+            result = compile_wengine(
+                WEngineBuildInput(wengine_id, owner, refinement=refinement),
+                owner_capabilities=capabilities,
+            )
+            assert result.complete is True
+            assert result.contributions[0].value == Resolved(475.0)
+            assert result.contributions[1].stat is stat
+            assert result.contributions[1].layer is layer
+            assert result.contributions[1].value == Resolved(advanced_value)
+            if effect_path is None:
+                assert len(result.rule_items) == 1
+                assert result.rule_items[0].effects == ()
+                assert any(not item.blocking for item in result.diagnostics)
+                assert result.rule_items[0].diagnostics[0].original_text == talent.text
+                continue
+            effect = result.rule_items[0].effects[0]
+            assert effect.result.modifier_path is effect_path
+            assert effect.result.value == Resolved(value)
+
+    reverb = compile_wengine(
+        WEngineBuildInput(WENGINE_REVERB_MARK_II_ID, CharacterId("character:1311")),
+        owner_capabilities=registration_for("character:1311").equipment_capabilities,
+    ).rule_items[0]
+    assert reverb.effects[1].result.modifier_path is (
+        CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS
+    )
+    assert reverb.non_stacking_group_id == "wengine:12005:sound-wave-team-anomaly-stats"
 
 
 def test_new_signature_raw_records_use_resolved_level_60_percentages() -> None:

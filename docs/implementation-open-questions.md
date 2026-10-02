@@ -534,3 +534,33 @@ before event construction, up to effective level 16. The calculator does not
 replay Flashover charge, entry restoration, interruption level, shields,
 support-point consumption, energy refreshes, or battle durations; those limits
 have non-blocking diagnostics where they affect the selected rule.
+
+
+## W-Engine live 3.2 first queue batch (non-authoritative implementation notes)
+
+Source order is the insertion order of Nanoka's live 3.2 W-Engine index. The first
+ten previously uncovered rows are `12001`–`12005`, then `12007`–`12011`; the
+existing `12006` entry stays in place and is not duplicated.
+
+`「月相」-朔` (`12003`) preserves R1–R5's one-shot Energy restore on its raw talent
+source and an effectless, source-linked RuleItem. The current `calculate_payload`
+contract has no current Energy resource result. Its selected RuleItem reports a
+non-blocking `UNSUPPORTED_CALCULATOR` diagnostic quoting the selected refinement;
+it is not converted to Energy Regeneration and does not change the damage result.
+The static equipment preview likewise reports the limitation.
+
+`「湍流」-铳型` (`12007`) and `「湍流」-矢型` (`12008`) put their reviewed
+R1–R5 values in the typed Daze outgoing modifier lane. The damage request does not
+emit Daze results, so the selected RuleItems retain non-blocking diagnostics and
+do not alter damage totals. This describes the result-contract boundary, not a
+missing numeric source value.
+
+Several passives specify a duration and/or cooldown. This static request does not
+replay event timing; their active period is represented by a user-selectable
+current-state condition. `「残响」-Ⅰ型` and `「残响」-Ⅱ型` additionally say that
+same-name passives do not stack. Copies with matching resolved values apply once
+across the active team. When copies with different refinements are simultaneously
+enabled and active, no source priority is stated; the application skips all
+members of that non-stacking panel group and emits a blocking local ambiguity
+diagnostic instead of selecting the first or largest value. This does not block
+single-copy use or same-refinement duplicates.

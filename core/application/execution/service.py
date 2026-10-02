@@ -48,7 +48,7 @@ from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DiagnosticId, MoveEntryId
 from ..moves import DerivedDamageEventTemplateRef, MoveCalculationEntry
 from ..scenario import ScenarioRuleStack
-from ..rules import CalculationRuleItem
+from ..rules import CalculationRuleItem, RuleEligibility
 from ..output import (
     CritCapability,
     CritDisplayMode,
@@ -220,6 +220,13 @@ class DirectMoveApplicationService:
         traces: list[DamageEventExecutionTrace] = []
         move_diagnostics: list[CalculationDiagnostic] = [
             *multiplier.diagnostics,
+            *(
+                diagnostic
+                for rule in rule_items
+                if rule.rule_id in request.scenario.enabled_rule_item_ids
+                and rule.eligibility is not RuleEligibility.INELIGIBLE
+                for diagnostic in rule.diagnostics
+            ),
         ]
         queue: list[
             tuple[

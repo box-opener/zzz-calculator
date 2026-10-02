@@ -146,6 +146,47 @@ def test_initial_mastery_threshold_is_automatic_not_a_user_boolean() -> None:
     ].settlement_stats.crit_damage == Resolved(0.80)
 
 
+def test_non_stacking_threshold_panel_effects_keep_owner_specific_conditions() -> None:
+    owners = (CharacterId("character:stun-a"), CharacterId("character:stun-b"))
+    resolutions = tuple(_resolution("33200", owner, role=CharacterRole.STUN) for owner in owners)
+    team_rules = tuple(
+        next(
+            rule
+            for rule in resolution.rule_items
+            if rule.rule_id.endswith("team-crit-damage")
+        )
+        for resolution in resolutions
+    )
+    conditions = tuple(
+        replace(condition, value=True)
+        for resolution, rule in zip(resolutions, team_rules)
+        for condition in resolution.scenario_conditions
+        if condition.condition_id in rule.condition_ids
+    )
+    scenario = CalculationScenario(
+        scenario_id="scenario:legacy-non-stacking-threshold",
+        current_operator=owners[0],
+        conditions=conditions,
+        enabled_rule_item_ids=frozenset(rule.rule_id for rule in team_rules),
+    )
+    stats = tuple(_stats(crit_rate=0.05) for _ in owners)
+    result = apply_global_panel_effects(
+        tuple(CharacterSnapshot(owner, 60, value) for owner, value in zip(owners, stats)),
+        tuple(InitialCharacterSnapshot(owner, 60, value) for owner, value in zip(owners, stats)),
+        team_rules,
+        scenario,
+        frozenset(owners),
+    )
+
+    assert not any(
+        item.diagnostic_id.endswith("conflicting-panel-values")
+        for item in result.diagnostics
+    )
+    assert tuple(item.settlement_stats.crit_damage for item in result.character_snapshots) == (
+        Resolved(0.65),
+        Resolved(0.65),
+    )
+
 def test_thorned_rose_threshold_tiers_add_eight_then_sixteen_percent() -> None:
     owner = CharacterId("character:thorn")
     resolution = _resolution("34200", owner)

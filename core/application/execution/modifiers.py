@@ -361,6 +361,10 @@ def apply_global_panel_effects(
     applied_ids: set[EffectId] = set()
     traces: list[PanelModifierExecutionTrace] = []
     applied_non_stacking_groups: set[str] = set()
+    conflicting_non_stacking_groups, conflict_diagnostics = (
+        _active_non_stacking_panel_conflicts(rule_items, scenario)
+    )
+    diagnostics.extend(conflict_diagnostics)
     # Current-panel derived values must observe all ordinary panel effects
     # first.  In particular, an equipment anomaly-mastery or crit-rate bonus
     # must be part of the value read by reviewed character effects, regardless
@@ -385,6 +389,8 @@ def apply_global_panel_effects(
             continue
         stack_count = _resolved_rule_stack(rule, scenario)
         if rule.non_stacking_group_id is not None:
+            if rule.non_stacking_group_id in conflicting_non_stacking_groups:
+                continue
             if rule.non_stacking_group_id in applied_non_stacking_groups:
                 continue
             applied_non_stacking_groups.add(rule.non_stacking_group_id)
@@ -470,6 +476,75 @@ def apply_global_panel_effects(
         panel_traces=tuple(traces),
         diagnostics=tuple(diagnostics),
     )
+
+
+def _active_non_stacking_panel_conflicts(
+    rule_items: tuple[CalculationRuleItem, ...],
+    scenario: CalculationScenario,
+) -> tuple[frozenset[str], tuple[CalculationDiagnostic, ...]]:
+    condition_values = {
+        item.condition_id: item.value for item in scenario.conditions
+    }
+    signatures: dict[str, list[tuple[object, ...]]] = {}
+    for rule in rule_items:
+        group_id = rule.non_stacking_group_id
+        if (
+            group_id is None
+            or rule.rule_id not in scenario.enabled_rule_item_ids
+            or rule.eligibility is RuleEligibility.INELIGIBLE
+            or any(condition_values.get(condition_id) is not True for condition_id in rule.condition_ids)
+        ):
+            continue
+        panel_effects = tuple(
+            effect
+            for effect in rule.effects
+            if isinstance(effect, ModifierEffect)
+            and effect.result.modifier_path in _PANEL_NODES
+        )
+        if (
+            not panel_effects
+            or len(panel_effects) != len(rule.effects)
+            or any(
+                effect.rule.filters
+                or effect.rule.condition is not None
+                or effect.rule.trigger is not None
+                or not isinstance(effect.result.value, Resolved)
+                for effect in panel_effects
+            )
+        ):
+            continue
+        panel_signature = tuple(
+            (
+                effect.result.modifier_path,
+                effect.result.operation,
+                effect.result.value,
+                effect.rule.target,
+            )
+            for effect in panel_effects
+        )
+        if panel_signature:
+            signatures.setdefault(group_id, []).append(
+                (panel_signature, _resolved_rule_stack(rule, scenario))
+            )
+
+    conflicts = frozenset(
+        group_id
+        for group_id, group_signatures in signatures.items()
+        if len(group_signatures) > 1
+        and any(signature != group_signatures[0] for signature in group_signatures[1:])
+    )
+    diagnostics = tuple(
+        _diagnostic(
+            group_id,
+            "conflicting-panel-values",
+            DiagnosticKind.AMBIGUOUS_SEMANTICS,
+            "Active non-stacking panel effects in this group resolve to different "
+            "values; no candidate was applied because the source does not define "
+            "which instance takes precedence.",
+        )
+        for group_id in sorted(conflicts)
+    )
+    return conflicts, diagnostics
 
 
 def _resolve_rule_trigger(

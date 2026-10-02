@@ -8,7 +8,17 @@ from typing import Any
 
 
 _WENGINE_FILES = {
+    "wengine:12001": "12001.json",
+    "wengine:12002": "12002.json",
+    "wengine:12003": "12003.json",
+    "wengine:12004": "12004.json",
+    "wengine:12005": "12005.json",
     "wengine:12006": "12006.json",
+    "wengine:12007": "12007.json",
+    "wengine:12008": "12008.json",
+    "wengine:12009": "12009.json",
+    "wengine:12010": "12010.json",
+    "wengine:12011": "12011.json",
     "wengine:13103": "13103.json",
     "wengine:14102": "14102.json",
     "wengine:14104": "14104.json",

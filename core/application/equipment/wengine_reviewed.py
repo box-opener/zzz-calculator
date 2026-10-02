@@ -27,6 +27,16 @@ from .wengine_ids import (
     WENGINE_ALICE_ID,
     WENGINE_YUZUHA_ID,
     WENGINE_YE_ID,
+    WENGINE_LUNAR_PLENILUNA_ID,
+    WENGINE_LUNAR_DECRESCENT_ID,
+    WENGINE_LUNAR_NOVILUNA_ID,
+    WENGINE_REVERB_MARK_I_ID,
+    WENGINE_REVERB_MARK_II_ID,
+    WENGINE_TURBULENCE_CANNON_ID,
+    WENGINE_TURBULENCE_ARROW_ID,
+    WENGINE_TURBULENCE_AXE_ID,
+    WENGINE_ELECTRO_STORM_I_ID,
+    WENGINE_ELECTRO_STORM_II_ID,
 )
 
 
@@ -39,11 +49,71 @@ class WEngineReviewedMapping:
 
 
 WENGINE_REVIEWED_MAPPINGS: Mapping[WEngineId, WEngineReviewedMapping] = {
+    WENGINE_LUNAR_DECRESCENT_ID: WEngineReviewedMapping(
+        WENGINE_LUNAR_DECRESCENT_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "attack-lunar-decrescent",
+    ),
+    WENGINE_LUNAR_NOVILUNA_ID: WEngineReviewedMapping(
+        WENGINE_LUNAR_NOVILUNA_ID,
+        CharacterStat.CRIT_RATE,
+        BuildContributionLayer.DIRECT_RATIO,
+        "attack-lunar-noviluna",
+    ),
+    WENGINE_REVERB_MARK_I_ID: WEngineReviewedMapping(
+        WENGINE_REVERB_MARK_I_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "support-reverb-mark-i",
+    ),
+    WENGINE_REVERB_MARK_II_ID: WEngineReviewedMapping(
+        WENGINE_REVERB_MARK_II_ID,
+        CharacterStat.ENERGY_REGEN,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "support-reverb-mark-ii",
+    ),
+    WENGINE_LUNAR_PLENILUNA_ID: WEngineReviewedMapping(
+        wengine_id=WENGINE_LUNAR_PLENILUNA_ID,
+        advanced_stat=CharacterStat.ATTACK,
+        advanced_layer=BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        effect_family="attack-lunar-pleniluna",
+    ),
     WENGINE_RESONAB_THREE_ID: WEngineReviewedMapping(
         wengine_id=WENGINE_RESONAB_THREE_ID,
         advanced_stat=CharacterStat.HP,
         advanced_layer=BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
         effect_family="support-resonab-3",
+    ),
+    WENGINE_TURBULENCE_CANNON_ID: WEngineReviewedMapping(
+        WENGINE_TURBULENCE_CANNON_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-turbulence-cannon",
+    ),
+    WENGINE_TURBULENCE_ARROW_ID: WEngineReviewedMapping(
+        WENGINE_TURBULENCE_ARROW_ID,
+        CharacterStat.IMPACT,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-turbulence-arrow",
+    ),
+    WENGINE_TURBULENCE_AXE_ID: WEngineReviewedMapping(
+        WENGINE_TURBULENCE_AXE_ID,
+        CharacterStat.ENERGY_REGEN,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "stun-turbulence-axe",
+    ),
+    WENGINE_ELECTRO_STORM_I_ID: WEngineReviewedMapping(
+        WENGINE_ELECTRO_STORM_I_ID,
+        CharacterStat.ATTACK,
+        BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
+        "anomaly-electro-storm-i",
+    ),
+    WENGINE_ELECTRO_STORM_II_ID: WEngineReviewedMapping(
+        WENGINE_ELECTRO_STORM_II_ID,
+        CharacterStat.ANOMALY_PROFICIENCY,
+        BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+        "anomaly-electro-storm-ii",
     ),
     WENGINE_TREASURE_CHEST_ID: WEngineReviewedMapping(
         wengine_id=WENGINE_TREASURE_CHEST_ID,

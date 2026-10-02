@@ -26,6 +26,7 @@ from core.types import (
     DamageTagFilter,
     DamageSubtype,
     DamageSubtypeFilter,
+    DamageDealerFilter,
     DamageType,
     DamageTypeFilter,
     DynamicIdentityCondition,
@@ -57,6 +58,15 @@ from .wengine_ids import (
     YUZUHA_ID,
     WENGINE_ALICE_ID,
     WENGINE_ASTRA_ID,
+    WENGINE_ELECTRO_STORM_I_ID,
+    WENGINE_ELECTRO_STORM_II_ID,
+    WENGINE_LUNAR_DECRESCENT_ID,
+    WENGINE_LUNAR_NOVILUNA_ID,
+    WENGINE_REVERB_MARK_I_ID,
+    WENGINE_REVERB_MARK_II_ID,
+    WENGINE_TURBULENCE_ARROW_ID,
+    WENGINE_TURBULENCE_AXE_ID,
+    WENGINE_TURBULENCE_CANNON_ID,
     WENGINE_TRIGGER_ID,
     WENGINE_YE_ID,
     WENGINE_YUZUHA_ID,
@@ -234,7 +244,7 @@ def compile_wengine(
             build_input,
             owner_capabilities,
         )
-        diagnostics = ()
+        diagnostics = _wengine_result_diagnostics(raw, build_input.refinement)
     return WEngineBuildResolution(
         build_input=build_input,
         raw=raw,
@@ -242,6 +252,41 @@ def compile_wengine(
         rule_items=rules,
         scenario_conditions=conditions,
         diagnostics=diagnostics,
+    )
+
+
+def _wengine_result_diagnostics(
+    raw: WEngineRawRecord,
+    refinement: int,
+) -> tuple[CalculationDiagnostic, ...]:
+    limitations = {
+        WENGINE_LUNAR_NOVILUNA_ID: (
+            "One-shot Energy restoration is retained in the source record, but the "
+            "current calculation request has no Energy resource result. It is not "
+            "approximated as Energy Regeneration."
+        ),
+        WENGINE_TURBULENCE_CANNON_ID: (
+            "The damage request pipeline does not calculate Daze values. The typed "
+            "EX Special Daze modifier is preserved for matching and trace, but no "
+            "Daze result is included in damage totals."
+        ),
+        WENGINE_TURBULENCE_ARROW_ID: (
+            "The damage request pipeline does not calculate Daze values. The typed "
+            "owner Daze modifier is preserved for matching and trace, but no Daze "
+            "result is included in damage totals."
+        ),
+    }
+    message = limitations.get(raw.wengine_id)
+    if message is None:
+        return ()
+    return (
+        CalculationDiagnostic(
+            diagnostic_id=DiagnosticId(f"wengine:{raw.wengine_id}:result-scope"),
+            kind=DiagnosticKind.UNSUPPORTED_CALCULATOR,
+            message=message,
+            blocking=False,
+            original_text=raw.talents[refinement - 1].text,
+        ),
     )
 
 
@@ -321,6 +366,28 @@ def _reviewed_rules(
         raw_text=talent.text,
     )
     effect_family = reviewed_mapping_for(raw.wengine_id).effect_family
+    if effect_family == "attack-lunar-pleniluna":
+        return _lunar_pleniluna_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-lunar-decrescent":
+        return _lunar_decrescent_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "attack-lunar-noviluna":
+        return _lunar_noviluna_rules(
+            raw, build_input, source, eligibility
+        ), ()
+    if effect_family == "support-reverb-mark-i":
+        return _reverb_mark_i_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "support-reverb-mark-ii":
+        return _reverb_mark_ii_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "stun-turbulence-cannon":
+        return _turbulence_cannon_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "stun-turbulence-arrow":
+        return _turbulence_arrow_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "stun-turbulence-axe":
+        return _turbulence_axe_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "anomaly-electro-storm-i":
+        return _electro_storm_i_rules(raw, build_input, talent, source, eligibility)
+    if effect_family == "anomaly-electro-storm-ii":
+        return _electro_storm_ii_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "ye-cloudcleave-radiance":
         return _ye_rules(raw, build_input, talent, source, eligibility), ()
     if effect_family == "astra-elegant-vanity":
@@ -386,6 +453,400 @@ def _reviewed_rules(
             raw, build_input, talent, source, eligibility, owner_capabilities
         )
     raise ValueError(f"no reviewed W-Engine rule mapping for {raw.wengine_id}")
+
+
+def _lunar_pleniluna_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    tags = (
+        DamageTag.BASIC_ATTACK,
+        DamageTag.DASH_ATTACK,
+        DamageTag.DODGE_COUNTER,
+    )
+    effect = ModifierEffect(
+        rule=_effect_rule(
+            effect_id=_instance_effect_id(raw.wengine_id, owner, "basic-dash-counter-damage"),
+            source=source,
+            owner=owner,
+            target=EffectTarget.TEAM,
+            filters=(
+                DamageDealerFilter(owner),
+                AnyFilter(tuple(DamageTagFilter(tag) for tag in tags)),
+            ),
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.DAMAGE_NORMAL_BONUS,
+            operation=EffectOperation.ADD,
+            value=Resolved(float(talent.numeric_values["direct_damage_bonus"])),
+        ),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="basic-dash-counter-damage",
+                label=f"{raw.name}·普通、冲刺、闪避反击伤害提升",
+                eligibility=eligibility,
+                effects=(effect,),
+            ),
+        ),
+        (),
+    )
+
+
+def _lunar_decrescent_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "damage-buff-active",
+        f"{raw.name}：连携技/终结技触发后的增伤已生效",
+        talent.text,
+    )
+    effect = _wearer_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="damage-buff",
+        path=CalculationNode.DAMAGE_NORMAL_BONUS,
+        value=float(talent.numeric_values["damage_bonus"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="damage-buff",
+                label=f"{raw.name}·触发后伤害提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _lunar_noviluna_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[CalculationRuleItem, ...]:
+    owner = build_input.equipped_character_id
+    limitation = _wengine_result_diagnostics(raw, build_input.refinement)
+    return (
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="energy-restore",
+            label=f"{raw.name}·强化特殊技触发能量回复",
+            eligibility=eligibility,
+            effects=(),
+            diagnostics=limitation,
+        ),
+    )
+
+
+def _reverb_mark_i_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "team-impact-active",
+        f"{raw.name}：强化特殊技触发的全队冲击力提升已生效",
+        talent.text,
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="team-impact",
+        path=CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+        value=float(talent.numeric_values["team_impact_percent"]),
+        target=EffectTarget.TEAM,
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="team-impact",
+                label=f"{raw.name}·全队冲击力提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+                non_stacking_group_id="wengine:12004:tidal-team-impact",
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _reverb_mark_ii_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "team-anomaly-stats-active",
+        f"{raw.name}：强化特殊技/连携技触发的全队异常属性提升已生效",
+        talent.text,
+    )
+    effects = (
+        _panel_modifier(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-anomaly-mastery",
+            path=CalculationNode.CHARACTER_COMBAT_ANOMALY_MASTERY_FLAT_BONUS,
+            value=float(talent.numeric_values["team_anomaly_mastery_flat"]),
+            target=EffectTarget.TEAM,
+        ),
+        _panel_modifier(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="team-anomaly-proficiency",
+            path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+            value=float(talent.numeric_values["team_anomaly_proficiency_flat"]),
+            target=EffectTarget.TEAM,
+        ),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="team-anomaly-stats",
+                label=f"{raw.name}·全队异常掌控/精通提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=effects,
+                non_stacking_group_id="wengine:12005:sound-wave-team-anomaly-stats",
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _turbulence_cannon_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    effect = _wearer_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="ex-daze",
+        path=CalculationNode.DAZE_OUTGOING_BONUS,
+        value=float(talent.numeric_values["ex_daze_bonus"]),
+        filters=(DamageTagFilter(DamageTag.EX_SPECIAL_ATTACK),),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="ex-daze",
+                label=f"{raw.name}·强化特殊技失衡值提升",
+                eligibility=eligibility,
+                effects=(effect,),
+                diagnostics=_wengine_result_diagnostics(
+                    raw, build_input.refinement
+                ),
+            ),
+        ),
+        (),
+    )
+
+
+def _turbulence_arrow_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    effect = _wearer_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="primary-target-daze",
+        path=CalculationNode.DAZE_OUTGOING_BONUS,
+        value=float(talent.numeric_values["primary_target_daze_bonus"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="primary-target-daze",
+                label=f"{raw.name}·主要目标失衡值提升",
+                eligibility=eligibility,
+                effects=(effect,),
+                diagnostics=_wengine_result_diagnostics(
+                    raw, build_input.refinement
+                ),
+            ),
+        ),
+        (),
+    )
+
+
+def _turbulence_axe_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "impact-active",
+        f"{raw.name}：接战切入操作角色后冲击力提升已生效",
+        talent.text,
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="impact",
+        path=CalculationNode.CHARACTER_COMBAT_IMPACT_PERCENT_BONUS,
+        value=float(talent.numeric_values["impact_percent"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="impact",
+                label=f"{raw.name}·冲击力提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _electro_storm_i_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "anomaly-mastery-active",
+        f"{raw.name}：异常积蓄触发的掌控提升已生效",
+        talent.text,
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="anomaly-mastery",
+        path=CalculationNode.CHARACTER_COMBAT_ANOMALY_MASTERY_FLAT_BONUS,
+        value=float(talent.numeric_values["anomaly_mastery_flat"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="anomaly-mastery",
+                label=f"{raw.name}·异常掌控提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+            ),
+        ),
+        (condition,),
+    )
+
+
+def _electro_storm_ii_rules(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    talent: WEngineRawTalent,
+    source: RuleSource,
+    eligibility: RuleEligibility,
+) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
+    owner = build_input.equipped_character_id
+    condition_id, condition = _condition(
+        raw,
+        owner,
+        "anomaly-proficiency-active",
+        f"{raw.name}：异常积蓄触发的精通提升已生效",
+        talent.text,
+    )
+    effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="anomaly-proficiency",
+        path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+        value=float(talent.numeric_values["anomaly_proficiency_flat"]),
+    )
+    return (
+        (
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="anomaly-proficiency",
+                label=f"{raw.name}·异常精通提升",
+                eligibility=eligibility,
+                condition_ids=(condition_id,),
+                effects=(effect,),
+            ),
+        ),
+        (condition,),
+    )
 
 
 def _ye_rules(
@@ -617,6 +1078,8 @@ def _rule(
     stack_count: int | None = None,
     stack_min: int | None = None,
     stack_max: int | None = None,
+    non_stacking_group_id: str | None = None,
+    diagnostics: tuple[CalculationDiagnostic, ...] = (),
 ) -> CalculationRuleItem:
     return CalculationRuleItem(
         rule_id=RuleItemId(_instance_rule_id(raw.wengine_id, owner, suffix)),
@@ -630,6 +1093,8 @@ def _rule(
         stack_count=stack_count,
         stack_min=stack_min,
         stack_max=stack_max,
+        non_stacking_group_id=non_stacking_group_id,
+        diagnostics=diagnostics,
     )
 
 
