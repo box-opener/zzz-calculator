@@ -31,6 +31,7 @@ import {
 } from "./state/buildPreview";
 import {
   createCharacterConfig,
+  defaultSignatureWengineSelections,
   parseCharacterConfig,
   serializeCharacterConfig,
 } from "./state/equipmentConfig";
@@ -619,20 +620,9 @@ function App() {
         setCharacters(loadedCharacters);
         setWengines(loadedWengines);
         setDriveDiscSets(loadedDriveDiscSets);
-        const nextSelections = loadedWengines.reduce<Record<string, { id: string; level: number; refinement: number }>>((current, item) => {
-          const owner = item.signature_character_id;
-          if (owner && !current[owner]) {
-            current[owner] = { id: item.wengine_id, level: 60, refinement: 1 };
-          }
-          return current;
-        }, {});
+        const nextSelections = defaultSignatureWengineSelections(loadedWengines);
         setWengineSelections((current) => {
           const next = { ...nextSelections, ...current };
-          loadedWengines.forEach((item) => {
-            if (item.signature_character_id && !next[item.signature_character_id]) {
-              next[item.signature_character_id] = { id: item.wengine_id, level: 60, refinement: 1 };
-            }
-          });
           return next;
         });
         return loadEditors(teamIds, currentOperatorId, configs, conditionValuesRef.current, {}, nextSelections);

@@ -16,6 +16,12 @@ from core.application.characters.alice import (
     compile_alice,
     load_raw_record as load_alice_raw_record,
 )
+from core.application.characters.anby import (
+    ANBY_ID,
+    AnbyCompileConfig,
+    compile_anby,
+    load_raw_record as load_anby_raw_record,
+)
 from core.application.characters.yuzuha import (
     YuzuhaCompileConfig,
     compile_yuzuha,
@@ -490,6 +496,73 @@ def _trigger_fields(
     )
 
 
+def _anby_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _integer_field(
+            "core_level",
+            "安比核心被动等级",
+            int(values.get("core_level", 1)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _integer_field(
+            "cinema_level",
+            "安比影画",
+            int(values.get("cinema_level", 6)),
+            0,
+            6,
+            "A级角色默认按6影配置；已解锁影画等级",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
+def _anby_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    anby_camps = {
+        str(value)
+        for value in load_character_record(str(ANBY_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == ANBY_ID:
+            continue
+        registration = _REGISTRATIONS[character_id]
+        if registration.base_element is Element.ELECTRIC:
+            return True
+        camps = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camps, Mapping) and anby_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
+def _compile_anby(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_anby(
+        AnbyCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 1, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 6, strict),
+            additional_ability_eligible=_anby_additional_ability_eligibility(
+                team_ids
+            ),
+        ),
+        load_anby_raw_record(load_character_record(str(ANBY_ID))),
+    )
+
+
 _SKILL_GROUP_LABELS = {
     SkillGroup.BASIC_ATTACK: "普通攻击",
     SkillGroup.DODGE: "闪避",
@@ -501,7 +574,9 @@ _SKILL_GROUP_LABELS = {
 
 
 def _skill_level_fields(
-    values: Mapping[str, Any]
+    values: Mapping[str, Any],
+    *,
+    default_level: int = 12,
 ) -> tuple[CompileConfigFieldView, ...]:
     selected = values.get("skill_levels", {})
     if selected is None:
@@ -513,7 +588,7 @@ def _skill_level_fields(
             field_id=f"skill_level:{group.value}",
             label=f"{_SKILL_GROUP_LABELS[group]}等级",
             field_type="select",
-            value=int(selected.get(group.value, 12)),
+            value=int(selected.get(group.value, default_level)),
             minimum=1,
             maximum=16,
             options=("12", "14", "16"),
@@ -1005,6 +1080,86 @@ def _compile_qingyi(
 
 
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
+    CharacterId("character:1011"): CharacterPresentationRegistration(
+        character_id=ANBY_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1011",
+            display_name="安比",
+            rarity="A",
+            element="electric",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_anby,
+        config_fields=_anby_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=ANBY_ID,
+            role=CharacterRole.STUN,
+            possible_elements=frozenset({Element.PHYSICAL, Element.ELECTRIC}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"anby-counter-energy", "anby-cinema6-charges"}),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset(
+                            {DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK}
+                        ),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
+                    ),
+                }
+            ),
+        ),
+    ),
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
         catalog=CharacterCatalogItem(

@@ -55,6 +55,68 @@ def _valid_calculation_payload() -> dict:
     }
 
 
+def _anby_calculation_payload(
+    move_entry_id: str,
+    *,
+    cinema_level: int = 6,
+    core_level: int = 7,
+    enemy_stunned: bool = False,
+    charge_count: int | None = None,
+    enabled_rule_item_ids: list[str] | None = None,
+) -> dict:
+    payload = _valid_calculation_payload()
+    payload.update(
+        {
+            "primary_character_id": "character:1011",
+            "supporting_character_ids": [],
+            "team_character_ids": ["character:1011"],
+            "move_entry_id": move_entry_id,
+            "compile_configs": {
+                "character:1011": {
+                    "core_level": core_level,
+                    "cinema_level": cinema_level,
+                }
+            },
+            "condition_values": {
+                "condition:anby:after-basic-third-active": True,
+                "condition:anby:cinema1-energy-efficiency-active": True,
+            },
+            "character_builds": {
+                "character:1011": {
+                    "level": 60,
+                    "out_of_combat_stats": {
+                        "hp": 7500.7134,
+                        "attack": 1000.0,
+                        "defense": 612.6038,
+                        "impact": 136.0,
+                        "crit_rate": 0.50,
+                        "crit_damage": 0.50,
+                        "anomaly_mastery": 94.0,
+                        "anomaly_proficiency": 93.0,
+                        "energy_regen": 1.2,
+                        "penetration_rate": 0.0,
+                        "penetration_flat": 0.0,
+                        "element_damage_bonus": {"physical": 0.20, "electric": 0.20},
+                    },
+                }
+            },
+        }
+    )
+    payload["enemy"].update(
+        {
+            "damage_resistance": {"physical": 0.20, "electric": 0.20},
+            "is_stunned": enemy_stunned,
+        }
+    )
+    payload["enabled_rule_item_ids"] = enabled_rule_item_ids or []
+    payload["rule_stack_counts"] = (
+        {"rule:character:1011:cinema6:charge-stacks": charge_count}
+        if charge_count is not None
+        else {}
+    )
+    return payload
+
+
 def _wengine_build(wengine_id: str, refinement: int, *, element: str) -> dict:
     return {
         "level": 60,
@@ -266,6 +328,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert {item["character_id"] for item in payload} == {
+        "character:1011",
         "character:1311",
         "character:1431",
         "character:1401",
@@ -281,6 +344,11 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
+    assert (asset_root / "portrait-placeholder.svg").is_file()
+    anby = next(item for item in payload if item["character_id"] == "character:1011")
+    assert anby["rarity"] == "A"
+    assert anby["specialty"] == "stun"
+    assert anby["image_path"] == "/characters/portrait-placeholder.svg"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
     assert (asset_root / "IconRole46.webp").is_file()
@@ -293,6 +361,166 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert (asset_root / "IconRole41.webp").is_file()
     assert (asset_root / "IconRole56.webp").is_file()
     assert (asset_root / "IconRole29.webp").is_file()
+
+
+def test_anby_definition_preview_uses_a_rank_defaults_and_exposes_its_actual_rules() -> None:
+    response = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1011",
+            "team_character_ids": ["character:1011"],
+            "compile_config": {"core_level": 7, "cinema_level": 6},
+            "condition_values": {},
+        },
+    )
+    assert response.status_code == 200, response.text
+    preview = response.json()
+    assert len(preview["moves"]) == 15
+    fields = {item["field_id"]: item["value"] for item in preview["compile_config_fields"]}
+    assert fields["cinema_level"] == 6
+    assert all(fields[f"skill_level:{group}"] == 16 for group in (
+        "basic-attack", "dodge", "special-attack", "chain-attack", "assist", "ultimate"
+    ))
+    rules = {item["rule_id"]: item for item in preview["rule_items"]}
+    assert rules["rule:character:1011:extra-ability:counter-energy-restore-source-only"][
+        "eligibility"
+    ] == "ineligible"
+    assert rules["rule:character:1011:cinema6:charge-stacks"]["stack"]["maximum"] == 8
+
+
+def test_anby_calculate_payload_uses_enemy_stun_state_and_current_charge_layers() -> None:
+    c6_stack = "rule:character:1011:cinema6:charge-stacks"
+    c6_bonus = "rule:character:1011:cinema6:basic-dash-damage-bonus"
+    stack_rules = [c6_stack, c6_bonus]
+    base = client.post(
+        "/api/v1/moves/calculate",
+        json=_anby_calculation_payload(
+            "move-entry:character:1011:basic-volt-assault-1",
+            charge_count=0,
+            enabled_rule_item_ids=stack_rules,
+        ),
+    )
+    charged = client.post(
+        "/api/v1/moves/calculate",
+        json=_anby_calculation_payload(
+            "move-entry:character:1011:basic-volt-assault-1",
+            charge_count=1,
+            enabled_rule_item_ids=stack_rules,
+        ),
+    )
+    assert base.status_code == 200, base.text
+    assert charged.status_code == 200, charged.text
+    base_result, charged_result = base.json(), charged.json()
+    assert base_result["totals"]["expected"]["complete"] is True
+    assert charged_result["totals"]["expected"]["complete"] is True
+    base_event = base_result["events"][0]
+    charged_event = charged_result["events"][0]
+    assert _breakdown_value(base_event, "damage.normal-bonus") == pytest.approx(0.0)
+    assert _breakdown_value(charged_event, "damage.normal-bonus") == pytest.approx(0.45)
+    assert _breakdown_value(base_event, "damage.normal-bonus-region") == pytest.approx(1.20)
+    assert _breakdown_value(charged_event, "damage.normal-bonus-region") == pytest.approx(1.65)
+    assert charged_event["modes"]["expected"]["value"] == pytest.approx(
+        base_event["modes"]["expected"]["value"] * (1.65 / 1.20)
+    )
+
+    c2_damage_rule = "rule:character:1011:cinema2:falling-thunder-damage-vs-stunned"
+    falling_thunder = "move-entry:character:1011:basic-falling-thunder"
+    not_stunned = client.post(
+        "/api/v1/moves/calculate",
+        json=_anby_calculation_payload(
+            falling_thunder,
+            cinema_level=2,
+            enemy_stunned=False,
+            enabled_rule_item_ids=[c2_damage_rule],
+        ),
+    )
+    stunned = client.post(
+        "/api/v1/moves/calculate",
+        json=_anby_calculation_payload(
+            falling_thunder,
+            cinema_level=2,
+            enemy_stunned=True,
+            enabled_rule_item_ids=[c2_damage_rule],
+        ),
+    )
+    assert not_stunned.status_code == 200, not_stunned.text
+    assert stunned.status_code == 200, stunned.text
+    assert _breakdown_value(not_stunned.json()["events"][0], "damage.normal-bonus-region") == pytest.approx(1.20)
+    assert _breakdown_value(stunned.json()["events"][0], "damage.normal-bonus-region") == pytest.approx(1.50)
+
+    c2_daze_rule = "rule:character:1011:cinema2:ex-special-daze-vs-not-stunned"
+    ex_special = "move-entry:character:1011:ex-special-cobalt-lightning"
+    nonstun_ex = client.post(
+        "/api/v1/moves/calculate",
+        json=_anby_calculation_payload(
+            ex_special,
+            cinema_level=2,
+            enemy_stunned=False,
+            enabled_rule_item_ids=[c2_daze_rule],
+        ),
+    )
+    stunned_ex = client.post(
+        "/api/v1/moves/calculate",
+        json=_anby_calculation_payload(
+            ex_special,
+            cinema_level=2,
+            enemy_stunned=True,
+            enabled_rule_item_ids=[c2_daze_rule],
+        ),
+    )
+    assert nonstun_ex.status_code == 200, nonstun_ex.text
+    assert stunned_ex.status_code == 200, stunned_ex.text
+    nonstun_event = nonstun_ex.json()["events"][0]
+    stunned_event = stunned_ex.json()["events"][0]
+    assert any(
+        item["modifier_path"] == "daze.outgoing-bonus"
+        and item["value"] == pytest.approx(0.10)
+        for item in nonstun_event["common_application_trace"]["applied_modifiers"]
+    )
+    assert not any(
+        item["modifier_path"] == "daze.outgoing-bonus"
+        for item in stunned_event["common_application_trace"]["applied_modifiers"]
+    )
+
+
+def test_anby_signature_equipment_build_uses_demara_battery_and_r5_panel_values() -> None:
+    payload = _anby_calculation_payload(
+        "move-entry:character:1011:ex-special-cobalt-lightning",
+        cinema_level=6,
+        core_level=7,
+    )
+    payload["character_builds"]["character:1011"] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": "wengine:13101",
+        "wengine_level": 60,
+        "wengine_refinement": 5,
+        "drive_discs": [],
+    }
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:13101:owner:1011:electric-damage",
+        "rule:character:1011:cinema1:energy-gain-efficiency-source-only",
+        "rule:character:1011:cinema4:backline-electric-energy-source-only",
+    ]
+    payload["rule_stack_counts"] = {}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    anby = next(
+        item for item in result["resolved_character_snapshots"]
+        if item["character_id"] == "character:1011"
+    )
+    assert anby["stats"]["hp"] == pytest.approx(7500.7134)
+    assert anby["stats"]["attack"] == pytest.approx(1282.957)
+    assert anby["stats"]["defense"] == pytest.approx(612.6038)
+    assert anby["stats"]["impact"] == pytest.approx(156.4)
+    assert anby["stats"]["energy_regen"] == pytest.approx(1.2)
+    event = result["events"][0]
+    assert _breakdown_value(event, "damage.skill-multiplier") == pytest.approx(13.78)
+    assert _breakdown_value(event, "damage.base-value") == pytest.approx(17679.14746)
+    assert _breakdown_value(event, "damage.normal-bonus-region") == pytest.approx(1.24)
+    assert event["modes"]["expected"]["value"] == pytest.approx(7956.0026572)
+    assert result["totals"]["expected"]["complete"] is True
 
 
 def test_calculation_accepts_a_primary_and_two_supporting_characters() -> None:
@@ -550,6 +778,7 @@ def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:
         for item in catalog
         if item["signature_character_id"] is not None
     } >= {
+        ("wengine:13101", "character:1011"),
         ("wengine:14136", "character:1361"),
         ("wengine:14140", "character:1401"),
         ("wengine:14141", "character:1411"),

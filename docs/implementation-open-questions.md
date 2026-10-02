@@ -794,3 +794,7 @@ supported row between batches, so this batch follows the actual insertion order.
 ### 14151 霓虹妄想: scope of the uniqueness phrase
 
 The R1 text ends: `拥有2层效果时，装备者的异常精通额外提升<color=#2BAD00>60</color>点，该效果全队唯一。` The uniqueness phrase could apply to the immediately preceding full-stack Anomaly Proficiency bonus or to the stack effect as a whole. Multiple simultaneous holders and differing refinements are not represented by the currently registered Stun owners, which have no Ether Basic/EX capability. The reviewed compiler keeps the known TEAM damage stack and owner Proficiency effect as separate typed effects; this implementation note does not resolve the phrase's multi-holder scope.
+
+## Anby (`character:1011`)
+
+The live-3.2 raw record, exact direct move curves, core/cinema text, and static Electric anomaly/Disorder entries are retained. The calculator can apply Anby's reviewed Daze modifiers to the Daze node, but the current request has no Daze output. Cinema 1's Energy Gain Efficiency and the 7.2/3-point Energy restoration effects are preserved as source-linked non-blocking diagnostics because the current request has no Energy resource result; these effects are not represented as Energy Regeneration. Cinema 6 is an explicit 0–8 pre-hit charge state, with +45% ordinary damage when a positive charge is available; charge timing and per-hit consumption are not replayed. The UI portrait uses a neutral placeholder because the source `IconRole01` art is not packaged in this repository.

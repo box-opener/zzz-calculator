@@ -119,10 +119,12 @@ WENGINE_SUPPORT_SAMPLE_IDS = (
 )
 WENGINE_STAGE_18_2_5_IDS = WENGINE_ATTACK_SAMPLE_IDS + WENGINE_SUPPORT_SAMPLE_IDS
 WENGINE_SIGNATURE_IDS = (
+    WENGINE_DEMARA_BATTERY_II_ID,
     WENGINE_TRIGGER_ID,
     WENGINE_ALICE_ID,
     WENGINE_YUZUHA_ID,
 )
+ANBY_ID = CharacterId("character:1011")
 ASTRA_ID = CharacterId("character:1311")
 YE_ID = CharacterId("character:1431")
 ALICE_ID = CharacterId("character:1401")
@@ -131,6 +133,7 @@ TRIGGER_ID = CharacterId("character:1361")
 
 
 __all__ = [
+    "ANBY_ID",
     "ASTRA_ID",
     "YE_ID",
     "ALICE_ID",

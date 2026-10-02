@@ -8,6 +8,32 @@ export type EquipmentWengineConfig = {
   refinement: number;
 };
 
+export type SignatureWengineCatalogEntry = {
+  wengine_id: string;
+  rarity: string;
+  signature_character_id: string | null;
+};
+
+export function defaultSignatureRefinement(rarity: string): number {
+  return rarity === "A" ? 5 : 1;
+}
+
+export function defaultSignatureWengineSelections(
+  catalog: readonly SignatureWengineCatalogEntry[],
+): Record<string, EquipmentWengineConfig> {
+  const selections: Record<string, EquipmentWengineConfig> = {};
+  for (const item of catalog) {
+    if (item.signature_character_id && !selections[item.signature_character_id]) {
+      selections[item.signature_character_id] = {
+        id: item.wengine_id,
+        level: 60,
+        refinement: defaultSignatureRefinement(item.rarity),
+      };
+    }
+  }
+  return selections;
+}
+
 export type EquipmentConfig = {
   schema_version: typeof EQUIPMENT_CONFIG_SCHEMA_VERSION;
   character_id: string;

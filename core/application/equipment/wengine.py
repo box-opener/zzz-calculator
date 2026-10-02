@@ -63,6 +63,7 @@ from core.types import (
 )
 from .wengine_ids import (
     ALICE_ID,
+    ANBY_ID,
     ASTRA_ID,
     TRIGGER_ID,
     YE_ID,
@@ -170,6 +171,7 @@ YE_MINGXIN_CONDITION_ID = ScenarioConditionId(
 YE_VEIL_ACTIVE_CONDITION_ID = YE_MINGXIN_CONDITION_ID
 
 SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
+    ANBY_ID: WENGINE_DEMARA_BATTERY_II_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

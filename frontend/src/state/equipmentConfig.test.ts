@@ -2,12 +2,41 @@ import { describe, expect, it } from "vitest";
 import {
   createCharacterConfig,
   createEquipmentConfig,
+  defaultSignatureRefinement,
+  defaultSignatureWengineSelections,
   EQUIPMENT_CONFIG_SCHEMA_VERSION,
   parseCharacterConfig,
   parseEquipmentConfig,
   serializeCharacterConfig,
   serializeEquipmentConfig,
 } from "./equipmentConfig";
+
+describe("signature W-Engine defaults", () => {
+  const signatures = [
+    {
+      wengine_id: "wengine:13101",
+      rarity: "A",
+      signature_character_id: "character:1011",
+    },
+    {
+      wengine_id: "wengine:14136",
+      rarity: "S",
+      signature_character_id: "character:1361",
+    },
+  ] as const;
+
+  it("defaults A-rank signatures to R5 and S-rank signatures to R1", () => {
+    expect(defaultSignatureRefinement("A")).toBe(5);
+    expect(defaultSignatureRefinement("S")).toBe(1);
+  });
+
+  it("builds initial character-to-signature selections in catalog order", () => {
+    expect(defaultSignatureWengineSelections(signatures)).toEqual({
+      "character:1011": { id: "wengine:13101", level: 60, refinement: 5 },
+      "character:1361": { id: "wengine:14136", level: 60, refinement: 1 },
+    });
+  });
+});
 
 const roundTripWengines = [
   { id: "wengine:12001", characterId: "character:1431", specialty: "attack" },

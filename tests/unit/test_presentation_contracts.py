@@ -103,6 +103,7 @@ def _execution(mode: CritDisplayMode, value: float) -> MoveCalculationExecution:
 
 def test_production_character_records_are_the_single_raw_data_source() -> None:
     assert supported_character_ids() == (
+        "character:1011",
         "character:1311",
         "character:1431",
         "character:1401",
@@ -116,6 +117,8 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1341",
         "character:1251",
     )
+    assert load_character_record("character:1011")["name"] == "安比"
+    assert load_character_record("character:1011")["source_version"] == "3.2"
     assert load_character_record("character:1311")["name"] == "耀嘉音"
     assert load_character_record("character:1431")["name"] == "叶瞬光"
     assert load_character_record("character:1401")["name"] == "爱丽丝"
