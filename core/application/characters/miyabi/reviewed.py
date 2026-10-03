@@ -44,7 +44,7 @@ ASSIST_FOLLOW_UP_MOVE_ID = MoveId("move:miyabi:petal-adieu")
 
 @dataclass(frozen=True, slots=True)
 class UnresolvedMultiplierSpec:
-    """Preserve all source curves when the game text does not define their relation."""
+    """Reviewed source curves for entries that need explicit compilation."""
 
     entry_key: str
     move_id: MoveId
@@ -56,6 +56,7 @@ class UnresolvedMultiplierSpec:
     damage_tags: frozenset[DamageTag]
     element: Element
     explanation: str
+    source_curves_are_additive: bool = False
 
 
 _BASIC = frozenset({DamageTag.BASIC_ATTACK})
@@ -227,13 +228,11 @@ MIYABI_UNRESOLVED_MULTIPLIERS = (
         source_name="强化特殊技：飞雪",
         parameter_name="斩击伤害倍率",
         source_skill_ids=("1091009", "1091010"),
+        source_curves_are_additive=True,
         skill_group=SkillGroup.SPECIAL_ATTACK,
         damage_tags=_EX_SPECIAL,
         element=Element.LIESHUANG,
-        explanation=(
-            "Nanoka 为同一强化特殊技斩击参数提供两条不同倍率曲线，"
-            "但原文没有说明两条曲线是独立命中、完整倍率还是互斥版本。"
-        ),
+        explanation="原始参数表达式明确相加1091009与1091010两条斩击曲线。",
     ),
     UnresolvedMultiplierSpec(
         entry_key="ex-special-follow-up",
@@ -242,13 +241,11 @@ MIYABI_UNRESOLVED_MULTIPLIERS = (
         source_name="强化特殊技：飞雪",
         parameter_name="追击伤害倍率",
         source_skill_ids=("1091011", "1091012"),
+        source_curves_are_additive=True,
         skill_group=SkillGroup.SPECIAL_ATTACK,
         damage_tags=_EX_SPECIAL,
         element=Element.LIESHUANG,
-        explanation=(
-            "Nanoka 为第二次点按的追击参数提供两条不同倍率曲线，"
-            "但原文没有说明两条曲线之间的结算关系。"
-        ),
+        explanation="原始参数表达式明确相加1091011与1091012两条追击曲线。",
     ),
     UnresolvedMultiplierSpec(
         entry_key="chain-spring-call",
@@ -257,13 +254,11 @@ MIYABI_UNRESOLVED_MULTIPLIERS = (
         source_name="连携技：春临",
         parameter_name="伤害倍率",
         source_skill_ids=("1091015", "1091016", "1091017"),
+        source_curves_are_additive=True,
         skill_group=SkillGroup.CHAIN_ATTACK,
         damage_tags=_CHAIN,
         element=Element.LIESHUANG,
-        explanation=(
-            "Nanoka 为春临提供三条伤害倍率曲线（前两条数值相同），"
-            "但原文没有标出命中段数或倍率之间的关系。"
-        ),
+        explanation="原始参数表达式明确相加1091015、1091016与1091017三条曲线。",
     ),
 )
 

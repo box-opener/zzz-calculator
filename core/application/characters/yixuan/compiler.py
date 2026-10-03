@@ -543,18 +543,36 @@ def _xuanmo_anomaly_entries(raw: NanokaRawRecord):
     )
 
 
-def _unresolved_lightning_effect(
+def _lightning_event(
     *,
+    key: str,
     effect_id: EffectId,
     source: RuleSource,
+    rule_id: RuleItemId,
     trigger: EventSelector | None = None,
     filters=(),
     percent: float,
-    original_text: str,
-    source_label: str,
-) -> EventCreationEffect:
-    percent_text = f"{percent * 100:g}%"
-    return EventCreationEffect(
+    unique_per_source_event: bool = False,
+) -> tuple[EventCreationEffect, PenetrationDamageEventTemplate, DerivedDamageEventTemplateRef]:
+    template_ref = DamageEventTemplateRef(
+        template_id=f"template:character:1371:{key}",
+        semantic_id=DamageEventSemanticId(f"event:character:1371:{key}"),
+        label="落雷：玄墨贯穿伤害",
+        damage_type=DamageType.PENETRATION,
+        skill_group=None,
+        damage_tags=frozenset(),
+        element=Element.XUANMO,
+        source_rule_item_id=rule_id,
+    )
+    template = PenetrationDamageEventTemplate(
+        ref=template_ref,
+        damage_dealer=YIXUAN_ID,
+        element=Element.XUANMO,
+        base_source=CurrentPenetrationForceValueSource(YIXUAN_ID),
+        crit_rule=StandardCritRule(YIXUAN_ID),
+        move_id=None,
+    )
+    creation = EventCreationEffect(
         rule=EffectRule(
             effect_id=effect_id,
             source=source,
@@ -566,23 +584,15 @@ def _unresolved_lightning_effect(
         ),
         result=EventCreationResult(
             event_kind=BattleEventKind.DAMAGE,
-            unresolved_template=Unresolved(
-                reason=UnresolvedReason.AMBIGUOUS_TEXT,
-                notes=(
-                    f"{source_label} has a source-stated multiplier of {percent_text} "
-                    "current Yixuan penetration force; the stated damage source/dealer "
-                    "and force owner are Yixuan. The raw text does not determine the "
-                    "lightning event's elemental attribute, MoveId, SkillGroup, or "
-                    "damage tags, so no damage value is calculated."
-                ),
-                original_text=original_text,
-                candidates=(
-                    "Reuse a named Yixuan move identity and its element/tags",
-                    "Use a separate lightning event identity and element",
-                ),
-            ),
+            event_template_id=template_ref.template_id,
+            unique_per_source_event=unique_per_source_event,
         ),
     )
+    derived = DerivedDamageEventTemplateRef(
+        template=template_ref,
+        multiplier=FixedMultiplier(Resolved(percent)),
+    )
+    return creation, template, derived
 
 
 def compile_yixuan(
@@ -849,7 +859,15 @@ def compile_yixuan(
         subject="Yixuan additional-ability lightning force multiplier",
     )
     lightning225_effect_id = EffectId("effect:character:1371:extra-ability:lightning")
-    lightning225_rule_source = extra_source
+    lightning225_effect, lightning225_template, lightning225_derived = _lightning_event(
+        key="extra-ability-lightning",
+        effect_id=lightning225_effect_id,
+        source=extra_source,
+        rule_id=RuleItemId("rule:character:1371:extra-ability:lightning"),
+        trigger=EventSelector(BattleEventKind.SUPPORT_ENTRY),
+        filters=(NotFilter(CreatedByEffectFilter(lightning225_effect_id)),),
+        percent=lightning225,
+    )
     rules.append(
         _rule(
             "extra-ability:lightning",
@@ -858,22 +876,16 @@ def compile_yixuan(
             extra_text,
             extra_eligibility,
             condition_ids=(PERFECT_SUPPORT_SWITCH_OUT,),
-            effects=(
-                _unresolved_lightning_effect(
-                    effect_id=lightning225_effect_id,
-                    source=lightning225_rule_source,
-                    trigger=EventSelector(BattleEventKind.SUPPORT_ENTRY),
-                    percent=lightning225,
-                    original_text=extra_text,
-                    source_label="额外能力落雷",
-                ),
-            ),
+            effects=(lightning225_effect,),
         )
     )
+    templates.append(lightning225_template)
+    derived_refs.append(lightning225_derived)
 
     # C1's entry bonus applies once C1 is unlocked.  Its lightning trigger
     # accepts Yixuan's own penetration event and teammates' direct events; the
-    # unresolved child is excluded by provenance to prevent recursive triggers.
+    # Each hit receives its own typed child identity; the child is excluded by
+    # its effect provenance so it cannot trigger another copy of itself.
     c1 = _raw_mindscape(raw_record, 1)
     c1_source = _source(
         raw_record,
@@ -914,12 +926,13 @@ def compile_yixuan(
             ),
         )
     )
-    c1_event_effect = _unresolved_lightning_effect(
+    c1_event_effect, c1_lightning_template, c1_lightning_derived = _lightning_event(
+        key="cinema1-lightning",
         effect_id=_LIGHTNING_C1_EFFECT_ID,
         source=c1_source,
+        rule_id=RuleItemId("rule:character:1371:cinema1:lightning"),
         percent=c1_lightning,
-        original_text=c1.description,
-        source_label="C1 落雷",
+        unique_per_source_event=True,
         filters=(
             AnyFilter(
                 (
@@ -940,6 +953,8 @@ def compile_yixuan(
             effects=(c1_event_effect,),
         )
     )
+    templates.append(c1_lightning_template)
+    derived_refs.append(c1_lightning_derived)
 
     # C2 resistance ignore is attached only to Yixuan's EX-special and
     # Ultimate penetration events.  The 1200% break technique is registered

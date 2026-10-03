@@ -16,21 +16,13 @@ retrievable URL `https://static.nanoka.cc/zzz/3.2/zh/character/1091.json`, with
 `source_version` recorded as `3.2`. Existing raw records and the shared pinned
 version constant remain unchanged.
 
-### Skill parameter relationships not stated by the source text
+### Reviewed additive source curves
 
-Nanoka groups multiple different source curves under the same parameter name
-for three moves. The reviewed mapping retains every source skill ID and value.
-The selected entry is blocked with its candidates until their relationship is
-resolved; these diagnostics are attached to the entry, so unrelated moves and
-supporting-character requests continue to calculate.
-
-- `强化特殊技：飞雪` has two `斩击伤害倍率` curves (`1091009`, `1091010`) and
-  two `追击伤害倍率` curves (`1091011`, `1091012`). Its text distinguishes the
-  first and second press, but does not say whether each pair is multiple hits,
-  a complete move value, or mutually exclusive versions.
-- `连携技：春临` has `伤害倍率` curves `1091015`, `1091016`, and `1091017`.
-  The first two values are equal, and the source text gives no hit count or
-  aggregation rule.
+The original Nanoka parameter expressions explicitly add both `飞雪` slash
+curves (`1091009` + `1091010`), both follow-up curves (`1091011` + `1091012`),
+and all three `春临` curves (`1091015` + `1091016` + `1091017`). The compiler
+now uses those sums as single complete multipliers. At skill level 12 they are
+788.3%, 967.2%, and 1258.3%, respectively. The raw curves remain unchanged.
 
 ### Cinema 6 automatic slash
 
@@ -38,15 +30,13 @@ The raw text says:
 
 > 在<color=#FFFFFF>[霜月架势]</color>期间，星见雅将获得<color=#FFFFFF>[极意]</color>效果，使<color=#FFFFFF>[普通攻击：霜月]</color>造成的伤害提升<color=#2BAD00>30%</color>；获得<color=#FFFFFF>[极意]</color>效果后，消耗<color=#FFFFFF>[落霜]</color>时，星见雅会根据当前蓄力段数，自动拔刀向前方发动强力斩击；在<color=#FFFFFF>[落霜]</color>耗尽前，拔刀斩击不会打断<color=#FFFFFF>[霜月架势]</color>下的蓄力进度；在一次<color=#FFFFFF>[霜月架势]</color>期间，最多连续发动3次拔刀斩击。
 
-The current raw record has no C6 slash multiplier. The text does not establish
-whether the slash reuses the selected Frostmoon charge multiplier or has a
-separate multiplier, nor does it explicitly assign the slash a MoveId or damage
-tags. The implementation keeps a stage-specific derived event and a 0–3
-repeat input, but an emitted slash is blocked as ambiguous until its multiplier
-and identity are reviewed. The template's absent MoveId and empty tags are
-provisional isolation values, not a confirmed game identity. The explicit 30%
-Frostmoon damage modifier remains active on the actual Frostmoon move. A repeat
-count of zero creates no slash event and does not block the main move.
+User confirmation specifies that the selected k-charge result comprises each
+Frostmoon charge curve from 1 through k once. The main event carries charge k;
+the C6 child event sums the earlier charge curves 1 through k−1, so the combined
+damage contains no duplicate charge-k multiplier. The C6 child keeps the reviewed
+Frostmoon MoveId/Basic tag and is excluded from recursively creating itself. No
+timeline or repeated slash count is simulated. The +30% Frostmoon modifier still
+applies to the main hit and its C6 child.
 
 ### Static state inputs
 
@@ -105,19 +95,16 @@ HP term. The independent Xuanmo anomaly is calculated through the static
 
 ### Lightning event identity
 
-The Additional Ability and Cinema 1 text state force multipliers of 225% and
-50%, respectively, and identify Yixuan as the force owner/dealer. Neither
-passage assigns the lightning event an elemental attribute, `MoveId`,
-`SkillGroup`, or damage tags. When the explicit Perfect Support switch-out or
-Cinema 1 hit condition is selected, the event creation is therefore blocked
-with an `AMBIGUOUS_SEMANTICS` diagnostic that retains the known multiplier and
-the unresolved identity choices. No lightning damage value is guessed.
-
-The existing static request model can exercise Cinema 1 from a Direct or
-Penetration damage event, including Yixuan's own Penetration event. It does not
-simulate the six-second cooldown. The Additional Ability's switched-out actor
-is supplied as a separate current-state selection; the current support-entry
-trigger contract identifies the incoming actor, not the outgoing Yixuan.
+The user confirmed both lightning effects as Xuanmo Penetration damage: 225% of
+current Yixuan Penetration Force from the Additional Ability and 50% from Cinema
+1. The event uses Yixuan as dealer, force owner, and standard-crit owner. It has
+no MoveId, SkillGroup, or damage tags. The Additional Ability creates one event
+on its selected support-entry trigger and excludes its own generated event.
+Cinema 1 creates one separately identified event per matching Direct or
+Penetration source hit, including Yixuan's own Penetration hits. Each generated
+instance has its source event identity in its semantic key, preserving distinct
+hits without recursion or duplicate-semantic blocking. No cooldown timeline is
+simulated.
 
 ### Static anomaly and resource states
 
@@ -165,10 +152,10 @@ special-skill level` (0.70 at level 12), with no additional division by 100.
 It is a separate Direct event using Lucia's current maximum-HP panel and is
 created once for the final hit of each reviewed Chorus move. The child keeps
 its parent's MoveId, skill group, and tags so C2/C6 Chorus effects apply to it.
-Ultimate rush collision children retain the Ultimate MoveId but are excluded;
-only the stop-time finisher gets one HP component. Whim variants get none. The
-team 5% max-HP effect during Spring Ether Curtain is a current panel modifier,
-so it changes this added damage.
+For the Ultimate, the HP component attaches only to the instant Ultimate damage
+template, not to the independently selectable collision entry. Whim variants
+get none. The team 5% max-HP effect during Spring Ether Curtain is a current
+panel modifier, so it changes this added damage.
 
 Break Dark instead reads Lucia's initial maximum HP. The source formula is
 represented as `12 + initial HP × (5 + 0.2 × effective special-skill level) /
@@ -178,42 +165,40 @@ Spring Curtain current-HP increase does not raise the input to this formula.
 The source does not say to floor the result, so the implementation does not.
 
 Cinema 6 reads initial maximum HP for its 2% attack increase, applied to
-Lucia's own panel. Its +30% crit damage applies only to Lucia Chorus Direct
-events, while the Extra Ability's +30% crit damage is a team panel buff during
-Break Dark and requires another Rupture or Stun teammate. Cinema 6 guaranteed
-crit is an independently enabled event effect for Chorus moves while any Ether
-Curtain is selected; it is not a permanent property of the raw event template.
+Lucia's own panel. Its +30% crit damage applies to Lucia Chorus Direct events,
+including the generated Core follow-up identified by its source effect. The
+Extra Ability's +30% crit damage is a team panel buff during Break Dark and
+requires another Rupture or Stun teammate. Cinema 6 guaranteed crit is an
+independently enabled event effect for Chorus moves and the Core follow-up while
+any Ether Curtain is selected; it is not a permanent property of the raw event
+template.
 
-The static damage rules also carry non-blocking diagnostics for resources that
-do not alter the current settlement: Cinema 1's 5% Decibel-gain and Echo-stack
-refresh, Cinema 4's 100 Decibels (with its 15-second trigger interval), the EX
-Special raw energy-cost field with no numeric value, and the Ultimate's
-Starlight-area HP recovery. Their resource, healing, and timing effects are not
-calculated. These diagnostics leave the known damage values usable.
+The static damage rules carry non-blocking diagnostics for resources that do
+not alter the current settlement: Cinema 1's 5% Decibel-gain and Echo-stack
+refresh, Cinema 4's 100 Decibels (with its 15-second trigger interval), and the
+EX Special raw energy-cost field with no numeric value. The Ultimate's
+Starlight-area HP recovery is also outside the damage request. These resource,
+healing, and timing effects are not calculated.
 
-### Dream follow-up and Ultimate rush collisions
+### Dream follow-up and Ultimate collision
 
-The Core source identifies an automatic follow-up as Chorus, but Nanoka exposes
-three same-named `追加攻击伤害倍率` curves under skill IDs `1451007`, `1451010`,
-and `1451015` without saying which generated move identity, skill group, or
-damage tags they inherit. A Direct or Penetration hit from the current operator
-can therefore retain the known partial result and a blocking identity
-diagnostic with all three current-level multiplier candidates. A hit dealt by
-Lucia herself does not trigger this follow-up. The calculation does not model
-the 8-second lockout or dream-resource consumption.
+The three `追加攻击伤害倍率` curves (`1451007`, `1451010`, and `1451015`) match
+at each source skill level. They are presentation variants of one follow-up
+event. The event has `FOLLOW_UP_ATTACK` only, no fabricated MoveId or SkillGroup,
+and retains its Chorus source text. A Direct or Penetration hit from a non-Lucia
+current operator can trigger it; a hit dealt by Lucia herself does not. The
+calculation does not model the 8-second lockout or dream-resource consumption.
 
-Ultimate source curve `1451024` gives each rush collision multiplier, but the
-3-second hold duration does not determine how many collisions occur. The
-calculator exposes an integer selected hit count with no inferred upper bound;
-without a count only the known finisher remains calculated and the selected
-Ultimate path is partial. A count of zero adds no collision event. Positive
-counts create repeated events with the Ultimate's MoveId and tags; the EX
-Chorus max-HP addition remains limited to its one final hit.
+Ultimate damage and its single rush-collision coefficient are independently
+selectable entries. The instant Ultimate event does not automatically include a
+collision; the collision entry calculates source curve `1451024` exactly once,
+without a duration or count parameter. The max-HP final-hit component applies to
+the separate instant Ultimate template, not to the collision entry.
 
 ### Static state assumptions and anomaly
 
-Dream, Dream Song, Break Dark, Spring Curtain, any Ether Curtain, follow-up
-readiness, and Ultimate collision count are current-state inputs. The static
+Dream, Dream Song, Break Dark, Spring Curtain, any Ether Curtain, and follow-up
+readiness are current-state inputs. The static
 calculator does not replay time, cooldowns, curtain extension, dream-resource
 consumption, or the 8-second follow-up lockout. Lucia's Ether corruption is a
 separate static anomaly result: 20 ticks at 62.5% each over the 10-second

@@ -478,34 +478,34 @@ def test_yixuan_effects_do_not_leak_to_a_teammate_event() -> None:
     )
 
 
-def test_c1_lightning_diagnostics_only_appear_for_direct_or_penetration_hits() -> None:
+def test_c1_lightning_is_typed_xuanmo_penetration_and_uses_yixuan_force() -> None:
     rule_id = "rule:character:1371:cinema1:lightning"
-    entry_crit = calculate_payload(
-        _payload(
-            cinema_level=1,
-            enabled_rule_item_ids=("rule:character:1371:cinema1:entry-crit-rate",),
-        )
-    )
-    assert _node(_event(entry_crit), "character.current.crit-rate")["value"] == pytest.approx(0.80)
     yixuan_hit = calculate_payload(
         _payload(
             cinema_level=1,
             enabled_rule_item_ids=(rule_id,),
         )
     )
-    assert _event(yixuan_hit)["damage_type"] == "penetration"
-    assert _event(yixuan_hit)["modes"]["expected"]["known_value"] is not None
-    assert len(yixuan_hit["events"]) == 1
-    assert yixuan_hit["totals"]["expected"]["complete"] is False
-    lightning_diagnostics = [
-        item
-        for item in yixuan_hit["diagnostics"]
-        if "50%" in item["message"] and "elemental attribute" in item["message"]
-    ]
-    assert lightning_diagnostics
-    assert lightning_diagnostics[0]["kind"] == "ambiguous-semantics"
-    assert "current Yixuan penetration force" in lightning_diagnostics[0]["message"]
-    assert "force owner are Yixuan" in lightning_diagnostics[0]["message"]
+    assert len(yixuan_hit["events"]) == 2
+    assert yixuan_hit["totals"]["expected"]["complete"] is True
+    lightning = next(
+        item for item in yixuan_hit["events"]
+        if item["semantic_id"].startswith("event:character:1371:cinema1-lightning:source:")
+    )
+    assert lightning["damage_type"] == "penetration"
+    assert _node(lightning, "penetration.force")["value"] == pytest.approx(1450.0)
+    assert _node(lightning, "damage.base-value")["value"] == pytest.approx(725.0)
+    definition = compile_yixuan(YixuanCompileConfig(cinema_level=1), _yixuan_raw())
+    lightning_template = next(
+        item for item in definition.damage_event_templates
+        if str(item.ref.template_id) == "template:character:1371:cinema1-lightning"
+    )
+    assert lightning_template.damage_dealer == YIXUAN
+    assert lightning_template.element is Element.XUANMO
+    assert lightning_template.move_id is None
+    assert lightning_template.ref.skill_group is None
+    assert lightning_template.ref.damage_tags == frozenset()
+    assert _node(_event(yixuan_hit), "character.current.crit-rate")["value"] == pytest.approx(0.70)
 
     team_direct = calculate_payload(
         _payload(
@@ -517,11 +517,14 @@ def test_c1_lightning_diagnostics_only_appear_for_direct_or_penetration_hits() -
         )
     )
     assert _event(team_direct)["damage_type"] == "direct"
-    assert team_direct["totals"]["expected"]["complete"] is False
-    assert any(
-        "50%" in item["message"]
-        for item in team_direct["diagnostics"]
+    assert team_direct["totals"]["expected"]["complete"] is True
+    assert len(team_direct["events"]) == 2
+    teammate_lightning = next(
+        item for item in team_direct["events"]
+        if item["semantic_id"].startswith("event:character:1371:cinema1-lightning:source:")
     )
+    assert teammate_lightning["damage_type"] == "penetration"
+    assert _node(teammate_lightning, "damage.base-value")["value"] == pytest.approx(725.0)
 
     extra_rule = "rule:character:1371:extra-ability:lightning"
     support_switch = _payload(
@@ -539,14 +542,14 @@ def test_c1_lightning_diagnostics_only_appear_for_direct_or_penetration_hits() -
         }
     ]
     support_result = calculate_payload(support_switch)
-    assert any(
-        "225%" in item["message"]
-        for item in support_result["diagnostics"]
-    )
-    assert support_result["totals"]["expected"]["complete"] is False
+    assert support_result["totals"]["expected"]["complete"] is True
+    assert len(support_result["events"]) == 2
+    extra_lightning = _event(support_result, "event:character:1371:extra-ability-lightning")
+    assert extra_lightning["damage_type"] == "penetration"
+    assert _node(extra_lightning, "damage.base-value")["value"] == pytest.approx(3262.5)
 
 
-def test_top_level_diagnostics_summarize_duplicates_without_dropping_event_traces() -> None:
+def test_c1_lightning_uses_one_unique_instance_per_source_hit_without_recursion() -> None:
     c1_rule = "rule:character:1371:cinema1:lightning"
     followup_rule = "rule:character:1371:followup:basic-array-qingming-shock"
     result = calculate_payload(
@@ -556,13 +559,16 @@ def test_top_level_diagnostics_summarize_duplicates_without_dropping_event_trace
             enabled_rule_item_ids=(c1_rule, followup_rule),
         )
     )
-    assert len(result["events"]) == 2
-    matching_diagnostics = [
-        item for item in result["diagnostics"]
-        if "50%" in item["message"] and item["kind"] == "ambiguous-semantics"
+    assert len(result["events"]) == 4
+    assert result["totals"]["expected"]["complete"] is True
+    lightning = [
+        item for item in result["events"]
+        if item["semantic_id"].startswith("event:character:1371:cinema1-lightning:source:")
     ]
-    assert len(matching_diagnostics) == 1
-    for event in result["events"]:
+    assert len(lightning) == 2
+    assert lightning[0]["semantic_id"] != lightning[1]["semantic_id"]
+    assert all(_node(item, "damage.base-value")["value"] == pytest.approx(725.0) for item in lightning)
+    for event in result["events"][:2]:
         trace = event["common_application_trace"]
         matching = [item for item in trace["rule_matches"] if item["rule_id"] == c1_rule]
         assert len(matching) == 1

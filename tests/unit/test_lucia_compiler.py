@@ -22,6 +22,7 @@ from core.presentation.registry import (
     registration_for,
 )
 from core.types import (
+    DamageTag,
     DamageType,
     Element,
 )
@@ -224,7 +225,6 @@ def test_unmodeled_non_damage_resources_are_diagnosed_without_blocking_damage() 
         "rule:character:1451:cinema1:dream-song-resistance-ignore",
         "rule:character:1451:cinema4:curtain-decibel",
         "rule:character:1451:ex-special:break-dark-penetration-force",
-        "rule:character:1451:ultimate:rush-hit",
     ):
         diagnostics = rule_diagnostics[rule_id]
         assert diagnostics
@@ -381,9 +381,6 @@ def test_each_chorus_gets_one_hp_component_with_its_parent_identity(
         "rule:character:1451:cinema6:veil-chorus-crit-and-attack",
     ]
     parameters = {}
-    if entry_key == "ultimate-charge-armor-finisher":
-        rule_ids.append("rule:character:1451:ultimate:rush-hit")
-        parameters["parameter:lucia:ultimate-rush-hit-count"] = 2
     result = calculate_payload(
         _payload(
             move_entry_id=f"move-entry:character:1451:{entry_key}",
@@ -414,8 +411,7 @@ def test_each_chorus_gets_one_hp_component_with_its_parent_identity(
     assert component_template.ref.skill_group is main_template.ref.skill_group
     assert component_template.ref.damage_tags == main_template.ref.damage_tags
 
-    expected_event_count = 3 if entry_key == "ultimate-charge-armor-finisher" else 2
-    assert len(result["events"]) == expected_event_count
+    assert len(result["events"]) == 2
     hp_children = [
         item for item in result["events"]
         if item["common_application_trace"]["created_by_effect_id"] == component_effect_id
@@ -437,15 +433,6 @@ def test_each_chorus_gets_one_hp_component_with_its_parent_identity(
             for item in event["common_application_trace"]["event_stat_modifiers"]
         )
     assert result["totals"]["expected"]["complete"] is True
-    if entry_key == "ultimate-charge-armor-finisher":
-        collision_children = [
-            item
-            for item in result["events"]
-            if item["common_application_trace"]["created_by_effect_id"]
-            == "effect:character:1451:ultimate:rush-hit"
-        ]
-        assert len(collision_children) == 1
-        assert collision_children[0]["repeat_count"] == 2
 
 
 def test_lucia_mindscapes_scope_chorus_resistance_and_penetration_effects() -> None:
@@ -535,6 +522,15 @@ def test_ex_chorus_hp_component_uses_full_current_max_hp_fraction(
 
 def test_lucia_additional_attack_requires_current_operator_attack_and_excludes_lucia() -> None:
     rule_id = "rule:character:1451:core:additional-attack"
+    core_followup_template = next(
+        item for item in compile_lucia(LuciaCompileConfig(), load_raw_record(load_character_record(LUCIA))).damage_event_templates
+        if str(item.ref.template_id) == "template:character:1451:core:additional-attack"
+    )
+    assert core_followup_template.damage_dealer == LUCIA
+    assert core_followup_template.element is Element.ETHER
+    assert core_followup_template.move_id is None
+    assert core_followup_template.ref.skill_group is None
+    assert core_followup_template.ref.damage_tags == frozenset({DamageTag.FOLLOW_UP_ATTACK})
     active_conditions = {
         "condition:lucia:dream-active": True,
         "condition:lucia:dream-inactive": False,
@@ -553,23 +549,17 @@ def test_lucia_additional_attack_requires_current_operator_attack_and_excludes_l
                 enabled_rule_item_ids=(rule_id,),
             )
         )
-        assert len(result["events"]) == 1
+        assert len(result["events"]) == 2
         rule_match = next(
             item
             for item in result["events"][0]["common_application_trace"]["rule_matches"]
             if item["rule_id"] == rule_id
         )
         assert rule_match["effects"][0]["status"] == "matched"
-        assert result["totals"]["expected"]["complete"] is False
-        diagnostic = next(
-            item
-            for item in result["totals"]["expected"]["diagnostics"]
-            if item["diagnostic_id"].endswith(":unresolved-template")
-        )
-        assert len(diagnostic["candidates"]) == 3
-        assert all(source_id in " ".join(diagnostic["candidates"]) for source_id in ("1451007", "1451010", "1451015"))
-        assert diagnostic["kind"] == "ambiguous-semantics"
-        assert "event identity" in diagnostic["message"]
+        assert result["totals"]["expected"]["complete"] is True
+        child = result["events"][1]
+        assert child["damage_type"] == "direct"
+        assert _node(child, "damage.skill-multiplier")["value"] == pytest.approx(11.0)
 
     lucia_own_attack = calculate_payload(
         _payload(
@@ -591,6 +581,68 @@ def test_lucia_additional_attack_requires_current_operator_attack_and_excludes_l
         item["diagnostic_id"].endswith(":unresolved-template")
         for item in lucia_own_attack["totals"]["expected"]["diagnostics"]
     )
+
+
+def test_lucia_c6_applies_to_off_operator_chorus_followup_without_skill_group() -> None:
+    c6_rule = "rule:character:1451:cinema6:veil-chorus-crit-and-attack"
+    core_rule = "rule:character:1451:core:additional-attack"
+    result = calculate_payload(
+        _payload(
+            primary=YIXUAN,
+            supporting=(LUCIA,),
+            move_entry_id="move-entry:character:1371:basic-xiaoyun-jin-1",
+            cinema_level=6,
+            condition_values={
+                "condition:lucia:dream-active": True,
+                "condition:lucia:dream-inactive": False,
+                "condition:lucia:additional-attack-ready": True,
+                "condition:lucia:any-ether-curtain-active": True,
+            },
+            enabled_rule_item_ids=(core_rule, c6_rule),
+        )
+    )
+    assert result["totals"]["expected"]["complete"] is True
+    child = result["events"][1]
+    trace = child["common_application_trace"]
+    assert trace["guaranteed_crit_effect_ids"] == [
+        "effect:character:1451:cinema6:chorus-guaranteed-crit"
+    ]
+    assert any(
+        item["effect_id"] == "effect:character:1451:cinema6:chorus-crit-damage"
+        and item["value"] == pytest.approx(0.30)
+        for item in trace["event_stat_modifiers"]
+    )
+    modes = child["modes"]
+    assert modes["expected"]["value"] == pytest.approx(modes["full-crit"]["value"])
+    assert modes["non-crit"]["value"] == pytest.approx(modes["expected"]["value"])
+
+
+def test_lucia_followup_instances_are_unique_per_source_hit() -> None:
+    result = calculate_payload(
+        _payload(
+            primary=YIXUAN,
+            supporting=(LUCIA,),
+            move_entry_id="move-entry:character:1371:basic-xuanmo-array",
+            condition_values={
+                "condition:lucia:dream-active": True,
+                "condition:lucia:dream-inactive": False,
+                "condition:lucia:additional-attack-ready": True,
+            },
+            enabled_rule_item_ids=(
+                "rule:character:1371:followup:basic-array-qingming-shock",
+                "rule:character:1451:core:additional-attack",
+            ),
+        )
+    )
+    assert result["totals"]["expected"]["complete"] is True
+    followups = [
+        item for item in result["events"]
+        if item["semantic_id"].startswith(
+            "event:character:1451:core:additional-attack:source:"
+        )
+    ]
+    assert len(followups) == 2
+    assert followups[0]["semantic_id"] != followups[1]["semantic_id"]
 
 
 def test_lucia_additional_ability_eligibility_and_team_break_dark_panel_buff() -> None:
@@ -719,28 +771,31 @@ def test_lucia_c6_uses_initial_hp_attack_and_scene_controlled_guaranteed_crit() 
     assert _event(whim)["common_application_trace"]["guaranteed_crit_effect_ids"] == []
 
 
-def test_lucia_ultimate_collision_count_is_user_selected_and_created_by_ultimate() -> None:
-    entry = "move-entry:character:1451:ultimate-charge-armor-finisher"
-    rule_id = "rule:character:1451:ultimate:rush-hit"
-    pending = calculate_payload(_payload(move_entry_id=entry, enabled_rule_item_ids=(rule_id,)))
-    assert len(pending["events"]) == 1
-    assert pending["events"][0]["modes"]["expected"]["known_value"] is not None
-    assert pending["totals"]["expected"]["complete"] is False
-    assert any("repeat-count" in item["message"] for item in pending["diagnostics"])
+def test_lucia_ultimate_instant_damage_and_single_collision_are_separate_entries() -> None:
+    collision_entry = "move-entry:character:1451:ultimate-charge-armor-single-collision"
+    instant = calculate_payload(_payload(move_entry_id=ULTIMATE_ENTRY))
+    collision = calculate_payload(_payload(move_entry_id=collision_entry))
+    assert len(instant["events"]) == len(collision["events"]) == 1
+    assert instant["totals"]["expected"]["complete"] is True
+    assert collision["totals"]["expected"]["complete"] is True
+    instant_event = _event(instant)
+    collision_event = _event(collision)
+    assert instant_event["semantic_id"] == "event:character:1451:ultimate-charge-armor-finisher:main"
+    assert collision_event["semantic_id"] == "event:character:1451:ultimate-rush-hit"
+    assert instant_event["repeat_count"] == collision_event["repeat_count"] == 1
+    assert _node(instant_event, "damage.skill-multiplier")["value"] == pytest.approx(38.057)
+    assert _node(collision_event, "damage.skill-multiplier")["value"] == pytest.approx(1.865)
 
-    zero = calculate_payload(
-        _payload(move_entry_id=entry, enabled_rule_item_ids=(rule_id,), parameter_values={"parameter:lucia:ultimate-rush-hit-count": 0})
+    hp_rule = "rule:character:1451:ex-special:chorus-hp-final-hit"
+    instant_with_hp = calculate_payload(
+        _payload(move_entry_id=ULTIMATE_ENTRY, enabled_rule_item_ids=(hp_rule,))
     )
-    assert len(zero["events"]) == 1
-    assert zero["totals"]["expected"]["complete"] is True
-
-    repeated = calculate_payload(
-        _payload(move_entry_id=entry, enabled_rule_item_ids=(rule_id,), parameter_values={"parameter:lucia:ultimate-rush-hit-count": 2})
+    collision_with_hp = calculate_payload(
+        _payload(move_entry_id=collision_entry, enabled_rule_item_ids=(hp_rule,))
     )
-    assert len(repeated["events"]) == 2
-    child = repeated["events"][1]
-    assert child["repeat_count"] == 2
-    assert child["common_application_trace"]["created_by_effect_id"] == "effect:character:1451:ultimate:rush-hit"
+    assert len(instant_with_hp["events"]) == 2
+    assert len(collision_with_hp["events"]) == 1
+    assert collision_with_hp["totals"]["expected"]["complete"] is True
     definition = compile_lucia(LuciaCompileConfig(), _lucia_raw())
     collision_template = next(
         item

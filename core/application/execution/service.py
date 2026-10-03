@@ -51,7 +51,7 @@ from ..characters.templates import (
     DisorderDamageEventTemplate,
 )
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
-from ..ids import DiagnosticId, MoveEntryId
+from ..ids import DamageEventSemanticId, DiagnosticId, MoveEntryId
 from ..moves import DerivedDamageEventTemplateRef, MoveCalculationEntry
 from ..scenario import ScenarioRuleStack
 from ..rules import CalculationRuleItem, RuleEligibility
@@ -574,15 +574,35 @@ class DirectMoveApplicationService:
             repeat_count = parameter.value
         if repeat_count == 0 and derived_ref.skip_when_repeat_count_zero:
             return None
-        if derived_ref.semantic_id in seen_semantics:
+        instance_semantic_id = derived_ref.semantic_id
+        if effect.result.unique_per_source_event:
+            if source_event_id is None:
+                return _diagnostic(
+                    str(effect.rule.effect_id),
+                    "source-event-identity",
+                    DiagnosticKind.MISSING_DATA,
+                    "this EventCreation requires a source-event identity for its generated instance",
+                )
+            instance_semantic_id = DamageEventSemanticId(
+                f"{derived_ref.semantic_id}:source:{source_event_id}"
+            )
+        if instance_semantic_id in seen_semantics:
             return _diagnostic(
-                str(derived_ref.semantic_id),
+                str(instance_semantic_id),
                 "duplicate-semantic-event",
                 DiagnosticKind.AMBIGUOUS_SEMANTICS,
                 "the same semantic event was created more than once",
             )
+        instance_template = (
+            replace(
+                template,
+                ref=replace(template.ref, semantic_id=instance_semantic_id),
+            )
+            if instance_semantic_id != template.ref.semantic_id
+            else template
+        )
         child = instantiate_damage_event(
-            template,
+            instance_template,
             derived_ref.multiplier,
             battle_state_id=request.battle_state_id,
             target_enemy=request.target_snapshot.enemy_id,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from core.types import AnomalyRecordId, CharacterId, DamageTag, Element, MoveId, SkillGroup
 
-from ...ids import ScenarioConditionId, ScenarioParameterId
+from ...ids import ScenarioConditionId
 from ...moves import MultiplierRelation
 from ..nanoka_compiler import (
     NanokaDamageParameterSpec,
@@ -23,7 +23,6 @@ DREAM_SONG_ACTIVE = ScenarioConditionId("condition:lucia:dream-song-active")
 BREAK_DARK_ACTIVE = ScenarioConditionId("condition:lucia:break-dark-active")
 ADDITIONAL_ATTACK_READY = ScenarioConditionId("condition:lucia:additional-attack-ready")
 
-ULTIMATE_RUSH_HIT_COUNT = ScenarioParameterId("parameter:lucia:ultimate-rush-hit-count")
 LUCIA_ETHER_ANOMALY_RECORD_ID = AnomalyRecordId("anomaly:lucia:ether-current")
 
 BASIC_MOVE_ID = MoveId("move:lucia:basic-star-rail-combo")
@@ -42,7 +41,7 @@ QUICK_ASSIST_CHORUS_MOVE_ID = MoveId("move:lucia:quick-assist-fog-strike-chorus"
 SUPPORT_FOLLOW_UP_CHORUS_MOVE_ID = MoveId("move:lucia:support-follow-up-dream-chorus")
 ULTIMATE_RUSH_HIT_MOVE_ID = ULTIMATE_CHORUS_MOVE_ID
 EX_CHORUS_HP_COMPONENT_MOVE_ID = EX_SPECIAL_CHORUS_MOVE_ID
-UNRESOLVED_ADDITIONAL_ATTACK_EFFECT_ID = "effect:character:1451:core:additional-attack"
+CORE_ADDITIONAL_ATTACK_EFFECT_ID = "effect:character:1451:core:additional-attack"
 LUCIA_ADDITIONAL_ATTACK_CURVES = (
     ("普通攻击：星轨连击", "1451007"),
     ("特殊技：死神协奏曲·风暴", "1451010"),
@@ -233,7 +232,7 @@ LUCIA_REVIEWED_MAPPING = NanokaReviewedMapping(
         _move(
             "ultimate-charge-armor-finisher",
             ULTIMATE_CHORUS_MOVE_ID,
-            "终结技：进击，大铠甲！（收尾）",
+            "终结技：进击，大铠甲！（终结技瞬发伤害）",
             "终结技：进击，大铠甲！",
             SkillGroup.ULTIMATE,
             _ULTIMATE,
@@ -304,7 +303,6 @@ __all__ = [
     "SPECIAL_WHIM_MOVE_ID",
     "SUPPORT_FOLLOW_UP_CHORUS_MOVE_ID",
     "ULTIMATE_CHORUS_MOVE_ID",
-    "ULTIMATE_RUSH_HIT_COUNT",
     "ULTIMATE_RUSH_HIT_MOVE_ID",
-    "UNRESOLVED_ADDITIONAL_ATTACK_EFFECT_ID",
+    "CORE_ADDITIONAL_ATTACK_EFFECT_ID",
 ]

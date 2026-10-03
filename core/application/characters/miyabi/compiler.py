@@ -12,6 +12,7 @@ from core.types import (
     CharacterRole,
     CreatedByEffectFilter,
     CurrentAttackValueSource,
+    DamageTag,
     DamageDealerFilter,
     DamageSubtype,
     DamageSubtypeFilter,
@@ -109,9 +110,6 @@ from .reviewed import (
 )
 
 
-MIYABI_C6_SLASH_COUNT_PARAMETER_ID = ScenarioParameterId(
-    "parameter:miyabi:cinema6-extra-slash-count"
-)
 MIYABI_DISORDER_REMAINING_DURATION_PARAMETER_ID = ScenarioParameterId(
     "parameter:miyabi:lieshuang-anomaly-remaining-seconds"
 )
@@ -237,6 +235,7 @@ def _unresolved_move_entry(
     level = effective_skill_level(config, spec.skill_group)
     variants: list[MultiplierVariant] = []
     candidates: list[str] = []
+    resolved_values: list[float] = []
     for source_skill_id in spec.source_skill_ids:
         value = (
             parameter.value_for_level(level, source_skill_id)
@@ -255,28 +254,74 @@ def _unresolved_move_entry(
             candidates.append(f"source {source_skill_id}: missing at skill level {level}")
         else:
             multiplier = FixedMultiplier(Resolved(value / 100.0))
+            resolved_values.append(value)
             candidates.append(f"source {source_skill_id}: {value:.2f}%")
-        variants.append(
+        if not spec.source_curves_are_additive:
+            variants.append(
+                MultiplierVariant(
+                    variant_id=MultiplierVariantId(
+                        f"variant:character:1091:{spec.entry_key}:{source_skill_id}"
+                    ),
+                    label=f"Nanoka 参数 {source_skill_id}",
+                    parameter_name=spec.parameter_name,
+                    multiplier=multiplier,
+                )
+            )
+    original_text = raw_move.description if raw_move is not None else spec.source_name
+    diagnostic = None
+    if spec.source_curves_are_additive and len(resolved_values) == len(spec.source_skill_ids):
+        total = sum(resolved_values)
+        variants = [
             MultiplierVariant(
                 variant_id=MultiplierVariantId(
-                    f"variant:character:1091:{spec.entry_key}:{source_skill_id}"
+                    f"variant:character:1091:{spec.entry_key}:source-sum"
                 ),
-                label=f"Nanoka 参数 {source_skill_id}",
+                label="原始参数表达式相加的源曲线",
                 parameter_name=spec.parameter_name,
-                multiplier=multiplier,
+                multiplier=FixedMultiplier(Resolved(total / 100.0)),
             )
+        ]
+        candidates.append(f"source sum: {total:.2f}%")
+        relation = MultiplierRelation.COMPLETE
+    elif spec.source_curves_are_additive:
+        diagnostic = CalculationDiagnostic(
+            diagnostic_id=DiagnosticId(
+                f"data:character:1091:{spec.entry_key}:source-sum"
+            ),
+            kind=DiagnosticKind.MISSING_DATA,
+            message=f"{spec.display_name}: one or more source curves are missing; explicit sum cannot be resolved.",
+            blocking=True,
+            original_text=original_text,
+            candidates=tuple(candidates),
         )
-    original_text = raw_move.description if raw_move is not None else spec.source_name
-    diagnostic = CalculationDiagnostic(
-        diagnostic_id=DiagnosticId(
-            f"review:character:1091:{spec.entry_key}:multiplier-relationship"
-        ),
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        message=f"{spec.explanation} 当前只保留源曲线候选，不合并或任选其中一条。",
-        blocking=True,
-        original_text=original_text,
-        candidates=tuple(candidates),
-    )
+        variants = [
+            MultiplierVariant(
+                variant_id=MultiplierVariantId(
+                    f"variant:character:1091:{spec.entry_key}:source-sum"
+                ),
+                label="原始参数表达式相加的源曲线",
+                parameter_name=spec.parameter_name,
+                multiplier=Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes=diagnostic.message,
+                    original_text=original_text,
+                    candidates=tuple(candidates),
+                ),
+            )
+        ]
+        relation = MultiplierRelation.COMPLETE
+    else:
+        diagnostic = CalculationDiagnostic(
+            diagnostic_id=DiagnosticId(
+                f"review:character:1091:{spec.entry_key}:multiplier-relationship"
+            ),
+            kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
+            message=f"{spec.explanation} 当前只保留源曲线候选，不合并或任选其中一条。",
+            blocking=True,
+            original_text=original_text,
+            candidates=tuple(candidates),
+        )
+        relation = MultiplierRelation.UNRESOLVED_RELATION
     ref = DamageEventTemplateRef(
         template_id=f"template:character:1091:{spec.entry_key}:main",
         semantic_id=f"event:character:1091:{spec.entry_key}:main",
@@ -302,10 +347,10 @@ def _unresolved_move_entry(
         original_text=original_text,
         skill_group=spec.skill_group,
         damage_tags=spec.damage_tags,
-        multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
+        multiplier_relation=relation,
         multiplier_variants=tuple(variants),
         main_damage_event=ref,
-        diagnostics=(diagnostic,),
+        diagnostics=(() if diagnostic is None else (diagnostic,)),
     )
     return entry, template
 
@@ -718,18 +763,9 @@ def compile_miyabi(
             minimum=0,
             maximum=20,
         ),
-        ScenarioIntegerParameter(
-            parameter_id=MIYABI_C6_SLASH_COUNT_PARAMETER_ID,
-            label="影画6：本次霜月自动拔刀次数",
-            original_text=_raw_mindscape(raw_record, 6).description,
-            resolution=ParameterResolution.USER_SELECTED,
-            value=3,
-            minimum=0,
-            maximum=3,
-        ),
     )
-    # Expose the C6 count input regardless of current Cinema; its RuleItems
-    # remain structurally ineligible until Cinema 6 is compiled.
+    # C6 emits one aggregate slash for the selected charge stage.  Its ratio
+    # sums the source curves for stages 1..k; no extra repeat count is needed.
     scenario_parameters = (*scenario_parameters, *c6_parameters)
 
     return build_definition(
@@ -947,48 +983,44 @@ def _cinema_rules(raw: NanokaRawRecord, config: MiyabiCompileConfig):
         )
     )
     charge_sources = (
-        (1, "1091027", FROSTMOON_CHARGE_1),
-        (2, "1091028", FROSTMOON_CHARGE_2),
-        (3, "1091029", FROSTMOON_CHARGE_3),
+        (1, ("1091027",), FROSTMOON_CHARGE_1),
+        (2, ("1091027", "1091028"), FROSTMOON_CHARGE_2),
+        (3, ("1091027", "1091028", "1091029"), FROSTMOON_CHARGE_3),
     )
-    for charge, source_skill_id, condition_id in charge_sources:
-        raw_parameter = next(
-            parameter
-            for move in raw.moves
-            if move.name == "普通攻击：霜月"
-            for parameter in move.parameters
-            if parameter.name == f"{('一', '二', '三')[charge - 1]}段蓄力斩击伤害倍率"
+    for charge, source_skill_ids, condition_id in charge_sources:
+        # The selected k-charge Frostmoon main event already accounts for
+        # source curve k. C6 adds only the earlier 1..k-1 slashes, so the
+        # combined result contains each charge curve exactly once.
+        if charge == 1:
+            continue
+        prior_source_skill_ids = source_skill_ids[:-1]
+        level = effective_skill_level(config, SkillGroup.BASIC_ATTACK)
+        raw_moon = next(move for move in raw.moves if move.name == "普通攻击：霜月")
+        charge_parameter_names = tuple(
+            f"{('一', '二', '三')[index]}段蓄力斩击伤害倍率"
+            for index in range(charge - 1)
         )
-        damage_ratio = raw_parameter.value_for_level(
-            effective_skill_level(config, SkillGroup.BASIC_ATTACK),
-            source_skill_id,
-        )
-        if damage_ratio is None:
-            raise ValueError(
-                f"Miyabi C6 is missing source multiplier {source_skill_id}"
+        raw_parameters = {
+            parameter.name: parameter for parameter in raw_moon.parameters
+        }
+        damage_components = tuple(
+            raw_parameters[parameter_name].value_for_level(level, source_skill_id)
+            for parameter_name, source_skill_id in zip(
+                charge_parameter_names,
+                prior_source_skill_ids,
             )
-        unresolved_multiplier = Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-            notes=(
-                "C6原文说明消耗落霜时根据当前蓄力段数自动拔刀，但没有给出拔刀斩击倍率，"
-                "也没有说明它复用当前霜月主斩击倍率或继承普通攻击身份。"
-                "当前事件模板的 move_id=None、空伤害标签只是未受审的隔离占位，"
-                "不可作为雅C6斩击正式身份；本次伤害保持阻塞。"
-            ),
-            original_text=c6.description,
-            candidates=(
-                f"当前霜月主斩击来源 {source_skill_id}: {damage_ratio:.2f}%（仅候选，未用于C6斩击）",
-                "C6拔刀斩击另有独立倍率（Nanoka当前记录未提供）",
-            ),
         )
+        if any(value is None for value in damage_components):
+            raise ValueError(f"Miyabi C6 is missing source multiplier(s) {prior_source_skill_ids}")
+        damage_ratio = sum(float(value) for value in damage_components) / 100.0
         entry_key = f"cinema6-extra-slash-charge-{charge}"
         ref = DamageEventTemplateRef(
             template_id=f"template:character:1091:{entry_key}",
             semantic_id=f"event:character:1091:{entry_key}",
-            label=f"6影：霜月{charge}段蓄力自动拔刀",
+            label=f"6影：霜月{charge}段蓄力前序斩击",
             damage_type=DamageType.DIRECT,
-            skill_group=None,
-            damage_tags=frozenset(),
+            skill_group=SkillGroup.BASIC_ATTACK,
+            damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
             element=Element.LIESHUANG,
             source_rule_item_id=RuleItemId(
                 f"rule:character:1091:cinema6-extra-slash-charge-{charge}"
@@ -1000,17 +1032,14 @@ def _cinema_rules(raw: NanokaRawRecord, config: MiyabiCompileConfig):
             element=Element.LIESHUANG,
             base_source=CurrentAttackValueSource(MIYABI_ID),
             crit_rule=StandardCritRule(MIYABI_ID),
-            move_id=None,
+            move_id=FROSTMOON_MOVE_ID,
         )
         derived_ref = DerivedDamageEventTemplateRef(
             template=ref,
-            multiplier=unresolved_multiplier,
-            repeat_count=1,
-            repeat_count_parameter_id=MIYABI_C6_SLASH_COUNT_PARAMETER_ID,
-            skip_when_repeat_count_zero=True,
+            multiplier=FixedMultiplier(Resolved(damage_ratio)),
         )
         event_id = EffectId(
-            f"effect:character:1091:cinema6:extra-slash-charge-{charge}"
+                f"effect:character:1091:cinema6:extra-slash-charge-{charge}"
         )
         creation = EventCreationEffect(
             rule=EffectRule(
@@ -1035,25 +1064,11 @@ def _cinema_rules(raw: NanokaRawRecord, config: MiyabiCompileConfig):
             _rule(
                 f"rule:character:1091:{entry_key}",
                 c6_source,
-                f"6影：霜月{charge}段蓄力自动拔刀",
+                f"6影：霜月{charge}段蓄力前序斩击",
                 c6.description,
                 common_eligibility,
                 effects=(creation,),
                 condition_ids=(condition_id,),
-                diagnostics=(
-                    CalculationDiagnostic(
-                        diagnostic_id=DiagnosticId(
-                            f"review:character:1091:{entry_key}:event-identity"
-                        ),
-                        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                        message=(
-                            "C6拔刀斩击与普通攻击：霜月的MoveId/伤害标签关系尚未受审；"
-                            "事件的None/空标签仅为未决占位。"
-                        ),
-                        blocking=False,
-                        original_text=c6.description,
-                    ),
-                ),
             )
         )
         templates.append(template)
@@ -1084,7 +1099,6 @@ def load_raw_record(data):
 
 
 __all__ = [
-    "MIYABI_C6_SLASH_COUNT_PARAMETER_ID",
     "MIYABI_DISORDER_REMAINING_DURATION_PARAMETER_ID",
     "MIYABI_FROST_ANOMALY_RECORD_ID",
     "MIYABI_ID",

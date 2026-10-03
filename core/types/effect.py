@@ -387,6 +387,11 @@ class EventCreationResult:
     event_kind: BattleEventKind
     event_template_id: EventTemplateId | None = None
     unresolved_template: Unresolved | None = None
+    unique_per_source_event: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.unique_per_source_event, bool):
+            raise ValueError("unique_per_source_event must be boolean")
 
 
 @dataclass(frozen=True, slots=True)

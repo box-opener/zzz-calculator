@@ -18,6 +18,7 @@ from core.types import (
     DamageType,
     DamageTypeFilter,
     DynamicIdentityFilter,
+    EventTemplateIdFilter,
     EffectId,
     EffectOperation,
     EffectRule,
@@ -63,9 +64,7 @@ from ...moves import (
 from ...rules import CalculationRuleItem, RuleEligibility
 from ...scenario import (
     ConditionResolution,
-    ParameterResolution,
     ScenarioCondition,
-    ScenarioIntegerParameter,
 )
 from ..definition import CharacterCalculationDefinition
 from ..nanoka_compiler import (
@@ -102,9 +101,8 @@ from .reviewed import (
     SPECIAL_CHORUS_MOVE_ID,
     SUPPORT_FOLLOW_UP_CHORUS_MOVE_ID,
     ULTIMATE_CHORUS_MOVE_ID,
-    ULTIMATE_RUSH_HIT_COUNT,
     ULTIMATE_RUSH_HIT_MOVE_ID,
-    UNRESOLVED_ADDITIONAL_ATTACK_EFFECT_ID,
+    CORE_ADDITIONAL_ATTACK_EFFECT_ID,
 )
 
 
@@ -122,7 +120,6 @@ _EX_HP_COMPONENT_EFFECT_ID = EffectId(
 _CHORUS_FINAL_HP_RULE_ID = RuleItemId(
     "rule:character:1451:ex-special:chorus-hp-final-hit"
 )
-_ULTIMATE_RUSH_HIT_EFFECT_ID = EffectId("effect:character:1451:ultimate:rush-hit")
 _ULTIMATE_FINAL_HP_EFFECT_ID = EffectId(
     "effect:character:1451:chorus-hp-final-hit:ultimate-chorus-hp-finisher"
 )
@@ -440,62 +437,68 @@ def _unresolved_additional_attack(
     raw_moves: dict[str, NanokaRawMoveRecord],
     config: LuciaCompileConfig,
     source: RuleSource,
-) -> tuple[EventCreationEffect, CalculationDiagnostic | None]:
-    group_by_move = {
-        "普通攻击：星轨连击": SkillGroup.BASIC_ATTACK,
-        "特殊技：死神协奏曲·风暴": SkillGroup.SPECIAL_ATTACK,
-        "快速支援：迷雾重击": SkillGroup.ASSIST,
-    }
-    candidates: list[str] = []
+) -> tuple[EventCreationEffect, DirectDamageEventTemplate, DerivedDamageEventTemplateRef]:
+    level = effective_skill_level(config, SkillGroup.BASIC_ATTACK)
+    candidates: list[tuple[str, float | None]] = []
     for move_name, source_skill_id in LUCIA_ADDITIONAL_ATTACK_CURVES:
         move = _raw_move(raw_moves, move_name)
-        level = effective_skill_level(config, group_by_move[move_name])
-        value = _raw_curve(move, "追加攻击伤害倍率", source_skill_id, level)
         candidates.append(
-            f"{move_name} source {source_skill_id}: "
-            f"{f'{value:.2f}%' if value is not None else f'missing at skill level {level}'}"
+            (source_skill_id, _raw_curve(move, "追加攻击伤害倍率", source_skill_id, level))
         )
-    unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            "Lucia's Core passive says that the automatic 追加攻击 is 合唱, but "
-            "it does not identify which of Nanoka's three same-named source "
-            "curves supplies this generated event or which MoveId, skill group, "
-            "and damage tags it inherits. The generated event dealer and current "
-            "Attack source are Lucia. No candidate curve or event identity is "
-            "selected. Source curve candidates at their respective configured "
-            "skill levels: "
-            + "; ".join(candidates)
-        ),
-        original_text=raw.core_levels[config.core_level - 1].description,
-        candidates=tuple(candidates),
+    resolved = [value for _, value in candidates if value is not None]
+    if len(resolved) != len(candidates) or len(set(resolved)) != 1:
+        raise ValueError(
+            "Lucia's confirmed additional-attack source curves must resolve to the same value"
+        )
+    multiplier = float(resolved[0]) / 100.0
+    rule_id = RuleItemId("rule:character:1451:core:additional-attack")
+    template_ref = DamageEventTemplateRef(
+        template_id="template:character:1451:core:additional-attack",
+        semantic_id=DamageEventSemanticId("event:character:1451:core:additional-attack"),
+        label="核心被动：梦境追加攻击（合唱）",
+        damage_type=DamageType.DIRECT,
+        skill_group=None,
+        damage_tags=frozenset({DamageTag.FOLLOW_UP_ATTACK}),
+        element=Element.ETHER,
+        source_rule_item_id=rule_id,
     )
-    return (
-        EventCreationEffect(
-            rule=EffectRule(
-                effect_id=EffectId(UNRESOLVED_ADDITIONAL_ATTACK_EFFECT_ID),
-                source=source,
-                owner=LUCIA_ID,
-                target=EffectTarget.TEAM,
-                snapshot_rule=SnapshotRule.SETTLEMENT,
-                filters=(
-                    AnyFilter(
-                        (
-                            DamageTypeFilter(DamageType.DIRECT),
-                            DamageTypeFilter(DamageType.PENETRATION),
-                        )
-                    ),
-                    DynamicIdentityFilter(DynamicIdentity.DAMAGE_DEALER),
-                    NotFilter(DamageDealerFilter(LUCIA_ID)),
+    template = DirectDamageEventTemplate(
+        ref=template_ref,
+        damage_dealer=LUCIA_ID,
+        element=Element.ETHER,
+        base_source=CurrentAttackValueSource(LUCIA_ID),
+        crit_rule=StandardCritRule(LUCIA_ID),
+        move_id=None,
+    )
+    effect = EventCreationEffect(
+        rule=EffectRule(
+            effect_id=EffectId(CORE_ADDITIONAL_ATTACK_EFFECT_ID),
+            source=source,
+            owner=LUCIA_ID,
+            target=EffectTarget.TEAM,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+            filters=(
+                AnyFilter(
+                    (
+                        DamageTypeFilter(DamageType.DIRECT),
+                        DamageTypeFilter(DamageType.PENETRATION),
+                    )
                 ),
-            ),
-            result=EventCreationResult(
-                event_kind=BattleEventKind.DAMAGE,
-                unresolved_template=unresolved,
+                DynamicIdentityFilter(DynamicIdentity.DAMAGE_DEALER),
+                NotFilter(DamageDealerFilter(LUCIA_ID)),
             ),
         ),
-        None,
+        result=EventCreationResult(
+            event_kind=BattleEventKind.DAMAGE,
+            event_template_id=template_ref.template_id,
+            unique_per_source_event=True,
+        ),
     )
+    derived = DerivedDamageEventTemplateRef(
+        template=template_ref,
+        multiplier=FixedMultiplier(Resolved(multiplier)),
+    )
+    return effect, template, derived
 
 
 def _unique_conditions(conditions):
@@ -621,7 +624,7 @@ def compile_lucia(
             ),
         )
     )
-    unresolved_follow_up, _ = _unresolved_additional_attack(
+    follow_up_effect, follow_up_template, follow_up_derived = _unresolved_additional_attack(
         raw_record,
         raw_moves,
         config,
@@ -635,9 +638,10 @@ def compile_lucia(
             core.description,
             RuleEligibility.ELIGIBLE,
             condition_ids=(DREAM_ACTIVE, ADDITIONAL_ATTACK_READY),
-            effects=(unresolved_follow_up,),
+            effects=(follow_up_effect,),
         )
     )
+    templates.append(follow_up_template)
 
     extra_source = source_for(
         LUCIA_ID,
@@ -812,9 +816,13 @@ def compile_lucia(
             NotFilter(CreatedByEffectFilter(effect_id)),
         ]
         if move_id == ULTIMATE_CHORUS_MOVE_ID:
-            # Rush collision children retain the Ultimate identity, but only
-            # the stop-time finisher has the source-stated final-hit addition.
-            filters.append(NotFilter(CreatedByEffectFilter(_ULTIMATE_RUSH_HIT_EFFECT_ID)))
+            # Only the raw stop-time Ultimate damage entry receives the final
+            # max-HP component. A separately selectable collision entry does not.
+            filters.append(
+                EventTemplateIdFilter(
+                    "template:character:1451:ultimate-charge-armor-finisher:main"
+                )
+            )
         effect = EventCreationEffect(
             rule=EffectRule(
                 effect_id=effect_id,
@@ -849,9 +857,8 @@ def compile_lucia(
     )
     templates.extend(chorus_hp_templates)
 
-    # A moving Ultimate has a known per-collision curve, but the source does
-    # not give collision count from its up-to-three-second hold. Expose a
-    # selected repeat count instead of deriving one from elapsed time.
+    # The Ultimate has an instant stop-time hit and one collision hit. Neither
+    # event's damage uses its movement duration as a repeat-count input.
     ultimate_raw = _raw_move(raw_moves, "终结技：进击，大铠甲！")
     ultimate_collision_value = _raw_curve(
         ultimate_raw,
@@ -876,72 +883,39 @@ def compile_lucia(
         )
     else:
         collision_multiplier = FixedMultiplier(Resolved(ultimate_collision_value / 100.0))
-    ultimate_source = source_for(
-        LUCIA_ID,
-        "ultimate:rush-hit",
-        EffectSourceType.SKILL,
-        "终结技：进击，大铠甲！单次突进撞击",
-        ultimate_raw.description,
-    )
-    collision_rule_id = RuleItemId("rule:character:1451:ultimate:rush-hit")
     collision_template = _direct_template(
         key="ultimate-rush-hit",
         label="终结技：进击，大铠甲！（单次突进撞击）",
         move_id=ULTIMATE_RUSH_HIT_MOVE_ID,
         skill_group=SkillGroup.ULTIMATE,
         damage_tags=_ULTIMATE,
-        source_rule_item_id=collision_rule_id,
     )
-    collision_effect = EventCreationEffect(
-        rule=EffectRule(
-            effect_id=_ULTIMATE_RUSH_HIT_EFFECT_ID,
-            source=ultimate_source,
-            owner=LUCIA_ID,
-            target=EffectTarget.SELF,
-            snapshot_rule=SnapshotRule.SETTLEMENT,
-            filters=(
-                DamageDealerFilter(LUCIA_ID),
-                DamageTypeFilter(DamageType.DIRECT),
-                MoveIdFilter(ULTIMATE_CHORUS_MOVE_ID),
-                NotFilter(CreatedByEffectFilter(_ULTIMATE_RUSH_HIT_EFFECT_ID)),
-                NotFilter(CreatedByEffectFilter(_ULTIMATE_FINAL_HP_EFFECT_ID)),
-            ),
+    collision_variant = MultiplierVariant(
+        variant_id=MultiplierVariantId(
+            "variant:character:1451:ultimate-charge-armor-single-collision"
         ),
-        result=EventCreationResult(
-            event_kind=BattleEventKind.DAMAGE,
-            event_template_id=collision_template.ref.template_id,
-        ),
-    )
-    rules.append(
-        _rule(
-            "ultimate:rush-hit",
-            ultimate_source,
-            "终结技：单次突进撞击",
-            ultimate_raw.description,
-            RuleEligibility.ELIGIBLE,
-            effects=(collision_effect,),
-            diagnostics=(
-                CalculationDiagnostic(
-                    diagnostic_id=DiagnosticId(
-                        "unsupported:character:1451:ultimate:energy-and-healing"
-                    ),
-                    kind=DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                    message=(
-                        "The Ultimate's Starlight-area HP recovery and its duration "
-                        "are not represented by the static damage calculator."
-                    ),
-                    blocking=False,
-                    original_text=ultimate_raw.description,
-                ),
-            ),
-        )
-    )
-    collision_derived = DerivedDamageEventTemplateRef(
-        template=collision_template.ref,
+        label="突进单次撞击伤害倍率",
+        parameter_name="突进单次撞击伤害倍率",
         multiplier=collision_multiplier,
-        repeat_count_parameter_id=ULTIMATE_RUSH_HIT_COUNT,
-        skip_when_repeat_count_zero=True,
     )
+    collision_entry = MoveCalculationEntry(
+        entry_id=MoveEntryId(
+            "move-entry:character:1451:ultimate-charge-armor-single-collision"
+        ),
+        character_id=LUCIA_ID,
+        move_id=ULTIMATE_RUSH_HIT_MOVE_ID,
+        display_name="终结技：进击，大铠甲！（单次突进撞击）",
+        original_text=(
+            f"{ultimate_raw.description}\n"
+            "本条只结算原文突进单次撞击伤害倍率一次；终结技瞬发伤害另选。"
+        ),
+        skill_group=SkillGroup.ULTIMATE,
+        damage_tags=_ULTIMATE,
+        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_variants=(collision_variant,),
+        main_damage_event=collision_template.ref,
+    )
+    entries.append(collision_entry)
     templates = [*templates, collision_template]
 
     c1 = _mindscape(raw_record, 1)
@@ -1045,7 +1019,12 @@ def compile_lucia(
                     filters=(
                         DamageDealerFilter(LUCIA_ID),
                         DamageTypeFilter(DamageType.DIRECT),
-                        AnyFilter(tuple(MoveIdFilter(item) for item in LUCIA_CHORUS_MOVE_IDS)),
+                        AnyFilter(
+                            (
+                                *(MoveIdFilter(item) for item in LUCIA_CHORUS_MOVE_IDS),
+                                CreatedByEffectFilter(EffectId(CORE_ADDITIONAL_ATTACK_EFFECT_ID)),
+                            )
+                        ),
                     ),
                 ),
             ),
@@ -1153,7 +1132,12 @@ def compile_lucia(
     c6_chorus_filters = (
         DamageDealerFilter(LUCIA_ID),
         DamageTypeFilter(DamageType.DIRECT),
-        AnyFilter(tuple(MoveIdFilter(item) for item in LUCIA_CHORUS_MOVE_IDS)),
+        AnyFilter(
+            (
+                *(MoveIdFilter(item) for item in LUCIA_CHORUS_MOVE_IDS),
+                CreatedByEffectFilter(EffectId(CORE_ADDITIONAL_ATTACK_EFFECT_ID)),
+            )
+        ),
     )
     c6_guaranteed_crit = GuaranteedCritEffect(
         rule=EffectRule(
@@ -1198,24 +1182,10 @@ def compile_lucia(
         )
     )
 
-    # The per-hit multiplier is explicit; only the collision count is missing
-    # from the source. Let a static request select 0..N collisions without
-    # deriving a hit count from the maximum three-second hold duration.
-    parameters = (
-        ScenarioIntegerParameter(
-            parameter_id=ULTIMATE_RUSH_HIT_COUNT,
-            label="终结技突进撞击次数",
-            original_text=ultimate_raw.description,
-            resolution=ParameterResolution.USER_SELECTED,
-            value=None,
-            minimum=0,
-            maximum=None,
-        ),
-    )
     anomaly_entries, anomaly_templates = _anomaly_disorder_pair(raw_record)
     entries.extend(anomaly_entries)
     templates.extend(anomaly_templates)
-    derived_refs = (*chorus_hp_derived, collision_derived)
+    derived_refs = (*chorus_hp_derived, follow_up_derived)
 
     return CharacterCalculationDefinition(
         character_id=LUCIA_ID,
@@ -1231,7 +1201,7 @@ def compile_lucia(
         move_entries=tuple(entries),
         rule_items=tuple(rules),
         scenario_conditions=_unique_conditions(conditions),
-        scenario_parameters=parameters,
+        scenario_parameters=(),
         damage_event_templates=tuple(templates),
         independent_derived_damage_events=derived_refs,
         diagnostics=tuple(diagnostics),

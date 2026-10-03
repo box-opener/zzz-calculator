@@ -5,7 +5,6 @@ from copy import deepcopy
 import pytest
 
 from core.application.characters.miyabi import (
-    MIYABI_C6_SLASH_COUNT_PARAMETER_ID,
     MiyabiCompileConfig,
     compile_miyabi,
     load_raw_record as load_miyabi_raw_record,
@@ -281,29 +280,25 @@ def test_reviewed_mapping_covers_all_raw_direct_damage_curves() -> None:
     assert not any("招架支援：花筏" in item.display_name for item in compile_miyabi(MiyabiCompileConfig(), raw).move_entries)
 
 
-def test_unresolved_curve_entries_do_not_block_unrelated_moves() -> None:
+def test_confirmed_additive_source_curves_calculate_as_one_multiplier() -> None:
     raw = load_miyabi_raw_record(load_character_record(MIYABI))
     definition = compile_miyabi(MiyabiCompileConfig(), raw)
     assert definition.diagnostics == ()
-    blocked_entries = [item for item in definition.move_entries if item.multiplier_relation.value == "unresolved-relation"]
-    assert {item.display_name for item in blocked_entries} == {
-        "强化特殊技：飞雪·斩击",
-        "强化特殊技：飞雪·追击",
-        "连携技：春临",
+    expected = {
+        "move-entry:character:1091:ex-special-strike": 7.883,
+        "move-entry:character:1091:ex-special-follow-up": 9.672,
+        "move-entry:character:1091:chain-spring-call": 12.583,
     }
-
-    clear = calculate_payload(_miyabi_payload(move_entry_id=KAZAHANA_1_ENTRY))
-    assert clear["totals"]["expected"]["complete"] is True  # type: ignore[index]
-    unresolved = calculate_payload(
-        _miyabi_payload(move_entry_id="move-entry:character:1091:ex-special-strike")
-    )
-    assert unresolved["totals"]["expected"]["complete"] is False  # type: ignore[index]
-    assert unresolved["events"] == []  # type: ignore[comparison-overlap]
-    assert any(
-        "1091009" in candidate
-        for diagnostic in unresolved["diagnostics"]  # type: ignore[assignment]
-        for candidate in diagnostic.get("candidates", ())
-    )
+    for entry_id, ratio in expected.items():
+        entry = next(item for item in definition.move_entries if str(item.entry_id) == entry_id)
+        assert entry.multiplier_relation.value != "unresolved-relation"
+        assert entry.multiplier_variants[0].multiplier.value.value == pytest.approx(ratio)
+        result = calculate_payload(_miyabi_payload(move_entry_id=entry_id, crit_rate=0.0))
+        assert result["totals"]["expected"]["complete"] is True  # type: ignore[index]
+        assert len(result["events"]) == 1  # type: ignore[arg-type]
+        breakdown = result["events"][0]["modes"]["expected"]["calculation_breakdown"]  # type: ignore[index]
+        base = next(item for item in breakdown if item["node"] == "damage.base-value")
+        assert base["value"] == pytest.approx(1000.0 * ratio)
 
 
 def test_c3_and_c5_skill_bonuses_resolve_from_raw_curve_level_once() -> None:
@@ -656,21 +651,18 @@ def test_c4_boost_only_changes_created_frostburn_break() -> None:
     )
 
 
-def test_c6_keeps_main_frostmoon_damage_and_zero_count_does_not_create_a_child() -> None:
+def test_c6_main_charge_one_is_not_repeated_in_its_aggregate() -> None:
     conditions = {
-        str(FROSTMOON_CHARGE_1): False,
+        str(FROSTMOON_CHARGE_1): True,
         str(FROSTMOON_CHARGE_2): False,
-        str(FROSTMOON_CHARGE_3): True,
+        str(FROSTMOON_CHARGE_3): False,
     }
-    child_rule = "rule:character:1091:cinema6-extra-slash-charge-3"
-    params = {str(MIYABI_C6_SLASH_COUNT_PARAMETER_ID): 0}
     enabled = calculate_payload(
         _miyabi_payload(
             move_entry_id=FROSTMOON_ENTRY,
             cinema_level=6,
             condition_values=conditions,
-            parameter_values=params,
-            enabled_rule_item_ids=(C6_FROSTMOON_RULE, child_rule),
+            enabled_rule_item_ids=(C6_FROSTMOON_RULE,),
             crit_rate=0.0,
         )
     )
@@ -679,7 +671,6 @@ def test_c6_keeps_main_frostmoon_damage_and_zero_count_does_not_create_a_child()
             move_entry_id=FROSTMOON_ENTRY,
             cinema_level=6,
             condition_values=conditions,
-            parameter_values=params,
             enabled_rule_item_ids=(),
             crit_rate=0.0,
         )
@@ -695,7 +686,7 @@ def test_c6_keeps_main_frostmoon_damage_and_zero_count_does_not_create_a_child()
     assert _modifier(event, "effect:character:1091:cinema6:frostmoon-damage")["value"] == pytest.approx(0.30)
 
 
-def test_c6_unresolved_slash_blocks_only_its_child_event() -> None:
+def test_c6_three_charge_total_counts_each_source_curve_once() -> None:
     result = calculate_payload(
         _miyabi_payload(
             move_entry_id=FROSTMOON_ENTRY,
@@ -705,7 +696,6 @@ def test_c6_unresolved_slash_blocks_only_its_child_event() -> None:
                 str(FROSTMOON_CHARGE_2): False,
                 str(FROSTMOON_CHARGE_3): True,
             },
-            parameter_values={str(MIYABI_C6_SLASH_COUNT_PARAMETER_ID): 2},
             enabled_rule_item_ids=(C6_FROSTMOON_RULE, "rule:character:1091:cinema6-extra-slash-charge-3"),
             crit_rate=0.0,
         )
@@ -715,11 +705,15 @@ def test_c6_unresolved_slash_blocks_only_its_child_event() -> None:
 
     assert len(result["events"]) == 2  # type: ignore[arg-type]
     assert _mode(main)["status"] == "calculated"
-    assert _mode(slash)["status"] == "blocked"
-    assert slash["repeat_count"] == 2
-    assert "没有给出拔刀斩击倍率" in _mode(slash)["diagnostics"][0]["message"]  # type: ignore[index]
-    assert result["totals"]["expected"]["complete"] is False  # type: ignore[index]
-    assert result["totals"]["expected"]["value"] == pytest.approx(_mode(main)["value"])  # type: ignore[index]
+    assert _mode(slash)["status"] == "calculated"
+    assert slash["repeat_count"] == 1
+    assert result["totals"]["expected"]["complete"] is True  # type: ignore[index]
+    assert _mode(main)["calculation_breakdown"][-1]["node"]  # typed event trace exists
+    main_base = next(item for item in _mode(main)["calculation_breakdown"] if item["node"] == "damage.base-value")
+    slash_base = next(item for item in _mode(slash)["calculation_breakdown"] if item["node"] == "damage.base-value")
+    assert main_base["value"] == pytest.approx(1000.0 * 50.616)
+    assert slash_base["value"] == pytest.approx(1000.0 * 31.053)
+    assert result["totals"]["expected"]["value"] == pytest.approx(_mode(main)["value"] + _mode(slash)["value"])  # type: ignore[index]
     assert _trace(slash)["created_by_effect_id"] == "effect:character:1091:cinema6:extra-slash-charge-3"
 
 
