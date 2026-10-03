@@ -20,7 +20,7 @@ from core.presentation.registry import (
     compile_registered_definition,
     registration_for,
 )
-from core.types import CharacterRole, Element, Unresolved
+from core.types import CharacterRole, Element, FixedMultiplier
 
 
 QINGYI = str(QINGYI_ID)
@@ -32,11 +32,9 @@ C1_RULE = "rule:character:1251:cinema1:target-defense-and-qingyi-crit"
 C2_RULE = "rule:character:1251:cinema2:subjugation-vulnerability-enhancement"
 C6_CRIT_RULE = "rule:character:1251:cinema6:moon-turn-crit-damage"
 C6_RESISTANCE_RULE = "rule:character:1251:cinema6:all-resistance-reduction-active"
-EX_EXTRA_RULE = "rule:character:1251:ex-special:long-press-extra-turns"
 FLASHOVER = "condition:qingyi:flashover-active"
 C1_ACTIVE = "condition:qingyi:c1-target-debuff-active"
 C6_RESISTANCE_ACTIVE = "condition:qingyi:c6-all-resistance-active"
-EX_EXTRA_ACTIVE = "condition:qingyi:ex-special-extra-turns-active"
 SUBJUGATION_STACKS = "parameter:qingyi:subjugation-stacks"
 FLASHOVER_EXCESS = "parameter:qingyi:flashover-excess-percent"
 DISORDER_SECONDS = "parameter:qingyi:electric-disorder-remaining-seconds"
@@ -205,7 +203,7 @@ def test_qingyi_live_raw_mapping_and_reviewed_scope() -> None:
         raw,
     )
     entries = {str(item.entry_id): item for item in definition.move_entries}
-    assert len(entries) == 20
+    assert len(entries) == 19
     assert entries["move-entry:character:1251:basic-drunken-cloud"].multiplier_variants[0].multiplier.value.value == pytest.approx(1.714)
     assert entries["move-entry:character:1251:dash-entry"].multiplier_variants[0].multiplier.value.value == pytest.approx(0.99)
     assert entries["move-entry:character:1251:chain-peaceful-order"].multiplier_variants[0].multiplier.value.value == pytest.approx(12.958)
@@ -213,16 +211,29 @@ def test_qingyi_live_raw_mapping_and_reviewed_scope() -> None:
     assert entries["move-entry:character:1251:ex-special-moon-over-sea-begonia"].multiplier_variants[0].multiplier.value.value == pytest.approx(12.067)
     assert "1251011=301.4% + 1251021=422.2% + 1251022=483.1%" in entries["move-entry:character:1251:ex-special-moon-over-sea-begonia"].original_text
 
-    assert isinstance(
-        entries["move-entry:character:1251:basic-yisha-1"].multiplier_variants[0].multiplier,
-        Unresolved,
-    )
-    assert isinstance(
-        entries["move-entry:character:1251:moon-turn-rush"].multiplier_variants[0].multiplier,
-        Unresolved,
-    )
+    raw_yisha = next(item for item in raw.moves if item.name == "普通攻击：一煞")
+    raw_first = next(item for item in raw_yisha.parameters if item.name == "一段伤害倍率")
+    assert isinstance(entries["move-entry:character:1251:basic-yisha-1"].multiplier_variants[0].multiplier, FixedMultiplier)
+    assert entries["move-entry:character:1251:basic-yisha-1"].multiplier_variants[0].multiplier.value.value == pytest.approx(raw_first.value_for_level(12, "1251001") / 100.0)
+    assert not any("basic-yisha-derived" in item for item in entries)
+    assert entries["move-entry:character:1251:moon-turn-rush"].multiplier_variants[0].multiplier.value.value == pytest.approx(8.975)
     assert entries["move-entry:character:1251:moon-turn-finisher"].multiplier_variants[0].multiplier.value.value == pytest.approx(7.893)
+    assert entries["move-entry:character:1251:moon-turn-full-sequence"].multiplier_variants[0].multiplier.value.value == pytest.approx(16.868)
     assert "1251017" not in source_ids  # Defensive Assist has daze curves only.
+
+    template_map = {str(item.ref.template_id): item for item in definition.damage_event_templates}
+    for stage in (1, 2):
+        assert template_map[f"template:character:1251:basic-yisha-{stage}:main"].element is Element.PHYSICAL
+    for stage in (3, 4):
+        assert template_map[f"template:character:1251:basic-yisha-{stage}:main"].element is Element.ELECTRIC
+    assert template_map["template:character:1251:basic-yisha-4-enhanced:main"].element is Element.ELECTRIC
+    for entry_id in (
+        *(f"move-entry:character:1251:basic-yisha-{stage}" for stage in range(1, 5)),
+        "move-entry:character:1251:basic-yisha-4-enhanced",
+    ):
+        result = calculate_payload(_payload(move_entry_id=entry_id))
+        assert len(result["events"]) == 1
+        assert result["totals"]["expected"]["complete"] is True
 
     registration = registration_for(QINGYI)
     assert registration.catalog.display_name == "青衣"
@@ -443,26 +454,30 @@ def test_cinema1_target_status_and_cinema6_move_status_are_scoped() -> None:
     assert _node(no_excess_event, "damage.normal-bonus-region") == pytest.approx(1.20)
 
 
-def test_ex_special_base_sum_stays_known_when_optional_long_press_is_unresolved() -> None:
+def test_ex_special_base_sum_is_complete_without_a_long_press_option() -> None:
     baseline = calculate_payload(
         _payload(move_entry_id="move-entry:character:1251:ex-special-moon-over-sea-begonia")
     )
     assert baseline["totals"]["expected"]["complete"] is True
     assert _node(_event(baseline), "damage.skill-multiplier") == pytest.approx(12.067)
 
-    extended = calculate_payload(
-        _payload(
-            move_entry_id="move-entry:character:1251:ex-special-moon-over-sea-begonia",
-            condition_values={EX_EXTRA_ACTIVE: True},
-            enabled_rule_item_ids=(EX_EXTRA_RULE,),
+    definition = compile_qingyi(QingyiCompileConfig(), load_raw_record(load_character_record(QINGYI)))
+    assert not any(str(item.rule_id) == "rule:character:1251:ex-special:long-press-extra-turns" for item in definition.rule_items)
+    assert not any(str(item.condition_id) == "condition:qingyi:ex-special-extra-turns-active" for item in definition.scenario_conditions)
+
+
+def test_moon_turn_rush_is_five_hit_total_and_full_entry_adds_finisher_once() -> None:
+    expected_ratios = {
+        "move-entry:character:1251:moon-turn-rush": 8.975,
+        "move-entry:character:1251:moon-turn-finisher": 7.893,
+        "move-entry:character:1251:moon-turn-full-sequence": 16.868,
+    }
+    for entry_id, expected_ratio in expected_ratios.items():
+        result = calculate_payload(
+            _payload(move_entry_id=entry_id, condition_values={FLASHOVER: True})
         )
-    )
-    assert extended["totals"]["expected"]["complete"] is False
-    assert _event(extended)["modes"]["expected"]["known_value"] is not None
-    assert any(
-        item["kind"] == "missing-data" and "long-press" in item["message"]
-        for item in extended["diagnostics"]
-    )
+        assert result["totals"]["expected"]["complete"] is True
+        assert _node(_event(result), "damage.skill-multiplier") == pytest.approx(expected_ratio)
 
 
 def test_static_electric_anomaly_disorder_and_no_crit_modes() -> None:

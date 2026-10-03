@@ -317,18 +317,14 @@ matching full-duration `17.0` multiplier. The Extra Ability's team Corrosion
 and Corrosion-settled Disorder bonuses are independent of whether Vivian has a
 Protective Feather available for the follow-up hit.
 
-The source marks Feather Flurry, Feather Blade Counter, Silver Aria, and Quick
-Assist: Feather Guard as both Physical and Ether damage, but supplies one
-combined curve for each hit and no per-element shares. Those entries retain
-their exact raw parameter identity and curve text, but a selected hit returns
-an ambiguity diagnostic instead of assigning the entire multiplier to one
-element. Other single-element moves remain calculable.
+The user confirmed Feather Flurry stages one and two are Physical, stages three
+and four are Ether, and the other formerly mixed-named Counter, Special, and
+Quick Assist moves are pure Ether. Silver Thorn Dash remains Physical.
 
-Cinema 6 only specifies the maximum Anomaly Mutation ratio: five spent
-Protective Feathers make it five times the base ratio. The mapping for one to
-four feathers is absent. The maximum case is calculable; selecting the
-intermediate-count condition blocks only that mutation event with an explicit
-diagnostic. Other known Cinema 6 effects continue to apply.
+Cinema 6 exposes an explicit current feather count from zero through five,
+defaulting to five. Each selected feather adds one application of the base
+Anomaly Mutation ratio to the same typed historical anomaly source. The static
+request does not infer feathers from hit count, timing, or party size.
 
 Prophecy deals 55% ATK Ether damage every 0.55 seconds while the target remains
 anomalous. The calculator requires an explicit integer tick count and does not
@@ -490,28 +486,23 @@ the shared typed AnomalyRecord, Attribute Anomaly, and Disorder templates;
 Core stun vulnerability and Cinema 6 resistance reduction are applied by the
 same generic calculator path.
 
-### Curves whose hit relation remains unresolved
+### User-confirmed curve mappings
 
-The Basic: 一煞 prose says that its sequence causes both Physical and Electric
-damage but the raw record gives one damage curve per displayed stage without
-per-element shares. The implementation retains each source curve and blocks
-only the selected Basic stage with an explicit ambiguity diagnostic. It also
-keeps source `1251002`, labeled “一段伤害倍率（派生）”, separate; the prose does
-not establish which action or hit it replaces or adds.
+The user confirmed Basic: 一煞 stages one and two are Physical and stages three
+and four Electric. Curve `1251002` is a source-only derived curve that is not
+selected as an attack entry. The remaining reviewed stage curves calculate
+directly with their assigned attribute.
 
-Moon Turn gives distinct rush `1251008` and finisher `1251009` curves, and its
-prose says there are five rush attacks. The source does not identify whether
-`1251008` is a per-rush ratio or the aggregate five-rush ratio. The rush curve
-and isolated final-hit curve are preserved as separate entries; selecting the
-full sequence is blocked with both plausible total ratios shown. No count is
-multiplied into the curve by assumption.
+Curve `1251008` is the total for all five Moon Turn rush hits, applied once;
+curve `1251009` is the separate final hit. The complete sequence is their sum,
+with no additional five-hit repeat. At level 12 this gives 8.975, 7.893, and
+16.868 source multipliers for rush total, finisher, and full sequence.
 
 The EX Special base parameter explicitly adds curves `1251011`, `1251021`,
-and `1251022`; that source sum is calculated at the effective Special level.
-Holding the button can consume additional energy to increase turn-in attacks,
-but the text does not map that extension to a repeat count and another curve.
-Selecting the extra-turn state keeps the known base event and reports
-`MISSING_DATA` for only that extension branch.
+and `1251022`; that source sum is calculated at the effective Special level
+(12.067 at level 12). The user's latest instruction chooses this base total and
+removes the long-press extension input. No extra attack count or duration is
+simulated.
 
 Cinema 3 and 5 each add two levels to Basic, Dodge, Assist, Special, and Chain;
 Ultimate receives neither bonus. The compilers apply these to the raw curves

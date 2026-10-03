@@ -14,9 +14,6 @@ QINGYI_ID = CharacterId("character:1251")
 FLASHOVER_ACTIVE = ScenarioConditionId("condition:qingyi:flashover-active")
 C1_TARGET_DEBUFF_ACTIVE = ScenarioConditionId("condition:qingyi:c1-target-debuff-active")
 C6_ALL_RESISTANCE_ACTIVE = ScenarioConditionId("condition:qingyi:c6-all-resistance-active")
-EX_SPECIAL_EXTRA_TURNS_ACTIVE = ScenarioConditionId(
-    "condition:qingyi:ex-special-extra-turns-active"
-)
 SUBJUGATION_STACKS = ScenarioParameterId("parameter:qingyi:subjugation-stacks")
 FLASHOVER_EXCESS_PERCENT = ScenarioParameterId(
     "parameter:qingyi:flashover-excess-percent"
@@ -200,7 +197,6 @@ __all__ = [
     "ELECTRIC_ANOMALY_RECORD_ID",
     "ELECTRIC_DISORDER_MOVE_ID",
     "ELECTRIC_DISORDER_REMAINING_SECONDS",
-    "EX_SPECIAL_EXTRA_TURNS_ACTIVE",
     "EX_SPECIAL_MOVE_ID",
     "FLASHOVER_ACTIVE",
     "FLASHOVER_EXCESS_PERCENT",

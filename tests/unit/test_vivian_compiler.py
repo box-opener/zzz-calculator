@@ -12,7 +12,7 @@ from core.application.characters.vivian import (
     compile_vivian,
     load_raw_record,
 )
-from core.application.characters.vivian.reviewed import BASIC_BLOSSOMS_MOVE_ID
+from core.application.characters.vivian.reviewed import BASIC_BLOSSOMS_MOVE_ID, C6_FEATHER_COUNT
 from core.data.loader import load_character_record, supported_character_ids
 from core.presentation.base_stats import character_base_stats
 from core.presentation.calculation_service import calculate_payload
@@ -399,7 +399,7 @@ def test_extra_ability_creates_real_blossoms_hit_and_prophecy_ticks_from_other_a
     assert result["totals"]["expected"]["complete"] is True
 
 
-def test_c4_attack_buff_is_separate_from_prophecy_and_c6_max_only_is_explicit() -> None:
+def test_c4_attack_buff_is_separate_from_prophecy_and_c6_feather_count_scales_linearly() -> None:
     c4 = calculate_payload(
         _payload(
             move_entry_id=BLOSSOMS_ENTRY,
@@ -411,29 +411,52 @@ def test_c4_attack_buff_is_separate_from_prophecy_and_c6_max_only_is_explicit() 
     snapshot = next(item for item in c4["resolved_character_snapshots"] if item["character_id"] == VIVIAN)
     assert snapshot["stats"]["attack"] == pytest.approx(1120.0)
 
-    maximum = calculate_payload(
+    definition = compile_vivian(VivianCompileConfig(cinema_level=6), load_raw_record(load_character_record(VIVIAN)))
+    feather_parameter = next(item for item in definition.scenario_parameters if item.parameter_id == C6_FEATHER_COUNT)
+    assert feather_parameter.value == 5
+    assert feather_parameter.minimum == 0
+    assert feather_parameter.maximum == 5
+
+    one_feather = calculate_payload(
         _payload(
             move_entry_id=ANOMALY_ENTRY,
             core_level=7,
             cinema_level=6,
-            condition_values={MUTATION_CONDITION: True, "condition:vivian:c6-max-feather-mutation": True},
+            condition_values={MUTATION_CONDITION: True},
+            parameter_values={str(C6_FEATHER_COUNT): 1},
             enabled_rule_item_ids=("rule:character:1331:cinema6:max-feather-mutation:ether",),
         )
     )
-    max_event = _event(maximum, "event:character:1331:cinema6-max-feather-mutation:ether")
-    assert _node(max_event, "discharge.proficiency-multiplier")["value"] == pytest.approx(6.15)
-
-    partial = calculate_payload(
+    five_feathers = calculate_payload(
         _payload(
             move_entry_id=ANOMALY_ENTRY,
             core_level=7,
             cinema_level=6,
-            condition_values={MUTATION_CONDITION: True, "condition:vivian:c6-partial-feather-mutation": True},
-            enabled_rule_item_ids=("rule:character:1331:cinema6:partial-feather-mutation:ether",),
+            condition_values={MUTATION_CONDITION: True},
+            enabled_rule_item_ids=("rule:character:1331:cinema6:max-feather-mutation:ether",),
         )
     )
-    assert partial["totals"]["expected"]["complete"] is False
-    assert any("one to four" in item["message"] for item in partial["totals"]["expected"]["diagnostics"])
+    one_event = _event(one_feather, "event:character:1331:cinema6-max-feather-mutation:ether")
+    five_event = _event(five_feathers, "event:character:1331:cinema6-max-feather-mutation:ether")
+    assert one_event["repeat_count"] == 1
+    assert five_event["repeat_count"] == 5
+    assert _node(one_event, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
+    assert _node(five_event, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
+    assert five_event["modes"]["expected"]["known_value"] == pytest.approx(
+        one_event["modes"]["expected"]["known_value"] * 5
+    )
+    zero_feathers = calculate_payload(
+        _payload(
+            move_entry_id=ANOMALY_ENTRY,
+            core_level=7,
+            cinema_level=6,
+            condition_values={MUTATION_CONDITION: True},
+            parameter_values={str(C6_FEATHER_COUNT): 0},
+            enabled_rule_item_ids=("rule:character:1331:cinema6:max-feather-mutation:ether",),
+        )
+    )
+    assert len(zero_feathers["events"]) == 1
+    assert zero_feathers["totals"]["expected"]["complete"] is True
 
 
 def test_additional_ability_corrosion_bonus_does_not_require_feather_and_c1_hits_disorder_lane() -> None:
@@ -515,11 +538,26 @@ def test_prophecy_missing_tick_count_is_partial_and_zero_ticks_add_no_event() ->
     assert not any(item["semantic_id"] == "event:character:1331:prophecy-tick" for item in zero["events"])
 
 
-def test_mixed_damage_curve_retains_source_and_blocks_unresolved_element_split() -> None:
-    result = calculate_payload(_payload(move_entry_id=MIXED_ENTRY))
-    assert result["totals"]["expected"]["complete"] is False
-    assert result["events"] == []
-    assert any("Physical and Ether" in item["message"] for item in result["totals"]["expected"]["diagnostics"])
+def test_vivian_basic_element_stages_and_remaining_mixed_named_moves_are_ether() -> None:
+    definition = compile_vivian(VivianCompileConfig(), load_raw_record(load_character_record(VIVIAN)))
+    templates = {str(item.ref.template_id): item for item in definition.damage_event_templates}
+    for stage in (1, 2):
+        template = templates[f"template:character:1331:basic-feather-flurry-{stage}:main"]
+        assert template.element is Element.PHYSICAL
+        result = calculate_payload(_payload(move_entry_id=f"move-entry:character:1331:basic-feather-flurry-{stage}"))
+        assert result["totals"]["expected"]["complete"] is True
+    for stage in (3, 4):
+        template = templates[f"template:character:1331:basic-feather-flurry-{stage}:main"]
+        assert template.element is Element.ETHER
+        result = calculate_payload(_payload(move_entry_id=f"move-entry:character:1331:basic-feather-flurry-{stage}"))
+        assert result["totals"]["expected"]["complete"] is True
+    assert templates["template:character:1331:dash-silver-thorn:main"].element is Element.PHYSICAL
+    for entry_id in (
+        "move-entry:character:1331:dodge-feather-blade-counter",
+        "move-entry:character:1331:special-silver-aria",
+        "move-entry:character:1331:quick-assist-feather-guard",
+    ):
+        assert calculate_payload(_payload(move_entry_id=entry_id))["totals"]["expected"]["complete"] is True
 
 
 def test_equipment_build_includes_vivian_level_60_base_anomaly_stats() -> None:

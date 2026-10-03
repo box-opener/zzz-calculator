@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from dataclasses import replace
 
 from core.types import (
     AnyFilter,
@@ -86,10 +85,8 @@ from .config import VivianCompileConfig
 from .reviewed import (
     BASIC_BLOSSOMS_MOVE_ID,
     BASIC_FALL_MOVE_ID,
-    C6_MAX_FEATHER_MUTATION,
-    C6_PARTIAL_FEATHER_MUTATION,
+    C6_FEATHER_COUNT,
     HAS_PROTECTIVE_FEATHER,
-    MIXED_ELEMENT_MOVE_IDS,
     MIND4_ATTACK_BUFF_ACTIVE,
     MUTATION_TRIGGERED,
     PROPHECY_ACTIVE,
@@ -198,7 +195,7 @@ def _mutation_ref(element: Element, *, cinema6: bool) -> tuple[DischargeDamageEv
     ref = DamageEventTemplateRef(
         template_id=f"template:character:1331:{key}:{suffix}",
         semantic_id=DamageEventSemanticId(semantic),
-        label=("6影：5点护羽强化异放" if cinema6 else "核心被动：异放"),
+        label=("6影：护羽强化异放" if cinema6 else "核心被动：异放"),
         damage_type=DamageType.ANOMALY,
         damage_subtype=DamageSubtype.DISCHARGE,
         element=element,
@@ -222,38 +219,10 @@ def _mutation_ref(element: Element, *, cinema6: bool) -> tuple[DischargeDamageEv
                 "multiplier from its typed Attribute Anomaly source event."
             ),
         ),
+        repeat_count_parameter_id=C6_FEATHER_COUNT if cinema6 else None,
+        skip_when_repeat_count_zero=cinema6,
     )
     return template, derived, effect_id
-
-
-def _partial_c6_creation_effect(source: RuleSource, element: Element, effect_id: EffectId) -> EventCreationEffect:
-    return EventCreationEffect(
-        rule=EffectRule(
-            effect_id=effect_id,
-            source=source,
-            owner=VIVIAN_ID,
-            target=EffectTarget.TEAM,
-            snapshot_rule=SnapshotRule.SETTLEMENT,
-            filters=(
-                DamageTypeFilter(DamageType.ANOMALY),
-                DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
-                ElementFilter(element),
-            ),
-        ),
-        result=EventCreationResult(
-            event_kind=BattleEventKind.DAMAGE,
-            unresolved_template=Unresolved(
-                reason=UnresolvedReason.AMBIGUOUS_TEXT,
-                notes=(
-                    "The raw Cinema 6 text gives only the maximum: spending five "
-                    "Protective Feathers raises Anomaly Mutation to five times its "
-                    "base ratio. The ratio for spending one to four feathers is not specified."
-                ),
-                original_text=source.raw_text,
-                candidates=("0 additional feathers: base ratio", "5 additional feathers: 5x base ratio"),
-            ),
-        ),
-    )
 
 
 def compile_vivian(
@@ -272,43 +241,8 @@ def compile_vivian(
         reviewed_mapping=VIVIAN_REVIEWED_MAPPING,
         id_namespace="character:1331",
     )
-    entries: list[MoveCalculationEntry] = []
+    entries: list[MoveCalculationEntry] = list(direct_entries)
     diagnostics = list(compile_diagnostics)
-    for entry in direct_entries:
-        if entry.move_id not in MIXED_ELEMENT_MOVE_IDS:
-            entries.append(entry)
-            continue
-        original_percent = None
-        multiplier = entry.multiplier_variants[0].multiplier
-        if isinstance(multiplier, FixedMultiplier) and isinstance(multiplier.value, Resolved):
-            original_percent = multiplier.value.value * 100.0
-        text = (
-            "Nanoka labels this hit as both Physical and Ether, but the source supplies one "
-            "combined curve without per-element damage shares. The numeric total is retained "
-            "in the diagnostic; no element-specific damage value is guessed."
-        )
-        diagnostic = _diagnostic(
-            f"ambiguous:character:1331:mixed-element:{entry.entry_id}",
-            text,
-            blocking=True,
-            candidates=(f"Raw combined damage multiplier: {original_percent:g}%" if original_percent is not None else "Raw per-element shares unavailable",),
-        )
-        unresolved = Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-            notes=text,
-            original_text=entry.original_text,
-            candidates=diagnostic.candidates,
-        )
-        entries.append(
-            replace(
-                entry,
-                multiplier_variants=(
-                    replace(entry.multiplier_variants[0], multiplier=unresolved),
-                ),
-                diagnostics=(*entry.diagnostics, diagnostic),
-            )
-        )
-        diagnostics.append(diagnostic)
 
     # Static full-gauge Ether corrosion entry. The history record is assembled
     # from the actual dealer snapshot by the shared static-record adapter.
@@ -399,8 +333,6 @@ def compile_vivian(
         _condition(TARGET_HAS_ANOMALY, "目标当前处于任意属性异常状态", "只表示当前异常状态；不模拟积蓄触发顺序。"),
         _condition(HAS_PROTECTIVE_FEATHER, "薇薇安当前至少有1点护羽", "资源数量由本次静态输入选择。"),
         _condition(MUTATION_TRIGGERED, "落羽生花命中已有属性异常的目标", "表示本次核心异放触发条件已满足；历史异常数值仍来自对应typed记录。"),
-        _condition(C6_MAX_FEATHER_MUTATION, "6影悬落消耗5点护羽触发异放", "只选择原文明确的5点护羽上限场景。"),
-        _condition(C6_PARTIAL_FEATHER_MUTATION, "6影悬落消耗1至4点护羽触发异放", "原文未给出中间羽数到倍率的映射；此条件会产生明确阻塞诊断。"),
     ]
     parameters = [
         ScenarioIntegerParameter(
@@ -411,7 +343,16 @@ def compile_vivian(
             value=None,
             minimum=0,
             maximum=None,
-        )
+        ),
+        ScenarioIntegerParameter(
+            parameter_id=C6_FEATHER_COUNT,
+            label="影画6：本次异放消耗的护羽数",
+            original_text="当前静态模型将消耗护羽数显式选为0–5；每点护羽对应一次基础异放倍率，默认取上限5。",
+            resolution=ParameterResolution.USER_SELECTED,
+            value=5,
+            minimum=0,
+            maximum=5,
+        ),
     ]
     core_mutation_effects: dict[Element, EffectId] = {}
     c6_mutation_effects: dict[Element, EffectId] = {}
@@ -605,7 +546,7 @@ def compile_vivian(
             ),
         )
         c6_source = c6_creation.rule.source
-        c6_ratio = rates[_ELEMENT_RATE_INDEX[element]] / 1000.0 * 5.0
+        c6_ratio = rates[_ELEMENT_RATE_INDEX[element]] / 1000.0
         c6_panel_effect = _modifier(
             f"cinema6:max-feather-mutation:current-ap:{element.value.replace(':', '-')}",
             c6_source,
@@ -627,32 +568,10 @@ def compile_vivian(
             _rule(
                 f"cinema6:max-feather-mutation:{element.value}",
                 c6_source,
-                f"6影：异放（5点护羽，{element.value}）",
+                f"6影：当前护羽数异放（{element.value}）",
                 raw_record.mindscapes[5].description,
                 RuleEligibility.ELIGIBLE if config.cinema_level >= 6 else RuleEligibility.INELIGIBLE,
-                conditions=(C6_MAX_FEATHER_MUTATION,),
                 effects=(c6_creation, c6_panel_effect),
-            )
-        )
-
-        unresolved_id = EffectId(f"effect:character:1331:cinema6:partial-feather:{element.value.replace(':', '-')}")
-        partial_source = source_for(
-            VIVIAN_ID,
-            "cinema6",
-            EffectSourceType.CINEMA,
-            "6影：薇薇安",
-            raw_record.mindscapes[5].description,
-        )
-        partial_creation = _partial_c6_creation_effect(partial_source, element, unresolved_id)
-        rules.append(
-            _rule(
-                f"cinema6:partial-feather-mutation:{element.value}",
-                partial_source,
-                f"6影：异放（1至4点护羽映射未决，{element.value}）",
-                raw_record.mindscapes[5].description,
-                RuleEligibility.ELIGIBLE if config.cinema_level >= 6 else RuleEligibility.INELIGIBLE,
-                conditions=(C6_PARTIAL_FEATHER_MUTATION,),
-                effects=(partial_creation,),
             )
         )
 
@@ -692,7 +611,7 @@ def compile_vivian(
         suffix = element.value.replace(":", "-")
         for effect_key, creation_id, factor in (
             ("base", core_mutation_effects[element], 1.0),
-            ("c6-max", c6_mutation_effects[element], 5.0),
+            ("c6-feather", c6_mutation_effects[element], 1.0),
         ):
             c2_effects.append(
                 _modifier(
@@ -908,7 +827,7 @@ def compile_vivian(
     )
     feather_resource_diagnostic = _diagnostic(
         "unsupported:character:1331:cinema6:feather-resource-sequence",
-        "Cinema 6's feather gains/consumption sequence and evade trigger are not replayed. The declared maximum five-feather multiplier is calculated explicitly; intermediate feather counts use a separate blocking unresolved rule.",
+        "Cinema 6's feather gains/consumption sequence and evade trigger are not replayed; the current static request supplies an explicit 0–5 feather count, defaulting to five, and each selected feather applies one base Anomaly Mutation ratio.",
         blocking=False,
     )
     c6_lane_diagnostic = _diagnostic(

@@ -16,15 +16,12 @@ from core.types import (
     DamageSubtype,
     DamageType,
     DamageTypeFilter,
-    CreatedByEffectFilter,
     EffectId,
     EffectOperation,
     EffectRule,
     EffectSourceType,
     EffectTarget,
     Element,
-    EventCreationEffect,
-    EventCreationResult,
     FixedMultiplier,
     MoveId,
     MoveIdFilter,
@@ -37,8 +34,6 @@ from core.types import (
     RuleSource,
     SnapshotRule,
     StandardCritRule,
-    Unresolved,
-    UnresolvedReason,
     SkillGroup,
     ScenarioParameterDerivedValue,
 )
@@ -85,7 +80,6 @@ from .reviewed import (
     ELECTRIC_ANOMALY_RECORD_ID,
     ELECTRIC_DISORDER_MOVE_ID,
     ELECTRIC_DISORDER_REMAINING_SECONDS,
-    EX_SPECIAL_EXTRA_TURNS_ACTIVE,
     EX_SPECIAL_MOVE_ID,
     FLASHOVER_ACTIVE,
     FLASHOVER_EXCESS_PERCENT,
@@ -260,7 +254,7 @@ def _direct_template(
     )
 
 
-def _ambiguous_basic_entries(
+def _basic_yisha_entries(
     config: QingyiCompileConfig,
     raw_record: NanokaRawRecord,
 ) -> tuple[tuple[MoveCalculationEntry, ...], tuple[DirectDamageEventTemplate, ...], tuple[CalculationDiagnostic, ...]]:
@@ -269,56 +263,22 @@ def _ambiguous_basic_entries(
     raw_move = raw_moves[source_name]
     level = effective_skill_level(config, SkillGroup.BASIC_ATTACK)
     mapped = (
-        ("basic-yisha-1", "普通攻击：一煞（一段）", "一段伤害倍率", "1251001", 1, False),
-        ("basic-yisha-derived", "普通攻击：一煞（派生曲线候选）", "一段伤害倍率（派生）", "1251002", None, True),
-        ("basic-yisha-2", "普通攻击：一煞（二段）", "二段伤害倍率", "1251003", 2, False),
-        ("basic-yisha-3", "普通攻击：一煞（三段）", "三段伤害倍率", "1251004", 3, False),
-        ("basic-yisha-4", "普通攻击：一煞（四段）", "四段伤害倍率", "1251005", 4, False),
-        ("basic-yisha-4-enhanced", "普通攻击：一煞（强化四段）", "四段伤害倍率（强化）", "1251006", 4, False),
+        ("basic-yisha-1", "普通攻击：一煞（一段）", "一段伤害倍率", "1251001", 1, Element.PHYSICAL),
+        ("basic-yisha-2", "普通攻击：一煞（二段）", "二段伤害倍率", "1251003", 2, Element.PHYSICAL),
+        ("basic-yisha-3", "普通攻击：一煞（三段）", "三段伤害倍率", "1251004", 3, Element.ELECTRIC),
+        ("basic-yisha-4", "普通攻击：一煞（四段）", "四段伤害倍率", "1251005", 4, Element.ELECTRIC),
+        ("basic-yisha-4-enhanced", "普通攻击：一煞（强化四段）", "四段伤害倍率（强化）", "1251006", 4, Element.ELECTRIC),
     )
     entries: list[MoveCalculationEntry] = []
     templates: list[DirectDamageEventTemplate] = []
-    diagnostics: list[CalculationDiagnostic] = []
-    for key, label, parameter_name, source_id, stage, derived_curve in mapped:
+    for key, label, parameter_name, source_id, stage, element in mapped:
         value = _source_parameter(raw_moves, source_name, parameter_name, source_id, level)
         raw_percentage = value * 100.0
-        if derived_curve:
-            message = (
-                "The raw curve is explicitly labeled 派生 but the detail text does not identify which action or hit it replaces or adds."
-            )
-            candidates = (f"Source {source_id}: {raw_percentage:.1f}% at effective Basic level {level}.",)
-        else:
-            message = (
-                "Qingyi's Basic description says the attack deals Physical and Electric damage, but the raw record supplies one curve per segment and no per-element shares. The selected curve cannot be assigned to one element."
-            )
-            candidates = (f"Source {source_id}: {raw_percentage:.1f}% combined curve at effective Basic level {level}; per-element shares unavailable.",)
-        diag = _diagnostic(
-            f"ambiguous:character:1251:{key}:damage-identity",
-            message,
-            raw_move.description,
-            blocking=True,
-            kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-            candidates=candidates,
-        )
         variant = MultiplierVariant(
             variant_id=MultiplierVariantId(f"variant:character:1251:{key}:raw"),
             label=parameter_name,
             parameter_name=parameter_name,
-            multiplier=Unresolved(
-                reason=(
-                    UnresolvedReason.AMBIGUOUS_TEXT
-                    if not derived_curve
-                    else UnresolvedReason.AMBIGUOUS_IDENTITY
-                ),
-                notes=message,
-                original_text=raw_move.description,
-                candidates=candidates,
-            ),
-        )
-        relation = (
-            MultiplierRelation.UNRESOLVED_RELATION
-            if derived_curve
-            else MultiplierRelation.SEQUENTIAL_STAGE
+            multiplier=FixedMultiplier(Resolved(value)),
         )
         template = _direct_template(
             key=key,
@@ -326,10 +286,7 @@ def _ambiguous_basic_entries(
             move_id=BASIC_YISHA_MOVE_ID,
             skill_group=SkillGroup.BASIC_ATTACK,
             tags=_BASIC,
-            # The multiplier is unresolved, so this mandatory domain template
-            # cannot reach a calculator. The diagnostic retains the missing
-            # physical/electric split; no numeric result is assigned here.
-            element=Element.ELECTRIC,
+            element=element,
         )
         entries.append(
             MoveCalculationEntry(
@@ -343,16 +300,14 @@ def _ambiguous_basic_entries(
                 ),
                 skill_group=SkillGroup.BASIC_ATTACK,
                 damage_tags=_BASIC,
-                multiplier_relation=relation,
+                multiplier_relation=MultiplierRelation.SEQUENTIAL_STAGE,
                 multiplier_variants=(variant,),
                 main_damage_event=template.ref,
-                stage_index=stage if relation is MultiplierRelation.SEQUENTIAL_STAGE else None,
-                diagnostics=(diag,),
+                stage_index=stage,
             )
         )
         templates.append(template)
-        diagnostics.append(diag)
-    return tuple(entries), tuple(templates), tuple(diagnostics)
+    return tuple(entries), tuple(templates), ()
 
 
 def _moon_turn_entries(
@@ -365,30 +320,11 @@ def _moon_turn_entries(
     rush = _source_parameter(raw_moves, raw_move.name, "突进攻击伤害倍率", "1251008", level)
     finisher = _source_parameter(raw_moves, raw_move.name, "终结一击伤害倍率", "1251009", level)
     rush_pct, finisher_pct = rush * 100.0, finisher * 100.0
-    rush_message = (
-        "Nanoka gives a curve for the rush attack and the prose says Moon Turn has five rushes, but the record does not state whether 1251008 is one rush or the combined five-rush value."
-    )
-    rush_diag = _diagnostic(
-        "ambiguous:character:1251:moon-turn:rush-unit",
-        rush_message,
-        raw_move.description,
-        blocking=True,
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        candidates=(
-            f"1251008 = {rush_pct:.1f}% per rush, repeated five times, plus 1251009 = {finisher_pct:.1f}% once.",
-            f"1251008 = {rush_pct:.1f}% for the five-rush sequence, plus 1251009 = {finisher_pct:.1f}% once.",
-        ),
-    )
     rush_variant = MultiplierVariant(
         variant_id=MultiplierVariantId("variant:character:1251:moon-turn-rush:raw"),
-        label="突进攻击伤害倍率",
+        label="五段突进总伤害倍率",
         parameter_name="突进攻击伤害倍率",
-        multiplier=Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-            notes=rush_message,
-            original_text=raw_move.description,
-            candidates=rush_diag.candidates,
-        ),
+        multiplier=FixedMultiplier(Resolved(rush)),
     )
     rush_template = _direct_template(
         key="moon-turn-rush",
@@ -402,18 +338,16 @@ def _moon_turn_entries(
         entry_id=MoveEntryId("move-entry:character:1251:moon-turn-rush"),
         character_id=QINGYI_ID,
         move_id=BASIC_MOON_TURN_MOVE_ID,
-        display_name="普通攻击：醉花月云转（突进攻击曲线）",
+        display_name="普通攻击：醉花月云转（五段突进总倍率）",
         original_text=(
-            f"{raw_move.description}\nSource 1251008 = {rush_pct:.1f}% at effective Basic level {level}; "
-            "its one-hit versus five-hit relationship is unresolved."
+            f"{raw_move.description}\nUser confirmed source curve 1251008 = {rush_pct:.1f}% for all five rushes at effective Basic level {level}; it is applied once."
         ),
         skill_group=SkillGroup.BASIC_ATTACK,
         damage_tags=_BASIC,
-        multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
+        multiplier_relation=MultiplierRelation.COMPLETE,
         multiplier_variants=(rush_variant,),
         main_damage_event=rush_template.ref,
         condition_ids=(FLASHOVER_ACTIVE,),
-        diagnostics=(rush_diag,),
     )
 
     finisher_template = _direct_template(
@@ -448,17 +382,7 @@ def _moon_turn_entries(
         condition_ids=(FLASHOVER_ACTIVE,),
     )
 
-    full_message = (
-        "A full Moon Turn requires combining the rush-attack and final-hit curves, but source 1251008 is not identified as per-rush or five-rush-total. The final-hit value remains available as its own entry."
-    )
-    full_diag = _diagnostic(
-        "ambiguous:character:1251:moon-turn:full-move-relation",
-        full_message,
-        raw_move.description,
-        blocking=True,
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        candidates=rush_diag.candidates,
-    )
+    full_multiplier = rush + finisher
     full_template = _direct_template(
         key="moon-turn-full-sequence",
         label="普通攻击：醉花月云转（完整连续招式）",
@@ -473,40 +397,33 @@ def _moon_turn_entries(
         move_id=BASIC_MOON_TURN_MOVE_ID,
         display_name="普通攻击：醉花月云转（完整连续招式）",
         original_text=(
-            f"{raw_move.description}\nSource 1251008 = {rush_pct:.1f}%; "
-            f"source 1251009 = {finisher_pct:.1f}%."
+            f"{raw_move.description}\nUser confirmed total sequence = source 1251008 ({rush_pct:.1f}%, all five rushes once) + source 1251009 ({finisher_pct:.1f}%, once)."
         ),
         skill_group=SkillGroup.BASIC_ATTACK,
         damage_tags=_BASIC,
-        multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
+        multiplier_relation=MultiplierRelation.COMPLETE,
         multiplier_variants=(
             MultiplierVariant(
-                variant_id=MultiplierVariantId("variant:character:1251:moon-turn-full-sequence:unresolved"),
-                label="突进与终结一击合计关系未明",
+                variant_id=MultiplierVariantId("variant:character:1251:moon-turn-full-sequence:source-sum"),
+                label="五段突进总倍率 + 终结一击",
                 parameter_name="完整招式倍率",
-                multiplier=Unresolved(
-                    reason=UnresolvedReason.AMBIGUOUS_TEXT,
-                    notes=full_message,
-                    original_text=raw_move.description,
-                    candidates=rush_diag.candidates,
-                ),
+                multiplier=FixedMultiplier(Resolved(full_multiplier)),
             ),
         ),
         main_damage_event=full_template.ref,
         condition_ids=(FLASHOVER_ACTIVE,),
-        diagnostics=(full_diag,),
     )
     return (
         (rush_entry, finisher_entry, full_entry),
         (rush_template, finisher_template, full_template),
-        (rush_diag, full_diag),
+        (),
     )
 
 
 def _composite_ex_special(
     config: QingyiCompileConfig,
     raw_record: NanokaRawRecord,
-) -> tuple[MoveCalculationEntry, DirectDamageEventTemplate, tuple[float, ...]]:
+) -> tuple[MoveCalculationEntry, DirectDamageEventTemplate]:
     raw_moves = raw_move_index(raw_record)
     raw_move = raw_moves["强化特殊技：月上海棠"]
     parameter = next(item for item in raw_move.parameters if item.name == "伤害倍率")
@@ -549,7 +466,7 @@ def _composite_ex_special(
         ),
         main_damage_event=template.ref,
     )
-    return entry, template, tuple(value for _, value in terms)
+    return entry, template
 
 
 def _static_electric_entries():
@@ -660,13 +577,13 @@ def compile_qingyi(
     entries = list(direct_entries)
     templates = list(direct_templates)
     diagnostics = list(direct_diagnostics)
-    ambiguous_entries, ambiguous_templates, ambiguous_diagnostics = _ambiguous_basic_entries(
+    basic_yisha_entries, basic_yisha_templates, basic_yisha_diagnostics = _basic_yisha_entries(
         config,
         raw_record,
     )
-    entries.extend(ambiguous_entries)
-    templates.extend(ambiguous_templates)
-    diagnostics.extend(ambiguous_diagnostics)
+    entries.extend(basic_yisha_entries)
+    templates.extend(basic_yisha_templates)
+    diagnostics.extend(basic_yisha_diagnostics)
     moon_entries, moon_templates, moon_diagnostics = _moon_turn_entries(
         config,
         raw_record,
@@ -674,7 +591,7 @@ def compile_qingyi(
     entries.extend(moon_entries)
     templates.extend(moon_templates)
     diagnostics.extend(moon_diagnostics)
-    ex_entry, ex_template, ex_terms = _composite_ex_special(config, raw_record)
+    ex_entry, ex_template = _composite_ex_special(config, raw_record)
     entries.append(ex_entry)
     templates.append(ex_template)
     static_entries, static_templates = _static_electric_entries()
@@ -696,11 +613,6 @@ def compile_qingyi(
             C6_ALL_RESISTANCE_ACTIVE,
             "青衣6影造成的目标全属性抗性降低当前生效",
             "这是目标当前的全属性抗性降低状态；后续任意角色和属性伤害均可受益，不由本次招式自动开启。",
-        ),
-        _condition(
-            EX_SPECIAL_EXTRA_TURNS_ACTIVE,
-            "月上海棠长按后的额外转身攻击分支当前执行",
-            "选择后会保留已知强化特殊技基值，同时为未明额外攻击数量/倍率报告局部缺失数据。",
         ),
     ]
     parameters = [
@@ -1142,55 +1054,6 @@ def compile_qingyi(
                     CalculationNode.ENEMY_RESISTANCE_REDUCTION,
                     Resolved(c6_resistance_reduction),
                     target=EffectTarget.ENEMY,
-                ),
-            ),
-        )
-    )
-
-    ex_raw = next(item for item in raw_record.moves if item.name == "强化特殊技：月上海棠")
-    ex_source = source_for(QINGYI_ID, "ex-special-extra-turns", EffectSourceType.SKILL, ex_raw.name, ex_raw.description)
-    ex_extra_effect_id = EffectId("effect:character:1251:ex-special:extra-turns-unresolved")
-    ex_extra_diag = Unresolved(
-        reason=UnresolvedReason.MISSING_DATA,
-        notes=(
-            "The known EX multiplier is the raw text's explicit sum of source curves "
-            "1251011, 1251021, and 1251022. The long-press text says the turning-attack "
-            "count increases with additional energy but does not identify an extra repeat "
-            "count or which curve supplies each added attack."
-        ),
-        original_text=ex_raw.description,
-        candidates=(
-            f"Known source-sum base at effective Special level {effective_skill_level(config, SkillGroup.SPECIAL_ATTACK)}: {sum(ex_terms) * 100:.1f}%.",
-            "Long-press extra-attack repeat count and corresponding damage curve are unavailable.",
-        ),
-    )
-    rules.append(
-        _rule(
-            "ex-special:long-press-extra-turns",
-            ex_source,
-            "强化特殊技：长按额外转身攻击",
-            ex_raw.description,
-            RuleEligibility.ELIGIBLE,
-            conditions=(EX_SPECIAL_EXTRA_TURNS_ACTIVE,),
-            effects=(
-                EventCreationEffect(
-                    rule=EffectRule(
-                        effect_id=ex_extra_effect_id,
-                        source=ex_source,
-                        owner=QINGYI_ID,
-                        target=EffectTarget.TEAM,
-                        snapshot_rule=SnapshotRule.SETTLEMENT,
-                        filters=(
-                            DamageDealerFilter(QINGYI_ID),
-                            DamageTypeFilter(DamageType.DIRECT),
-                            MoveIdFilter(EX_SPECIAL_MOVE_ID),
-                            NotFilter(CreatedByEffectFilter(ex_extra_effect_id)),
-                        ),
-                    ),
-                    result=EventCreationResult(
-                        event_kind=BattleEventKind.DAMAGE,
-                        unresolved_template=ex_extra_diag,
-                    ),
                 ),
             ),
         )
