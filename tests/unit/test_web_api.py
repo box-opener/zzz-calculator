@@ -1650,6 +1650,214 @@ def test_calculation_api_does_not_fill_missing_formal_inputs() -> None:
     assert "primary_character_id" in response.json()["diagnostics"][0]["message"]
 
 
+def test_optional_element_bonus_defaults_to_zero_in_legacy_panel_api() -> None:
+    payload = _valid_calculation_payload()
+    del payload["character_builds"]["character:1431"]["out_of_combat_stats"][
+        "element_damage_bonus"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert result["resolved_character_snapshots"][0]["stats"][
+        "element_damage_bonus"
+    ]["physical"] == pytest.approx(0.0)
+
+
+def test_bare_ice_equipment_build_calculates_without_bonus_map_or_enemy_resistance() -> None:
+    owner = "character:1091"
+    payload = _valid_calculation_payload()
+    payload.update(
+        {
+            "primary_character_id": owner,
+            "supporting_character_ids": [],
+            "team_character_ids": [owner],
+            "move_entry_id": "move-entry:character:1091:kazahana-1",
+            "compile_configs": {owner: {"core_level": 1, "cinema_level": 0}},
+            "condition_values": {},
+            "character_builds": {
+                owner: {"level": 60, "build_mode": "equipment-build", "drive_discs": []}
+            },
+            "enemy": {
+                "enemy_id": "enemy:ui",
+                "level": 70,
+                "initial_defense": 857.0,
+                "damage_resistance": {},
+                "damage_reduction": 0.0,
+                "stun_vulnerability_bonus": 1.5,
+                "is_stunned": False,
+            },
+            "enabled_rule_item_ids": [],
+            "selected_trigger_inputs": [],
+            "rule_stack_counts": {},
+        }
+    )
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 1
+    assert _breakdown_value(result["events"][0], "resistance.region") == pytest.approx(1.0)
+    snapshot = next(
+        item for item in result["resolved_character_snapshots"]
+        if item["character_id"] == owner
+    )
+    assert snapshot["stats"]["element_damage_bonus"]["ice"] == pytest.approx(0.0)
+    assert all(item["source_type"] not in {"weapon", "drive-disc"} for item in result["build_provenance"])
+
+
+@pytest.mark.parametrize("required_source", ("attack", "hp"))
+def test_equipment_build_does_not_invent_missing_required_attack_or_hp(
+    required_source: str,
+) -> None:
+    owner = "character:1091"
+    payload = _valid_calculation_payload()
+    base_stats = {
+        "hp": 10000.0,
+        "attack": 1000.0,
+        "defense": 500.0,
+        "impact": 100.0,
+        "crit_rate": 0.5,
+        "crit_damage": 0.5,
+        "anomaly_mastery": 100.0,
+        "anomaly_proficiency": 100.0,
+        "penetration_rate": 0.0,
+        "penetration_flat": 0.0,
+        "energy_regen": 1.2,
+        "element_damage_bonus": {"ice": 0.0},
+    }
+    del base_stats[required_source]
+    payload.update(
+        {
+            "primary_character_id": owner,
+            "supporting_character_ids": [],
+            "team_character_ids": [owner],
+            "move_entry_id": "move-entry:character:1091:kazahana-1",
+            "compile_configs": {owner: {"core_level": 1, "cinema_level": 0}},
+            "character_builds": {
+                owner: {
+                    "level": 60,
+                    "build_mode": "equipment-build",
+                    "base_stats": base_stats,
+                    "drive_discs": [],
+                }
+            },
+            "enemy": {
+                "enemy_id": "enemy:ui",
+                "level": 70,
+                "initial_defense": 857.0,
+                "damage_resistance": {},
+                "damage_reduction": 0.0,
+                "stun_vulnerability_bonus": 1.5,
+                "is_stunned": False,
+            },
+        }
+    )
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 400
+    assert required_source in response.json()["diagnostics"][0]["message"]
+
+
+def test_cross_specialty_wengine_keeps_static_stats_but_disables_all_talents() -> None:
+    owner = "character:1371"
+    passive = f"rule:wengine:14001:owner:1371:attack-percent"
+    proc = f"rule:wengine:14001:owner:1371:crit-triggered-extra-damage"
+    condition = "condition:wengine:14001:owner:1371:crit-triggered-extra-damage-current-hit"
+    payload = _single_wengine_payload(
+        owner,
+        "move-entry:character:1371:basic-xiaoyun-jin-1",
+        "wengine:14001",
+        5,
+        element="ether",
+    )
+    payload["condition_values"] = {condition: True}
+    payload["enabled_rule_item_ids"] = [passive, proc]
+
+    preview = client.post(
+        "/api/v1/wengines/preview",
+        json={
+            "wengine_id": "wengine:14001",
+            "equipped_character_id": owner,
+            "team_character_ids": [owner],
+            "level": 60,
+            "refinement": 5,
+        },
+    )
+    assert preview.status_code == 200, preview.text
+    assert all(item["eligibility"] == "ineligible" for item in preview.json()["rule_items"])
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 1
+    snapshot = next(
+        item for item in result["resolved_character_snapshots"]
+        if item["character_id"] == owner
+    )
+    assert snapshot["stats"]["attack"] == pytest.approx(1594.0)
+    assert snapshot["stats"]["crit_rate"] == pytest.approx(0.70)
+    assert any(
+        item["source_type"] == "w-engine"
+        and item["stat"] == "attack"
+        and item["value"] == pytest.approx(594.0)
+        for item in result["build_provenance"]
+    )
+    assert not any(
+        trace["source_type"] == "weapon"
+        for trace in result["panel_traces"]
+    )
+
+
+def test_cross_specialty_support_wengine_keeps_advanced_stat_but_not_owner_or_team_effects() -> None:
+    owner = "character:1431"
+    payload = _single_wengine_payload(
+        owner,
+        "move-entry:ye:1431:basic-fast-1",
+        "wengine:13103",
+        5,
+        element="physical",
+    )
+    payload["supporting_character_ids"] = ["character:1311"]
+    payload["team_character_ids"] = [owner, "character:1311"]
+    payload["compile_configs"]["character:1311"] = {"core_level": 1, "cinema_level": 0}
+    payload["character_builds"]["character:1311"] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "drive_discs": [],
+    }
+    passive_ids = [
+        f"rule:wengine:13103:owner:1431:{suffix}"
+        for suffix in ("all-damage-buff", "energy-regen-flat")
+    ]
+    payload["enabled_rule_item_ids"] = passive_ids
+
+    preview = client.post(
+        "/api/v1/wengines/preview",
+        json={
+            "wengine_id": "wengine:13103",
+            "equipped_character_id": owner,
+            "team_character_ids": [owner, "character:1311"],
+            "level": 60,
+            "refinement": 5,
+        },
+    )
+    assert preview.status_code == 200, preview.text
+    assert all(item["eligibility"] == "ineligible" for item in preview.json()["rule_items"])
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 1
+    panels = {item["character_id"]: item["stats"] for item in result["resolved_character_snapshots"]}
+    assert panels[owner]["attack"] == pytest.approx(1624.0)
+    assert panels[owner]["energy_regen"] == pytest.approx(1.8)
+    assert _breakdown_value(result["events"][0], "damage.normal-bonus") == pytest.approx(0.0)
+    assert not any(trace["source_type"] == "weapon" for trace in result["panel_traces"])
+
+
 def test_skill_level_and_integer_parameter_inputs_reach_compiler_and_scenario() -> None:
     payload = _valid_calculation_payload()
     payload["move_entry_id"] = "move-entry:ye:1431:basic-cloud"

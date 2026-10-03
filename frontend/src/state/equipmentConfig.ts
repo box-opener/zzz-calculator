@@ -8,32 +8,6 @@ export type EquipmentWengineConfig = {
   refinement: number;
 };
 
-export type SignatureWengineCatalogEntry = {
-  wengine_id: string;
-  rarity: string;
-  signature_character_id: string | null;
-};
-
-export function defaultSignatureRefinement(rarity: string): number {
-  return rarity === "A" ? 5 : 1;
-}
-
-export function defaultSignatureWengineSelections(
-  catalog: readonly SignatureWengineCatalogEntry[],
-): Record<string, EquipmentWengineConfig> {
-  const selections: Record<string, EquipmentWengineConfig> = {};
-  for (const item of catalog) {
-    if (item.signature_character_id && !selections[item.signature_character_id]) {
-      selections[item.signature_character_id] = {
-        id: item.wengine_id,
-        level: 60,
-        refinement: defaultSignatureRefinement(item.rarity),
-      };
-    }
-  }
-  return selections;
-}
-
 export type EquipmentConfig = {
   schema_version: typeof EQUIPMENT_CONFIG_SCHEMA_VERSION;
   character_id: string;
@@ -55,7 +29,7 @@ export type EquipmentConfigParseResult =
 
 export const CHARACTER_CONFIG_SCHEMA_VERSION = "zzz-character-config-v2" as const;
 
-export type CharacterBuildMode = "manual-panel" | "equipment-build";
+export type CharacterBuildMode = "equipment-build";
 
 export type CharacterConfig = {
   schema_version: typeof CHARACTER_CONFIG_SCHEMA_VERSION;
@@ -65,7 +39,7 @@ export type CharacterConfig = {
   compile_config: Record<string, unknown>;
   wengine: EquipmentWengineConfig | null;
   drive_discs: DriveDiscConfig[];
-  manual_panel_stats: Record<string, unknown> | null;
+  manual_panel_stats: null;
 };
 
 export type CharacterConfigParseResult =
@@ -167,9 +141,6 @@ function validateEquipmentObject(
     const id = stringValue(raw.wengine.id, "wengine.id");
     const catalogItem = catalog.wengines.find((item) => item.wengine_id === id);
     if (!catalogItem) invalid(`unknown W-Engine: ${id}`);
-    if (catalog.characterSpecialty && catalogItem.specialty && catalogItem.specialty !== catalog.characterSpecialty) {
-      invalid(`W-Engine ${id} is not compatible with ${expectedCharacterId}`);
-    }
     wengine = {
       id,
       level: integerInRange(raw.wengine.level, 1, 60, "wengine.level"),
@@ -373,7 +344,7 @@ function validateCharacterObject(
     invalid("build_mode must be manual-panel or equipment-build");
   }
   const compileConfig = validateCompileConfig(raw.compile_config, characterId);
-  const manualStats = validateManualPanelStats(raw.manual_panel_stats);
+  validateManualPanelStats(raw.manual_panel_stats);
   const equipment = validateEquipmentObject({
     schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
     character_id: characterId,
@@ -385,11 +356,14 @@ function validateCharacterObject(
       schema_version: CHARACTER_CONFIG_SCHEMA_VERSION,
       character_id: characterId,
       character_level: characterLevel,
-      build_mode: raw.build_mode,
+      // v2 files may still declare the retired manual-panel mode.  Their
+      // equipment selection and progression remain useful, but imported
+      // panel numbers are never treated as build inputs.
+      build_mode: "equipment-build",
       compile_config: compileConfig,
       wengine: equipment.wengine,
       drive_discs: equipment.drive_discs,
-      manual_panel_stats: manualStats,
+      manual_panel_stats: null,
     },
     equipment,
   };
@@ -398,26 +372,24 @@ function validateCharacterObject(
 export function createCharacterConfig(
   characterId: string,
   characterLevel: number,
-  buildMode: CharacterBuildMode,
+  _buildMode: CharacterBuildMode,
   compileConfig: Record<string, unknown>,
   wengine: EquipmentWengineConfig | null,
   driveDiscs: readonly DriveDiscConfig[],
-  manualPanelStats: Record<string, unknown> | null,
+  _manualPanelStats: Record<string, unknown> | null,
 ): CharacterConfig {
   return {
     schema_version: CHARACTER_CONFIG_SCHEMA_VERSION,
     character_id: characterId,
     character_level: characterLevel,
-    build_mode: buildMode,
+    build_mode: "equipment-build",
     compile_config: JSON.parse(JSON.stringify(compileConfig)) as Record<string, unknown>,
     wengine: wengine ? { ...wengine } : null,
     drive_discs: driveDiscs.map((disc) => ({
       ...disc,
       substats: disc.substats.map((substat) => ({ ...substat })),
     })),
-    manual_panel_stats: manualPanelStats
-      ? JSON.parse(JSON.stringify(manualPanelStats)) as Record<string, unknown>
-      : null,
+    manual_panel_stats: null,
   };
 }
 

@@ -234,10 +234,13 @@ def character_base_stat_contributions(
 def _element(value: str) -> Element:
     mapping = {
         "物理": Element.PHYSICAL,
+        "物理属性": Element.PHYSICAL,
         "physical": Element.PHYSICAL,
         "以太": Element.ETHER,
+        "以太属性": Element.ETHER,
         "ether": Element.ETHER,
         "火": Element.FIRE,
+        "火属性": Element.FIRE,
         "fire": Element.FIRE,
         "冰": Element.ICE,
         "ice": Element.ICE,
@@ -246,7 +249,10 @@ def _element(value: str) -> Element:
         "电属性": Element.ELECTRIC,
         "electric": Element.ELECTRIC,
         "风": Element.WIND,
+        "风属性": Element.WIND,
         "wind": Element.WIND,
+        "明光": Element.LUMINANCE,
+        "luminance": Element.LUMINANCE,
     }
     try:
         return mapping[value]

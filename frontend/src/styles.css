@@ -173,12 +173,14 @@ select option { color: #151823; background: #f5f6fb; }
 .toolbar-button { min-height: 35px; padding: 7px 11px; border: 1px solid rgba(169, 147, 255, .33); color: var(--accent-bright); background: rgba(169, 147, 255, .1); font-size: 11px; font-weight: 750; }
 .toolbar-button:hover { border-color: var(--accent); background: rgba(169, 147, 255, .18); transform: translateY(-1px); }
 .toolbar-button span { margin-right: 3px; font-size: 15px; line-height: 0; }
-.build-mode-strip { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, .8fr); gap: 13px; margin-top: 17px; padding: 13px; border: 1px solid var(--border); border-radius: 14px; background: rgba(8, 11, 20, .31); }
+.build-level-strip { display: grid; grid-template-columns: 1fr; gap: 13px; margin-top: 17px; padding: 13px; border: 1px solid var(--border); border-radius: 14px; background: rgba(8, 11, 20, .31); }
 .build-stats-section, .equipment-build-details, .drive-disc-section-wrap { margin-top: 17px; padding-top: 17px; border-top: 1px solid var(--border); }
 .subsection-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
 .subsection-heading .eyebrow { margin-bottom: 4px; }
 .number-field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
 .wengine-fields { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(115px, .75fr) minmax(115px, .75fr); gap: 13px; }
+.wengine-selection-field { display: grid; align-content: start; gap: 6px; }
+.wengine-specialty-warning { color: var(--amber); font-size: 10px; line-height: 1.5; }
 .drive-disc-area-heading { align-items: center; }
 
 /* Wide two-column cards: each card keeps the selector, roll math and status visible. */
@@ -345,7 +347,7 @@ select option { color: #151823; background: #f5f6fb; }
   .build-character-fields, .drive-disc-grid { grid-template-columns: 1fr; }
   .build-character-heading { flex-direction: column; }
   .equipment-tools { width: 100%; justify-content: flex-start; }
-  .build-mode-strip, .wengine-fields { grid-template-columns: 1fr; }
+  .build-level-strip, .wengine-fields { grid-template-columns: 1fr; }
   .target-fields, .config-field-grid, .parameter-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .trigger-field-grid { grid-template-columns: 1fr; }
   .team-slot-grid { grid-template-columns: 1fr; }

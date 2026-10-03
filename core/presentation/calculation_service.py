@@ -165,19 +165,6 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     definition_ids = {definition.character_id for definition in definitions}
     if not set(team_ids).issubset(definition_ids):
         raise ValueError("every team character must have a compiled definition")
-    required_resistances = {
-        registration_for(definition.character_id).base_element.value
-        for definition in definitions
-    }
-    missing_resistances = required_resistances - set(
-        payload.get("enemy", {}).get("damage_resistance", {})
-        if isinstance(payload.get("enemy"), Mapping)
-        else ()
-    )
-    if missing_resistances:
-        raise ValueError(
-            f"enemy damage_resistance is missing: {sorted(missing_resistances)}"
-        )
     current_operator = CharacterId(primary.character_id)
     if current_operator not in set(team_ids):
         raise ValueError("current_operator must be a team member")
@@ -882,26 +869,27 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
             stats = raw.get("out_of_combat_stats", raw.get("stats"))
         if not isinstance(stats, Mapping):
             raise ValueError(f"out_of_combat_stats must be an object: {character_id}")
-        required_stats = {
-            "attack",
-            "crit_rate",
-            "crit_damage",
-            "penetration_rate",
-            "penetration_flat",
-            "element_damage_bonus",
-        }
-        missing_stats = required_stats - set(stats)
-        if missing_stats:
-            raise ValueError(
-                f"character build stats are missing for {character_id}: "
-                f"{sorted(missing_stats)}"
-            )
-        element_key = registration_for(character_id).base_element.value
-        element_bonus = stats["element_damage_bonus"]
-        if not isinstance(element_bonus, Mapping) or element_key not in element_bonus:
-            raise ValueError(
-                f"element_damage_bonus is missing {element_key}: {character_id}"
-            )
+        if build_mode is BuildMode.MANUAL_PANEL:
+            # Preserve the legacy API's required panel sources. Damage-bonus
+            # maps remain optional and default to zero in _character_stats.
+            required_stats = {
+                "attack",
+                "crit_rate",
+                "crit_damage",
+                "penetration_rate",
+                "penetration_flat",
+            }
+            missing_stats = required_stats - set(stats)
+            if missing_stats:
+                raise ValueError(
+                    f"character build stats are missing for {character_id}: "
+                    f"{sorted(missing_stats)}"
+                )
+            element_bonus = stats.get("element_damage_bonus", {})
+            if not isinstance(element_bonus, Mapping):
+                raise ValueError(
+                    f"element_damage_bonus must be an object: {character_id}"
+                )
         builds.append(
             CharacterBuildInput(
                 character_id=character_id,
@@ -1227,14 +1215,18 @@ def _stats_mapping(stats: CharacterStats) -> dict[str, object]:
 
 def _enemy_inputs(enemy: EnemyInput):
     enemy_id = EnemyId(enemy.enemy_id)
+    resistances = {element: Resolved(0.0) for element in Element}
+    resistances.update(
+        {
+            _element(key): Resolved(float(value))
+            for key, value in enemy.damage_resistance.items()
+        }
+    )
     snapshot = EnemySnapshot(
         enemy_id=enemy_id,
         level=enemy.level,
         initial_defense=Resolved(enemy.initial_defense),
-        damage_resistance={
-            _element(key): Resolved(float(value))
-            for key, value in enemy.damage_resistance.items()
-        },
+        damage_resistance=resistances,
         anomaly_buildup_resistance={},
         daze_resistance=Unresolved(
             reason=UnresolvedReason.MISSING_DATA,
@@ -1462,6 +1454,26 @@ def _scenario(
 
 
 def _element(value: Any) -> Element:
+    aliases = {
+        "物理": Element.PHYSICAL,
+        "物理属性": Element.PHYSICAL,
+        "以太": Element.ETHER,
+        "以太属性": Element.ETHER,
+        "火": Element.FIRE,
+        "火属性": Element.FIRE,
+        "电": Element.ELECTRIC,
+        "电属性": Element.ELECTRIC,
+        "冰": Element.ICE,
+        "冰属性": Element.ICE,
+        "风": Element.WIND,
+        "风属性": Element.WIND,
+        "明光": Element.LUMINANCE,
+        "烈霜": Element.LIESHUANG,
+        "玄墨": Element.XUANMO,
+        "凛刃": Element.LINREN,
+    }
+    if str(value) in aliases:
+        return aliases[str(value)]
     try:
         return Element(str(value))
     except ValueError as exc:

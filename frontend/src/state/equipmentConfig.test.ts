@@ -2,53 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   createCharacterConfig,
   createEquipmentConfig,
-  defaultSignatureRefinement,
-  defaultSignatureWengineSelections,
   EQUIPMENT_CONFIG_SCHEMA_VERSION,
   parseCharacterConfig,
   parseEquipmentConfig,
   serializeCharacterConfig,
   serializeEquipmentConfig,
 } from "./equipmentConfig";
-
-describe("signature W-Engine defaults", () => {
-  const signatures = [
-    {
-      wengine_id: "wengine:13101",
-      rarity: "A",
-      signature_character_id: "character:1011",
-    },
-    {
-      wengine_id: "wengine:14136",
-      rarity: "S",
-      signature_character_id: "character:1361",
-    },
-    {
-      wengine_id: "wengine:14102",
-      rarity: "S",
-      signature_character_id: "character:1021",
-    },
-    {
-      wengine_id: "wengine:13103",
-      rarity: "A",
-      signature_character_id: "character:1031",
-    },
-  ] as const;
-
-  it("defaults A-rank signatures to R5 and S-rank signatures to R1", () => {
-    expect(defaultSignatureRefinement("A")).toBe(5);
-    expect(defaultSignatureRefinement("S")).toBe(1);
-  });
-
-  it("builds initial character-to-signature selections in catalog order", () => {
-    expect(defaultSignatureWengineSelections(signatures)).toEqual({
-      "character:1011": { id: "wengine:13101", level: 60, refinement: 5 },
-      "character:1361": { id: "wengine:14136", level: 60, refinement: 1 },
-      "character:1021": { id: "wengine:14102", level: 60, refinement: 1 },
-      "character:1031": { id: "wengine:13103", level: 60, refinement: 5 },
-    });
-  });
-});
 
 const roundTripWengines = [
   { id: "wengine:13103", characterId: "character:1031", specialty: "support" },
@@ -207,11 +166,11 @@ describe("complete character config v2", () => {
     element_damage_bonus: { physical: 0.12, ether: 0.2, electric: 0.03 },
   };
 
-  it("round-trips progress, compile flags, equipment, and manual stats", () => {
+  it("exports only equipment-build character configs", () => {
     const full = createCharacterConfig(
       "character:demo",
       48,
-      "manual-panel",
+      "equipment-build",
       {
         core_level: 6,
         cinema_level: 4,
@@ -229,6 +188,8 @@ describe("complete character config v2", () => {
       [{ slot: 1, set_id: "drive-disc:31000", main_stat: null, substats: [] }],
       manualStats,
     );
+    expect(full.build_mode).toBe("equipment-build");
+    expect(full.manual_panel_stats).toBeNull();
     const parsed = parseCharacterConfig(serializeCharacterConfig(full), "character:demo", catalog);
     expect(parsed).toEqual({
       ok: true,
@@ -241,6 +202,54 @@ describe("complete character config v2", () => {
       },
       source: "v2",
       wengineProvided: true,
+    });
+  });
+
+  it("migrates legacy manual-panel v2 files to raw-base equipment builds and preserves no W-Engine", () => {
+    const legacy = {
+      schema_version: "zzz-character-config-v2",
+      character_id: "character:demo",
+      character_level: 48,
+      build_mode: "manual-panel",
+      compile_config: { core_level: 6, cinema_level: 4 },
+      wengine: null,
+      drive_discs: [],
+      manual_panel_stats: manualStats,
+    };
+    const parsed = parseCharacterConfig(JSON.stringify(legacy), "character:demo", catalog);
+    expect(parsed).toMatchObject({
+      ok: true,
+      source: "v2",
+      wengineProvided: true,
+      config: {
+        build_mode: "equipment-build",
+        manual_panel_stats: null,
+        character_level: 48,
+        wengine: null,
+      },
+      equipment: { wengine: null, drive_discs: [] },
+    });
+  });
+
+  it("accepts cross-specialty W-Engines and retains their explicit equipment selection", () => {
+    const config = createCharacterConfig(
+      "character:demo",
+      60,
+      "equipment-build",
+      { core_level: 1, cinema_level: 0 },
+      { id: "wengine:demo", level: 60, refinement: 5 },
+      [],
+      null,
+    );
+    const parsed = parseCharacterConfig(
+      serializeCharacterConfig(config),
+      "character:demo",
+      { ...catalog, characterSpecialty: "support" },
+    );
+    expect(parsed).toMatchObject({
+      ok: true,
+      config: { build_mode: "equipment-build", wengine: { id: "wengine:demo", refinement: 5 } },
+      equipment: { wengine: { id: "wengine:demo", refinement: 5 } },
     });
   });
 
