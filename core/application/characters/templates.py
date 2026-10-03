@@ -13,6 +13,7 @@ from core.types import (
     SettledDamageValueSource,
     CharacterId,
     CurrentAttackValueSource,
+    CurrentDefenseValueSource,
     DamageType,
     DamageSubtype,
     Element,
@@ -34,6 +35,7 @@ class DirectDamageEventTemplate:
     element: Element
     base_source: (
         CurrentAttackValueSource
+        | CurrentDefenseValueSource
         | CurrentMaxHPValueSource
         | CurrentAnomalyProficiencyValueSource
         | CurrentPenetrationForceValueSource

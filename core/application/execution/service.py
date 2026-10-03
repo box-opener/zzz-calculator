@@ -139,10 +139,7 @@ class DirectMoveApplicationService:
             )
         assert multiplier.multiplier is not None
 
-        main_template = _find_template(
-            definitions,
-            entry.main_damage_event.template_id,
-        )
+        main_template = _find_template(request, entry.main_damage_event.template_id)
         if main_template is None:
             diagnostic = _diagnostic(
                 str(entry.main_damage_event.template_id),
@@ -556,7 +553,7 @@ class DirectMoveApplicationService:
                 "EventCreation re-entered a template in its ancestry",
             )
         definitions = _all_definitions(request)
-        derived_ref = _find_derived_ref(definitions, template_id)
+        derived_ref = _find_derived_ref(request, template_id)
         if derived_ref is None:
             return _diagnostic(
                 str(template_id),
@@ -564,7 +561,7 @@ class DirectMoveApplicationService:
                 DiagnosticKind.MISSING_DATA,
                 "EventCreation template has no DerivedDamageEventTemplateRef",
             )
-        template = _find_template(definitions, template_id)
+        template = _find_template(request, template_id)
         if template is None:
             return _diagnostic(
                 str(template_id),
@@ -796,14 +793,18 @@ def _find_entry(
 
 
 def _find_template(
-    definitions: tuple[CharacterCalculationDefinition, ...],
+    request: MoveCalculationRequest,
     template_id: EventTemplateId,
 ) -> DamageEventTemplate | None:
+    templates = tuple(
+        template
+        for definition in _all_definitions(request)
+        for template in definition.damage_event_templates
+    ) + request.additional_damage_event_templates
     return next(
         (
             item
-            for definition in definitions
-            for item in definition.damage_event_templates
+            for item in templates
             if item.ref.template_id == template_id
         ),
         None,
@@ -811,9 +812,10 @@ def _find_template(
 
 
 def _find_derived_ref(
-    definitions: tuple[CharacterCalculationDefinition, ...],
+    request: MoveCalculationRequest,
     template_id: EventTemplateId,
 ) -> DerivedDamageEventTemplateRef | None:
+    definitions = _all_definitions(request)
     return next(
         (
             item
@@ -828,6 +830,13 @@ def _find_derived_ref(
             for definition in definitions
             for entry in definition.move_entries
             for item in entry.derived_damage_events
+            if item.template.template_id == template_id
+        ),
+        None,
+    ) or next(
+        (
+            item
+            for item in request.additional_derived_damage_events
             if item.template.template_id == template_id
         ),
         None,

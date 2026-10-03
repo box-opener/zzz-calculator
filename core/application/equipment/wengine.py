@@ -8,9 +8,16 @@ from typing import Mapping
 
 from core.application.diagnostics import CalculationDiagnostic, DiagnosticKind
 from core.application.element_scope import element_scope_filter
-from core.application.ids import DiagnosticId, RuleItemId, ScenarioConditionId
+from core.application.ids import (
+    DamageEventSemanticId,
+    DiagnosticId,
+    RuleItemId,
+    ScenarioConditionId,
+)
+from core.application.moves import DamageEventTemplateRef, DerivedDamageEventTemplateRef
 from core.application.rules import CalculationRuleItem, RuleEligibility
 from core.application.scenario import ConditionResolution, ScenarioCondition
+from core.application.characters.templates import DamageEventTemplate, DirectDamageEventTemplate
 from core.data.wengines.loader import load_wengine_record
 from core.types import (
     AllCondition,
@@ -25,6 +32,8 @@ from core.types import (
     CharacterId,
     CharacterRole,
     CharacterStat,
+    CurrentAttackValueSource,
+    CurrentDefenseValueSource,
     DamageTag,
     DamageTagFilter,
     DamageSubtype,
@@ -32,6 +41,7 @@ from core.types import (
     DamageDealerFilter,
     DamageType,
     DamageTypeFilter,
+    CreatedByEffectFilter,
     DynamicIdentityCondition,
     DynamicIdentity,
     EffectId,
@@ -41,9 +51,11 @@ from core.types import (
     EffectRule,
     EffectSourceType,
     EffectTarget,
+    EventTemplateId,
     EquipmentOwnerCapabilities,
     Element,
     ElementFilter,
+    FixedMultiplier,
     NotCondition,
     NotFilter,
     ModifierEffect,
@@ -58,6 +70,7 @@ from core.types import (
     RuleSourceId,
     SkillGroup,
     SnapshotRule,
+    StandardCritRule,
     WEngineBuildInput,
     WEngineId,
 )
@@ -260,6 +273,8 @@ class WEngineBuildResolution:
     rule_items: tuple[CalculationRuleItem, ...]
     scenario_conditions: tuple[ScenarioCondition, ...] = ()
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
+    damage_event_templates: tuple[DamageEventTemplate, ...] = ()
+    derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
     @property
     def complete(self) -> bool:
@@ -348,12 +363,21 @@ def compile_wengine(
         rules = ()
         conditions = ()
         diagnostics = (diagnostic,)
+        damage_event_templates = ()
+        derived_damage_events = ()
     else:
         contributions = _static_contributions(raw, build_input)
         rules, conditions = _reviewed_rules(
             raw,
             build_input,
             owner_capabilities,
+        )
+        damage_event_templates, derived_damage_events = (
+            _resolved_extra_damage_artifacts(
+                raw,
+                build_input,
+                owner_capabilities,
+            )
         )
         diagnostics = _wengine_result_diagnostics(raw, build_input.refinement)
     return WEngineBuildResolution(
@@ -363,6 +387,8 @@ def compile_wengine(
         rule_items=rules,
         scenario_conditions=conditions,
         diagnostics=diagnostics,
+        damage_event_templates=damage_event_templates,
+        derived_damage_events=derived_damage_events,
     )
 
 
@@ -466,9 +492,14 @@ def _wengine_result_diagnostics(
         ),
         WENGINE_BIG_CYLINDER_ID: (
             "Damage taken reduction is preserved as a source-only effect because "
-            "the current request has no incoming-damage result. The unresolved "
-            "Defense-based additional damage is diagnosed only when its proc is "
-            "selected for an attack."
+            "the current request has no incoming-damage result. The selected "
+            "post-hit proc creates one guaranteed-Crit Direct component per source "
+            "hit; the 7.5-second cooldown is not replayed."
+        ),
+        WENGINE_CANNON_ROTOR_ID: (
+            "The selected current-hit Crit proc creates one Physical Direct child "
+            "with the wearer's Attack and standard Crit. Its 6–8-second internal "
+            "cooldown is not replayed."
         ),
         WENGINE_KABOOM_THE_CANNON_ID: (
             "The team Energy restoration is preserved in a source-linked RuleItem "
@@ -745,6 +776,64 @@ def _static_contributions(
     return tuple(contributions)
 
 
+def _resolved_extra_damage_artifacts(
+    raw: WEngineRawRecord,
+    build_input: WEngineBuildInput,
+    owner_capabilities: EquipmentOwnerCapabilities,
+) -> tuple[tuple[DamageEventTemplate, ...], tuple[DerivedDamageEventTemplateRef, ...]]:
+    owner = build_input.equipped_character_id
+    talent = raw.talents[build_input.refinement - 1]
+    if raw.wengine_id == WENGINE_BIG_CYLINDER_ID:
+        element = owner_capabilities.native_element
+        if element is None:
+            return (), ()
+        suffix = "defense-counter-extra-damage"
+        multiplier_key = "extra_damage_defense_multiplier"
+        base_source = CurrentDefenseValueSource(owner)
+        crit_rule = StandardCritRule(owner, guaranteed=True)
+    elif raw.wengine_id == WENGINE_CANNON_ROTOR_ID:
+        suffix = "crit-triggered-extra-damage"
+        element = Element.PHYSICAL
+        multiplier_key = "extra_damage_attack_multiplier"
+        base_source = CurrentAttackValueSource(owner)
+        crit_rule = StandardCritRule(owner)
+    else:
+        return (), ()
+
+    rule_item_id = RuleItemId(_instance_rule_id(raw.wengine_id, owner, suffix))
+    template_id = _instance_event_template_id(raw.wengine_id, owner, suffix)
+    template_ref = DamageEventTemplateRef(
+        template_id=template_id,
+        semantic_id=DamageEventSemanticId(
+            f"event:{raw.wengine_id}:owner:{_owner_token(owner)}:{suffix}"
+        ),
+        label=f"{raw.name}·{('防御追击' if raw.wengine_id == WENGINE_BIG_CYLINDER_ID else '暴击触发')}额外伤害",
+        damage_type=DamageType.DIRECT,
+        skill_group=None,
+        damage_tags=frozenset(),
+        element=element,
+        source_rule_item_id=rule_item_id,
+    )
+    template = DirectDamageEventTemplate(
+        ref=template_ref,
+        damage_dealer=owner,
+        element=element,
+        base_source=base_source,
+        crit_rule=crit_rule,
+        move_id=None,
+    )
+    multiplier = float(talent.numeric_values[multiplier_key])
+    return (
+        (template,),
+        (
+            DerivedDamageEventTemplateRef(
+                template=template_ref,
+                multiplier=FixedMultiplier(Resolved(multiplier)),
+            ),
+        ),
+    )
+
+
 def _advanced_stat(
     raw: WEngineRawRecord,
 ) -> tuple[CharacterStat, BuildContributionLayer]:
@@ -858,7 +947,9 @@ def _reviewed_rules(
             raw, build_input, talent, source, eligibility, owner_capabilities
         )
     if effect_family == "defense-big-cylinder":
-        return _big_cylinder_rules(raw, build_input, talent, source, eligibility)
+        return _big_cylinder_rules(
+            raw, build_input, talent, source, eligibility, owner_capabilities
+        )
     if effect_family == "support-bashful-demon":
         return _bashful_demon_rules(
             raw, build_input, talent, source, eligibility, owner_capabilities
@@ -1691,13 +1782,7 @@ def _electric_lip_gloss_rules(
         "anomaly-in-field-active",
         f"{raw.name}：场上任一敌人的属性异常状态存在",
         "当场上存在处于属性异常状态下的敌人时",
-    )
-    target_anomaly_id, target_anomaly_condition = _condition(
-        raw,
-        owner,
-        "damage-target-anomaly-active",
-        f"{raw.name}：本次伤害目标处于属性异常状态",
-        "对目标造成的伤害额外提升",
+        default_value=True,
     )
     attack_effect = _panel_modifier(
         raw=raw,
@@ -1714,36 +1799,6 @@ def _electric_lip_gloss_rules(
         suffix="target-damage",
         path=CalculationNode.DAMAGE_NORMAL_BONUS,
         value=float(values["target_damage_bonus"]),
-    )
-    unresolved_scope = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_TEXT,
-        notes=(
-            "The source states that an anomalous enemy exists on the field, then "
-            "increases damage to 'the target'. It does not specify whether that "
-            "bonus also applies to a different, currently normal target."
-        ),
-        original_text=talent.text,
-        candidates=(
-            "The extra target damage bonus applies only when the current target is anomalous.",
-            "The extra target damage bonus applies to any current target while an anomalous enemy exists elsewhere.",
-        ),
-    )
-    unresolved_scope_effect = ModifierEffect(
-        rule=_effect_rule(
-            effect_id=_instance_effect_id(
-                raw.wengine_id, owner, "unresolved-target-damage-scope"
-            ),
-            source=source,
-            owner=owner,
-            target=EffectTarget.SELF,
-            filters=(DamageDealerFilter(owner),),
-            condition=unresolved_scope,
-        ),
-        result=ModifierResult(
-            modifier_path=CalculationNode.DAMAGE_NORMAL_BONUS,
-            operation=EffectOperation.ADD,
-            value=Resolved(0.0),
-        ),
     )
     return (
         (
@@ -1762,24 +1817,13 @@ def _electric_lip_gloss_rules(
                 owner=owner,
                 source=source,
                 suffix="target-anomaly-damage",
-                label=f"{raw.name}·异常目标额外伤害",
-                eligibility=eligibility,
-                condition_ids=(field_anomaly_id, target_anomaly_id),
-                effects=(target_damage_effect,),
-            ),
-            _rule(
-                raw=raw,
-                owner=owner,
-                source=source,
-                suffix="target-damage-scope-ambiguous",
-                label=f"{raw.name}·异常状态与当前目标归属未决分支",
+                label=f"{raw.name}·场上异常时对目标增伤",
                 eligibility=eligibility,
                 condition_ids=(field_anomaly_id,),
-                condition_not_ids=(target_anomaly_id,),
-                effects=(unresolved_scope_effect,),
+                effects=(target_damage_effect,),
             ),
         ),
-        (field_anomaly_condition, target_anomaly_condition),
+        (field_anomaly_condition,),
     )
 
 
@@ -2711,33 +2755,48 @@ def _drill_rig_red_axis_rules(
     )
 
 
-def _unresolved_extra_damage_effect(
+def _wengine_extra_damage_effect(
     *,
     raw: WEngineRawRecord,
     owner: CharacterId,
     source: RuleSource,
     suffix: str,
-    notes: str,
-    candidates: tuple[str, ...],
     original_text: str,
+    template_available: bool,
 ) -> EventCreationEffect:
+    effect_id = EffectId(_instance_effect_id(raw.wengine_id, owner, suffix))
+    if template_available:
+        result = EventCreationResult(
+            event_kind=BattleEventKind.DAMAGE,
+            event_template_id=_instance_event_template_id(raw.wengine_id, owner, suffix),
+            unique_per_source_event=True,
+        )
+    else:
+        result = EventCreationResult(
+            event_kind=BattleEventKind.DAMAGE,
+            unresolved_template=Unresolved(
+                reason=UnresolvedReason.MISSING_DATA,
+                notes=(
+                    "The equipped character's native element is required to resolve "
+                    "this standalone damage component."
+                ),
+                original_text=original_text,
+            ),
+            unique_per_source_event=True,
+        )
     return EventCreationEffect(
         rule=_effect_rule(
-            effect_id=_instance_effect_id(raw.wengine_id, owner, suffix),
+            effect_id=str(effect_id),
             source=source,
             owner=owner,
             target=EffectTarget.TEAM,
-            filters=(DamageDealerFilter(owner),),
-        ),
-        result=EventCreationResult(
-            event_kind=BattleEventKind.DAMAGE,
-            unresolved_template=Unresolved(
-                reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-                notes=notes,
-                original_text=original_text,
-                candidates=candidates,
+            filters=(
+                DamageDealerFilter(owner),
+                DamageTypeFilter(DamageType.DIRECT),
+                NotFilter(CreatedByEffectFilter(effect_id)),
             ),
         ),
+        result=result,
     )
 
 
@@ -2747,6 +2806,7 @@ def _big_cylinder_rules(
     talent: WEngineRawTalent,
     source: RuleSource,
     eligibility: RuleEligibility,
+    owner_capabilities: EquipmentOwnerCapabilities,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
     proc_id, proc_condition = _condition(
@@ -2756,21 +2816,13 @@ def _big_cylinder_rules(
         f"{raw.name}：受击后的防御追击伤害正由本次攻击触发",
         "受到敌方攻击后，下一次攻击命中敌人时，额外造成装备者防御力倍率伤害",
     )
-    extra_effect = _unresolved_extra_damage_effect(
+    extra_effect = _wengine_extra_damage_effect(
         raw=raw,
         owner=owner,
         source=source,
         suffix="defense-counter-extra-damage",
-        notes=(
-            "The text specifies a Defense-scaled extra damage amount and guaranteed "
-            "crit, but does not specify the extra event's damage type, element, "
-            "MoveId/skill identity, or crit-stat owner."
-        ),
-        candidates=(
-            "The extra damage inherits the triggering attack's element, move identity, and crit-stat owner.",
-            "The extra damage is a separate event with its own element and calculation identity.",
-        ),
         original_text=talent.text,
+        template_available=owner_capabilities.native_element is not None,
     )
     return (
         _result_only_wengine_rules(
@@ -3230,21 +3282,13 @@ def _cannon_rotor_rules(
         f"{raw.name}：本次攻击触发暴击额外伤害",
         "攻击命中敌人并触发暴击时，额外造成200%攻击力的伤害",
     )
-    extra_effect = _unresolved_extra_damage_effect(
+    extra_effect = _wengine_extra_damage_effect(
         raw=raw,
         owner=owner,
         source=source,
         suffix="crit-triggered-extra-damage",
-        notes=(
-            "The source specifies a 200% Attack coefficient and a crit-triggered "
-            "extra damage event, but not that event's element, damage type, "
-            "MoveId/skill identity, or crit-stat owner. The cooldown is not replayed."
-        ),
-        candidates=(
-            "The extra event inherits the triggering attack's event identity and element.",
-            "The extra event is a separate event with its own element and calculation identity.",
-        ),
         original_text=talent.text,
+        template_available=True,
     )
     return (
         _rule(
@@ -5374,6 +5418,16 @@ def _instance_effect_id(
     return f"effect:{wengine_id}:owner:{_owner_token(owner)}:{suffix}"
 
 
+def _instance_event_template_id(
+    wengine_id: WEngineId,
+    owner: CharacterId,
+    suffix: str,
+) -> EventTemplateId:
+    return EventTemplateId(
+        f"template:{wengine_id}:owner:{_owner_token(owner)}:{suffix}"
+    )
+
+
 def _role(value: str) -> CharacterRole:
     mapping = {
         "attack": CharacterRole.ATTACK,
@@ -6531,7 +6585,6 @@ def _neon_fantasy_rules(
                 condition=RuleStackCondition(team_stack_rule_id, int(values["max_stacks"])),
             ),
         ),
-        non_stacking_group_id="wengine:14151:full-stack-anomaly-proficiency",
     )
     return (
         _rule(

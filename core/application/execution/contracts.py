@@ -13,6 +13,7 @@ from core.types import (
     CharacterSnapshot,
     CalculationNode,
     DamageEvent,
+    EventCreationEffect,
     EffectId,
     EffectOperation,
     EnemySnapshot,
@@ -25,6 +26,7 @@ from core.types import (
 )
 
 from ..characters.definition import CharacterCalculationDefinition
+from ..characters.templates import DamageEventTemplate
 from ..diagnostics import CalculationDiagnostic
 from ..ids import DamageEventSemanticId, MoveEntryId, RuleItemId
 from ..matching import (
@@ -38,6 +40,7 @@ from ..output import (
 )
 from ..scenario import CalculationScenario, ConditionResolution, ScenarioCondition
 from ..rules import CalculationRuleItem, RuleEligibility
+from ..moves import DerivedDamageEventTemplateRef
 
 
 class HistoryRecordMode(StrEnum):
@@ -73,6 +76,8 @@ class MoveCalculationRequest:
     history_records: tuple[AnomalyRecord, ...] = ()
     crit_display_mode: CritDisplayMode = CritDisplayMode.EXPECTED
     history_record_mode: HistoryRecordMode = HistoryRecordMode.EXPLICIT
+    additional_damage_event_templates: tuple[DamageEventTemplate, ...] = ()
+    additional_derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
     def __post_init__(self) -> None:
         # Scenario shape/static validation applies to every definition in the
@@ -249,7 +254,7 @@ class MoveCalculationRequest:
             template
             for definition in definitions
             for template in definition.damage_event_templates
-        )
+        ) + self.additional_damage_event_templates
         template_ids = tuple(item.ref.template_id for item in templates)
         if len(set(template_ids)) != len(template_ids):
             raise ValueError(
@@ -259,6 +264,28 @@ class MoveCalculationRequest:
         if len(set(semantic_ids)) != len(semantic_ids):
             raise ValueError(
                 "primary and supporting definitions must have unique DamageEventSemantic IDs"
+            )
+        additional_template_ids = {
+            item.ref.template_id for item in self.additional_damage_event_templates
+        }
+        additional_creation_ids = {
+            effect.result.event_template_id
+            for rule in self.additional_rule_items
+            for effect in rule.effects
+            if isinstance(effect, EventCreationEffect)
+            and effect.result.event_template_id is not None
+        }
+        additional_derived_ids = {
+            item.template.template_id
+            for item in self.additional_derived_damage_events
+        }
+        if additional_creation_ids - additional_template_ids:
+            raise ValueError(
+                "additional EventCreation references an unregistered W-Engine event template"
+            )
+        if additional_derived_ids != additional_creation_ids:
+            raise ValueError(
+                "additional W-Engine templates and derived references must match"
             )
 
 

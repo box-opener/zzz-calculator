@@ -59,10 +59,15 @@ class EquipmentOwnerCapabilities:
     damage_tags: frozenset[DamageTag] = frozenset()
     mechanisms: frozenset[str] = frozenset()
     damage_scopes: frozenset[EquipmentDamageScope] | None = None
+    native_element: Element | None = None
 
     def __post_init__(self) -> None:
         if not str(self.character_id):
             raise ValueError("equipment owner character_id must not be empty")
+        if self.native_element is not None and not self.can_produce_element(
+            self.native_element
+        ):
+            raise ValueError("native_element must be supported by owner capabilities")
         if any(not item.strip() for item in self.mechanisms):
             raise ValueError("equipment owner mechanism IDs must not be empty")
 

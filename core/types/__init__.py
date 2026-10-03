@@ -88,6 +88,7 @@ from .damage_event import (
     CalculationNodeMultiplier,
     CritRule,
     CurrentAttackValueSource,
+    CurrentDefenseValueSource,
     CurrentMaxHPValueSource,
     CurrentAnomalyEffectStrengthValueSource,
     CurrentAnomalyProficiencyValueSource,

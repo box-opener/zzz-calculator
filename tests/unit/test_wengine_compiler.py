@@ -66,6 +66,7 @@ from core.types import (
     CharacterStat,
     DamageTag,
     DamageDealerFilter,
+    CreatedByEffectFilter,
     AnyFilter,
     DamageSubtype,
     DamageSubtypeFilter,
@@ -78,6 +79,7 @@ from core.types import (
     CharacterSnapshot,
     EffectOperation,
     CurrentAttackValueSource,
+    CurrentDefenseValueSource,
     DamageEventId,
     DamageEventMetadata,
     DirectDamageEvent,
@@ -93,6 +95,7 @@ from core.types import (
     MoveId,
     FixedMultiplier,
     StandardCritRule,
+    NotFilter,
 )
 
 
@@ -1124,12 +1127,42 @@ def test_fifth_nanoka_batch_reviewed_rules_keep_local_unresolved_sources_and_exa
             rule = next(item for item in result.rule_items if item.rule_id.endswith(suffix))
             if numeric_id in {"13112", "14001"}:
                 event_effect = rule.effects[0]
-                assert event_effect.result.event_template_id is None
-                assert event_effect.result.unresolved_template is not None
-                assert event_effect.result.unresolved_template.reason.value == "ambiguous-identity"
+                assert event_effect.result.event_template_id is not None
+                assert event_effect.result.unresolved_template is None
+                assert event_effect.result.unique_per_source_event is True
                 assert event_effect.rule.filters == (
                     DamageDealerFilter(owner),
+                    DamageTypeFilter(DamageType.DIRECT),
+                    NotFilter(CreatedByEffectFilter(event_effect.rule.effect_id)),
                 )
+                template = next(
+                    item
+                    for item in result.damage_event_templates
+                    if item.ref.template_id == event_effect.result.event_template_id
+                )
+                assert template.ref.damage_type is DamageType.DIRECT
+                assert template.move_id is None
+                assert template.ref.skill_group is None
+                assert template.ref.damage_tags == frozenset()
+                assert template.damage_dealer == owner
+                assert template.crit_rule.stat_owner == owner
+                assert template.crit_rule.guaranteed is (numeric_id == "13112")
+                if numeric_id == "13112":
+                    assert template.ref.element is Element.ICE
+                    assert isinstance(template.base_source, CurrentDefenseValueSource)
+                    assert result.derived_damage_events[0].multiplier.value.value == pytest.approx(
+                        result.raw.talents[refinement - 1].numeric_values[
+                            "extra_damage_defense_multiplier"
+                        ]
+                    )
+                else:
+                    assert template.ref.element is Element.PHYSICAL
+                    assert isinstance(template.base_source, CurrentAttackValueSource)
+                    assert result.derived_damage_events[0].multiplier.value.value == pytest.approx(
+                        result.raw.talents[refinement - 1].numeric_values[
+                            "extra_damage_attack_multiplier"
+                        ]
+                    )
 
     raw = load_wengine_raw_record("wengine:13112")
     assert raw.base_stat is CharacterStat.ATTACK
@@ -1160,6 +1193,27 @@ def test_fifth_nanoka_batch_reviewed_rules_keep_local_unresolved_sources_and_exa
     assert registration_for("character:1251").equipment_capabilities.can_produce_element(
         Element.PHYSICAL
     )
+
+
+def test_big_cylinder_requires_explicit_native_element_instead_of_picking_a_capability() -> None:
+    owner = CharacterId("character:1341")
+    capabilities = replace(
+        registration_for(owner).equipment_capabilities,
+        native_element=None,
+    )
+    result = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:13112"), owner, refinement=5),
+        owner_capabilities=capabilities,
+    )
+    assert result.damage_event_templates == ()
+    rule = next(
+        item for item in result.rule_items
+        if item.rule_id.endswith("defense-counter-extra-damage")
+    )
+    unresolved = rule.effects[0].result.unresolved_template
+    assert unresolved is not None
+    assert unresolved.reason.value == "missing-data"
+    assert "native element" in unresolved.notes
 
 
 def test_sixth_nanoka_batch_refinement_values_match_each_live_source_text() -> None:
@@ -2103,6 +2157,8 @@ def test_final_nanoka_wengine_batch_compiles_both_endpoint_refinements_and_exact
     )
     assert neon.rule_items[0].eligibility is RuleEligibility.ELIGIBLE
     assert all(item.eligibility is RuleEligibility.INELIGIBLE for item in neon.rule_items[1:])
+    assert neon.rule_items[1].non_stacking_group_id == "wengine:14151:team-damage"
+    assert neon.rule_items[2].non_stacking_group_id is None
     neon_r5 = compile_wengine(
         WEngineBuildInput(
             WEngineId("wengine:14151"), qingyi.character_id, refinement=5
@@ -2111,6 +2167,19 @@ def test_final_nanoka_wengine_batch_compiles_both_endpoint_refinements_and_exact
     )
     assert neon.rule_items[0].effects[0].result.value == Resolved(90.0)
     assert neon_r5.rule_items[0].effects[0].result.value == Resolved(145.0)
+
+    lip_gloss_owner = registration_for("character:1401").equipment_capabilities
+    lip_gloss = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:13009"), lip_gloss_owner.character_id, refinement=5),
+        owner_capabilities=lip_gloss_owner,
+    )
+    assert len(lip_gloss.scenario_conditions) == 1
+    field_anomaly = lip_gloss.scenario_conditions[0]
+    assert field_anomaly.value is True
+    attack_rule, target_rule = lip_gloss.rule_items
+    assert target_rule.condition_ids == (field_anomaly.condition_id,)
+    assert not any("target-anomaly" in str(item.condition_id) for item in lip_gloss.scenario_conditions)
+    assert target_rule.effects[0].result.value == Resolved(0.25)
     attendant = compile_wengine(
         WEngineBuildInput(WEngineId("wengine:14157"), qingyi.character_id),
         owner_capabilities=qingyi,

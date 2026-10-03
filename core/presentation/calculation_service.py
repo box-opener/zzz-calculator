@@ -24,6 +24,8 @@ from core.application import (
 from core.application.characters.dialyn import DIALYN_ID
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.ids import MoveEntryId, RuleItemId
+from core.application.moves import DerivedDamageEventTemplateRef
+from core.application.characters.templates import DamageEventTemplate
 from core.application.rules import CalculationRuleItem
 from core.application.scenario import ScenarioCondition
 from core.types import (
@@ -83,6 +85,8 @@ class _BuiltCharacterRecord:
     rule_items: tuple[CalculationRuleItem, ...] = ()
     scenario_conditions: tuple[ScenarioCondition, ...] = ()
     provenance: tuple[BuildContributionTrace, ...] = ()
+    damage_event_templates: tuple[DamageEventTemplate, ...] = ()
+    derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
 
 def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -146,6 +150,16 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         for record in build_records
         for condition in record.scenario_conditions
     )
+    additional_damage_event_templates = tuple(
+        template
+        for record in build_records
+        for template in record.damage_event_templates
+    )
+    additional_derived_damage_events = tuple(
+        derived
+        for record in build_records
+        for derived in record.derived_damage_events
+    )
     build_provenance = tuple(
         trace for record in build_records for trace in record.provenance
     )
@@ -189,6 +203,8 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             team_profiles=team_profiles,
             target_profile=enemy_profile,
             additional_rule_items=additional_rule_items,
+            additional_damage_event_templates=additional_damage_event_templates,
+            additional_derived_damage_events=additional_derived_damage_events,
             additional_scenario_conditions=additional_scenario_conditions,
             base_calculation_modifiers=base_modifiers,
             history_record_mode=HistoryRecordMode.STATIC_SINGLE_CHARACTER,
@@ -573,6 +589,8 @@ def _build_records(
             base_stats = _character_stats(build.base_stats, character_id)
         rule_items: tuple[CalculationRuleItem, ...] = ()
         conditions: tuple[ScenarioCondition, ...] = ()
+        damage_event_templates: tuple[DamageEventTemplate, ...] = ()
+        derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
         contributions: tuple[BuildStatContribution, ...] = (
             character_base_stat_contributions(character_id)
         )
@@ -592,6 +610,8 @@ def _build_records(
             contributions = (*contributions, *wengine.contributions)
             rule_items = wengine.rule_items
             conditions = wengine.scenario_conditions
+            damage_event_templates = wengine.damage_event_templates
+            derived_damage_events = wengine.derived_damage_events
         if build.drive_discs:
             drive = compile_drive_discs(
                 DriveDiscBuildInput(character_id, build.drive_discs),
@@ -625,6 +645,8 @@ def _build_records(
                 rule_items=rule_items,
                 scenario_conditions=conditions,
                 provenance=resolved_build.provenance,
+                damage_event_templates=damage_event_templates,
+                derived_damage_events=derived_damage_events,
             )
         )
     return tuple(records)

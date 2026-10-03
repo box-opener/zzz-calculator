@@ -611,13 +611,11 @@ state; it is not gated by a shield. `13008`'s Anomaly Proficiency stacks are als
 current count from 0 to 4. The request does not replay individual stack expiry or
 cleanup timing.
 
-For `13009`, the source says `当场上存在处于属性异常状态下的敌人时，装备者的攻击力提升…，对目标造成的伤害额外提升…`.
-The field condition independently activates the owner's Attack panel bonus. When
-the current damage target is anomalous, the target damage bonus is unambiguous. If
-another enemy is anomalous but the current target is normal, the source does not
-resolve whether “对目标” means only an anomalous target or any target while the
-field condition holds. That precise state produces a branch-local blocking
-`AMBIGUOUS_TEXT` diagnostic; unrelated moves and the Attack panel remain available.
+For `13009`, the user confirmed that the one current-state field condition means an
+anomalous enemy exists on the field, and activates both the owner's Attack panel
+bonus and the damage bonus against the current target. The condition defaults
+active as requested and can be changed explicitly; no separate current-target
+anomaly state is required.
 
 `13011` says `受到敌方攻击时，装备者的能量获得效率提升…；装备者换回后场时，该增益效果将传递给当前操作中的角色`.
 The current request has no incoming damage or resource result and does not provide a
@@ -762,19 +760,19 @@ The next ten uncovered catalog rows are `13112`, `13113`, `13115`, `13127`, `131
 `13135`, `13142`, `13144`, `14001`, and `14002`. `13103` remains the already
 supported row between batches, so this batch follows the actual insertion order.
 
-`13112` says `受到敌方攻击后，下一次攻击命中敌人时，额外造成装备者960%防御力的伤害，且必定触发暴击` at R5. The incoming-damage reduction remains a source RuleItem because no incoming result exists. If the explicit “this attack triggers the ready proc” condition is selected and the wearer is the actual damage dealer, a typed EventCreation branch emits a blocking `AMBIGUOUS_IDENTITY` diagnostic: the guaranteed crit and DEF coefficient are known, while the added hit's element, damage type, MoveId/skill identity, and crit-stat owner are not. No trigger-move identity is fabricated, and the ordinary attack remains known.
+`13112` says `受到敌方攻击后，下一次攻击命中敌人时，额外造成装备者960%防御力的伤害，且必定触发暴击` at R5. The user confirmed a standalone Direct component using the wearer's current Defense, own guaranteed Crit, and native element, with no MoveId, SkillGroup, or tag. When the current proc state is selected, each actual Direct hit by the wearer creates one child; it cannot trigger itself. Zhao's native element is explicitly Ice, even when the selected source Basic hit is Physical. Incoming-damage reduction remains source-only because this request has no incoming-damage result; the 7.5-second cooldown is not replayed.
 
 `13113` has an Ice damage bonus and a separate EX-triggered, current 0–4 TEAM Attack stack. The Ice effect is capability-gated; the current registered Support owners do not gain it unless their typed capabilities include Ice. The group uses a stable same-name non-stacking key across owners. `13115` likewise applies an explicit 0–4 aggregate TEAM Attack stack with a one-layer-per-friendly-unit source cap and a stable non-stacking group. The active stack count and contributors are not replayed from attacks; no untracked Bangboo or fourth teammate is synthesized. Its one-shot Energy result remains a non-blocking source-rule diagnostic.
 
 `13127` separates shield-gated flat Energy Regeneration from the unconditional EX Special/Assist Attack anomaly-buildup efficiency bonus. `13128` exposes its three random effects as independent current-state rules—Attack, Anomaly Proficiency, and buildup efficiency—because the source explicitly allows multiple outcomes to coexist; no random result or 0.3-second cooldown is replayed. `13135` treats Follow-up Attack as the trigger only; its later Physical damage and Daze effects are not restricted to the current move being Follow-up. Its Daze result is outside the current damage output and has a non-blocking diagnostic. `13142` scopes damage bonus to EX Special and Ultimate tags; Energy recovery remains source-only.
 
-`13144` has a Fire damage bonus and a separate owner HP-loss current-state Crit Rate panel buff. The Fire branch is capability-gated; the registered Rupture owner does not have Fire damage capability. `14001` keeps the permanent Attack panel bonus. Its 200%-ATK extra damage on a critical hit is a separate local unresolved-child branch when the explicit current proc fact is selected, because the source does not identify the extra hit's element, damage type, MoveId/skill identity, or crit-stat owner; its refinement-specific cooldown is not simulated. `14002`'s current target-specific all-team Crit Rate increase is an event-stat modifier for standard-crit Direct/Penetration events, so it does not alter formal team Crit Rate snapshots or No-Crit Anomaly/Disorder results. Its same-name stacking group is stable across equipment owners; differing active refinements block that target-scope effect instead of choosing a copy.
+`13144` has a Fire damage bonus and a separate owner HP-loss current-state Crit Rate panel buff. The Fire branch is capability-gated; the registered Rupture owner does not have Fire damage capability. `14001` keeps the permanent Attack panel bonus. The user confirmed that its 200%-ATK proc is a separate Physical Direct child using the wearer's current Attack, normal owner multipliers, and owner Crit stats, with no MoveId, SkillGroup, or tag. One selected current-hit proc creates one child per actual Direct source hit and excludes itself; the 6–8-second cooldown is not replayed. `14002`'s current target-specific all-team Crit Rate increase is an event-stat modifier for standard-crit Direct/Penetration events, so it does not alter formal team Crit Rate snapshots or No-Crit Anomaly/Disorder results. Its same-name stacking group is stable across equipment owners; differing active refinements block that target-scope effect instead of choosing a copy.
 
 ## W-Engine live 3.2 final batch
 
-### 14151 霓虹妄想: scope of the uniqueness phrase
+### 14151 霓虹妄想: confirmed uniqueness scope
 
-The R1 text ends: `拥有2层效果时，装备者的异常精通额外提升<color=#2BAD00>60</color>点，该效果全队唯一。` The uniqueness phrase could apply to the immediately preceding full-stack Anomaly Proficiency bonus or to the stack effect as a whole. Multiple simultaneous holders and differing refinements are not represented by the currently registered Stun owners, which have no Ether Basic/EX capability. The reviewed compiler keeps the known TEAM damage stack and owner Proficiency effect as separate typed effects; this implementation note does not resolve the phrase's multi-holder scope.
+The R1 text ends: `拥有2层效果时，装备者的异常精通额外提升<color=#2BAD00>60</color>点，该效果全队唯一。` The user confirmed that the TEAM damage stack is unique; each holder's full-stack owner AP is a SELF panel bonus with no cross-holder non-stacking group. The registered Stun owners still have no Ether Basic/EX capability, so no fictitious API actor is introduced for that branch.
 
 ## Anby (`character:1011`)
 

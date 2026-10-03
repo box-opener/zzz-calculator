@@ -2279,12 +2279,10 @@ def test_result_only_weapon_effects_keep_scoped_nonblocking_diagnostics(
     )
 
 
-def test_electric_lip_gloss_separates_field_anomaly_and_target_anomaly_scope() -> None:
+def test_electric_lip_gloss_field_anomaly_state_applies_owner_and_any_target_bonus() -> None:
     field_id = "condition:wengine:13009:owner:1401:anomaly-in-field-active"
-    target_id = "condition:wengine:13009:owner:1401:damage-target-anomaly-active"
     attack_rule = "rule:wengine:13009:owner:1401:field-anomaly-attack"
     target_rule = "rule:wengine:13009:owner:1401:target-anomaly-damage"
-    unresolved_rule = "rule:wengine:13009:owner:1401:target-damage-scope-ambiguous"
     payload = _single_wengine_payload(
         "character:1401",
         "move-entry:alice:1401:physical-anomaly",
@@ -2292,52 +2290,117 @@ def test_electric_lip_gloss_separates_field_anomaly_and_target_anomaly_scope() -
         5,
         element="physical",
     )
-    rules = [attack_rule, target_rule, unresolved_rule]
-    payload["enabled_rule_item_ids"] = rules
-    payload["condition_values"] = {field_id: False, target_id: False}
+    payload["enabled_rule_item_ids"] = [attack_rule, target_rule]
+    default_active = client.post("/api/v1/moves/calculate", json=payload)
+    assert default_active.status_code == 200, default_active.text
+    assert default_active.json()["events"][0]["modes"]["expected"][
+        "anomaly_effect_strength_trace"
+    ]["normal_bonus"] == pytest.approx(0.25)
+    payload["condition_values"] = {field_id: False}
     baseline = client.post("/api/v1/moves/calculate", json=payload)
     assert baseline.status_code == 200, baseline.text
     base_attack = baseline.json()["resolved_character_snapshots"][0]["stats"]["attack"]
 
-    # An anomalous enemy elsewhere in the field activates the owner's attack
-    # panel bonus. The current target remains normal, leaving only that target's
-    # extra damage scope unresolved for this owner event.
-    payload["condition_values"] = {field_id: True, target_id: False}
-    other_anomaly = client.post("/api/v1/moves/calculate", json=payload)
-    assert other_anomaly.status_code == 200, other_anomaly.text
-    partial = other_anomaly.json()
-    assert partial["resolved_character_snapshots"][0]["stats"]["attack"] == pytest.approx(
+    # The field state is the only anomaly prerequisite. The current target is
+    # not given a separate anomaly flag, so the target bonus applies normally.
+    payload["condition_values"] = {field_id: True}
+    active_response = client.post("/api/v1/moves/calculate", json=payload)
+    assert active_response.status_code == 200, active_response.text
+    active = active_response.json()
+    assert active["resolved_character_snapshots"][0]["stats"]["attack"] == pytest.approx(
         base_attack * 1.16
     )
-    assert partial["totals"]["expected"]["complete"] is False
-    assert any(
-        item["kind"] == "ambiguous-semantics"
-        and item["blocking"]
-        and "does not specify whether" in item["message"]
-        for item in partial["diagnostics"]
+    assert active["totals"]["expected"]["complete"] is True
+    assert active["events"][0]["modes"]["expected"][
+        "anomaly_effect_strength_trace"
+    ]["normal_bonus"] == pytest.approx(0.25)
+    assert active["events"][0]["modes"]["expected"]["value"] > baseline.json()["events"][0]["modes"]["expected"]["value"]
+
+
+@pytest.mark.parametrize(("refinement", "multiplier"), ((1, 6.0), (5, 9.6)))
+def test_big_cylinder_extra_hit_uses_owner_defense_crit_and_native_element(
+    refinement: int,
+    multiplier: float,
+) -> None:
+    owner = "character:1341"
+    rule_id = f"rule:wengine:13112:owner:1341:defense-counter-extra-damage"
+    condition_id = f"condition:wengine:13112:owner:1341:defense-counter-damage-ready"
+    payload = _single_wengine_payload(
+        owner,
+        "move-entry:character:1341:basic-cold-judgment-1",
+        "wengine:13112",
+        refinement,
+        element="ice",
+    )
+    payload["character_builds"][owner]["base_stats"]["defense"] = 1000.0
+    payload["character_builds"][owner]["base_stats"]["element_damage_bonus"] = {
+        "physical": 0.0,
+        "ice": 0.0,
+    }
+    payload["enemy"]["damage_resistance"] = {"physical": 0.1, "ice": 0.5}
+    payload["condition_values"] = {condition_id: True}
+    payload["enabled_rule_item_ids"] = [rule_id]
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 2
+    child = next(
+        event for event in result["events"]
+        if event["common_application_trace"]["created_by_effect_id"] == (
+            "effect:wengine:13112:owner:1341:defense-counter-extra-damage"
+        )
+    )
+    main = next(event for event in result["events"] if event is not child)
+    assert _breakdown_value(main, "resistance.region") == pytest.approx(0.9)
+    current_defense = result["resolved_character_snapshots"][0]["stats"]["defense"]
+    assert _breakdown_value(child, "character.current.defense") == pytest.approx(current_defense)
+    assert _breakdown_value(child, "damage.base-value") == pytest.approx(current_defense * multiplier)
+    assert _breakdown_value(child, "resistance.region") == pytest.approx(0.5)
+    assert _breakdown_value(child, "character.current.crit-rate") == pytest.approx(1.0)
+    assert child["modes"]["non-crit"]["value"] == pytest.approx(
+        child["modes"]["full-crit"]["value"]
     )
 
-    # When the current target itself is anomalous, both the Attack increase and
-    # target damage increase have an unambiguous source scope.
-    payload["condition_values"][target_id] = True
-    current_target_anomaly = client.post("/api/v1/moves/calculate", json=payload)
-    assert current_target_anomaly.status_code == 200, current_target_anomaly.text
-    complete = current_target_anomaly.json()
-    assert complete["totals"]["expected"]["complete"] is True
-    assert partial["events"][0]["modes"]["expected"]["value"] is None
-    assert complete["events"][0]["modes"]["expected"]["value"] > baseline.json()[
-        "events"
-    ][0]["modes"]["expected"]["value"]
 
-    payload["condition_values"][target_id] = None
-    unresolved_target = client.post("/api/v1/moves/calculate", json=payload)
-    assert unresolved_target.status_code == 200, unresolved_target.text
-    unresolved = unresolved_target.json()
-    assert unresolved["totals"]["expected"]["complete"] is False
-    assert any(
-        item["kind"] == "missing-data"
-        and "scenario condition has no selected value" in item["message"]
-        for item in unresolved["diagnostics"]
+def test_cannon_rotor_extra_hit_uses_wearer_attack_and_does_not_recurse() -> None:
+    owner = "character:1431"
+    rule_id = "rule:wengine:14001:owner:1431:crit-triggered-extra-damage"
+    condition_id = "condition:wengine:14001:owner:1431:crit-triggered-extra-damage-current-hit"
+    payload = _single_wengine_payload(
+        owner,
+        "move-entry:ye:1431:basic-fast-1",
+        "wengine:14001",
+        5,
+        element="physical",
+    )
+    payload["condition_values"] = {condition_id: True}
+    payload["enabled_rule_item_ids"] = [
+        rule_id,
+        "rule:wengine:14001:owner:1431:attack-percent",
+    ]
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 2
+    child = next(
+        event for event in result["events"]
+        if event["common_application_trace"]["created_by_effect_id"] == (
+            "effect:wengine:14001:owner:1431:crit-triggered-extra-damage"
+        )
+    )
+    owner_attack = result["resolved_character_snapshots"][0]["stats"]["attack"]
+    assert _breakdown_value(child, "damage.base-value") == pytest.approx(
+        owner_attack * 2.0
+    )
+    assert _breakdown_value(child, "character.current.crit-rate") == pytest.approx(
+        result["resolved_character_snapshots"][0]["stats"]["crit_rate"]
+    )
+    assert child["common_application_trace"]["created_by_effect_id"] == (
+        "effect:wengine:14001:owner:1431:crit-triggered-extra-damage"
     )
 
 
@@ -3461,7 +3524,7 @@ def test_fox_furnace_applies_tagged_daze_without_inventing_fire_team_buff() -> N
 
 
 @pytest.mark.parametrize(
-    ("owner", "move", "wengine_id", "element", "rule_suffix", "condition_suffix", "source_fragment"),
+    ("owner", "move", "wengine_id", "element", "rule_suffix", "condition_suffix"),
     (
         (
             "character:1341",
@@ -3470,7 +3533,6 @@ def test_fox_furnace_applies_tagged_daze_without_inventing_fire_team_buff() -> N
             "ice",
             "defense-counter-extra-damage",
             "defense-counter-damage-ready",
-            "960%</color>防御力的伤害，且必定触发暴击",
         ),
         (
             "character:1431",
@@ -3479,18 +3541,16 @@ def test_fox_furnace_applies_tagged_daze_without_inventing_fire_team_buff() -> N
             "physical",
             "crit-triggered-extra-damage",
             "crit-triggered-extra-damage-current-hit",
-            "额外造成200%攻击力的伤害",
         ),
     ),
 )
-def test_unidentified_extra_damage_blocks_only_when_its_proc_state_is_selected(
+def test_resolved_extra_damage_events_are_created_only_when_proc_state_is_selected(
     owner: str,
     move: str,
     wengine_id: str,
     element: str,
     rule_suffix: str,
     condition_suffix: str,
-    source_fragment: str,
 ) -> None:
     owner_number = owner.split(":")[-1]
     rule_id = f"rule:{wengine_id}:owner:{owner_number}:{rule_suffix}"
@@ -3512,13 +3572,12 @@ def test_unidentified_extra_damage_blocks_only_when_its_proc_state_is_selected(
     on = client.post("/api/v1/moves/calculate", json=payload)
     assert on.status_code == 200, on.text
     result = on.json()
-    assert result["totals"]["expected"]["complete"] is False
-    assert result["events"][0]["modes"]["expected"]["value"] is not None
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 2
     assert any(
-        item["kind"] == "ambiguous-semantics"
-        and item["blocking"]
-        and source_fragment in (item["original_text"] or "")
-        for item in result["diagnostics"]
+        event["common_application_trace"]["created_by_effect_id"]
+        == f"effect:{wengine_id}:owner:{owner_number}:{rule_suffix}"
+        for event in result["events"]
     )
 
 

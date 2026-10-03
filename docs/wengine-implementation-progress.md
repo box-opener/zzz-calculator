@@ -34,7 +34,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 022 | `13006` | 贵重骨核 | A | 击破 | 部分实现（raw + 成长后Impact Build + 目标血量分支Daze规则 + R1–R5；Daze结果非阻断诊断） |
 | 023 | `13007` | 正版变身器 | A | 防护 | 已实现（raw + HP% Build + 常驻HP/受击后Impact状态 + R1–R5） |
 | 024 | `13008` | 双生泣星 | A | 异常 | 部分实现（raw + ATK% Build + 当前异常精通层数0–4 + R1–R5；层数时间轴非阻断诊断） |
-| 025 | `13009` | 触电唇彩 | A | 异常 | 部分实现（raw + AP75 Build + 场上异常攻击力/目标异常增伤；跨目标范围分支局部诊断） |
+| 025 | `13009` | 触电唇彩 | A | 异常 | 已实现（raw + AP75 Build + 默认场上异常状态控制Owner攻击力及对当前目标的普通增伤） |
 | 026 | `13010` | 兔能环 | A | 防护 | 已实现（raw + HP/DEF Build + HP/护盾下攻击力 + R1–R5） |
 | 027 | `13011` | 春日融融 | A | 防护 | 部分实现（raw + ATK% Build + 结果类型源Rule；受伤/能量效率无结果诊断） |
 | 028 | `13012` | 幻变魔方 | A | 命破 | 已实现（raw + ATK% Build + EX后暴伤状态/低血目标EX增伤 + R1–R5） |
@@ -52,7 +52,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 040 | `13106` | 家政员 | A | 强攻 | 已实现（raw + ATK%Build + 非当前操作角色的后场能量自动回复/当前物理层0–15 + R1–R5） |
 | 041 | `13108` | 仿制星徽引擎 | A | 强攻 | 已实现（raw + ATK%Build + 远距触发当前物理增益，后续同持有人物理招式适用 + R1–R5） |
 | 042 | `13111` | 旋钻机-赤轴 | A | 强攻 | 部分实现（raw + 能量回复Build + Basic/Dash电伤分支；登记强攻角色不含电属性） |
-| 043 | `13112` | 比格气缸 | A | 防护 | 部分实现（raw + DEF%Build + incoming结果源Rule + 受击追击触发的防御额外伤害局部身份诊断） |
+| 043 | `13112` | 比格气缸 | A | 防护 | 已实现（raw + DEF%Build + 当前DEF倍率必暴native-element Direct追击；incoming减伤无结果源Rule） |
 | 044 | `13113` | 含羞恶面 | A | 支援 | 部分实现（raw + ATK%Build + Ice bonus capability-gated + 全队当前攻击层数0–4/non-stack） |
 | 045 | `13115` | 好斗的阿炮 | A | 支援 | 部分实现（raw + 能量自动回复Build + 全队当前攻击层0–4/non-stack；资源结果无输出） |
 | 046 | `13127` | 维序者-特化型 | A | 防护 | 已实现（raw + ATK%Build + 护盾下flat能量自动回复 + EX/支援突击积蓄效率） |
@@ -60,7 +60,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 048 | `13135` | 裁纸刀 | A | 击破 | 部分实现（raw + Impact Build + 追击触发后的Physical/Daze增益；Daze结果非阻断诊断） |
 | 049 | `13142` | 震元奇枢 | A | 防护 | 部分实现（raw + ATK%Build + EX/ULT伤害标签范围；能量回复结果诊断） |
 | 050 | `13144` | 燔火胧夜 | A | 命破 | 部分实现（raw + HP%Build + Fire伤害能力门控 + HP下降后暴击状态；当前登记命破角色无Fire） |
-| 051 | `14001` | 加农转子 | A | 强攻 | 部分实现（raw + CritRate Build + ATK%面板；暴击触发额外伤害的必要子事件局部身份诊断） |
+| 051 | `14001` | 加农转子 | A | 强攻 | 已实现（raw + CritRate Build + ATK%面板 + 当前命中暴击状态触发200%当前ATK Physical Direct子事件） |
 | 052 | `14002` | 逍遥游球 | A | 支援 | 已实现（raw + EnergyRegen Build + 属性克制后目标暴击率event-stat/non-stack） |
 | 053 | `14003` | 左轮转子 | A | 击破 | 部分实现（live raw + Impact Build + EX当前充能失衡修正；Daze结果缺口非阻断） |
 | 054 | `14102` | 钢铁肉垫 | S | 强攻 | 已实现（raw + reviewed + level-60 Build/Rule） |
@@ -99,7 +99,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 087 | `14148` | 昨夜来电 | S | 击破 | 部分实现（raw + 后场回复结构门控 + 当前物理强化特殊层/满层暴伤；Daze结果无输出） |
 | 088 | `14149` | 思络成歌 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 089 | `14150` | 壳中之灵 | S | 异常 | 已实现（raw + 异常精通Build + 前场状态下异常目标/属性异常/紊乱各自伤害区） |
-| 090 | `14151` | 霓虹妄想 | S | 击破 | 部分实现（raw + 常驻异常精通 + Ether Basic/EX触发层与满层精通；当前击破角色不具Ether能力） |
+| 090 | `14151` | 霓虹妄想 | S | 击破 | 部分实现（raw + 常驻/满层Owner异常精通 + TEAM伤害唯一组；Owner AP不跨持有人唯一；当前击破角色不具Ether能力） |
 | 091 | `14152` | 鳞齿寻踪 | S | 强攻 | 部分实现（raw + Energy回复Build + Crit Rate面板 + 当前电伤无视防御；Energy触发历史不回放） |
 | 092 | `14153` | 辉骑面铠 | S | 命破 | 部分实现（raw + 暴击率 + 当前物理贯穿伤害层；当前命破角色无物理伤能力） |
 | 093 | `14154` | 朔月裁霜 | S | 异常 | 部分实现（raw + Ice伤害当前层 + 满层Discharge独立区；触发和计时以当前状态表示） |
@@ -167,8 +167,10 @@ The final source-order batch is `14146`, `14147`, `14148`, `14150`–`14159`, `1
 
 `14148` requires a physical EX Special for its physical-layer trigger. Owner capability eligibility is based on element/skill-group/tag combinations from the same reviewed move, so Qingyi's physical Dash and Electric EX do not combine into a fictional Physical EX. Dialyn's registered Physical EX capability remains eligible. For `14151`, the source says Ether EX Special **or** Basic Attack; those are evaluated as two alternative scopes, not as one event carrying both tags. The registered Stun owners currently have no Ether damage capability. `14157`'s Fire EX team effect likewise remains ineligible for Stun owners with no Fire EX.
 
+The user confirmed that `14151`'s “team unique” phrase scopes the TEAM damage stack only. Full-stack owner Anomaly Proficiency is a SELF panel bonus per wearer and has no cross-owner non-stacking group.
+
 `14150`'s current buff input represents the Ether owner's entry/Special trigger state; actual event bonuses require the owner to be the current operator because the source removes the buff after returning to the backline. Its anomalous-target normal damage, Attribute Anomaly, and Disorder effects retain separate conditions and lanes. `14158` is worded as an **异化** reaction, distinct from the separately named 异放 mechanic: its current buff state controls the owner Attribute Anomaly bonus and TEAM damage bonus. The owner also receives the unconditional AP passive. This source does not grant a Disorder bonus. Trigger and 30-second refresh history are not replayed.
 
-`14151` includes the exact sentence `拥有2层效果时，装备者的异常精通额外提升96点，该效果全队唯一`. The compiler represents the currently known single-holder TEAM stack and full-stack owner AP. Whether the uniqueness phrase scopes only to the AP effect or to the composite stack effect cannot be established for multiple holders; that multi-holder interpretation remains unreviewed.
+`14151` includes the exact sentence `拥有2层效果时，装备者的异常精通额外提升96点，该效果全队唯一`. The user confirmed that uniqueness applies to the TEAM damage stack, while full-stack owner AP remains a SELF panel bonus for each wearer.
 
 `14161` is retained as white Defense plus Defense-percent Build data, not Attack. It has no registered Vanguard owner. Its Electric Sharp damage bonus remains a typed source rule with a non-blocking limitation because the current request has no Sharp result lane; no Anomaly or Direct event is fabricated. `14162` retains the current TEAM_OTHER damage buff and excludes the holder. Its Daze modifier is typed with a non-blocking result limitation, and the currently registered Stun owners cannot produce Wind EX Special.
