@@ -29,6 +29,7 @@ from core.application.characters.templates import (
 )
 from core.application.characters.vivian.reviewed import (
     DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID,
+    MUTATION_TRIGGERED,
     VIVIAN_ID,
 )
 from core.application.characters.nekomata.reviewed import (
@@ -109,6 +110,7 @@ from core.presentation.requests import (
 )
 from core.presentation.serialization import to_jsonable
 from core.presentation.registry import (
+    VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
     registration_for,
     compile_registered_definition,
 )
@@ -132,11 +134,30 @@ class _BuiltCharacterRecord:
 def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Execute the three display modes and return one presentation response."""
 
+    requested_move_entry_id = str(payload.get("move_entry_id", ""))
+    vivian_discharge_selected = (
+        requested_move_entry_id == VIVIAN_DISCHARGE_SELECTION_ENTRY_ID
+    )
+    if vivian_discharge_selected:
+        raw_conditions = payload.get("condition_values", {})
+        if isinstance(raw_conditions, Mapping) and raw_conditions.get(
+            str(MUTATION_TRIGGERED)
+        ) is None:
+            payload = {
+                **payload,
+                "condition_values": {
+                    **raw_conditions,
+                    str(MUTATION_TRIGGERED): True,
+                },
+            }
+
     view_request = _presentation_request(payload)
     definitions = _without_static_vivian_blossom_placeholder(
         _compile_definitions(payload)
     )
     primary = definitions[0]
+    if vivian_discharge_selected and primary.character_id != VIVIAN_ID:
+        raise ValueError("Vivian Discharge selection requires Vivian as current operator")
     supplied_operator = payload.get("current_operator")
     if supplied_operator is not None and str(supplied_operator) != str(
         primary.character_id
@@ -192,6 +213,21 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     build_provenance = tuple(
         trace for record in build_records for trace in record.provenance
     )
+    if vivian_discharge_selected and "enabled_rule_item_ids" not in payload:
+        payload = {
+            **payload,
+            "enabled_rule_item_ids": tuple(
+                str(rule.rule_id)
+                for definition in definitions
+                for rule in definition.rule_items
+                if rule.eligibility is not RuleEligibility.INELIGIBLE
+            )
+            + tuple(
+                str(rule.rule_id)
+                for rule in additional_rule_items
+                if rule.eligibility is not RuleEligibility.INELIGIBLE
+            ),
+        }
     enemy_snapshot, enemy_profile, base_modifiers = _enemy_inputs(view_request.enemy)
     scenario = _scenario(
         payload,
@@ -201,7 +237,11 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         additional_rule_items=additional_rule_items,
         additional_scenario_conditions=additional_scenario_conditions,
     )
-    move_entry_id = view_request.move_entry_id
+    move_entry_id = (
+        "move-entry:character:1331:ether-corrosion"
+        if vivian_discharge_selected
+        else view_request.move_entry_id
+    )
     base_snapshots = tuple(item.snapshot for item in build_records)
     initial_snapshots = tuple(item.initial_snapshot for item in build_records)
     team_profiles = tuple(
@@ -336,6 +376,28 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             else ()
         ),
     )
+    if vivian_discharge_selected:
+        vivian_source_result = next(
+            (
+                item
+                for item in panel_source_results
+                if item.source_character_id == str(VIVIAN_ID)
+            ),
+            None,
+        )
+        if vivian_source_result is None:
+            raise ValueError(
+                "Vivian Discharge source result is unavailable for her current panel"
+            )
+        view = replace(
+            view,
+            move_entry_id=VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
+            events=vivian_source_result.events,
+            totals=vivian_source_result.totals,
+            diagnostics=_unique_view_diagnostics(
+                (*view.diagnostics, *vivian_source_result.diagnostics)
+            ),
+        )
     return to_jsonable(replace(view, panel_source_results=panel_source_results))
 
 

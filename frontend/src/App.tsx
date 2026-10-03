@@ -281,6 +281,8 @@ type CalculationView = {
 
 const YE_ID = "character:1431";
 const ASTRA_ID = "character:1311";
+const VIVIAN_ID = "character:1331";
+const VIVIAN_DISCHARGE_ENTRY_ID = "move-entry:character:1331:discharge-current-panel";
 const ENEMY_RESISTANCE_FIELDS = [
   { element: "physical", label: "物理抗性" },
   { element: "fire", label: "火抗性" },
@@ -695,6 +697,38 @@ function App() {
     }
     setMoveEntryId(option.entryId);
     setCalculation(null);
+    if (option.entryId === "move-entry:character:1331:discharge-current-panel") {
+      const conditionId = "condition:vivian:mutation-triggered";
+      const nextConditionValues = {
+        ...conditionValuesRef.current,
+        [conditionId]: true,
+      };
+      const coreRuleIds = allRules
+        .filter((rule) => (
+          rule.rule_id.startsWith("rule:character:1331:core:anomaly-mutation:")
+          && rule.eligibility !== "ineligible"
+          && !disabledRules.has(rule.rule_id)
+        ))
+        .map((rule) => rule.rule_id);
+      const nextEnabledRules = new Set([...enabledRules, ...coreRuleIds]);
+      const nextDisabledRules = new Set(
+        [...disabledRules].filter((ruleId) => !coreRuleIds.includes(ruleId)),
+      );
+      commitConditionValues(nextConditionValues);
+      setEnabledRules(nextEnabledRules);
+      setDisabledRules(nextDisabledRules);
+      void loadEditors(
+        teamIds,
+        currentOperatorId,
+        configs,
+        nextConditionValues,
+        {
+          conditionValues: nextConditionValues,
+          enabledRules: nextEnabledRules,
+          disabledRules: nextDisabledRules,
+        },
+      );
+    }
   };
 
   const updateWengineSelection = (
@@ -1195,7 +1229,7 @@ function App() {
           <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={calculating || loading || !moveEntryId || Boolean(moveSelectionIssue)} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
           <label className="move-select">招式<select value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
           {moveSelectionIssue && <p className="control-section-hint">⚠ {moveSelectionIssue}；未发送计算请求。</p>}
-          {calculation ? <div className="calculation-output"><div className="totals-grid">{(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div><AnomalyStrengthDetails event={event} />{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div><VivianPanelSourceResults results={calculation.panel_source_results ?? []} />{calculation.panel_traces.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">PANEL PROVENANCE</span><strong>面板来源明细</strong></span><small>{calculation.panel_traces.length} 项</small></summary>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</details>}{calculation.resolved_character_snapshots.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">RESOLVED PANELS</span><strong>结算面板快照</strong></span><small>{calculation.resolved_character_snapshots.length} 名</small></summary>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span></div>)}</details>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
+          {calculation ? <div className="calculation-output"><div className="totals-grid">{(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div><AnomalyStrengthDetails event={event} />{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div><VivianPanelSourceResults results={(calculation.panel_source_results ?? []).filter((source) => calculation.move_entry_id !== VIVIAN_DISCHARGE_ENTRY_ID || source.source_character_id !== VIVIAN_ID)} />{calculation.panel_traces.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">PANEL PROVENANCE</span><strong>面板来源明细</strong></span><small>{calculation.panel_traces.length} 项</small></summary>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</details>}{calculation.resolved_character_snapshots.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">RESOLVED PANELS</span><strong>结算面板快照</strong></span><small>{calculation.resolved_character_snapshots.length} 名</small></summary>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span></div>)}</details>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
         </section>
       </section>
 

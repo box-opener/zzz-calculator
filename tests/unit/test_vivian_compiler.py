@@ -781,6 +781,21 @@ def test_prophecy_missing_tick_count_is_partial_and_zero_ticks_add_no_event() ->
     assert not any(item["semantic_id"] == "event:character:1331:prophecy-tick" for item in zero["events"])
 
 
+def test_prophecy_tick_is_selectable_with_explicit_count_and_no_time_replay() -> None:
+    result = calculate_payload(
+        _payload(
+            move_entry_id="move-entry:character:1331:core-prophecy-tick",
+            condition_values={TARGET_ANOMALY_CONDITION: True},
+            parameter_values={PROPHECY_TICK_COUNT: 2},
+        )
+    )
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 1
+    event = result["events"][0]
+    assert event["repeat_count"] == 2
+    assert event["damage_type"] == "direct"
+
+
 def test_vivian_basic_element_stages_and_remaining_mixed_named_moves_are_ether() -> None:
     definition = compile_vivian(VivianCompileConfig(), load_raw_record(load_character_record(VIVIAN)))
     templates = {str(item.ref.template_id): item for item in definition.damage_event_templates}

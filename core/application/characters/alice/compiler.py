@@ -33,6 +33,7 @@ from core.types import (
     EventCreationResult,
     EventSelector,
     BattleEventKind,
+    EventTemplateIdFilter,
     ModifierEffect,
     ModifierResult,
     NotFilter,
@@ -449,6 +450,7 @@ def compile_alice(
                 DamageTypeFilter(DamageType.ANOMALY),
                 ElementFilter(Element.PHYSICAL),
                 NotFilter(CreatedByEffectFilter(periodic_effect_id)),
+                NotFilter(EventTemplateIdFilter(periodic_ref.template_id)),
             ),
         ),
         result=EventCreationResult(
@@ -738,6 +740,9 @@ def compile_alice(
                                     )
                                 )
                             ),
+                            NotFilter(
+                                EventTemplateIdFilter(c6_derived.template.template_id)
+                            ),
                         ),
                     ),
                     result=EventCreationResult(
@@ -749,6 +754,66 @@ def compile_alice(
             condition_ids=(VICTORY_STATE_ACTIVE_CONDITION_ID,),
         )
     )
+
+    # The periodic passive can be selected directly, but its base is the
+    # previous settled Physical anomaly result.  The UI request currently
+    # carries no such history record, so this entry stays selectable and the
+    # calculator reports the precise missing source instead of inventing one.
+    entries = (
+        *entries,
+        MoveCalculationEntry(
+            entry_id=MoveEntryId("move-entry:alice:1401:core-periodic-extra"),
+            character_id=ALICE_ID,
+            move_id=None,
+            display_name="核心被动：物理异常周期追加伤害",
+            original_text=core.description,
+            skill_group=None,
+            damage_tags=periodic_ref.damage_tags,
+            multiplier_relation=MultiplierRelation.UNIT_REPEAT,
+            multiplier_variants=(
+                MultiplierVariant(
+                    variant_id=MultiplierVariantId(
+                        "variant:alice:1401:core-periodic-extra"
+                    ),
+                    label="已结算物理异常伤害的2.5%",
+                    parameter_name="物理异常周期伤害次数",
+                    multiplier=periodic_derived.multiplier,
+                    repeat_count_parameter_id=ALICE_PERIODIC_TICK_COUNT_PARAMETER_ID,
+                ),
+            ),
+            main_damage_event=periodic_ref,
+            condition_ids=(PHYSICAL_ANOMALY_ACTIVE_CONDITION_ID,),
+        ),
+    )
+    if config.cinema_level >= 6:
+        entries = (
+            *entries,
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(
+                    "move-entry:alice:1401:cinema6-decisive-extra-attack"
+                ),
+                character_id=ALICE_ID,
+                move_id=None,
+                display_name="6影：决胜状态额外攻击",
+                original_text=c6.description,
+                skill_group=None,
+                damage_tags=c6_derived.template.damage_tags,
+                multiplier_relation=MultiplierRelation.UNIT_REPEAT,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(
+                            "variant:alice:1401:cinema6-decisive-extra-attack"
+                        ),
+                        label="3300%异常精通",
+                        parameter_name="决胜状态当前额外攻击次数",
+                        multiplier=c6_derived.multiplier,
+                        repeat_count_parameter_id=ALICE_VICTORY_ATTACK_COUNT_PARAMETER_ID,
+                    ),
+                ),
+                main_damage_event=c6_derived.template,
+                condition_ids=(VICTORY_STATE_ACTIVE_CONDITION_ID,),
+            ),
+        )
 
     return build_definition(
         character_id=ALICE_ID,

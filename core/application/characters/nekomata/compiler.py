@@ -363,6 +363,7 @@ def _potential_pounce_mark(
         DamageDealerFilter(NEKOMATA_ID),
         DamageTypeFilter(DamageType.DIRECT),
         NotFilter(CreatedByEffectFilter(effect_id)),
+        NotFilter(EventTemplateIdFilter(template_ref.template_id)),
         *(NotFilter(CreatedByEffectFilter(item)) for item in stun_repeat_effect_ids),
     )
     effect = EventCreationEffect(
@@ -421,6 +422,7 @@ def compile_nekomata(
     potential_rules: list[CalculationRuleItem] = []
     potential_templates: list[DirectDamageEventTemplate] = []
     potential_derived: list[DerivedDamageEventTemplateRef] = []
+    potential_selectable_entries: list[MoveCalculationEntry] = []
     potential_numeric_rule: CalculationRuleItem | None = None
     potential_source: RuleSource | None = None
     if config.potential_level > 0:
@@ -482,6 +484,32 @@ def compile_nekomata(
         potential_rules.append(mark_rule)
         potential_templates.append(mark_template)
         potential_derived.append(mark_derived)
+        potential_selectable_entries.append(
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(
+                    "move-entry:character:1021:potential-super-furry-mark"
+                ),
+                character_id=NEKOMATA_ID,
+                move_id=None,
+                display_name="潜能：超凶爪印",
+                original_text=mark_rule.original_text,
+                skill_group=None,
+                damage_tags=mark_template.ref.damage_tags,
+                multiplier_relation=MultiplierRelation.COMPLETE,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(
+                            "variant:character:1021:potential-super-furry-mark"
+                        ),
+                        label="当前攻击力30%",
+                        parameter_name="超凶爪印伤害倍率",
+                        multiplier=mark_derived.multiplier,
+                    ),
+                ),
+                main_damage_event=mark_template.ref,
+                condition_ids=(POTENTIAL_POUNCE_ACTIVE,),
+            )
+        )
 
         if config.potential_level >= 2:
             crit_damage_bonus = _one_number(
@@ -857,7 +885,11 @@ def compile_nekomata(
         role=CharacterRole.ATTACK,
         element=Element.PHYSICAL,
         source=core_source,
-        entries=(*direct_entries, *static_entries),
+        entries=(
+            *direct_entries,
+            *potential_selectable_entries,
+            *static_entries,
+        ),
         templates=(*direct_templates, *static_templates, *potential_templates),
         rules=rules,
         conditions=conditions,

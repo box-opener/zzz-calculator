@@ -453,6 +453,40 @@ def test_nekomata_potential_pounce_mark_is_one_owner_physical_direct_child() -> 
     assert mark_template.move_id is None
 
 
+def test_nekomata_potential_mark_is_selectable_without_recursive_mark_child() -> None:
+    response = client.post(
+        "/api/v1/moves/calculate",
+        json=_payload(
+            "move-entry:character:1021:potential-super-furry-mark",
+            potential_level=1,
+            conditions={"condition:nekomata:potential-pounce-active": True},
+            enabled=("rule:character:1021:potential:super-furry-mark",),
+        ),
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 1
+    mark = result["events"][0]
+    assert mark["semantic_id"] == "event:character:1021:potential:super-furry-mark"
+    assert mark["damage_type"] == "direct"
+    assert _node(mark, CalculationNode.DAMAGE_SKILL_MULTIPLIER) == pytest.approx(0.30)
+    assert _node(mark, CalculationNode.DAMAGE_BASE_VALUE) == pytest.approx(300.0)
+    definition = compile_registered_definition(
+        NEKOMATA_ID,
+        {"core_level": 1, "cinema_level": 0, "potential_level": 1},
+        [NEKOMATA_ID],
+        strict=False,
+    )
+    entry = next(
+        item for item in definition.move_entries
+        if str(item.entry_id) == "move-entry:character:1021:potential-super-furry-mark"
+    )
+    assert entry.move_id is None
+    assert entry.skill_group is None
+    assert entry.damage_tags == frozenset()
+
+
 def test_nekomata_additional_ability_uses_current_explicit_stacks_and_real_roster_gate() -> None:
     definition = compile_registered_definition(
         NEKOMATA_ID,

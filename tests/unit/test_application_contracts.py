@@ -243,6 +243,39 @@ def test_integer_scenario_parameter_supports_user_selected_repeat_count() -> Non
         )
 
 
+def test_selectable_event_without_move_id_keeps_reviewed_group_and_tags() -> None:
+    ref = DamageEventTemplateRef(
+        template_id=EventTemplateId("template:passive-tremolo"),
+        semantic_id=DamageEventSemanticId("event:passive-tremolo"),
+        label="终曲追加震音",
+        damage_type=DamageType.DIRECT,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        damage_tags=frozenset(
+            {
+                DamageTag.SPECIAL_ATTACK,
+                DamageTag.EX_SPECIAL_ATTACK,
+                DamageTag.TREMOLO,
+            }
+        ),
+    )
+    entry = MoveCalculationEntry(
+        entry_id=MoveEntryId("move-entry:passive-tremolo"),
+        character_id=CharacterId("character:astra"),
+        move_id=None,
+        display_name="终曲追加震音",
+        original_text="明确标注震音，未给独立招式ID",
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        damage_tags=ref.damage_tags,
+        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_variants=(_variant("passive-tremolo", multiplier=1.25),),
+        main_damage_event=ref,
+    )
+
+    assert entry.move_id is None
+    assert entry.skill_group is SkillGroup.SPECIAL_ATTACK
+    assert entry.damage_tags == ref.damage_tags
+
+
 def test_rule_item_disables_all_results_together_and_validates_stacks() -> None:
     owner = CharacterId("character:owner")
     effect = _modifier_effect(owner)

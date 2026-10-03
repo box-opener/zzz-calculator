@@ -26,6 +26,8 @@ from core.types import (
     EffectTarget,
     Element,
     ElementFilter,
+    EventTemplateId,
+    EventTemplateIdFilter,
     EventCreationEffect,
     EventCreationResult,
     FixedMultiplier,
@@ -692,9 +694,34 @@ def compile_miyabi(
     templates = (*templates, frostburn_template)
     independent_derived = [frostburn_derived]
 
+    frostburn_entry = MoveCalculationEntry(
+        entry_id=MoveEntryId("move-entry:character:1091:frostburn-break"),
+        character_id=MIYABI_ID,
+        move_id=None,
+        display_name="核心被动：霜灼·破",
+        original_text=core.description,
+        skill_group=None,
+        damage_tags=frozenset(),
+        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_variants=(
+            MultiplierVariant(
+                variant_id=MultiplierVariantId(
+                    "variant:character:1091:frostburn-break"
+                ),
+                label="霜灼·破倍率",
+                parameter_name="当前攻击力倍率",
+                multiplier=FixedMultiplier(Resolved(core_break_multiplier)),
+            ),
+        ),
+        main_damage_event=frostburn_ref,
+        condition_ids=(ICEFIRE_ACTIVE, FROSTBURN_BREAK_READY),
+    )
+    entries = (*entries, frostburn_entry)
+
     cinema_rules, cinema_templates, cinema_derived, c6_parameters = _cinema_rules(
         raw_record,
         config,
+        frostburn_ref.template_id,
     )
     rules.extend(cinema_rules)
     templates = (*templates, *cinema_templates)
@@ -793,7 +820,11 @@ def _condition(condition_id, label: str, original_text: str, *, default=False):
     )
 
 
-def _cinema_rules(raw: NanokaRawRecord, config: MiyabiCompileConfig):
+def _cinema_rules(
+    raw: NanokaRawRecord,
+    config: MiyabiCompileConfig,
+    frostburn_template_id: EventTemplateId,
+):
     rules: list[CalculationRuleItem] = []
     templates: list[DirectDamageEventTemplate] = []
     derived: list[DerivedDamageEventTemplateRef] = []
@@ -924,7 +955,7 @@ def _cinema_rules(raw: NanokaRawRecord, config: MiyabiCompileConfig):
         filters=(
             DamageTypeFilter(DamageType.DIRECT),
             DamageDealerFilter(MIYABI_ID),
-            CreatedByEffectFilter(FROSTBURN_BREAK_EFFECT_ID),
+            EventTemplateIdFilter(frostburn_template_id),
         ),
     )
     rules.append(

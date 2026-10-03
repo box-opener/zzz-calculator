@@ -59,6 +59,7 @@ from ...moves import (
     DamageEventTemplateRef,
     DerivedDamageEventTemplateRef,
     MoveCalculationEntry,
+    MultiplierRelation,
     MultiplierVariant,
 )
 from ...rules import CalculationRuleItem, RuleEligibility
@@ -874,6 +875,54 @@ def compile_astra(
     )
     finale_filter = (MoveIdFilter(FINALE_MOVE_ID),)
     energy_conditions = (ARIA_ACTIVE_CONDITION_ID, ENERGY_AVAILABLE_CONDITION_ID)
+
+    # The authored Finale tremolo and cluster have their own damage ratios,
+    # but no separate MoveId. Expose each typed damage component directly while
+    # retaining its reviewed Tremolo/Cluster classification and repeat count.
+    for event_key, entry_key, label in (
+        ("finale-tremolo", "finale-tremolo", "终曲追加震音"),
+        ("finale-cluster", "finale-cluster", "终曲追加音簇"),
+    ):
+        child = derived_refs[event_key]
+        ref = child.template
+        relation = (
+            MultiplierRelation.UNIT_REPEAT
+            if child.repeat_count != 1
+            or child.repeat_count_parameter_id is not None
+            else MultiplierRelation.COMPLETE
+        )
+        entries.append(
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(
+                    f"move-entry:astra:1311:selectable-{entry_key}"
+                ),
+                character_id=ASTRA_ID,
+                move_id=None,
+                display_name=f"核心被动：{label}",
+                original_text=ref.label,
+                skill_group=ref.skill_group,
+                damage_tags=ref.damage_tags,
+                multiplier_relation=relation,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(
+                            f"variant:astra:1311:selectable-{entry_key}"
+                        ),
+                        label=ref.label,
+                        parameter_name=f"{ref.label}倍率",
+                        multiplier=child.multiplier,
+                        repeat_count=(
+                            child.repeat_count
+                            if relation is MultiplierRelation.UNIT_REPEAT
+                            else None
+                        ),
+                        repeat_count_parameter_id=child.repeat_count_parameter_id,
+                    ),
+                ),
+                main_damage_event=ref,
+                condition_ids=energy_conditions,
+            )
+        )
 
     finale_source = _rule_source(
         "source:astra:1311:finale-derived",

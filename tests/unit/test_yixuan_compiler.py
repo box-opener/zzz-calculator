@@ -30,6 +30,8 @@ BASIC_ONE = "move-entry:character:1371:basic-xiaoyun-jin-1"
 CLOUD_ENTRY = "move-entry:character:1371:ex-condense-cloud-technique"
 ANOMALY_ENTRY = "move-entry:character:1371:xuanmo-anomaly"
 DISORDER_ENTRY = "move-entry:character:1371:xuanmo-disorder"
+EXTRA_LIGHTNING_ENTRY = "move-entry:character:1371:extra-ability-lightning-selectable"
+C1_LIGHTNING_ENTRY = "move-entry:character:1371:cinema1-lightning-selectable"
 
 
 def _stats(
@@ -580,6 +582,60 @@ def test_c1_lightning_uses_one_unique_instance_per_source_hit_without_recursion(
         matching = [item for item in trace["rule_matches"] if item["rule_id"] == c1_rule]
         assert len(matching) == 1
         assert matching[0]["status"] == "matched"
+
+
+def test_lightning_damage_components_are_selectable_without_invented_move_identity() -> None:
+    extra = calculate_payload(
+        _payload(
+            move_entry_id=EXTRA_LIGHTNING_ENTRY,
+            supporting=(ASTRA,),
+            condition_values={
+                "condition:yixuan:perfect-support-switch-out-active": True,
+            },
+        )
+    )
+    assert extra["totals"]["expected"]["complete"] is True
+    assert len(extra["events"]) == 1
+    extra_event = _event(extra)
+    assert extra_event["damage_type"] == "penetration"
+    assert _node(extra_event, "damage.base-value")["value"] == pytest.approx(3262.5)
+    extra_definition = compile_registered_definition(
+        YIXUAN,
+        {"core_level": 1, "cinema_level": 0},
+        [YIXUAN, ASTRA],
+        strict=False,
+    )
+    extra_entry = next(
+        item for item in extra_definition.move_entries
+        if str(item.entry_id) == EXTRA_LIGHTNING_ENTRY
+    )
+    assert extra_entry.move_id is None
+    assert extra_entry.skill_group is None
+    assert extra_entry.damage_tags == frozenset()
+
+    c1 = calculate_payload(
+        _payload(
+            move_entry_id=C1_LIGHTNING_ENTRY,
+            cinema_level=1,
+            enabled_rule_item_ids=("rule:character:1371:cinema1:lightning",),
+        )
+    )
+    assert c1["totals"]["expected"]["complete"] is True
+    assert len(c1["events"]) == 1
+    c1_event = _event(c1)
+    assert c1_event["damage_type"] == "penetration"
+    assert _node(c1_event, "damage.base-value")["value"] == pytest.approx(725.0)
+    c1_definition = compile_registered_definition(
+        YIXUAN,
+        {"core_level": 1, "cinema_level": 1},
+        [YIXUAN],
+        strict=False,
+    )
+    c1_entry = next(
+        item for item in c1_definition.move_entries
+        if str(item.entry_id) == C1_LIGHTNING_ENTRY
+    )
+    assert c1_entry.move_id is None
 
 
 def test_static_xuanmo_anomaly_and_disorder_use_the_ether_record_not_penetration() -> None:

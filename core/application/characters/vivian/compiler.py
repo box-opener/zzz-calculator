@@ -409,6 +409,31 @@ def compile_vivian(
         skip_when_repeat_count_zero=True,
     )
     independent_refs = [prophecy_derived]
+    entries.append(
+        MoveCalculationEntry(
+            entry_id=MoveEntryId("move-entry:character:1331:core-prophecy-tick"),
+            character_id=VIVIAN_ID,
+            move_id=None,
+            display_name="核心被动：薇薇安的预言（每跳）",
+            original_text=core.description,
+            skill_group=None,
+            damage_tags=prophecy_ref.damage_tags,
+            multiplier_relation=MultiplierRelation.UNIT_REPEAT,
+            multiplier_variants=(
+                MultiplierVariant(
+                    variant_id=MultiplierVariantId(
+                        "variant:character:1331:core-prophecy-tick"
+                    ),
+                    label="每跳55%攻击力",
+                    parameter_name="薇薇安预言当前结算跳数",
+                    multiplier=prophecy_derived.multiplier,
+                    repeat_count_parameter_id=PROPHECY_TICK_COUNT,
+                ),
+            ),
+            main_damage_event=prophecy_ref,
+            condition_ids=(TARGET_HAS_ANOMALY,),
+        )
+    )
     templates.append(prophecy_template)
     prophecy_diagnostic = _diagnostic(
         "unsupported:character:1331:core:prophecy-timing",

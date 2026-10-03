@@ -44,6 +44,7 @@ from core.types import (
 MIYABI = str(MIYABI_ID)
 ANOMALY_ENTRY = "move-entry:character:1091:lieshuang-anomaly"
 DISORDER_ENTRY = "move-entry:character:1091:lieshuang-disorder"
+FROSTBURN_ENTRY = "move-entry:character:1091:frostburn-break"
 FROSTMOON_ENTRY = "move-entry:character:1091:frostmoon-charge"
 KAZAHANA_1_ENTRY = "move-entry:character:1091:kazahana-1"
 ICEFIRE_RULE = "rule:character:1091:core:icefire-buildup"
@@ -649,6 +650,43 @@ def test_c4_boost_only_changes_created_frostburn_break() -> None:
         item["effect_id"] == "effect:character:1091:cinema4:frostburn-break-damage"
         for item in _trace(main_anomaly)["applied_modifiers"]
     )
+
+
+def test_frostburn_break_is_selectable_as_its_own_unidentified_direct_damage_entry() -> None:
+    payload = _miyabi_payload(
+        move_entry_id=FROSTBURN_ENTRY,
+        core_level=7,
+        cinema_level=4,
+        condition_values={str(ICEFIRE_ACTIVE): True, str(FROSTBURN_BREAK_READY): True},
+        enabled_rule_item_ids=(FROSTBURN_RULE, C4_RULE),
+        crit_rate=0.70,
+        crit_damage=1.10,
+        ice_damage_bonus=0.40,
+    )
+    result = calculate_payload(payload)
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 1
+    event = result["events"][0]
+    assert event["semantic_id"] == "event:character:1091:core:frostburn-break"
+    assert next(
+        item["value"] for item in _mode(event)["calculation_breakdown"]
+        if item["node"] == "damage.normal-bonus"
+    ) == pytest.approx(0.30)
+    assert any(
+        item["effect_id"] == "effect:character:1091:cinema4:frostburn-break-damage"
+        for item in _trace(event)["applied_modifiers"]
+    )
+
+    definition = compile_registered_definition(
+        MIYABI_ID,
+        {"core_level": 7, "cinema_level": 4},
+        [MIYABI_ID],
+        strict=False,
+    )
+    entry = next(item for item in definition.move_entries if str(item.entry_id) == FROSTBURN_ENTRY)
+    assert entry.move_id is None
+    assert entry.skill_group is None
+    assert entry.damage_tags == frozenset()
 
 
 def test_c6_main_charge_one_is_not_repeated_in_its_aggregate() -> None:

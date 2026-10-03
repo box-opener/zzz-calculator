@@ -317,7 +317,7 @@ def test_astra_compiles_all_direct_moves_and_explicit_taxonomy() -> None:
     assert definition.character_id == ASTRA_ID
     assert definition.role is CharacterRole.SUPPORT
     assert definition.base_element is Element.ETHER
-    assert len(definition.move_entries) == 17
+    assert len(definition.move_entries) == 19
     assert all(
         item.main_damage_event.damage_type is DamageType.DIRECT
         for item in definition.move_entries

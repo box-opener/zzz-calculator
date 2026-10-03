@@ -1156,6 +1156,379 @@ def test_definition_preview_returns_versioned_editor_view() -> None:
     assert "additional_ability_eligible" not in field_ids
 
 
+def test_miyabi_and_vivian_independent_damage_entries_are_visible() -> None:
+    miyabi_preview = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1091",
+            "team_character_ids": ["character:1091"],
+            "compile_config": {"core_level": 7, "cinema_level": 0},
+        },
+    )
+    assert miyabi_preview.status_code == 200, miyabi_preview.text
+    frostburn = next(
+        item for item in miyabi_preview.json()["moves"]
+        if item["entry_id"] == "move-entry:character:1091:frostburn-break"
+    )
+    assert frostburn["move_id"] is None
+    assert frostburn["skill_group"] is None
+    assert frostburn["damage_tags"] == []
+
+    vivian_preview = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1331",
+            "team_character_ids": ["character:1331"],
+            "compile_config": {"core_level": 7, "cinema_level": 0},
+        },
+    )
+    assert vivian_preview.status_code == 200, vivian_preview.text
+    discharge = next(
+        item for item in vivian_preview.json()["moves"]
+        if item["entry_id"] == "move-entry:character:1331:discharge-current-panel"
+    )
+    assert discharge["label"] == "异放（薇薇安当前面板）"
+    assert discharge["move_id"] is None
+    assert discharge["skill_group"] is None
+    assert discharge["damage_tags"] == []
+
+
+def test_astra_finale_tremolo_and_cluster_have_direct_selectable_entries() -> None:
+    preview = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1311",
+            "team_character_ids": ["character:1311"],
+            "compile_config": {"core_level": 7, "cinema_level": 0},
+        },
+    )
+    assert preview.status_code == 200, preview.text
+    moves = {item["entry_id"]: item for item in preview.json()["moves"]}
+    tremolo_id = "move-entry:astra:1311:selectable-finale-tremolo"
+    cluster_id = "move-entry:astra:1311:selectable-finale-cluster"
+    assert moves[tremolo_id]["move_id"] is None
+    assert "tremolo-damage" in moves[tremolo_id]["damage_tags"]
+    assert moves[cluster_id]["move_id"] is None
+    assert "cluster-damage" in moves[cluster_id]["damage_tags"]
+
+    def payload_for(entry_id: str) -> dict:
+        payload = _valid_calculation_payload()
+        payload.update(
+            {
+                "primary_character_id": "character:1311",
+                "supporting_character_ids": [],
+                "team_character_ids": ["character:1311"],
+                "move_entry_id": entry_id,
+                "compile_configs": {
+                    "character:1311": {"core_level": 1, "cinema_level": 0},
+                },
+                "condition_values": {
+                    "condition:astra:aria-active": True,
+                    "condition:astra:energy-derived-active": True,
+                },
+                "character_builds": {
+                    "character:1311": {
+                        "level": 60,
+                        "out_of_combat_stats": {
+                            "hp": 10000.0,
+                            "attack": 1000.0,
+                            "defense": 500.0,
+                            "impact": 100.0,
+                            "crit_rate": 0.5,
+                            "crit_damage": 0.5,
+                            "anomaly_mastery": 100.0,
+                            "anomaly_proficiency": 100.0,
+                            "energy_regen": 1.2,
+                            "penetration_rate": 0.0,
+                            "penetration_flat": 0.0,
+                            "element_damage_bonus": {"ether": 0.0},
+                        },
+                    },
+                },
+                "enemy": {
+                    "enemy_id": "enemy:astra-selectable-child",
+                    "level": 60,
+                    "initial_defense": 1000.0,
+                    "damage_resistance": {"ether": 0.2},
+                    "damage_reduction": 0.0,
+                    "stun_vulnerability_bonus": 0.0,
+                    "is_stunned": False,
+                },
+                "enabled_rule_item_ids": [],
+            }
+        )
+        return payload
+
+    tremolo_response = client.post(
+        "/api/v1/moves/calculate", json=payload_for(tremolo_id)
+    )
+    assert tremolo_response.status_code == 200, tremolo_response.text
+    tremolo = tremolo_response.json()
+    assert tremolo["totals"]["expected"]["complete"] is True
+    assert len(tremolo["events"]) == 1
+    assert tremolo["events"][0]["repeat_count"] == 1
+
+    cluster_response = client.post(
+        "/api/v1/moves/calculate", json=payload_for(cluster_id)
+    )
+    assert cluster_response.status_code == 200, cluster_response.text
+    cluster = cluster_response.json()
+    assert cluster["totals"]["expected"]["complete"] is True
+    assert len(cluster["events"]) == 1
+    assert cluster["events"][0]["repeat_count"] == 3
+
+
+def test_other_self_contained_damage_options_appear_in_character_previews() -> None:
+    cases = (
+        (
+            "character:1371",
+            ["character:1371", "character:1311"],
+            {"core_level": 1, "cinema_level": 1},
+            {
+                "move-entry:character:1371:extra-ability-lightning-selectable",
+                "move-entry:character:1371:cinema1-lightning-selectable",
+            },
+        ),
+        (
+            "character:1451",
+            ["character:1451"],
+            {"core_level": 1, "cinema_level": 6},
+            {"move-entry:character:1451:core-additional-attack"},
+        ),
+        (
+            "character:1021",
+            ["character:1021"],
+            {"core_level": 1, "cinema_level": 0, "potential_level": 1},
+            {"move-entry:character:1021:potential-super-furry-mark"},
+        ),
+        (
+            "character:1401",
+            ["character:1401"],
+            {"core_level": 1, "cinema_level": 6},
+            {
+                "move-entry:alice:1401:core-periodic-extra",
+                "move-entry:alice:1401:cinema6-decisive-extra-attack",
+            },
+        ),
+        (
+            "character:1331",
+            ["character:1331"],
+            {"core_level": 7, "cinema_level": 0},
+            {"move-entry:character:1331:core-prophecy-tick"},
+        ),
+    )
+    for character_id, team_ids, config, expected_ids in cases:
+        response = client.post(
+            "/api/v1/definitions/preview",
+            json={
+                "character_id": character_id,
+                "team_character_ids": team_ids,
+                "compile_config": config,
+            },
+        )
+        assert response.status_code == 200, response.text
+        moves = {item["entry_id"]: item for item in response.json()["moves"]}
+        assert expected_ids.issubset(moves)
+
+    lucia_response = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1451",
+            "team_character_ids": ["character:1451"],
+            "compile_config": {"core_level": 1, "cinema_level": 6},
+        },
+    )
+    follow_up = next(
+        item
+        for item in lucia_response.json()["moves"]
+        if item["entry_id"] == "move-entry:character:1451:core-additional-attack"
+    )
+    assert follow_up["move_id"] is None
+    assert follow_up["skill_group"] is None
+    assert follow_up["damage_tags"] == ["follow-up-attack-damage"]
+
+
+def test_vivian_discharge_selector_returns_typed_discharge_without_summing_sources() -> None:
+    owner = "character:1331"
+    teammate = "character:1311"
+    discharge_rule = "rule:character:1331:core:anomaly-mutation:ether"
+
+    def payload_for(supporting: tuple[str, ...]) -> dict:
+        payload = _valid_calculation_payload()
+        team = (owner, *supporting)
+        conditions = {}
+        if teammate in supporting:
+            conditions.update(
+                {
+                    "condition:vivian:mutation-triggered": True,
+                    "condition:astra:core-attack-buff-active": False,
+                    "condition:astra:aria-active": False,
+                    "condition:astra:energy-derived-active": False,
+                }
+            )
+        payload.update(
+            {
+                "primary_character_id": owner,
+                "supporting_character_ids": list(supporting),
+                "team_character_ids": list(team),
+                "move_entry_id": "move-entry:character:1331:discharge-current-panel",
+                "compile_configs": {
+                    character_id: {"core_level": 7, "cinema_level": 0}
+                    for character_id in team
+                },
+                **({"condition_values": conditions} if conditions else {}),
+                "character_builds": {
+                    character_id: {
+                        "level": 60,
+                        "build_mode": "equipment-build",
+                        "drive_discs": [],
+                    }
+                    for character_id in team
+                },
+                "enemy": {
+                    "enemy_id": "enemy:ui",
+                    "level": 70,
+                    "initial_defense": 857.0,
+                    "damage_resistance": {},
+                    "damage_reduction": 0.0,
+                    "stun_vulnerability_bonus": 1.5,
+                    "is_stunned": False,
+                },
+                "selected_trigger_inputs": [],
+                "rule_stack_counts": {},
+            }
+        )
+        if supporting:
+            payload["enabled_rule_item_ids"] = [discharge_rule]
+        else:
+            payload.pop("enabled_rule_item_ids", None)
+        return payload
+
+    solo_response = client.post(
+        "/api/v1/moves/calculate",
+        json=payload_for(()),
+    )
+    assert solo_response.status_code == 200, solo_response.text
+    solo = solo_response.json()
+    assert solo["totals"]["expected"]["complete"] is True
+    assert solo["totals"]["expected"]["value"] > 0.0
+    assert len(solo["events"]) == 1
+    assert solo["events"][0]["damage_subtype"] == "discharge"
+    assert [item["source_character_id"] for item in solo["panel_source_results"]] == [owner]
+    assert solo["panel_source_results"][0]["totals"]["expected"]["value"] == pytest.approx(
+        solo["totals"]["expected"]["value"]
+    )
+
+    team_response = client.post(
+        "/api/v1/moves/calculate",
+        json=payload_for((teammate,)),
+    )
+    assert team_response.status_code == 200, team_response.text
+    team = team_response.json()
+    assert team["totals"]["expected"]["complete"] is True
+    assert len(team["events"]) == 1
+    assert team["totals"]["expected"]["value"] == pytest.approx(
+        team["events"][0]["modes"]["expected"]["known_value"]
+    )
+    assert [item["source_character_id"] for item in team["panel_source_results"]] == [owner, teammate]
+    vivian_result = team["panel_source_results"][0]["totals"]["expected"]
+    teammate_result = team["panel_source_results"][1]["totals"]["expected"]
+    assert vivian_result["value"] == pytest.approx(team["totals"]["expected"]["value"])
+    assert teammate_result["complete"] is True
+    assert teammate_result["value"] > 0.0
+    assert team["totals"]["expected"]["value"] != pytest.approx(
+        vivian_result["value"] + teammate_result["value"]
+    )
+
+
+def test_vivian_discharge_selector_returns_own_event_and_keeps_teammate_group_separate() -> None:
+    owner = "character:1331"
+    teammate = "character:1311"
+    discharge_rule = "rule:character:1331:core:anomaly-mutation:ether"
+
+    def payload_for(supporting: tuple[str, ...]) -> dict:
+        payload = _valid_calculation_payload()
+        team = (owner, *supporting)
+        payload.update(
+            {
+                "primary_character_id": owner,
+                "supporting_character_ids": list(supporting),
+                "team_character_ids": list(team),
+                "move_entry_id": "move-entry:character:1331:discharge-current-panel",
+                "compile_configs": {
+                    character_id: {"core_level": 7, "cinema_level": 0}
+                    for character_id in team
+                },
+                "condition_values": {
+                    "condition:vivian:mutation-triggered": True,
+                    **(
+                        {
+                            "condition:astra:core-attack-buff-active": False,
+                            "condition:astra:aria-active": False,
+                            "condition:astra:energy-derived-active": False,
+                        }
+                        if teammate in supporting
+                        else {}
+                    ),
+                },
+                "character_builds": {
+                    character_id: {
+                        "level": 60,
+                        "build_mode": "equipment-build",
+                        "drive_discs": [],
+                    }
+                    for character_id in team
+                },
+                "enemy": {
+                    "enemy_id": "enemy:ui",
+                    "level": 70,
+                    "initial_defense": 857.0,
+                    "damage_resistance": {},
+                    "damage_reduction": 0.0,
+                    "stun_vulnerability_bonus": 1.5,
+                    "is_stunned": False,
+                },
+                "selected_trigger_inputs": [],
+                "rule_stack_counts": {},
+            }
+        )
+        payload["enabled_rule_item_ids"] = [discharge_rule]
+        return payload
+
+    solo_response = client.post(
+        "/api/v1/moves/calculate",
+        json=payload_for(()),
+    )
+    assert solo_response.status_code == 200, solo_response.text
+    solo = solo_response.json()
+    assert solo["totals"]["expected"]["complete"] is True
+    assert solo["totals"]["expected"]["value"] > 0.0
+    assert len(solo["events"]) == 1
+    assert solo["events"][0]["damage_subtype"] == "discharge"
+    assert [item["source_character_id"] for item in solo["panel_source_results"]] == [owner]
+    assert solo["panel_source_results"][0]["totals"]["expected"]["value"] == pytest.approx(
+        solo["totals"]["expected"]["value"]
+    )
+
+    team_response = client.post(
+        "/api/v1/moves/calculate",
+        json=payload_for((teammate,)),
+    )
+    assert team_response.status_code == 200, team_response.text
+    team = team_response.json()
+    assert team["totals"]["expected"]["value"] == pytest.approx(
+        team["events"][0]["modes"]["expected"]["known_value"]
+    )
+    assert team["totals"]["expected"]["complete"] is True
+    assert len(team["events"]) == 1
+    assert [item["source_character_id"] for item in team["panel_source_results"]] == [owner, teammate]
+    owner_result = team["panel_source_results"][0]["totals"]["expected"]
+    assert owner_result["value"] == pytest.approx(team["totals"]["expected"]["value"])
+    teammate_result = team["panel_source_results"][1]["totals"]["expected"]
+    assert teammate_result["complete"] is True
+    assert teammate_result["value"] > 0.0
+
+
 def test_progress_preview_defaults_core_and_cinema_to_full_core_and_zero_sliders() -> None:
     response = client.post(
         "/api/v1/definitions/preview",

@@ -130,7 +130,7 @@ from core.types import (
 from core.data.loader import load_character_record
 
 from .catalog import CharacterCatalogItem
-from .character_editor import CompileConfigFieldView
+from .character_editor import CompileConfigFieldView, MoveVariantView, MoveView
 from .base_stats import character_base_stat_contributions, character_base_stats
 from .build_preview import (
     BuildPreviewView,
@@ -142,6 +142,9 @@ from .calculation import build_contribution_view
 from .diagnostics import diagnostic_view
 from .assembler import SCHEMA_VERSION
 from .drive_disc_display import display_drive_disc_value, drive_disc_stat_label
+
+
+VIVIAN_DISCHARGE_SELECTION_ENTRY_ID = "move-entry:character:1331:discharge-current-panel"
 
 
 @dataclass(frozen=True, slots=True)
@@ -1957,7 +1960,7 @@ def build_registered_editor_view(
     )
     from .assembler import build_character_editor_view
 
-    return build_character_editor_view(
+    view = build_character_editor_view(
         definition,
         scenario=scenario,
         team_character_ids=team_ids,
@@ -1967,6 +1970,35 @@ def build_registered_editor_view(
             team_ids,
         ),
     )
+    if definition.character_id == VIVIAN_ID:
+        view = replace(
+            view,
+            moves=(
+                *view.moves,
+                MoveView(
+                    entry_id=VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
+                    move_id=None,
+                    label="异放（薇薇安当前面板）",
+                    skill_group=None,
+                    damage_tags=(),
+                    multiplier_relation="complete",
+                    variants=(
+                        MoveVariantView(
+                            variant_id="variant:character:1331:discharge-current-panel",
+                            label="来源异放倍率",
+                            parameter_name="当前面板来源",
+                            multiplier=None,
+                            condition_ids=(),
+                            repeat_count=None,
+                            repeat_count_parameter_id=None,
+                        ),
+                    ),
+                    condition_ids=(),
+                    diagnostics=(),
+                ),
+            ),
+        )
+    return view
 
 
 def build_registered_wengine_editor_view(

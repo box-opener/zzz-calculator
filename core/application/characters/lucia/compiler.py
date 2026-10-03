@@ -486,6 +486,7 @@ def _unresolved_additional_attack(
                 ),
                 DynamicIdentityFilter(DynamicIdentity.DAMAGE_DEALER),
                 NotFilter(DamageDealerFilter(LUCIA_ID)),
+                NotFilter(EventTemplateIdFilter(template_ref.template_id)),
             ),
         ),
         result=EventCreationResult(
@@ -629,6 +630,30 @@ def compile_lucia(
         raw_moves,
         config,
         core_source,
+    )
+    entries.append(
+        MoveCalculationEntry(
+            entry_id=MoveEntryId("move-entry:character:1451:core-additional-attack"),
+            character_id=LUCIA_ID,
+            move_id=None,
+            display_name="核心被动：梦境追加攻击（合唱）",
+            original_text=core.description,
+            skill_group=None,
+            damage_tags=follow_up_template.ref.damage_tags,
+            multiplier_relation=MultiplierRelation.COMPLETE,
+            multiplier_variants=(
+                MultiplierVariant(
+                    variant_id=MultiplierVariantId(
+                        "variant:character:1451:core-additional-attack"
+                    ),
+                    label="合唱追加攻击倍率",
+                    parameter_name="梦境追加攻击伤害倍率",
+                    multiplier=follow_up_derived.multiplier,
+                ),
+            ),
+            main_damage_event=follow_up_template.ref,
+            condition_ids=(DREAM_ACTIVE, ADDITIONAL_ATTACK_READY),
+        )
     )
     rules.append(
         _rule(
@@ -1023,6 +1048,7 @@ def compile_lucia(
                             (
                                 *(MoveIdFilter(item) for item in LUCIA_CHORUS_MOVE_IDS),
                                 CreatedByEffectFilter(EffectId(CORE_ADDITIONAL_ATTACK_EFFECT_ID)),
+                                EventTemplateIdFilter(follow_up_template.ref.template_id),
                             )
                         ),
                     ),
@@ -1136,6 +1162,7 @@ def compile_lucia(
             (
                 *(MoveIdFilter(item) for item in LUCIA_CHORUS_MOVE_IDS),
                 CreatedByEffectFilter(EffectId(CORE_ADDITIONAL_ATTACK_EFFECT_ID)),
+                EventTemplateIdFilter(follow_up_template.ref.template_id),
             )
         ),
     )

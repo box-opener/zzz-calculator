@@ -771,6 +771,43 @@ def test_lucia_c6_uses_initial_hp_attack_and_scene_controlled_guaranteed_crit() 
     assert _event(whim)["common_application_trace"]["guaranteed_crit_effect_ids"] == []
 
 
+def test_chorus_follow_up_attack_is_selectable_and_keeps_its_real_scope() -> None:
+    result = calculate_payload(
+        _payload(
+            move_entry_id="move-entry:character:1451:core-additional-attack",
+            cinema_level=6,
+            condition_values={
+                "condition:lucia:dream-active": True,
+                "condition:lucia:additional-attack-ready": True,
+                "condition:lucia:any-ether-curtain-active": True,
+            },
+            enabled_rule_item_ids=(
+                "rule:character:1451:cinema6:veil-chorus-crit-and-attack",
+            ),
+        )
+    )
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 1
+    event = result["events"][0]
+    assert event["common_application_trace"]["guaranteed_crit_effect_ids"] == [
+        "effect:character:1451:cinema6:chorus-guaranteed-crit"
+    ]
+    assert _node(event, "character.current.crit-damage")["value"] == pytest.approx(0.80)
+    definition = compile_registered_definition(
+        LUCIA,
+        {"core_level": 1, "cinema_level": 6},
+        [LUCIA],
+        strict=False,
+    )
+    entry = next(
+        item for item in definition.move_entries
+        if str(item.entry_id) == "move-entry:character:1451:core-additional-attack"
+    )
+    assert entry.move_id is None
+    assert entry.skill_group is None
+    assert entry.damage_tags == frozenset({DamageTag.FOLLOW_UP_ATTACK})
+
+
 def test_lucia_ultimate_instant_damage_and_single_collision_are_separate_entries() -> None:
     collision_entry = "move-entry:character:1451:ultimate-charge-armor-single-collision"
     instant = calculate_payload(_payload(move_entry_id=ULTIMATE_ENTRY))

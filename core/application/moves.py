@@ -150,12 +150,11 @@ class MoveCalculationEntry:
     def __post_init__(self) -> None:
         if not str(self.entry_id) or not self.character_id:
             raise ValueError("move entry ID and character ID are required")
-        if self.move_id is None and (
-            self.skill_group is not None or self.damage_tags
-        ):
-            raise ValueError(
-                "entries without move identity cannot declare skill groups or tags"
-            )
+        # Some separately selectable event sources have no authored MoveId but
+        # do have reviewed event classifications (for example, a Follow-up
+        # event or an Astra Tremolo).  Keep those tags/groups when the raw
+        # source supports them; absence of a MoveId alone does not erase the
+        # event's other typed metadata.
         if not self.display_name.strip():
             raise ValueError("move display_name must not be empty")
         if not self.multiplier_variants:

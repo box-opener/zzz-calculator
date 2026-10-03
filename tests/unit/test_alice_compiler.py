@@ -83,6 +83,11 @@ def _event(result: dict[str, object]) -> dict[str, object]:
     return result["events"][0]  # type: ignore[index,return-value]
 
 
+def _node(event: dict[str, object], name: str) -> dict[str, object]:
+    breakdown = event["modes"]["expected"]["calculation_breakdown"]  # type: ignore[index]
+    return next(item for item in breakdown if item["node"] == name)  # type: ignore[return-value]
+
+
 def _trace(result: dict[str, object]) -> dict[str, object]:
     return _event(result)["common_application_trace"]  # type: ignore[index,return-value]
 
@@ -181,3 +186,42 @@ def test_alice_c4_remains_scoped_to_alice_damage_dealer() -> None:
     teammate_c4 = _rule_match(teammate_result, _C4_RULE_ID)
     assert alice_c4["status"] == "matched"
     assert teammate_c4["status"] == "not-matched"
+
+
+def test_alice_named_passive_damage_entries_keep_their_source_requirements() -> None:
+    decisive = calculate_payload(
+        _payload(
+            move_entry_id="move-entry:alice:1401:cinema6-decisive-extra-attack",
+            cinema_level=6,
+            enabled_rule_item_ids=("rule:alice:1401:cinema6",),
+        )
+        | {
+            "condition_values": {"condition:alice:victory-state-active": True},
+            "parameter_values": {
+                "parameter:alice:victory-extra-attack-count": 2,
+            },
+        }
+    )
+    decisive_event = _event(decisive)
+    assert decisive["totals"]["expected"]["complete"] is True
+    assert decisive_event["repeat_count"] == 2
+    assert _node(decisive_event, "damage.skill-multiplier")["value"] == pytest.approx(33.0)
+
+    periodic = calculate_payload(
+        _payload(move_entry_id="move-entry:alice:1401:core-periodic-extra")
+        | {
+            "condition_values": {"condition:alice:physical-anomaly-active": True},
+            "parameter_values": {
+                "parameter:alice:periodic-extra-tick-count": 2,
+            },
+        }
+    )
+    periodic_event = _event(periodic)
+    assert periodic["totals"]["expected"]["complete"] is False
+    assert periodic_event["repeat_count"] == 2
+    assert periodic_event["damage_type"] == "anomaly"
+    assert periodic_event["damage_subtype"] == "attribute-anomaly"
+    diagnostic = periodic["totals"]["expected"]["diagnostics"][0]
+    assert diagnostic["message"] == (
+        "settled damage value is missing for event:alice:1401:periodic-source"
+    )

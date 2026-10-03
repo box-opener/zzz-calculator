@@ -27,6 +27,8 @@ from core.types import (
     EventCreationEffect,
     EventCreationResult,
     EventSelector,
+    EventTemplateId,
+    EventTemplateIdFilter,
     FixedMultiplier,
     MoveId,
     MoveIdFilter,
@@ -107,6 +109,9 @@ from .reviewed import (
 
 _ENEMY_STUNNED_STATE_ID = StateId("state:enemy:stunned")
 _LIGHTNING_C1_EFFECT_ID = EffectId("effect:character:1371:cinema1:lightning")
+_LIGHTNING_C1_SELECTION_TEMPLATE_ID = EventTemplateId(
+    "template:character:1371:cinema1-lightning-selectable"
+)
 
 
 def _condition(
@@ -595,6 +600,64 @@ def _lightning_event(
     return creation, template, derived
 
 
+def _lightning_selection_entry(
+    *,
+    key: str,
+    display_name: str,
+    original_text: str,
+    rule_id: RuleItemId,
+    percent: float,
+    condition_ids=(),
+) -> tuple[MoveCalculationEntry, PenetrationDamageEventTemplate]:
+    """Expose one source-backed lightning event without inventing a move ID."""
+
+    ref = DamageEventTemplateRef(
+        template_id=EventTemplateId(
+            f"template:character:1371:{key}-selectable"
+        ),
+        semantic_id=DamageEventSemanticId(
+            f"event:character:1371:{key}-selectable"
+        ),
+        label=display_name,
+        damage_type=DamageType.PENETRATION,
+        skill_group=None,
+        damage_tags=frozenset(),
+        element=Element.XUANMO,
+        source_rule_item_id=rule_id,
+    )
+    template = PenetrationDamageEventTemplate(
+        ref=ref,
+        damage_dealer=YIXUAN_ID,
+        element=Element.XUANMO,
+        base_source=CurrentPenetrationForceValueSource(YIXUAN_ID),
+        crit_rule=StandardCritRule(YIXUAN_ID),
+        move_id=None,
+    )
+    entry = MoveCalculationEntry(
+        entry_id=MoveEntryId(f"move-entry:character:1371:{key}-selectable"),
+        character_id=YIXUAN_ID,
+        move_id=None,
+        display_name=display_name,
+        original_text=original_text,
+        skill_group=None,
+        damage_tags=frozenset(),
+        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_variants=(
+            MultiplierVariant(
+                variant_id=MultiplierVariantId(
+                    f"variant:character:1371:{key}-selectable"
+                ),
+                label=f"{percent * 100:g}%贯穿力",
+                parameter_name=f"{display_name}倍率",
+                multiplier=FixedMultiplier(Resolved(percent)),
+            ),
+        ),
+        main_damage_event=ref,
+        condition_ids=tuple(condition_ids),
+    )
+    return entry, template
+
+
 def compile_yixuan(
     config: YixuanCompileConfig,
     raw_record: NanokaRawRecord,
@@ -881,6 +944,17 @@ def compile_yixuan(
     )
     templates.append(lightning225_template)
     derived_refs.append(lightning225_derived)
+    if config.additional_ability_eligible:
+        lightning_entry, lightning_selection_template = _lightning_selection_entry(
+            key="extra-ability-lightning",
+            display_name="额外能力：极限支援换下场落雷",
+            original_text=extra_text,
+            rule_id=RuleItemId("rule:character:1371:extra-ability:lightning"),
+            percent=lightning225,
+            condition_ids=(PERFECT_SUPPORT_SWITCH_OUT,),
+        )
+        entries.append(lightning_entry)
+        templates.append(lightning_selection_template)
 
     # C1's entry bonus applies once C1 is unlocked.  Its lightning trigger
     # accepts Yixuan's own penetration event and teammates' direct events; the
@@ -941,6 +1015,7 @@ def compile_yixuan(
                 )
             ),
             NotFilter(CreatedByEffectFilter(_LIGHTNING_C1_EFFECT_ID)),
+            NotFilter(EventTemplateIdFilter(_LIGHTNING_C1_SELECTION_TEMPLATE_ID)),
         ),
     )
     rules.append(
@@ -955,6 +1030,18 @@ def compile_yixuan(
     )
     templates.append(c1_lightning_template)
     derived_refs.append(c1_lightning_derived)
+    if config.cinema_level >= 1:
+        c1_lightning_entry, c1_lightning_selection_template = (
+            _lightning_selection_entry(
+                key="cinema1-lightning",
+                display_name="1影：命中追加落雷",
+                original_text=c1.description,
+                rule_id=RuleItemId("rule:character:1371:cinema1:lightning"),
+                percent=c1_lightning,
+            )
+        )
+        entries.append(c1_lightning_entry)
+        templates.append(c1_lightning_selection_template)
 
     # C2 resistance ignore is attached only to Yixuan's EX-special and
     # Ultimate penetration events.  The 1200% break technique is registered
