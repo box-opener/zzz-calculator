@@ -86,6 +86,7 @@ from .reviewed import (
     BASIC_BLOSSOMS_MOVE_ID,
     BASIC_FALL_MOVE_ID,
     C6_FEATHER_COUNT,
+    DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID,
     HAS_PROTECTIVE_FEATHER,
     MIND4_ATTACK_BUFF_ACTIVE,
     MUTATION_TRIGGERED,
@@ -476,9 +477,7 @@ def compile_vivian(
         if element is Element.ETHER:
             direct_source_missing = EventCreationEffect(
                 rule=EffectRule(
-                    effect_id=EffectId(
-                        "effect:character:1331:core:direct-blossom-mutation-source"
-                    ),
+                    effect_id=DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID,
                     source=core_source,
                     owner=VIVIAN_ID,
                     target=EffectTarget.TEAM,

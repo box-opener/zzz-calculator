@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -425,6 +426,47 @@ def test_vivian_panel_sources_cover_active_roles_without_anomaly_entries_and_rep
     assert all(item["totals"]["expected"]["complete"] for item in disabled["panel_source_results"])
     assert all(item["diagnostics"] == [] for item in disabled["panel_source_results"])
 
+    blossom_payload = deepcopy(payload)
+    blossom_payload["primary_character_id"] = VIVIAN
+    blossom_payload["supporting_character_ids"] = [ye, astra]
+    blossom_payload["team_character_ids"] = [VIVIAN, ye, astra]
+    blossom_payload["move_entry_id"] = BLOSSOMS_ENTRY
+    blossom_payload["compile_configs"][VIVIAN]["cinema_level"] = 6
+    blossom_payload["condition_values"][MUTATION_CONDITION] = True
+    blossom_payload["parameter_values"] = {"parameter:vivian:cinema6-feather-count": None}
+    blossom_payload["enabled_rule_item_ids"] = [
+        "rule:character:1331:core:anomaly-mutation:physical",
+        "rule:character:1331:core:anomaly-mutation:ether",
+        "rule:character:1331:cinema6:max-feather-mutation:physical",
+        "rule:character:1331:cinema6:max-feather-mutation:ether",
+    ]
+    blossom_result = calculate_payload(blossom_payload)
+    assert blossom_result["totals"]["expected"]["complete"] is True
+    assert len(blossom_result["events"]) == 1
+    assert blossom_result["events"][0]["damage_type"] == "direct"
+    assert {item["source_character_id"] for item in blossom_result["panel_source_results"]} == {
+        VIVIAN, ye, astra
+    }
+    assert any(
+        not item["totals"]["expected"]["complete"] and item["diagnostics"]
+        for item in blossom_result["panel_source_results"]
+    )
+
+    disabled_blossom = deepcopy(blossom_payload)
+    disabled_blossom["condition_values"][MUTATION_CONDITION] = False
+    disabled_blossom["enabled_rule_item_ids"] = [
+        "rule:character:1331:core:anomaly-mutation:physical",
+        "rule:character:1331:core:anomaly-mutation:ether",
+    ]
+    disabled_blossom_result = calculate_payload(disabled_blossom)
+    assert disabled_blossom_result["totals"]["expected"]["complete"] is True
+    assert all(
+        item["totals"]["expected"]["value"] == 0.0
+        and item["totals"]["expected"]["complete"]
+        and not item["diagnostics"]
+        for item in disabled_blossom_result["panel_source_results"]
+    )
+
 
 def test_wengine_stack_defaults_to_max_and_explicit_zero_or_middle_stack_is_kept() -> None:
     rule_id = "rule:wengine:13003:owner:1331:attack-per-energy-stack"
@@ -501,7 +543,7 @@ def test_vivian_current_ap_changes_only_the_mutation_ratio_not_teammate_history(
     assert source200["modes"]["expected"]["known_value"] == source300["modes"]["expected"]["known_value"]
 
 
-def test_direct_blossom_without_typed_target_record_keeps_known_hit_and_reports_partial() -> None:
+def test_direct_blossom_keeps_known_hit_complete_and_shows_static_panel_sources_separately() -> None:
     result = calculate_payload(
         _payload(
             move_entry_id=BLOSSOMS_ENTRY,
@@ -516,11 +558,35 @@ def test_direct_blossom_without_typed_target_record_keeps_known_hit_and_reports_
     main = result["events"][0]
     assert main["semantic_id"] == "event:character:1331:basic-feathering-blossoms:main"
     assert main["modes"]["expected"]["known_value"] is not None
-    assert result["totals"]["expected"]["complete"] is False
-    assert any(
-        "no typed history-record identity" in item["message"]
-        for item in result["totals"]["expected"]["diagnostics"]
+    assert result["totals"]["expected"]["complete"] is True
+    assert sum(item["modes"]["expected"]["known_value"] for item in result["events"]) == pytest.approx(
+        result["totals"]["expected"]["value"]
     )
+    source = next(
+        item for item in result["panel_source_results"]
+        if item["source_character_id"] == VIVIAN and item["element"] == "ether"
+    )
+    assert source["totals"]["expected"]["complete"] is True
+    assert source["totals"]["expected"]["value"] > 0
+    assert result["totals"]["expected"]["value"] != pytest.approx(
+        result["totals"]["expected"]["value"] + source["totals"]["expected"]["value"]
+    )
+
+    definition = compile_vivian(
+        VivianCompileConfig(),
+        load_raw_record(load_character_record(VIVIAN)),
+    )
+    core_rule = next(
+        item for item in definition.rule_items
+        if str(item.rule_id) == "rule:character:1331:core:anomaly-mutation:ether"
+    )
+    explicit_history_placeholder = next(
+        effect
+        for effect in core_rule.effects
+        if str(effect.rule.effect_id)
+        == "effect:character:1331:core:direct-blossom-mutation-source"
+    )
+    assert explicit_history_placeholder.result.unresolved_template is not None
 
 
 def test_extra_ability_creates_real_blossoms_hit_and_prophecy_ticks_from_other_anomaly_source() -> None:

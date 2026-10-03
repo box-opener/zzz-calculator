@@ -347,12 +347,14 @@ match only these Discharge events. This uses the dedicated
 `ANOMALY_MUTATION_COEFFICIENT` meaning unchanged.
 
 The direct Feathering Blossoms entry does not carry the target's existing
-anomaly-record identity in the current calculation request. If the selected
-direct Blossom is marked as hitting an anomalous target, the hit remains
-calculated and the mutation child reports `MISSING_DATA`; the compiler does
-not recalculate the target anomaly from Vivian's panel. Selecting a typed
-Attribute Anomaly event as the source allows the mutation to use that exact
-record.
+anomaly-record identity. A generic explicit-history application still requires
+the caller to provide that record; it does not reconstruct an old event from
+Vivian's panel. The browser's B5 static calculation path uses the independently
+displayed active-panel source results below and suppresses only the old
+unresolved child placeholder from the formal selected-move total. Other
+unresolved sources, including Vivian Prophecy hit counts and a source group
+that actually fails to create its selected Discharge event, retain local
+diagnostics.
 
 The user confirmed B5: in multiplayer, show Vivian's Anomaly Mutation result
 for each currently active character's own current panel as a separate source
@@ -858,6 +860,7 @@ covered as follows:
 
 B1 and B2 remain parked as the user requested. B3 uses only selected current
 states and stack counts; no timeline or duration simulation is introduced. The
-earlier local diagnosis for Vivian's Direct Feathering Blossoms target record
-remains scoped to that child-event path; this stack-default batch does not alter
-or claim to close it.
+generic explicit-history Direct Feathering Blossoms path still requires its
+caller-provided target record; the browser's static B5 panel groups are separate
+and the formal Direct result is no longer blocked by that missing historical
+record. This B6 stack-default change does not alter those source rules.

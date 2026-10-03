@@ -27,7 +27,10 @@ from core.application.characters.templates import (
     AttributeAnomalyDamageEventTemplate,
     DamageEventTemplate,
 )
-from core.application.characters.vivian.reviewed import VIVIAN_ID
+from core.application.characters.vivian.reviewed import (
+    DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID,
+    VIVIAN_ID,
+)
 from core.application.characters.nekomata.reviewed import (
     NEKOMATA_C1_STUN_BACK_HIT_RULE_ID,
     NEKOMATA_ID,
@@ -129,7 +132,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Execute the three display modes and return one presentation response."""
 
     view_request = _presentation_request(payload)
-    definitions = _compile_definitions(payload)
+    definitions = _without_static_vivian_blossom_placeholder(
+        _compile_definitions(payload)
+    )
     primary = definitions[0]
     supplied_operator = payload.get("current_operator")
     if supplied_operator is not None and str(supplied_operator) != str(
@@ -344,6 +349,38 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         ),
     )
     return to_jsonable(replace(view, panel_source_results=panel_source_results))
+
+
+def _without_static_vivian_blossom_placeholder(
+    definitions: tuple[CharacterCalculationDefinition, ...],
+) -> tuple[CharacterCalculationDefinition, ...]:
+    """Keep the browser's separate panel-source model from blocking a known hit.
+
+    The application compiler retains its unresolved child for callers that own
+    an explicit historical AnomalyRecord. The browser request instead returns
+    per-active-panel source calculations, so that single placeholder is not a
+    source of its formal move total.
+    """
+
+    updated = []
+    for definition in definitions:
+        if definition.character_id != VIVIAN_ID:
+            updated.append(definition)
+            continue
+        rules = tuple(
+            replace(
+                rule,
+                effects=tuple(
+                    effect
+                    for effect in rule.effects
+                    if effect.rule.effect_id
+                    != DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID
+                ),
+            )
+            for rule in definition.rule_items
+        )
+        updated.append(replace(definition, rule_items=rules))
+    return tuple(updated)
 
 
 def _vivian_panel_source_results(

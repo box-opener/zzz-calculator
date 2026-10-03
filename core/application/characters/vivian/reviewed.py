@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.types import CharacterId, DamageTag, Element, MoveId, SkillGroup
+from core.types import CharacterId, DamageTag, EffectId, Element, MoveId, SkillGroup
 
 from ...ids import ScenarioConditionId, ScenarioParameterId
 from ...moves import MultiplierRelation
@@ -15,6 +15,9 @@ MIND4_ATTACK_BUFF_ACTIVE = ScenarioConditionId("condition:vivian:mind4-attack-bu
 TARGET_HAS_ANOMALY = ScenarioConditionId("condition:vivian:target-has-anomaly")
 HAS_PROTECTIVE_FEATHER = ScenarioConditionId("condition:vivian:protective-feather-available")
 MUTATION_TRIGGERED = ScenarioConditionId("condition:vivian:mutation-triggered")
+DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID = EffectId(
+    "effect:character:1331:core:direct-blossom-mutation-source"
+)
 PROPHECY_TICK_COUNT = ScenarioParameterId("parameter:vivian:prophecy-tick-count")
 C6_FEATHER_COUNT = ScenarioParameterId("parameter:vivian:cinema6-feather-count")
 
@@ -114,6 +117,7 @@ VIVIAN_REVIEWED_MAPPING = NanokaReviewedMapping(
 __all__ = [
     "BASIC_BLOSSOMS_MOVE_ID", "BASIC_DANCE_MOVE_ID", "BASIC_FALL_MOVE_ID",
     "BASIC_FLURRY_MOVE_ID", "C6_FEATHER_COUNT",
+    "DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID",
     "DASH_MOVE_ID", "DODGE_COUNTER_MOVE_ID", "EX_SPECIAL_MOVE_ID", "HAS_PROTECTIVE_FEATHER",
     "MUTATION_TRIGGERED", "MIND4_ATTACK_BUFF_ACTIVE", "PROPHECY_ACTIVE", "PROPHECY_TICK_COUNT",
     "QUICK_ASSIST_MOVE_ID", "SPECIAL_MOVE_ID", "SUPPORT_FOLLOWUP_MOVE_ID", "TARGET_HAS_ANOMALY",
