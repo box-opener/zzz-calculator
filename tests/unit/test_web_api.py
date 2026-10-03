@@ -1838,14 +1838,167 @@ def test_reverb_support_engines_apply_panel_stats_to_the_active_team() -> None:
                 )
 
 
+def test_reverb_mark_ii_mixed_refinements_select_max_for_each_team_stat_path() -> None:
+    owners = (
+        ("character:1311", "wengine:12005", 1, "ether"),
+        ("character:1411", "wengine:12005", 5, "physical"),
+    )
+    payload = _with_supporting_wengine(_valid_calculation_payload(), list(owners))
+    rule_ids = [
+        "rule:wengine:12005:owner:1311:team-anomaly-stats",
+        "rule:wengine:12005:owner:1411:team-anomaly-stats",
+    ]
+    payload["enabled_rule_item_ids"] = rule_ids
+    payload["condition_values"] = {
+        "condition:wengine:12005:owner:1311:team-anomaly-stats-active": True,
+        "condition:wengine:12005:owner:1411:team-anomaly-stats-active": True,
+    }
+    baseline_payload = deepcopy(payload)
+    baseline_payload["enabled_rule_item_ids"] = []
+    baseline_payload["condition_values"] = {}
+    baseline = client.post("/api/v1/moves/calculate", json=baseline_payload)
+    assert baseline.status_code == 200, baseline.text
+    baseline_stats = {
+        item["character_id"]: item["stats"]
+        for item in baseline.json()["resolved_character_snapshots"]
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    after_stats = {
+        item["character_id"]: item["stats"]
+        for item in result["resolved_character_snapshots"]
+    }
+    for character_id in payload["team_character_ids"]:
+        assert after_stats[character_id]["anomaly_mastery"] == pytest.approx(
+            baseline_stats[character_id]["anomaly_mastery"] + 16.0
+        )
+        assert after_stats[character_id]["anomaly_proficiency"] == pytest.approx(
+            baseline_stats[character_id]["anomaly_proficiency"] + 16.0
+        )
+    winner_effect_ids = {
+        item["effect_id"] for item in result["panel_traces"]
+    }
+    assert any(item.startswith("effect:wengine:12005:owner:1411:") for item in winner_effect_ids)
+    assert not any(item.startswith("effect:wengine:12005:owner:1311:") for item in winner_effect_ids)
+
+
+def test_treasure_chest_team_unique_uses_max_while_each_wearer_keeps_self_energy() -> None:
+    owners = (
+        ("character:1311", "wengine:13103", 1, "ether"),
+        ("character:1411", "wengine:13103", 5, "physical"),
+    )
+    payload = _with_supporting_wengine(_valid_calculation_payload(), list(owners))
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:13103:owner:1311:all-damage-buff",
+        "rule:wengine:13103:owner:1311:energy-regen-flat",
+        "rule:wengine:13103:owner:1411:all-damage-buff",
+        "rule:wengine:13103:owner:1411:energy-regen-flat",
+    ]
+    payload["condition_values"] = {
+        "condition:wengine:13103:owner:1311:ether-triggered-buff-active": True,
+        "condition:wengine:13103:owner:1411:ether-triggered-buff-active": True,
+    }
+    baseline_payload = deepcopy(payload)
+    baseline_payload["enabled_rule_item_ids"] = []
+    baseline_payload["condition_values"] = {}
+    baseline = client.post("/api/v1/moves/calculate", json=baseline_payload)
+    assert baseline.status_code == 200, baseline.text
+    before = {
+        item["character_id"]: item["stats"]
+        for item in baseline.json()["resolved_character_snapshots"]
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    after = {
+        item["character_id"]: item["stats"]
+        for item in result["resolved_character_snapshots"]
+    }
+    assert after["character:1311"]["energy_regen"] == pytest.approx(
+        before["character:1311"]["energy_regen"] + 0.5
+    )
+    assert after["character:1411"]["energy_regen"] == pytest.approx(
+        before["character:1411"]["energy_regen"] + 0.8
+    )
+    event = result["events"][0]
+    team_bonus = [
+        item
+        for item in event["common_application_trace"]["applied_modifiers"]
+        if item["modifier_path"] == "damage.normal-bonus"
+        and item["effect_id"].startswith("effect:wengine:13103:owner:")
+    ]
+    assert len(team_bonus) == 1
+    assert team_bonus[0]["value"] == pytest.approx(0.24)
+
+
 @pytest.mark.parametrize(
-    ("refinements", "expected_delta", "expected_complete"),
-    (((1, 1), 0.08, True), ((1, 5), 0.0, False)),
+    ("r1_layers", "r5_layers", "expected_bonus", "winner_owner"),
+    (
+        (4, 1, 0.10, "1311"),
+        (1, 4, 0.16, "1411"),
+        (0, 1, 0.04, "1411"),
+    ),
 )
-def test_duplicate_reverb_tidal_buffs_do_not_stack_or_guess_between_refinements(
+def test_friendly_cannon_mixed_refinements_maximizes_effective_attack_layers(
+    r1_layers: int,
+    r5_layers: int,
+    expected_bonus: float,
+    winner_owner: str,
+) -> None:
+    owners = (
+        ("character:1311", "wengine:13115", 1, "ether"),
+        ("character:1411", "wengine:13115", 5, "physical"),
+    )
+    payload = _with_supporting_wengine(_valid_calculation_payload(), list(owners))
+    rule_ids = [
+        "rule:wengine:13115:owner:1311:team-attack-per-ally-stack",
+        "rule:wengine:13115:owner:1411:team-attack-per-ally-stack",
+    ]
+    payload["enabled_rule_item_ids"] = rule_ids
+    payload["rule_stack_counts"] = {
+        rule_ids[0]: r1_layers,
+        rule_ids[1]: r5_layers,
+    }
+    baseline_payload = deepcopy(payload)
+    baseline_payload["enabled_rule_item_ids"] = []
+    baseline_payload["rule_stack_counts"] = {}
+    baseline = client.post("/api/v1/moves/calculate", json=baseline_payload)
+    assert baseline.status_code == 200, baseline.text
+    before_attack = {
+        item["character_id"]: item["stats"]["attack"]
+        for item in baseline.json()["resolved_character_snapshots"]
+    }
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    after_attack = {
+        item["character_id"]: item["stats"]["attack"]
+        for item in result["resolved_character_snapshots"]
+    }
+    for character_id in payload["team_character_ids"]:
+        assert after_attack[character_id] == pytest.approx(
+            before_attack[character_id] * (1 + expected_bonus)
+        )
+    active_effects = {
+        item["effect_id"] for item in result["panel_traces"]
+        if item["effect_id"].startswith("effect:wengine:13115:owner:")
+    }
+    assert active_effects == {
+        f"effect:wengine:13115:owner:{winner_owner}:team-attack-per-ally-stack"
+    }
+
+
+@pytest.mark.parametrize(
+    ("refinements", "expected_delta"),
+    (((1, 1), 0.08), ((1, 5), 0.12)),
+)
+def test_duplicate_reverb_tidal_buffs_select_maximum_refinement(
     refinements: tuple[int, int],
     expected_delta: float,
-    expected_complete: bool,
 ) -> None:
     payload = _with_supporting_wengine(
         _valid_calculation_payload(),
@@ -1866,14 +2019,7 @@ def test_duplicate_reverb_tidal_buffs_do_not_stack_or_guess_between_refinements(
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200, response.text
     result = response.json()
-    assert result["totals"]["expected"]["complete"] is expected_complete
-    if refinements[0] != refinements[1]:
-        assert any(
-            item["kind"] == "ambiguous-semantics"
-            and item["blocking"]
-            and "no candidate was applied" in item["message"]
-            for item in result["diagnostics"]
-        )
+    assert result["totals"]["expected"]["complete"] is True
     before = {
         item["character_id"]: item["stats"]["impact"]
         for item in baseline["resolved_character_snapshots"]
@@ -2907,7 +3053,7 @@ def test_unfettered_game_ball_applies_target_crit_in_event_lane_to_all_attackers
     assert formal_crit_rates["character:1311"] == pytest.approx(0.50)
 
 
-def test_unfettered_game_ball_mixed_refinement_copies_block_without_picking_one() -> None:
+def test_unfettered_game_ball_mixed_refinements_select_maximum_target_crit_rate() -> None:
     owners = (
         ("character:1311", "wengine:14002", 1, "ether"),
         ("character:1411", "wengine:14002", 5, "physical"),
@@ -2925,14 +3071,23 @@ def test_unfettered_game_ball_mixed_refinement_copies_block_without_picking_one(
     assert response.status_code == 200, response.text
     result = response.json()
     event = result["events"][0]
-    assert event["common_application_trace"]["event_stat_modifiers"] == []
-    assert result["totals"]["expected"]["complete"] is False
-    assert any(
-        item["kind"] == "ambiguous-semantics"
-        and item["blocking"]
-        and "none is applied" in item["message"]
-        for item in result["diagnostics"]
-    )
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(event["common_application_trace"]["event_stat_modifiers"]) == 1
+    assert event["common_application_trace"]["event_stat_modifiers"][0]["value"] == pytest.approx(0.20)
+
+    # Only currently matching conditions enter MAX comparison. With the R5
+    # state inactive, the lower R1 value is the sole effective candidate.
+    payload["condition_values"][
+        "condition:wengine:14002:owner:1411:attribute-counter-target-crit-buff-active"
+    ] = False
+    lower_refinement = client.post("/api/v1/moves/calculate", json=payload)
+    assert lower_refinement.status_code == 200, lower_refinement.text
+    lower = lower_refinement.json()
+    assert lower["totals"]["expected"]["complete"] is True
+    assert len(lower["events"][0]["common_application_trace"]["event_stat_modifiers"]) == 1
+    assert lower["events"][0]["common_application_trace"]["event_stat_modifiers"][0][
+        "value"
+    ] == pytest.approx(0.12)
 
 
 def test_unfettered_game_ball_target_crit_does_not_touch_no_crit_anomaly_events() -> None:
@@ -2961,12 +3116,19 @@ def test_unfettered_game_ball_target_crit_does_not_touch_no_crit_anomaly_events(
         }
     }
     payload = _with_supporting_wengine(
-        payload, [("character:1311", "wengine:14002", 5, "ether")]
+        payload,
+        [
+            ("character:1311", "wengine:14002", 5, "ether"),
+            ("character:1411", "wengine:14002", 1, "physical"),
+        ],
     )
-    rule_id = "rule:wengine:14002:owner:1311:target-crit-rate"
-    payload["enabled_rule_item_ids"] = [rule_id]
+    payload["enabled_rule_item_ids"] = [
+        "rule:wengine:14002:owner:1311:target-crit-rate",
+        "rule:wengine:14002:owner:1411:target-crit-rate",
+    ]
     payload["condition_values"] = {
-        "condition:wengine:14002:owner:1311:attribute-counter-target-crit-buff-active": True
+        "condition:wengine:14002:owner:1311:attribute-counter-target-crit-buff-active": True,
+        "condition:wengine:14002:owner:1411:attribute-counter-target-crit-buff-active": True,
     }
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200, response.text
@@ -3112,13 +3274,12 @@ def test_restrained_uses_current_basic_stack_count_for_damage_and_daze() -> None
 
 
 @pytest.mark.parametrize(
-    ("refinements", "expected_bonus", "complete"),
-    (((1, 1), 0.30, True), ((1, 5), 0.0, False)),
+    ("refinements", "expected_bonus"),
+    (((1, 1), 0.30), ((1, 5), 0.48)),
 )
 def test_blazing_laurel_applies_depression_as_event_crit_damage_without_panel_leak(
     refinements: tuple[int, int],
     expected_bonus: float,
-    complete: bool,
 ) -> None:
     payload = _valid_calculation_payload()
     primary = "character:1091"
@@ -3164,11 +3325,10 @@ def test_blazing_laurel_applies_depression_as_event_crit_damage_without_panel_le
     result = response.json()
     event = result["events"][0]
     modifiers = event["common_application_trace"]["event_stat_modifiers"]
-    assert len(modifiers) == (1 if complete else 0)
-    if complete:
-        assert modifiers[0]["modifier_path"] == "character.current.crit-damage"
-        assert modifiers[0]["recipient_character_id"] == primary
-        assert modifiers[0]["value"] == pytest.approx(expected_bonus)
+    assert len(modifiers) == 1
+    assert modifiers[0]["modifier_path"] == "character.current.crit-damage"
+    assert modifiers[0]["recipient_character_id"] == primary
+    assert modifiers[0]["value"] == pytest.approx(expected_bonus)
     formal_crit_damage = {
         item["character_id"]: item["stats"]["crit_damage"]
         for item in result["resolved_character_snapshots"]
@@ -3180,15 +3340,8 @@ def test_blazing_laurel_applies_depression_as_event_crit_damage_without_panel_le
         for item in event["modes"]["expected"]["calculation_breakdown"]
         if item["node"] == "character.current.crit-damage"
     ]
-    assert crit_damage_values == (
-        [pytest.approx(0.5 + expected_bonus)] if complete else []
-    )
-    assert result["totals"]["expected"]["complete"] is complete
-    if not complete:
-        assert any(
-            item["kind"] == "ambiguous-semantics" and item["blocking"]
-            for item in result["diagnostics"]
-        )
+    assert crit_damage_values == [pytest.approx(0.5 + expected_bonus)]
+    assert result["totals"]["expected"]["complete"] is True
 
 
 def test_flamemaker_shaker_ap_buff_has_its_own_current_state_not_a_live_stack_threshold() -> None:
@@ -3280,13 +3433,12 @@ def test_jade_tea_stacks_and_qualifying_team_buff_are_independent_current_states
 
 
 @pytest.mark.parametrize(
-    ("refinements", "expected_bonus", "complete"),
-    (((1, 1), 0.20, True), ((1, 5), 0.0, False)),
+    ("refinements", "expected_bonus"),
+    (((1, 1), 0.20), ((1, 5), 0.32)),
 )
-def test_jade_tea_team_unique_bonus_applies_once_or_blocks_mixed_refinements(
+def test_jade_tea_team_unique_bonus_selects_maximum_refinement(
     refinements: tuple[int, int],
     expected_bonus: float,
-    complete: bool,
 ) -> None:
     owners = (
         ("character:1361", "wengine:14125", refinements[0], "electric"),
@@ -3314,21 +3466,10 @@ def test_jade_tea_team_unique_bonus_applies_once_or_blocks_mixed_refinements(
     assert response.status_code == 200, response.text
     result = response.json()
     event = result["events"][0]
-    assert result["totals"]["expected"]["complete"] is complete
-    if complete:
-        assert _breakdown_value(event, "damage.normal-bonus-region") == pytest.approx(
-            baseline_region + expected_bonus
-        )
-    else:
-        assert not any(
-            item["effect_id"].startswith("effect:wengine:14125:owner:")
-            and item["modifier_path"] == "damage.normal-bonus"
-            for item in event["common_application_trace"]["applied_modifiers"]
-        )
-        assert any(
-            item["kind"] == "ambiguous-semantics" and item["blocking"]
-            for item in result["diagnostics"]
-        )
+    assert result["totals"]["expected"]["complete"] is True
+    assert _breakdown_value(event, "damage.normal-bonus-region") == pytest.approx(
+        baseline_region + expected_bonus
+    )
 
 
 def test_stinging_razor_current_stacks_apply_physical_damage_and_max_stack_buildup() -> None:

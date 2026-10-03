@@ -539,12 +539,16 @@ missing numeric source value.
 Several passives specify a duration and/or cooldown. This static request does not
 replay event timing; their active period is represented by a user-selectable
 current-state condition. `「残响」-Ⅰ型` and `「残响」-Ⅱ型` additionally say that
-same-name passives do not stack. Copies with matching resolved values apply once
-across the active team. When copies with different refinements are simultaneously
-enabled and active, no source priority is stated; the application skips all
-members of that non-stacking panel group and emits a blocking local ambiguity
-diagnostic instead of selecting the first or largest value. This does not block
-single-copy use or same-refinement duplicates.
+same-name passives do not stack. The user confirmed the calculator's static
+resolution: after the source conditions match, choose the largest effective
+contribution for each recipient and modifier path, including the selected stack
+count. This keeps same-refinement copies at one contribution and gives mixed
+refinements a deterministic maximum without implying a real-time refresh order.
+Different recipients and different stat paths remain independent. If an active
+candidate needed for that comparison cannot be resolved, only that recipient/path
+is blocked and the diagnostic retains the candidate source text and resolution
+reason. A zero-stack candidate contributes nothing and does not block another
+active copy.
 
 
 ## W-Engine live 3.2 second queue batch (non-authoritative implementation notes)
@@ -679,10 +683,8 @@ refinement, not a copied R1 value.
 
 `14125`'s team damage effect is unique. A separate active state represents a
 qualifying Tea Power stack gain at 15 or more; the current stack count does not
-recompute whether its ten-second team state has expired. Same-refinement copies
-apply once. When duplicate holders have different refinement values, the shared
-non-stacking guard blocks that local event effect with an ambiguity diagnostic
-instead of choosing an instance.
+recompute whether its ten-second team state has expired. Duplicate copies use the
+confirmed static maximum for each matching recipient and modifier path.
 
 `14129`, `14130`, and `14132` retain their always-on Crit Damage/Crit Rate panels
 when the owner lacks the event capability required to trigger their timed state.
@@ -762,11 +764,11 @@ supported row between batches, so this batch follows the actual insertion order.
 
 `13112` says `受到敌方攻击后，下一次攻击命中敌人时，额外造成装备者960%防御力的伤害，且必定触发暴击` at R5. The user confirmed a standalone Direct component using the wearer's current Defense, own guaranteed Crit, and native element, with no MoveId, SkillGroup, or tag. When the current proc state is selected, each actual Direct hit by the wearer creates one child; it cannot trigger itself. Zhao's native element is explicitly Ice, even when the selected source Basic hit is Physical. Incoming-damage reduction remains source-only because this request has no incoming-damage result; the 7.5-second cooldown is not replayed.
 
-`13113` has an Ice damage bonus and a separate EX-triggered, current 0–4 TEAM Attack stack. The Ice effect is capability-gated; the current registered Support owners do not gain it unless their typed capabilities include Ice. The group uses a stable same-name non-stacking key across owners. `13115` likewise applies an explicit 0–4 aggregate TEAM Attack stack with a one-layer-per-friendly-unit source cap and a stable non-stacking group. The active stack count and contributors are not replayed from attacks; no untracked Bangboo or fourth teammate is synthesized. Its one-shot Energy result remains a non-blocking source-rule diagnostic.
+`13113` has an Ice damage bonus and a separate EX-triggered, current 0–4 TEAM Attack stack. The Ice effect is capability-gated; the current registered Support owners do not gain it unless their typed capabilities include Ice. The group uses a stable same-name non-stacking key across owners. `13115` likewise applies an explicit 0–4 aggregate TEAM Attack stack with a one-layer-per-friendly-unit source cap and a stable non-stacking group. The user confirmed that same-name static copies resolve to the largest matching effective contribution after applying each selected stack count. The active stack count and contributors are not replayed from attacks; no untracked Bangboo or fourth teammate is synthesized. Its one-shot Energy result remains a non-blocking source-rule diagnostic.
 
 `13127` separates shield-gated flat Energy Regeneration from the unconditional EX Special/Assist Attack anomaly-buildup efficiency bonus. `13128` exposes its three random effects as independent current-state rules—Attack, Anomaly Proficiency, and buildup efficiency—because the source explicitly allows multiple outcomes to coexist; no random result or 0.3-second cooldown is replayed. `13135` treats Follow-up Attack as the trigger only; its later Physical damage and Daze effects are not restricted to the current move being Follow-up. Its Daze result is outside the current damage output and has a non-blocking diagnostic. `13142` scopes damage bonus to EX Special and Ultimate tags; Energy recovery remains source-only.
 
-`13144` has a Fire damage bonus and a separate owner HP-loss current-state Crit Rate panel buff. The Fire branch is capability-gated; the registered Rupture owner does not have Fire damage capability. `14001` keeps the permanent Attack panel bonus. The user confirmed that its 200%-ATK proc is a separate Physical Direct child using the wearer's current Attack, normal owner multipliers, and owner Crit stats, with no MoveId, SkillGroup, or tag. One selected current-hit proc creates one child per actual Direct source hit and excludes itself; the 6–8-second cooldown is not replayed. `14002`'s current target-specific all-team Crit Rate increase is an event-stat modifier for standard-crit Direct/Penetration events, so it does not alter formal team Crit Rate snapshots or No-Crit Anomaly/Disorder results. Its same-name stacking group is stable across equipment owners; differing active refinements block that target-scope effect instead of choosing a copy.
+`13144` has a Fire damage bonus and a separate owner HP-loss current-state Crit Rate panel buff. The Fire branch is capability-gated; the registered Rupture owner does not have Fire damage capability. `14001` keeps the permanent Attack panel bonus. The user confirmed that its 200%-ATK proc is a separate Physical Direct child using the wearer's current Attack, normal owner multipliers, and owner Crit stats, with no MoveId, SkillGroup, or tag. One selected current-hit proc creates one child per actual Direct source hit and excludes itself; the 6–8-second cooldown is not replayed. `14002`'s current target-specific all-team Crit Rate increase is an event-stat modifier for standard-crit Direct/Penetration events, so it does not alter formal team Crit Rate snapshots or No-Crit Anomaly/Disorder results. Its same-name stacking group is stable across equipment owners; the user-confirmed static maximum is selected after each copy's filters and active conditions match the same crit-stat owner and event-stat path.
 
 ## W-Engine live 3.2 final batch
 

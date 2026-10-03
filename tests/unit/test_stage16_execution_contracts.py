@@ -28,6 +28,7 @@ from core.data.loader import load_character_record
 from core.application.execution import (
     MatchedEffectApplication,
     apply_matched_modifiers,
+    apply_global_panel_effects,
     instantiate_direct_damage_event,
 )
 from core.application.matching import EffectMatchContext, EffectMatcher, EffectMatchStatus
@@ -622,6 +623,237 @@ def test_panel_stat_derived_value_does_not_fall_back_to_settlement_attack() -> N
     assert application.character_snapshots[0].settlement_stats.attack == Resolved(
         1000.0
     )
+
+
+def test_zero_stack_non_stacking_panel_candidate_does_not_block_maximum() -> None:
+    owner = CharacterId("character:stage16:zero-stack-max")
+    group_id = "test:zero-stack-max"
+    missing_rule_id = RuleItemId("rule:stage16:zero-stack-missing")
+    active_rule_id = RuleItemId("rule:stage16:zero-stack-active")
+    missing_effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:zero-stack-missing"),
+            source=replace(
+                _source("zero-stack missing source"),
+                raw_text="source text with an unavailable initial-attack value",
+            ),
+            owner=owner,
+            target=EffectTarget.SELF,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+            operation=EffectOperation.ADD,
+            value=PanelStatDerivedValue(
+                source_character_id=CharacterId("character:stage16:missing-source"),
+                source_node=CalculationNode.CHARACTER_INITIAL_ATTACK,
+                coefficient=Resolved(0.10),
+            ),
+        ),
+    )
+    active_effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:zero-stack-active"),
+            source=_source("active maximum source"),
+            owner=owner,
+            target=EffectTarget.SELF,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_COMBAT_ATTACK_PERCENT_BONUS,
+            operation=EffectOperation.ADD,
+            value=Resolved(0.04),
+        ),
+    )
+    rules = (
+        CalculationRuleItem(
+            rule_id=missing_rule_id,
+            owner=owner,
+            source=_source("zero-stack missing rule"),
+            display_name="Missing derived candidate",
+            original_text="Missing derived candidate",
+            eligibility=RuleEligibility.ELIGIBLE,
+            effects=(missing_effect,),
+            stack_count=1,
+            stack_min=0,
+            stack_max=4,
+            non_stacking_group_id=group_id,
+        ),
+        CalculationRuleItem(
+            rule_id=active_rule_id,
+            owner=owner,
+            source=_source("active maximum rule"),
+            display_name="Resolved candidate",
+            original_text="Resolved candidate",
+            eligibility=RuleEligibility.ELIGIBLE,
+            effects=(active_effect,),
+            stack_count=1,
+            stack_min=0,
+            stack_max=4,
+            non_stacking_group_id=group_id,
+        ),
+    )
+    scenario = CalculationScenario(
+        scenario_id="scenario:stage16:zero-stack-max",
+        current_operator=owner,
+        enabled_rule_item_ids=frozenset({missing_rule_id, active_rule_id}),
+        rule_stack_counts=(
+            ScenarioRuleStack(rule_item_id=missing_rule_id, value=0),
+            ScenarioRuleStack(rule_item_id=active_rule_id, value=1),
+        ),
+    )
+    base = (CharacterSnapshot(owner, 60, _stats()),)
+
+    initial = (InitialCharacterSnapshot(owner, 60, _stats()),)
+    zero_result = apply_global_panel_effects(base, initial, rules, scenario)
+
+    assert zero_result.diagnostics == ()
+    assert zero_result.character_snapshots[0].settlement_stats.attack == Resolved(1040.0)
+    assert tuple(item.effect_id for item in zero_result.panel_traces) == (
+        active_effect.rule.effect_id,
+    )
+    assert missing_effect.rule.effect_id in zero_result.applied_panel_effect_ids
+
+    unresolved_result = apply_global_panel_effects(
+        base,
+        initial,
+        rules,
+        replace(
+            scenario,
+            rule_stack_counts=(
+                ScenarioRuleStack(rule_item_id=missing_rule_id, value=1),
+                ScenarioRuleStack(rule_item_id=active_rule_id, value=1),
+            ),
+        ),
+    )
+    assert len(unresolved_result.diagnostics) == 1
+    assert (
+        "derived panel value is missing its initial character snapshot"
+        in unresolved_result.diagnostics[0].message
+    )
+    assert unresolved_result.diagnostics[0].original_text == (
+        "source text with an unavailable initial-attack value"
+    )
+
+
+def test_non_stacking_max_resolves_current_panel_sources_after_regular_effects() -> None:
+    first = CharacterId("character:stage16:max-current-first")
+    second = CharacterId("character:stage16:max-current-second")
+    ordinary_rule_id = RuleItemId("rule:stage16:max-current-ordinary")
+    first_rule_id = RuleItemId("rule:stage16:max-current-first")
+    second_rule_id = RuleItemId("rule:stage16:max-current-second")
+
+    def team_crit_damage_rule(
+        source_owner: CharacterId,
+        rule_id: RuleItemId,
+        effect_id: EffectId,
+    ) -> CalculationRuleItem:
+        effect = ModifierEffect(
+            rule=EffectRule(
+                effect_id=effect_id,
+                source=_source(f"derived source from {source_owner}"),
+                owner=source_owner,
+                target=EffectTarget.TEAM,
+                snapshot_rule=SnapshotRule.SETTLEMENT,
+            ),
+            result=ModifierResult(
+                modifier_path=CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+                operation=EffectOperation.ADD,
+                value=PanelStatDerivedValue(
+                    source_character_id=source_owner,
+                    source_node=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+                    coefficient=Resolved(1.0),
+                ),
+            ),
+        )
+        return CalculationRuleItem(
+            rule_id=rule_id,
+            owner=source_owner,
+            source=_source(f"derived source rule from {source_owner}"),
+            display_name="Current-crit team effect",
+            original_text="Current-crit team effect",
+            eligibility=RuleEligibility.ELIGIBLE,
+            effects=(effect,),
+            non_stacking_group_id="test:max-current-crit-damage",
+        )
+
+    first_rule = team_crit_damage_rule(
+        first,
+        first_rule_id,
+        EffectId("effect:stage16:max-current-first"),
+    )
+    second_rule = team_crit_damage_rule(
+        second,
+        second_rule_id,
+        EffectId("effect:stage16:max-current-second"),
+    )
+    ordinary_effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:max-current-ordinary"),
+            source=_source("ordinary current crit increase"),
+            owner=first,
+            target=EffectTarget.SELF,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            operation=EffectOperation.ADD,
+            value=Resolved(0.40),
+        ),
+    )
+    ordinary_rule = CalculationRuleItem(
+        rule_id=ordinary_rule_id,
+        owner=first,
+        source=_source("ordinary current crit rule"),
+        display_name="Ordinary current Crit Rate",
+        original_text="Ordinary current Crit Rate",
+        eligibility=RuleEligibility.ELIGIBLE,
+        effects=(ordinary_effect,),
+    )
+    rules = (first_rule, second_rule, ordinary_rule)
+    scenario = CalculationScenario(
+        scenario_id="scenario:stage16:max-current-panel-order",
+        current_operator=first,
+        enabled_rule_item_ids=frozenset(
+            {first_rule_id, second_rule_id, ordinary_rule_id}
+        ),
+    )
+    first_stats = replace(_stats(), crit_rate=Resolved(0.20))
+    second_stats = replace(_stats(), crit_rate=Resolved(0.40))
+    snapshots = (
+        CharacterSnapshot(first, 60, first_stats),
+        CharacterSnapshot(second, 60, second_stats),
+    )
+    initial = (
+        InitialCharacterSnapshot(first, 60, first_stats),
+        InitialCharacterSnapshot(second, 60, second_stats),
+    )
+
+    result = apply_global_panel_effects(
+        snapshots,
+        initial,
+        rules,
+        scenario,
+        frozenset({first, second}),
+    )
+
+    assert result.diagnostics == ()
+    assert [
+        item.settlement_stats.crit_damage.value
+        for item in result.character_snapshots
+    ] == pytest.approx([1.10, 1.10])
+    winning_traces = [
+        item
+        for item in result.panel_traces
+        if item.effect_id
+        in {
+            EffectId("effect:stage16:max-current-first"),
+            EffectId("effect:stage16:max-current-second"),
+        }
+    ]
+    assert {item.effect_id for item in winning_traces} == {
+        EffectId("effect:stage16:max-current-first")
+    }
 
 
 def test_request_applies_rules_from_supporting_definition() -> None:

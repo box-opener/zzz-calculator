@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from math import prod
 
 from core.types import (
     AllCondition,
@@ -54,10 +55,261 @@ class MatchedEffectApplication:
     effect: Effect
     rule_item_id: RuleItemId | None = None
     stack_count: int = 1
+    non_stacking_group_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.stack_count < 0:
             raise ValueError("matched Effect stack_count must be non-negative")
+
+
+def _select_non_stacking_event_effects(
+    applications: tuple[object, ...],
+    snapshots: tuple[CharacterSnapshot, ...],
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...],
+    scenario: CalculationScenario | None,
+    event: object | None,
+    diagnostics: list[CalculationDiagnostic],
+) -> tuple[object, ...]:
+    candidates: dict[
+        tuple[str, CharacterId, CalculationNode],
+        dict[str, list[tuple[MatchedEffectApplication, float, EffectOperation]]],
+    ] = {}
+    unresolved: dict[
+        tuple[str, CharacterId, CalculationNode],
+        list[tuple[MatchedEffectApplication, str, str]],
+    ] = {}
+    passthrough: list[object] = []
+
+    for raw_application in applications:
+        application = (
+            raw_application
+            if isinstance(raw_application, MatchedEffectApplication)
+            else MatchedEffectApplication(raw_application)
+        )
+        effect = application.effect
+        group_id = application.non_stacking_group_id
+        if group_id is None or not isinstance(effect, ModifierEffect):
+            passthrough.append(application)
+            continue
+        source_id = (
+            str(application.rule_item_id)
+            if application.rule_item_id is not None
+            else str(effect.rule.effect_id)
+        )
+
+        if isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)) and isinstance(
+            event.crit_rule, StandardCritRule
+        ) and effect.result.modifier_path in {
+            CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+        }:
+            recipient = event.crit_rule.stat_owner
+        elif event is not None and hasattr(event, "metadata"):
+            recipient = event.metadata.damage_dealer
+        elif effect.rule.owner is not None:
+            recipient = effect.rule.owner
+        else:
+            recipient = CharacterId("unknown-non-stacking-recipient")
+        key = (group_id, recipient, effect.result.modifier_path)
+
+        # A zero-layer instance contributes nothing. Do not require its value
+        # source to resolve before comparing the other active copies.
+        if application.stack_count == 0:
+            continue
+
+        if not isinstance(effect.result.value, Resolved):
+            effect_diagnostics: list[CalculationDiagnostic] = []
+            resolved_effect = _resolve_effect_value(
+                effect,
+                initial_character_snapshots,
+                effect_diagnostics,
+                scenario=scenario,
+                current_character_snapshots=snapshots,
+            )
+            if resolved_effect is None or not isinstance(
+                resolved_effect.result.value, Resolved
+            ):
+                message = (
+                    effect_diagnostics[0].message
+                    if effect_diagnostics
+                    else (
+                        effect.result.value.notes
+                        if isinstance(effect.result.value, Unresolved)
+                        else "the matched effect value is not resolved"
+                    )
+                )
+                unresolved.setdefault(key, []).append((application, source_id, message))
+                continue
+            application = replace(application, effect=resolved_effect)
+            effect = resolved_effect
+
+        value = effect.result.value
+        assert isinstance(value, Resolved)
+        if effect.result.operation is EffectOperation.ADD:
+            effective_value = value.value * application.stack_count
+        elif application.stack_count == 1:
+            effective_value = value.value
+        else:
+            unresolved.setdefault(key, []).append(
+                (
+                    application,
+                    source_id,
+                    "stacked non-ADD effects cannot be compared as one static maximum",
+                )
+            )
+            continue
+        candidates.setdefault(key, {}).setdefault(source_id, []).append(
+            (application, effective_value, effect.result.operation)
+        )
+
+    selected: list[object] = list(passthrough)
+    for group_id, recipient, path in sorted(
+        set(candidates) | set(unresolved),
+        key=lambda item: (item[0], str(item[1]), item[2].value),
+    ):
+        key = (group_id, recipient, path)
+        source_candidates = candidates.get(key, {})
+        group_unresolved = unresolved.get(key, [])
+        source_ids = set(source_candidates) | {item[1] for item in group_unresolved}
+        if len(source_ids) == 1:
+            source_id = next(iter(source_ids))
+            selected.extend(
+                item[0] for item in source_candidates.get(source_id, ())
+            )
+            selected.extend(
+                item[0] for item in group_unresolved if item[1] == source_id
+            )
+            continue
+        if group_unresolved:
+            all_applications = [
+                *(
+                    candidate[0]
+                    for source_effects in source_candidates.values()
+                    for candidate in source_effects
+                ),
+                *(item[0] for item in group_unresolved),
+            ]
+            diagnostics.append(
+                CalculationDiagnostic(
+                    diagnostic_id=DiagnosticId(
+                        f"application:{group_id}:{recipient}:{path.value}:max-unresolved"
+                    ),
+                    kind=DiagnosticKind.MISSING_DATA,
+                    message=(
+                        "Matched same-name event effects for this recipient and region "
+                        "could not all be resolved, so the maximum was not selected. "
+                        + "; ".join(
+                            dict.fromkeys(reason for _, _, reason in group_unresolved)
+                        )
+                    ),
+                    blocking=True,
+                    original_text=(
+                        group_unresolved[0][0].effect.rule.source.raw_text
+                        if group_unresolved
+                        and isinstance(group_unresolved[0][0].effect, ModifierEffect)
+                        else None
+                    ),
+                    candidates=tuple(
+                        (
+                            item.effect.rule.source.raw_text
+                            or item.effect.rule.source.label
+                            if isinstance(item.effect, ModifierEffect)
+                            else str(item.effect.rule.effect_id)
+                        )
+                        for item in all_applications
+                    ),
+                )
+            )
+            continue
+        if not source_candidates:
+            continue
+        operations = {
+            item[2]
+            for source_effects in source_candidates.values()
+            for item in source_effects
+        }
+        if len(operations) != 1:
+            group_candidates = [
+                item
+                for source_effects in source_candidates.values()
+                for item in source_effects
+            ]
+            diagnostics.append(
+                CalculationDiagnostic(
+                    diagnostic_id=DiagnosticId(
+                        f"application:{group_id}:{recipient}:{path.value}:max-operation"
+                    ),
+                    kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                    message=(
+                        "Matched same-name event effects use different operations, "
+                        "so their values cannot be compared for a static maximum: "
+                        + ", ".join(sorted(item.value for item in operations))
+                    ),
+                    blocking=True,
+                    original_text=(
+                        group_candidates[0][0].effect.rule.source.raw_text
+                        if group_candidates
+                        else None
+                    ),
+                    candidates=tuple(
+                        item[0].effect.rule.source.raw_text
+                        or item[0].effect.rule.source.label
+                        for item in group_candidates
+                    ),
+                )
+            )
+            continue
+        operation = next(iter(operations))
+        effective_by_source: dict[str, float] = {}
+        unsupported_source: tuple[str, tuple[MatchedEffectApplication, ...]] | None = None
+        for source_id, source_effects in source_candidates.items():
+            if operation is EffectOperation.ADD:
+                effective_by_source[source_id] = sum(item[1] for item in source_effects)
+            elif operation is EffectOperation.MULTIPLY:
+                effective_by_source[source_id] = prod(item[1] for item in source_effects)
+            else:
+                unsupported_source = (
+                    source_id,
+                    tuple(item[0] for item in source_effects),
+                )
+                break
+        if unsupported_source is not None:
+            source_id, source_apps = unsupported_source
+            diagnostics.append(
+                CalculationDiagnostic(
+                    diagnostic_id=DiagnosticId(
+                        f"application:{group_id}:{recipient}:{path.value}:max-operation"
+                    ),
+                    kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                    message=(
+                        "Matched same-name event effects use an operation that cannot "
+                        "be compared as a static maximum: "
+                        f"{operation.value}"
+                    ),
+                    blocking=True,
+                    original_text=(
+                        source_apps[0].effect.rule.source.raw_text
+                        if source_apps
+                        and isinstance(source_apps[0].effect, ModifierEffect)
+                        else None
+                    ),
+                    candidates=tuple(
+                        app.effect.rule.source.raw_text
+                        or app.effect.rule.source.label
+                        for app in source_apps
+                        if isinstance(app.effect, ModifierEffect)
+                    ),
+                )
+            )
+            continue
+        winner_source = max(
+            effective_by_source,
+            key=lambda source_id: (effective_by_source[source_id], source_id),
+        )
+        selected.extend(
+            item[0] for item in source_candidates[winner_source]
+        )
+    return tuple(selected)
 
 
 _PANEL_NODES = frozenset(
@@ -167,6 +419,15 @@ def apply_matched_modifiers(
                     "base calculation modifiers cannot contain panel nodes",
                 )
             )
+
+    matched_effects = _select_non_stacking_event_effects(
+        tuple(matched_effects),
+        snapshots,
+        initial_character_snapshots,
+        scenario,
+        event,
+        diagnostics,
+    )
 
     panel_effects: list[tuple[ModifierEffect, int]] = []
     rule_modifiers: list[Modifier] = []
@@ -361,17 +622,30 @@ def apply_global_panel_effects(
     snapshots = tuple(base_character_snapshots)
     applied_ids: set[EffectId] = set()
     traces: list[PanelModifierExecutionTrace] = []
-    applied_non_stacking_groups: set[str] = set()
-    conflicting_non_stacking_groups, conflict_diagnostics = (
-        _active_non_stacking_panel_conflicts(rule_items, scenario)
+    (
+        selected_recipients,
+        suppressed_non_stacking_effects,
+        zero_stack_non_stacking_effects,
+        selection_diagnostics,
+        deferred_non_stacking_groups,
+    ) = (
+        _select_non_stacking_panel_effects(
+            rule_items,
+            scenario,
+            snapshots,
+            initial_character_snapshots,
+            team_character_ids,
+        )
     )
-    diagnostics.extend(conflict_diagnostics)
+    diagnostics.extend(selection_diagnostics)
     # Current-panel derived values must observe all ordinary panel effects
     # first.  In particular, an equipment anomaly-mastery or crit-rate bonus
     # must be part of the value read by reviewed character effects, regardless
     # of RuleItem ordering.  Initial-attack-derived values keep their original
     # initial snapshot semantics and can be applied in the ordinary pass.
-    deferred_current_panel_effects: list[tuple[ModifierEffect, int, RuleItemId]] = []
+    deferred_current_panel_effects: list[
+        tuple[ModifierEffect, int, RuleItemId, frozenset[CharacterId] | None]
+    ] = []
     for rule in rule_items:
         if rule.rule_id not in scenario.enabled_rule_item_ids:
             continue
@@ -389,12 +663,6 @@ def apply_global_panel_effects(
         if trigger_status is not EffectMatchStatus.MATCHED:
             continue
         stack_count = _resolved_rule_stack(rule, scenario)
-        if rule.non_stacking_group_id is not None:
-            if rule.non_stacking_group_id in conflicting_non_stacking_groups:
-                continue
-            if rule.non_stacking_group_id in applied_non_stacking_groups:
-                continue
-            applied_non_stacking_groups.add(rule.non_stacking_group_id)
         for effect in rule.effects:
             if not isinstance(effect, ModifierEffect):
                 continue
@@ -402,9 +670,20 @@ def apply_global_panel_effects(
                 continue
             if not _is_recipient_panel_effect(effect):
                 continue
+            if rule.non_stacking_group_id in deferred_non_stacking_groups:
+                continue
+            recipient_override = selected_recipients.get(effect.rule.effect_id)
+            if effect.rule.effect_id in zero_stack_non_stacking_effects:
+                applied_ids.add(effect.rule.effect_id)
+                continue
+            if (
+                recipient_override is None
+                and effect.rule.effect_id in suppressed_non_stacking_effects
+            ):
+                continue
             if _is_current_panel_derived_effect(effect):
                 deferred_current_panel_effects.append(
-                    (effect, stack_count, rule.rule_id)
+                    (effect, stack_count, rule.rule_id, recipient_override)
                 )
                 continue
             effect_status, effect_diagnostics = _resolve_panel_effect_condition(
@@ -430,6 +709,11 @@ def apply_global_panel_effects(
                 diagnostics,
                 initial_character_snapshots=initial_character_snapshots,
                 team_character_ids=team_character_ids,
+                recipient_overrides=(
+                    {effect.rule.effect_id: recipient_override}
+                    if recipient_override is not None
+                    else None
+                ),
                 rule_item_id_by_effect={resolved_effect.rule.effect_id: rule.rule_id},
             )
             snapshots = updated
@@ -439,7 +723,7 @@ def apply_global_panel_effects(
     # Resolve current-panel derived values only after the ordinary panel pass.
     # Conditions are evaluated against that final ordinary settlement panel as
     # well, so a threshold cannot accidentally read a pre-equipment value.
-    for effect, stack_count, rule_id in deferred_current_panel_effects:
+    for effect, stack_count, rule_id, recipient_override in deferred_current_panel_effects:
         effect_status, effect_diagnostics = _resolve_panel_effect_condition(
             effect,
             scenario,
@@ -464,11 +748,101 @@ def apply_global_panel_effects(
             diagnostics,
             initial_character_snapshots=initial_character_snapshots,
             team_character_ids=team_character_ids,
+            recipient_overrides=(
+                {effect.rule.effect_id: recipient_override}
+                if recipient_override is not None
+                else None
+            ),
             rule_item_id_by_effect={resolved_effect.rule.effect_id: rule_id},
         )
         snapshots = updated
         applied_ids.update(effect_ids)
         traces.extend(panel_traces)
+
+    if deferred_non_stacking_groups:
+        deferred_rules = tuple(
+            rule
+            for rule in rule_items
+            if rule.non_stacking_group_id in deferred_non_stacking_groups
+        )
+        (
+            deferred_recipients,
+            _,
+            deferred_zero_stack_effects,
+            deferred_diagnostics,
+            _,
+        ) = _select_non_stacking_panel_effects(
+            deferred_rules,
+            scenario,
+            snapshots,
+            initial_character_snapshots,
+            team_character_ids,
+            defer_current_panel_groups=False,
+        )
+        zero_stack_non_stacking_effects = frozenset(
+            {*zero_stack_non_stacking_effects, *deferred_zero_stack_effects}
+        )
+        diagnostics.extend(deferred_diagnostics)
+        for rule in deferred_rules:
+            if rule.rule_id not in scenario.enabled_rule_item_ids:
+                continue
+            if rule.eligibility is RuleEligibility.INELIGIBLE:
+                continue
+            condition_status, condition_diagnostics = _resolve_rule_conditions(
+                rule,
+                scenario,
+            )
+            diagnostics.extend(condition_diagnostics)
+            if condition_status is not EffectMatchStatus.MATCHED:
+                continue
+            trigger_status, trigger_diagnostics = _resolve_rule_trigger(rule, scenario)
+            diagnostics.extend(trigger_diagnostics)
+            if trigger_status is not EffectMatchStatus.MATCHED:
+                continue
+            stack_count = _resolved_rule_stack(rule, scenario)
+            for effect in rule.effects:
+                if (
+                    not isinstance(effect, ModifierEffect)
+                    or effect.result.modifier_path not in _PANEL_NODES
+                    or not _is_recipient_panel_effect(effect)
+                ):
+                    continue
+                if effect.rule.effect_id in zero_stack_non_stacking_effects:
+                    applied_ids.add(effect.rule.effect_id)
+                    continue
+                recipient_override = deferred_recipients.get(effect.rule.effect_id)
+                if recipient_override is None:
+                    continue
+                effect_status, effect_diagnostics = _resolve_panel_effect_condition(
+                    effect,
+                    scenario,
+                    initial_character_snapshots,
+                    snapshots,
+                )
+                diagnostics.extend(effect_diagnostics)
+                if effect_status is not EffectMatchStatus.MATCHED:
+                    continue
+                resolved_effect = _resolve_effect_value(
+                    effect,
+                    initial_character_snapshots,
+                    diagnostics,
+                    scenario=scenario,
+                    current_character_snapshots=snapshots,
+                )
+                if resolved_effect is None:
+                    continue
+                updated, effect_ids, effect_traces = _apply_panel_effects_to_recipients(
+                    snapshots,
+                    [(resolved_effect, stack_count)],
+                    diagnostics,
+                    initial_character_snapshots=initial_character_snapshots,
+                    team_character_ids=team_character_ids,
+                    recipient_overrides={effect.rule.effect_id: recipient_override},
+                    rule_item_id_by_effect={resolved_effect.rule.effect_id: rule.rule_id},
+                )
+                snapshots = updated
+                applied_ids.update(effect_ids)
+                traces.extend(effect_traces)
 
     return ModifierApplicationResult(
         character_snapshots=snapshots,
@@ -479,22 +853,40 @@ def apply_global_panel_effects(
     )
 
 
-def _active_non_stacking_panel_conflicts(
+def _select_non_stacking_panel_effects(
     rule_items: tuple[CalculationRuleItem, ...],
     scenario: CalculationScenario,
-) -> tuple[frozenset[str], tuple[CalculationDiagnostic, ...]]:
-    condition_values = {
-        item.condition_id: item.value for item in scenario.conditions
-    }
-    signatures: dict[str, list[tuple[object, ...]]] = {}
+    snapshots: tuple[CharacterSnapshot, ...],
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...],
+    team_character_ids: frozenset[CharacterId] | None,
+    *,
+    defer_current_panel_groups: bool = True,
+) -> tuple[
+    dict[EffectId, frozenset[CharacterId]],
+    frozenset[EffectId],
+    frozenset[EffectId],
+    tuple[CalculationDiagnostic, ...],
+    frozenset[str],
+]:
+    candidates: dict[
+        tuple[str, CharacterId, CalculationNode],
+        dict[RuleItemId, list[tuple[ModifierEffect, float]]],
+    ] = {}
+    unknowns: dict[
+        tuple[str, CharacterId, CalculationNode],
+        list[tuple[ModifierEffect, RuleItemId, str]],
+    ] = {}
+    selected_recipients: dict[EffectId, set[CharacterId]] = {}
+    suppressed_effect_ids: set[EffectId] = set()
+    zero_stack_effect_ids: set[EffectId] = set()
+    diagnostics: list[CalculationDiagnostic] = []
+    deferred_groups: set[str] = set()
     for rule in rule_items:
         group_id = rule.non_stacking_group_id
         if (
             group_id is None
             or rule.rule_id not in scenario.enabled_rule_item_ids
             or rule.eligibility is RuleEligibility.INELIGIBLE
-            or any(condition_values.get(condition_id) is not True for condition_id in rule.condition_ids)
-            or any(condition_values.get(condition_id) is not False for condition_id in rule.condition_not_ids)
         ):
             continue
         panel_effects = tuple(
@@ -502,51 +894,214 @@ def _active_non_stacking_panel_conflicts(
             for effect in rule.effects
             if isinstance(effect, ModifierEffect)
             and effect.result.modifier_path in _PANEL_NODES
+            and _is_recipient_panel_effect(effect)
         )
-        if (
-            not panel_effects
-            or len(panel_effects) != len(rule.effects)
-            or any(
-                effect.rule.filters
-                or effect.rule.condition is not None
-                or effect.rule.trigger is not None
-                or not isinstance(effect.result.value, Resolved)
-                for effect in panel_effects
-            )
-        ):
+        if not panel_effects:
             continue
-        panel_signature = tuple(
-            (
-                effect.result.modifier_path,
-                effect.result.operation,
-                effect.result.value,
-                effect.rule.target,
-            )
+        if defer_current_panel_groups and any(
+            _is_current_panel_derived_effect(effect)
+            or _has_current_panel_threshold(effect.rule.condition)
             for effect in panel_effects
-        )
-        if panel_signature:
-            signatures.setdefault(group_id, []).append(
-                (panel_signature, _resolved_rule_stack(rule, scenario))
+        ):
+            deferred_groups.add(group_id)
+            continue
+        rule_status, _ = _resolve_rule_conditions(rule, scenario)
+        if rule_status is EffectMatchStatus.NOT_MATCHED:
+            continue
+        rule_blocked = rule_status is EffectMatchStatus.BLOCKED
+        trigger_status, _ = _resolve_rule_trigger(rule, scenario)
+        if trigger_status is EffectMatchStatus.NOT_MATCHED:
+            continue
+        rule_blocked = rule_blocked or trigger_status is EffectMatchStatus.BLOCKED
+        stack_count = _resolved_rule_stack(rule, scenario)
+        if stack_count == 0:
+            suppressed_effect_ids.update(
+                effect.rule.effect_id for effect in panel_effects
             )
+            zero_stack_effect_ids.update(
+                effect.rule.effect_id for effect in panel_effects
+            )
+            continue
+        for effect in panel_effects:
+            recipients = _panel_recipients(effect, snapshots, team_character_ids)
+            if not recipients:
+                # Keep the existing valid no-op behavior for TEAM_OTHER on a
+                # roster that has no other active recipient.
+                selected_recipients.setdefault(effect.rule.effect_id, set())
+                continue
+            effect_status, effect_condition_diagnostics = (
+                (EffectMatchStatus.BLOCKED, ())
+                if rule_blocked
+                else _resolve_panel_effect_condition(
+                    effect,
+                    scenario,
+                    initial_character_snapshots,
+                    snapshots,
+                )
+            )
+            if effect_status is EffectMatchStatus.NOT_MATCHED:
+                continue
+            reason: str | None = None
+            if rule_blocked or effect_status is EffectMatchStatus.BLOCKED:
+                reason = "; ".join(
+                    item.message for item in effect_condition_diagnostics
+                ) or "A matching rule or effect condition is unresolved."
+            elif effect.rule.filters:
+                reason = (
+                    "The panel candidate has event filters, so its "
+                    "actual recipient match is unavailable in the global panel pass."
+                )
+            elif effect.result.operation is not EffectOperation.ADD:
+                reason = "The active panel candidate does not use the comparable ADD operation."
 
-    conflicts = frozenset(
-        group_id
-        for group_id, group_signatures in signatures.items()
-        if len(group_signatures) > 1
-        and any(signature != group_signatures[0] for signature in group_signatures[1:])
-    )
-    diagnostics = tuple(
-        _diagnostic(
-            group_id,
-            "conflicting-panel-values",
-            DiagnosticKind.AMBIGUOUS_SEMANTICS,
-            "Active non-stacking panel effects in this group resolve to different "
-            "values; no candidate was applied because the source does not define "
-            "which instance takes precedence.",
+            resolved_effect = None
+            if reason is None:
+                effect_diagnostics: list[CalculationDiagnostic] = []
+                resolved_effect = _resolve_effect_value(
+                    effect,
+                    initial_character_snapshots,
+                    effect_diagnostics,
+                    scenario=scenario,
+                    current_character_snapshots=snapshots,
+                )
+                if (
+                    resolved_effect is None
+                    or not isinstance(resolved_effect.result.value, Resolved)
+                ):
+                    reason = (
+                        effect_diagnostics[0].message
+                        if effect_diagnostics
+                        else "The active panel candidate has an unresolved effective value."
+                    )
+
+            for recipient in recipients:
+                key = (group_id, recipient, effect.result.modifier_path)
+                if reason is not None:
+                    unknowns.setdefault(key, []).append((effect, rule.rule_id, reason))
+                    continue
+                assert resolved_effect is not None
+                preview_diagnostics: list[CalculationDiagnostic] = []
+                _, _, preview_traces = _apply_panel_effects_to_recipients(
+                    snapshots,
+                    [(resolved_effect, stack_count)],
+                    preview_diagnostics,
+                    initial_character_snapshots=initial_character_snapshots,
+                    team_character_ids=team_character_ids,
+                    rule_item_id_by_effect={effect.rule.effect_id: rule.rule_id},
+                )
+                trace = next(
+                    (
+                        item
+                        for item in preview_traces
+                        if item.effect_id == effect.rule.effect_id
+                        and item.recipient_character_id == recipient
+                    ),
+                    None,
+                )
+                if trace is None:
+                    message = (
+                        preview_diagnostics[0].message
+                        if preview_diagnostics
+                        else "The active panel candidate could not be resolved for this recipient."
+                    )
+                    unknowns.setdefault(key, []).append(
+                        (effect, rule.rule_id, message)
+                    )
+                    continue
+                candidates.setdefault(key, {}).setdefault(rule.rule_id, []).append(
+                    (effect, trace.resolved_value)
+                )
+
+    for group_id, recipient, path in sorted(
+        set(candidates) | set(unknowns),
+        key=lambda item: (item[0], str(item[1]), item[2].value),
+    ):
+        key = (group_id, recipient, path)
+        source_candidates = candidates.get(key, {})
+        group_unknowns = unknowns.get(key, [])
+        source_ids = set(source_candidates) | {item[1] for item in group_unknowns}
+        if len(source_ids) == 1:
+            source_rule_id = next(iter(source_ids))
+            for effect, _ in source_candidates.get(source_rule_id, ()):
+                selected_recipients.setdefault(effect.rule.effect_id, set()).add(
+                    recipient
+                )
+            for effect, rule_id, _ in group_unknowns:
+                if rule_id == source_rule_id:
+                    selected_recipients.setdefault(effect.rule.effect_id, set()).add(
+                        recipient
+                    )
+            continue
+        if group_unknowns:
+            text_items = [
+                *(
+                    effect
+                    for source_effects in source_candidates.values()
+                    for effect, _ in source_effects
+                ),
+                *(item[0] for item in group_unknowns),
+            ]
+            diagnostics.append(
+                CalculationDiagnostic(
+                    diagnostic_id=DiagnosticId(
+                        f"application:{group_id}:{recipient}:{path.value}:max-unresolved"
+                    ),
+                    kind=DiagnosticKind.MISSING_DATA,
+                    message=(
+                        "Same-name panel candidates for this recipient and stat "
+                        "could not all be resolved, so a static maximum was not selected. "
+                        + "; ".join(dict.fromkeys(reason for _, _, reason in group_unknowns))
+                    ),
+                    blocking=True,
+                    original_text=(
+                        group_unknowns[0][0].rule.source.raw_text
+                        if group_unknowns
+                        else text_items[0].rule.source.raw_text
+                        if text_items
+                        else None
+                    ),
+                    candidates=tuple(
+                        item.rule.source.raw_text
+                        or item.rule.source.label
+                        or str(item.rule.effect_id)
+                        for item in text_items
+                    ),
+                )
+            )
+            suppressed_effect_ids.update(item.rule.effect_id for item in text_items)
+            continue
+        if not source_candidates:
+            continue
+        # Multiple effects in one RuleItem are one source instance. Preserve
+        # their combined contribution, then compare that RuleItem with the
+        # other active copies.
+        values_by_source = {
+            rule_id: sum(value for _, value in source_effects)
+            for rule_id, source_effects in source_candidates.items()
+        }
+        winner_rule_id = max(
+            values_by_source,
+            key=lambda rule_id: (values_by_source[rule_id], str(rule_id)),
         )
-        for group_id in sorted(conflicts)
+        for effect, _ in source_candidates[winner_rule_id]:
+            selected_recipients.setdefault(effect.rule.effect_id, set()).add(recipient)
+        suppressed_effect_ids.update(
+            effect.rule.effect_id
+            for rule_id, source_effects in source_candidates.items()
+            if rule_id != winner_rule_id
+            for effect, _ in source_effects
+        )
+
+    return (
+        {
+            effect_id: frozenset(recipients)
+            for effect_id, recipients in selected_recipients.items()
+        },
+        frozenset(suppressed_effect_ids),
+        frozenset(zero_stack_effect_ids),
+        tuple(diagnostics),
+        frozenset(deferred_groups),
     )
-    return conflicts, diagnostics
 
 
 def _resolve_rule_trigger(
@@ -1115,6 +1670,29 @@ def _is_current_panel_derived_effect(effect: ModifierEffect) -> bool:
     )
 
 
+def _has_current_panel_threshold(condition) -> bool:
+    if isinstance(condition, PanelStatThresholdCondition):
+        return condition.source_node in {
+            CalculationNode.CHARACTER_CURRENT_MAX_HP,
+            CalculationNode.CHARACTER_CURRENT_ATTACK,
+            CalculationNode.CHARACTER_CURRENT_DEFENSE,
+            CalculationNode.CHARACTER_CURRENT_IMPACT,
+            CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+            CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
+            CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
+            CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE,
+            CalculationNode.CHARACTER_CURRENT_PENETRATION_FLAT,
+            CalculationNode.CHARACTER_CURRENT_ENERGY_REGEN,
+            CalculationNode.CHARACTER_CURRENT_ELEMENT_DAMAGE_BONUS,
+        }
+    if isinstance(condition, (AllCondition, AnyCondition)):
+        return any(_has_current_panel_threshold(item) for item in condition.conditions)
+    if isinstance(condition, NotCondition):
+        return _has_current_panel_threshold(condition.condition)
+    return False
+
+
 def _is_event_independent_condition(condition) -> bool:
     if condition is None or isinstance(
         condition,
@@ -1283,6 +1861,7 @@ def _apply_panel_effects_to_recipients(
     *,
     initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = (),
     team_character_ids: frozenset[CharacterId] | None = None,
+    recipient_overrides: dict[EffectId, frozenset[CharacterId]] | None = None,
     rule_item_id_by_effect: dict[EffectId, RuleItemId | None] | None = None,
 ) -> tuple[
     tuple[CharacterSnapshot, ...],
@@ -1293,10 +1872,19 @@ def _apply_panel_effects_to_recipients(
     applied_ids: set[EffectId] = set()
     traces: list[PanelModifierExecutionTrace] = []
     for effect, stack_count in effects:
-        recipients = _panel_recipients(
-            effect,
-            updated_snapshots,
-            team_character_ids,
+        override = (recipient_overrides or {}).get(effect.rule.effect_id)
+        recipients = (
+            tuple(
+                item.character_id
+                for item in updated_snapshots
+                if item.character_id in override
+            )
+            if override is not None
+            else _panel_recipients(
+                effect,
+                updated_snapshots,
+                team_character_ids,
+            )
         )
         if not recipients:
             owner_is_active = (

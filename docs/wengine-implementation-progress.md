@@ -132,11 +132,12 @@ refinement's own source text.
 `14125` applies the current 0–30 Tea Power stacks to the wearer's Impact panel. Its
 team damage buff is a separate active state because it is triggered when a new
 stack is acquired at 15 or more and can persist after the stack count falls. The
-same-name team effect uses one stable group across holders and blocks mixed active
-refinement values rather than choosing a copy. `14126` applies the current 0–3
-Hunter's Intent stacks to Physical damage and applies Anomaly Buildup Efficiency
-only at three selected stacks; it does not retest the current action as the
-triggering Dash hit.
+same-name team effect uses one stable group across holders. The user's confirmed
+static rule selects the largest matched effective contribution per recipient and
+modifier path, including each holder's current stack count. `14126` applies the
+current 0–3 Hunter's Intent stacks to Physical damage and applies Anomaly Buildup
+Efficiency only at three selected stacks; it does not retest the current action
+as the triggering Dash hit.
 
 `14129` keeps its permanent Crit Damage panel from the three-second zero-degree
 state that ignores Defense on subsequent owner hits. Its activation requires an
@@ -174,3 +175,23 @@ The user confirmed that `14151`'s “team unique” phrase scopes the TEAM damag
 `14151` includes the exact sentence `拥有2层效果时，装备者的异常精通额外提升96点，该效果全队唯一`. The user confirmed that uniqueness applies to the TEAM damage stack, while full-stack owner AP remains a SELF panel bonus for each wearer.
 
 `14161` is retained as white Defense plus Defense-percent Build data, not Attack. It has no registered Vanguard owner. Its Electric Sharp damage bonus remains a typed source rule with a non-blocking limitation because the current request has no Sharp result lane; no Anomaly or Direct event is fabricated. `14162` retains the current TEAM_OTHER damage buff and excludes the holder. Its Daze modifier is typed with a non-blocking result limitation, and the currently registered Stun owners cannot produce Wind EX Special.
+
+## User-confirmed static maximum for duplicate W-Engine effects
+
+The user confirmed that this static calculator resolves same-name effects by the
+largest effective contribution after each candidate's own conditions and event
+filters match. Selection is independent for each effective recipient and modifier
+path, and includes each candidate's selected stack count. This is a static
+calculation rule; it does not claim a real-time refresh order. Current-panel-derived
+values and current-panel threshold conditions are resolved after ordinary panel
+effects have settled. An active candidate that cannot be resolved preserves its
+source text and the specific failure reason in a local blocking diagnostic; a
+zero-stack candidate is a no-op and is ignored during comparison.
+
+Regression coverage includes mixed-refinement `12005` copies selecting +16 AP/AM
+for each team recipient, `13103` selecting the maximum TEAM damage contribution
+while retaining each wearer's separate Energy Regeneration panel effect, and
+`13115` choosing the largest stack-adjusted TEAM Attack bonus (including a
+zero-stack candidate). Mixed-refinement `14002` selects the maximum event Crit
+Rate contribution only for matching standard-crit events; its No-Crit path stays
+unchanged.

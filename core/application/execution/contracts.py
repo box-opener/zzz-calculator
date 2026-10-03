@@ -179,40 +179,6 @@ class MoveCalculationRequest:
                 "scenario enables unknown RuleItems: "
                 f"{sorted(map(str, unknown_enabled))}"
             )
-        scenario_condition_values = {
-            item.condition_id: item.value for item in self.scenario.conditions
-        }
-        non_stacking_groups: dict[str, list[CalculationRuleItem]] = {}
-        for rule in rule_items:
-            if (
-                rule.non_stacking_group_id is None
-                or rule.rule_id not in self.scenario.enabled_rule_item_ids
-                or rule.eligibility is RuleEligibility.INELIGIBLE
-                or any(
-                    scenario_condition_values.get(condition_id) is not True
-                    for condition_id in rule.condition_ids
-                )
-                or any(
-                    scenario_condition_values.get(condition_id) is not False
-                    for condition_id in rule.condition_not_ids
-                )
-            ):
-                continue
-            non_stacking_groups.setdefault(rule.non_stacking_group_id, []).append(rule)
-        for group_id, group_rules in non_stacking_groups.items():
-            selected_stacks = {
-                (
-                    (selected if selected is not None else rule.stack_count)
-                    if rule.stack_count is not None
-                    else 1
-                )
-                for rule in group_rules
-                for selected in (self.scenario.selected_stack(rule.rule_id),)
-            }
-            if len(group_rules) > 1 and len(selected_stacks) > 1:
-                raise ValueError(
-                    f"non-stacking rule group has conflicting active stacks: {group_id}"
-                )
         for selection in self.scenario.rule_stack_counts:
             selected_rule = rule_map.get(selection.rule_item_id)
             if selected_rule is None:

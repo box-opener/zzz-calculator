@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import replace
 
 from core.types import (
-    AnyFilter,
     AnomalyRecordId,
     BattleEventKind,
     CalculationContext,
@@ -18,14 +17,10 @@ from core.types import (
     DamageMultiplier,
     CurrentPenetrationForceValueSource,
     DirectDamageEvent,
-    DamageTypeFilter,
-    DamageTagFilter,
-    ElementFilter,
     DisorderDamageEvent,
     PenetrationDamageEvent,
     EffectId,
     EffectOperation,
-    EffectTarget,
     FixedMultiplier,
     EventCreationEffect,
     EventTemplateId,
@@ -852,116 +847,18 @@ def _matched_effects(
 ) -> tuple[MatchedEffectApplication, ...]:
     rules = {item.rule_id: item for item in rule_items}
     applications: list[MatchedEffectApplication] = []
-    seen_non_stacking_groups: set[str] = set()
-    conflicting_event_groups = _conflicting_non_stacking_event_groups(
-        matches,
-        rules,
-        diagnostics,
-    )
     for item in matches:
         rule = rules[item.rule_id]
-        group_id = rule.non_stacking_group_id
-        if group_id is not None and group_id in conflicting_event_groups:
-            continue
-        if item.matched_effects and group_id is not None:
-            if group_id in seen_non_stacking_groups:
-                continue
-            seen_non_stacking_groups.add(group_id)
         applications.extend(
             MatchedEffectApplication(
                 effect=effect,
                 rule_item_id=item.rule_id,
                 stack_count=_resolved_stack_count(rule, scenario),
+                non_stacking_group_id=rule.non_stacking_group_id,
             )
             for effect in item.matched_effects
         )
     return tuple(applications)
-
-
-def _conflicting_non_stacking_event_groups(
-    matches: tuple[RuleItemMatchResult, ...],
-    rules: dict,
-    diagnostics: list[CalculationDiagnostic] | None,
-) -> frozenset[str]:
-    """Block conflicting fixed event-scoped non-stacking modifiers.
-
-    This handles statically comparable target-scoped crit modifiers and simple
-    TEAM damage/Daze modifiers. The existing panel conflict path remains
-    responsible for SELF/TEAM panel values and condition-sensitive rules.
-    """
-
-    grouped: dict[str, list[tuple[tuple[tuple[object, ...], ...], CalculationRuleItem]]] = {}
-    for match in matches:
-        rule = rules[match.rule_id]
-        group_id = rule.non_stacking_group_id
-        if group_id is None or not match.matched_effects:
-            continue
-        effects = tuple(match.matched_effects)
-        if not all(
-            isinstance(effect, ModifierEffect)
-            and effect.rule.target in {EffectTarget.ENEMY, EffectTarget.TEAM}
-            and effect.rule.condition is None
-            and effect.rule.trigger is None
-            and effect.result.modifier_path
-            in {
-                CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
-                CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
-                CalculationNode.DAMAGE_NORMAL_BONUS,
-                CalculationNode.DAZE_OUTGOING_BONUS,
-            }
-            and effect.result.operation is EffectOperation.ADD
-            and isinstance(effect.result.value, Resolved)
-            and _has_only_static_event_filters(effect.rule.filters)
-            for effect in effects
-        ):
-            continue
-        signature = tuple(
-            (
-                effect.result.modifier_path,
-                effect.result.operation,
-                effect.result.value,
-                effect.rule.target,
-                effect.rule.filters,
-            )
-            for effect in effects
-        )
-        grouped.setdefault(group_id, []).append((signature, rule))
-
-    conflicts = frozenset(
-        group_id
-        for group_id, items in grouped.items()
-        if len(items) > 1 and any(signature != items[0][0] for signature, _ in items[1:])
-    )
-    if diagnostics is not None:
-        for group_id in sorted(conflicts):
-            items = grouped[group_id]
-            diagnostics.append(
-                _diagnostic(
-                    group_id,
-                    "conflicting-non-stacking-event-values",
-                    DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                    "Active same-name event-scope effects resolve to "
-                    "different values; the source does not define which copy wins, "
-                    "so none is applied.",
-                    original_text=items[0][1].original_text,
-                    candidates=tuple(rule.original_text for _, rule in items),
-                )
-            )
-    return conflicts
-
-
-def _has_only_static_event_filters(filters) -> bool:
-    if not filters:
-        return True
-
-    def is_static_target_filter(item) -> bool:
-        if isinstance(item, (DamageTypeFilter, ElementFilter, DamageTagFilter)):
-            return True
-        if isinstance(item, AnyFilter):
-            return all(is_static_target_filter(nested) for nested in item.filters)
-        return False
-
-    return all(is_static_target_filter(item) for item in filters)
 
 
 def _matched_event_creations(
