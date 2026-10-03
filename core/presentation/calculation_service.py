@@ -30,6 +30,7 @@ from core.application.characters.templates import (
 from core.application.characters.vivian.reviewed import (
     DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID,
     MUTATION_TRIGGERED,
+    PROPHECY_TICK_COUNT,
     VIVIAN_ID,
 )
 from core.application.characters.nekomata.reviewed import (
@@ -111,6 +112,7 @@ from core.presentation.requests import (
 from core.presentation.serialization import to_jsonable
 from core.presentation.registry import (
     VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
+    VIVIAN_PROPHECY_TICK_SELECTION_ENTRY_ID,
     registration_for,
     compile_registered_definition,
 )
@@ -138,6 +140,21 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     vivian_discharge_selected = (
         requested_move_entry_id == VIVIAN_DISCHARGE_SELECTION_ENTRY_ID
     )
+    vivian_prophecy_tick_selected = (
+        requested_move_entry_id == VIVIAN_PROPHECY_TICK_SELECTION_ENTRY_ID
+    )
+    if vivian_prophecy_tick_selected:
+        raw_parameters = payload.get("parameter_values", {})
+        if isinstance(raw_parameters, Mapping) and raw_parameters.get(
+            str(PROPHECY_TICK_COUNT)
+        ) is None:
+            payload = {
+                **payload,
+                "parameter_values": {
+                    **raw_parameters,
+                    str(PROPHECY_TICK_COUNT): 1,
+                },
+            }
     if vivian_discharge_selected:
         raw_conditions = payload.get("condition_values", {})
         if isinstance(raw_conditions, Mapping) and raw_conditions.get(

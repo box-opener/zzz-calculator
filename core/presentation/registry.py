@@ -145,6 +145,9 @@ from .drive_disc_display import display_drive_disc_value, drive_disc_stat_label
 
 
 VIVIAN_DISCHARGE_SELECTION_ENTRY_ID = "move-entry:character:1331:discharge-current-panel"
+VIVIAN_PROPHECY_TICK_SELECTION_ENTRY_ID = (
+    "move-entry:character:1331:core-prophecy-tick"
+)
 
 
 @dataclass(frozen=True, slots=True)

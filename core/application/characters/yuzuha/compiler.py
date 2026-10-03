@@ -38,7 +38,13 @@ from core.types import (
 )
 
 from ...element_scope import element_scope_filter
-from ...ids import DamageEventSemanticId, RuleItemId, ScenarioParameterId
+from ...ids import (
+    DamageEventSemanticId,
+    MoveEntryId,
+    MultiplierVariantId,
+    RuleItemId,
+    ScenarioParameterId,
+)
 from ...rules import CalculationRuleItem, RuleEligibility
 from ...scenario import (
     ConditionResolution,
@@ -46,7 +52,13 @@ from ...scenario import (
     ScenarioCondition,
     ScenarioIntegerParameter,
 )
-from ...moves import DamageEventTemplateRef, DerivedDamageEventTemplateRef
+from ...moves import (
+    DamageEventTemplateRef,
+    DerivedDamageEventTemplateRef,
+    MoveCalculationEntry,
+    MultiplierRelation,
+    MultiplierVariant,
+)
 from ..definition import CharacterCalculationDefinition
 from ..nanoka_compiler import (
     NanokaReviewedMapping,
@@ -642,6 +654,60 @@ def compile_yuzuha(
             condition_ids=(SWEET_SCARE_ACTIVE_CONDITION_ID,),
         )
     )
+
+    if config.cinema_level >= 6:
+        entries = (
+            *entries,
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(
+                    "move-entry:character:1411:cinema6-strong-shell"
+                ),
+                character_id=YUZUHA_ID,
+                move_id=None,
+                display_name="6影：强力炮弹",
+                original_text=c6.description,
+                skill_group=None,
+                damage_tags=c6_shell_derived.template.damage_tags,
+                multiplier_relation=MultiplierRelation.UNIT_REPEAT,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(
+                            "variant:character:1411:cinema6-strong-shell"
+                        ),
+                        label="当前攻击力300%/枚",
+                        parameter_name="强力炮弹当前次数",
+                        multiplier=c6_shell_derived.multiplier,
+                        repeat_count_parameter_id=YUZUHA_C6_SHELL_COUNT_PARAMETER_ID,
+                    ),
+                ),
+                main_damage_event=c6_shell_derived.template,
+            ),
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(
+                    "move-entry:character:1411:cinema6-sweet-scare-fireworks"
+                ),
+                character_id=YUZUHA_ID,
+                move_id=None,
+                display_name="6影：甜蜜惊吓追加彩糖花火·极",
+                original_text=c6.description,
+                skill_group=None,
+                damage_tags=c6_fireworks_derived.template.damage_tags,
+                multiplier_relation=MultiplierRelation.UNIT_REPEAT,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(
+                            "variant:character:1411:cinema6-sweet-scare-fireworks"
+                        ),
+                        label="彩糖花火极倍率/枚",
+                        parameter_name="甜蜜惊吓彩糖花火当前次数",
+                        multiplier=c6_fireworks_derived.multiplier,
+                        repeat_count_parameter_id=YUZUHA_C6_SHELL_COUNT_PARAMETER_ID,
+                    ),
+                ),
+                main_damage_event=c6_fireworks_derived.template,
+                condition_ids=(SWEET_SCARE_ACTIVE_CONDITION_ID,),
+            ),
+        )
 
     return build_definition(
         character_id=YUZUHA_ID,

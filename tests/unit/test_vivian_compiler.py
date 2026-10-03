@@ -795,6 +795,26 @@ def test_prophecy_tick_is_selectable_with_explicit_count_and_no_time_replay() ->
     assert event["repeat_count"] == 2
     assert event["damage_type"] == "direct"
 
+    default = calculate_payload(
+        _payload(
+            move_entry_id="move-entry:character:1331:core-prophecy-tick",
+            condition_values={TARGET_ANOMALY_CONDITION: True},
+        )
+    )
+    assert default["totals"]["expected"]["complete"] is True
+    assert default["events"][0]["repeat_count"] == 1
+
+    explicit_zero = calculate_payload(
+        _payload(
+            move_entry_id="move-entry:character:1331:core-prophecy-tick",
+            condition_values={TARGET_ANOMALY_CONDITION: True},
+            parameter_values={PROPHECY_TICK_COUNT: 0},
+        )
+    )
+    assert explicit_zero["totals"]["expected"]["complete"] is True
+    assert explicit_zero["events"][0]["repeat_count"] == 0
+    assert explicit_zero["totals"]["expected"]["value"] == pytest.approx(0.0)
+
 
 def test_vivian_basic_element_stages_and_remaining_mixed_named_moves_are_ether() -> None:
     definition = compile_vivian(VivianCompileConfig(), load_raw_record(load_character_record(VIVIAN)))

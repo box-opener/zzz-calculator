@@ -283,6 +283,8 @@ const YE_ID = "character:1431";
 const ASTRA_ID = "character:1311";
 const VIVIAN_ID = "character:1331";
 const VIVIAN_DISCHARGE_ENTRY_ID = "move-entry:character:1331:discharge-current-panel";
+const VIVIAN_PROPHECY_TICK_ENTRY_ID = "move-entry:character:1331:core-prophecy-tick";
+const VIVIAN_PROPHECY_TICK_PARAMETER_ID = "parameter:vivian:prophecy-tick-count";
 const ENEMY_RESISTANCE_FIELDS = [
   { element: "physical", label: "物理抗性" },
   { element: "fire", label: "火抗性" },
@@ -697,6 +699,14 @@ function App() {
     }
     setMoveEntryId(option.entryId);
     setCalculation(null);
+    if (option.entryId === VIVIAN_PROPHECY_TICK_ENTRY_ID) {
+      setParameterValues((current) => (
+        current[VIVIAN_PROPHECY_TICK_PARAMETER_ID] === undefined
+        || current[VIVIAN_PROPHECY_TICK_PARAMETER_ID] === null
+          ? { ...current, [VIVIAN_PROPHECY_TICK_PARAMETER_ID]: 1 }
+          : current
+      ));
+    }
     if (option.entryId === "move-entry:character:1331:discharge-current-panel") {
       const conditionId = "condition:vivian:mutation-triggered";
       const nextConditionValues = {

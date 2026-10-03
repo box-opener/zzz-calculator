@@ -25,6 +25,7 @@ from core.application import (
 from core.application.execution.event_factory import instantiate_damage_event
 from core.data.loader import load_character_record
 from core.presentation.calculation_service import calculate_payload
+from core.presentation.registry import compile_registered_definition
 from core.types import (
     BattleStateId,
     CalculationContext,
@@ -671,6 +672,123 @@ def test_yuzuha_c6_shell_counts_and_sweet_scare_creation(
     assert not any(
         "stacked EventCreation" in item["message"]
         for item in result["diagnostics"]
+    )
+
+
+def test_trigger_c4_and_c6_damage_can_be_selected_without_parent_hit_recursion() -> None:
+    c4 = calculate_payload(
+        _payload(
+            primary="character:1361",
+            move_entry_id="move-entry:character:1361:cinema4-severance",
+            compile_configs={"character:1361": {"core_level": 1, "cinema_level": 4}},
+            enabled_rule_item_ids=("rule:trigger:1361:cinema4",),
+        )
+    )
+    assert [item["semantic_id"] for item in c4["events"]] == [
+        "event:character:1361:cinema4:severance"
+    ]
+    c4_event = c4["events"][0]
+    assert _breakdown(c4_event)["damage.skill-multiplier"] == pytest.approx(2.0)
+    assert _trace(c4_event)["created_by_effect_id"] is None
+
+    c6 = calculate_payload(
+        _payload(
+            primary="character:1361",
+            move_entry_id="move-entry:character:1361:cinema6-armor-piercing-round",
+            compile_configs={"character:1361": {"core_level": 1, "cinema_level": 6}},
+            condition_values={"condition:trigger:sniper-stance-active": True},
+            enabled_rule_item_ids=("rule:trigger:1361:cinema6",),
+        )
+    )
+    assert [item["semantic_id"] for item in c6["events"]] == [
+        "event:character:1361:cinema6:armor-piercing-round"
+    ]
+    c6_event = c6["events"][0]
+    values = _breakdown(c6_event)
+    assert values["damage.skill-multiplier"] == pytest.approx(12.0)
+    assert values["damage.normal-bonus"] == pytest.approx(0.50)
+    assert _trace(c6_event)["created_by_effect_id"] is None
+
+    definition = compile_registered_definition(
+        "character:1361",
+        {"core_level": 1, "cinema_level": 6},
+        ["character:1361"],
+        strict=False,
+    )
+    for entry_id in (
+        "move-entry:character:1361:cinema4-severance",
+        "move-entry:character:1361:cinema6-armor-piercing-round",
+    ):
+        entry = next(item for item in definition.move_entries if str(item.entry_id) == entry_id)
+        assert entry.move_id is None
+        assert entry.skill_group is None
+        assert entry.damage_tags == frozenset()
+
+
+def test_yuzuha_c6_shell_and_fireworks_are_selectable_source_events() -> None:
+    shell_count = 2
+    shared = {
+        "character:1411": {"core_level": 1, "cinema_level": 6},
+    }
+    shell = calculate_payload(
+        _payload(
+            primary="character:1411",
+            move_entry_id="move-entry:character:1411:cinema6-strong-shell",
+            compile_configs=shared,
+            parameter_values={"parameter:yuzuha:cinema6:strong-shell-count": shell_count},
+            enabled_rule_item_ids=("rule:yuzuha:1411:cinema6-shells",),
+        )
+    )
+    assert [item["semantic_id"] for item in shell["events"]] == [
+        "event:yuzuha:1411:cinema6:strong-shell"
+    ]
+    shell_event = shell["events"][0]
+    assert shell_event["repeat_count"] == shell_count
+    assert _breakdown(shell_event)["damage.skill-multiplier"] == pytest.approx(3.0)
+
+    fireworks = calculate_payload(
+        _payload(
+            primary="character:1411",
+            move_entry_id="move-entry:character:1411:cinema6-sweet-scare-fireworks",
+            compile_configs=shared,
+            condition_values={"condition:yuzuha:sweet-scare-active": True},
+            parameter_values={"parameter:yuzuha:cinema6:strong-shell-count": shell_count},
+            enabled_rule_item_ids=("rule:yuzuha:1411:cinema6:sweet-scare-fireworks",),
+        )
+    )
+    assert [item["semantic_id"] for item in fireworks["events"]] == [
+        "event:yuzuha:1411:cinema6:sweet-scare-fireworks"
+    ]
+    fireworks_event = fireworks["events"][0]
+    assert fireworks_event["repeat_count"] == shell_count
+    assert _breakdown(fireworks_event)["damage.skill-multiplier"] > 0.0
+    assert shell["totals"]["expected"]["complete"] is True
+    assert fireworks["totals"]["expected"]["complete"] is True
+
+    definition = compile_yuzuha(
+        YuzuhaCompileConfig(core_level=1, cinema_level=6),
+        load_yuzuha_raw(load_character_record("character:1411")),
+    )
+    polar_entry = next(
+        item for item in definition.move_entries
+        if str(item.entry_id).endswith("basic-candy-fireworks-polar")
+    )
+    for entry_id in (
+        "move-entry:character:1411:cinema6-strong-shell",
+        "move-entry:character:1411:cinema6-sweet-scare-fireworks",
+    ):
+        entry = next(item for item in definition.move_entries if str(item.entry_id) == entry_id)
+        assert entry.move_id is None
+        assert entry.skill_group is None
+        assert entry.damage_tags == frozenset()
+    fireworks_entry = next(
+        item for item in definition.move_entries
+        if str(item.entry_id)
+        == "move-entry:character:1411:cinema6-sweet-scare-fireworks"
+    )
+    assert (
+        fireworks_entry.multiplier_variants[0].multiplier
+        == polar_entry.multiplier_variants[0].multiplier
     )
 
 

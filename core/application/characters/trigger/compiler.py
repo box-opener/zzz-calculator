@@ -23,6 +23,7 @@ from core.types import (
     EventCreationEffect,
     EventCreationResult,
     EventSelector,
+    EventTemplateIdFilter,
     FixedMultiplier,
     ModifierEffect,
     ModifierResult,
@@ -34,10 +35,21 @@ from core.types import (
     StandardCritRule,
 )
 
-from ...ids import DamageEventSemanticId, RuleItemId
+from ...ids import (
+    DamageEventSemanticId,
+    MoveEntryId,
+    MultiplierVariantId,
+    RuleItemId,
+)
 from ...diagnostics import CalculationDiagnostic, DiagnosticKind
 from ...ids import DiagnosticId
-from ...moves import DamageEventTemplateRef, DerivedDamageEventTemplateRef
+from ...moves import (
+    DamageEventTemplateRef,
+    DerivedDamageEventTemplateRef,
+    MoveCalculationEntry,
+    MultiplierRelation,
+    MultiplierVariant,
+)
 from ...rules import CalculationRuleItem, RuleEligibility
 from ...scenario import ConditionResolution, ScenarioCondition
 from ..definition import CharacterCalculationDefinition
@@ -397,6 +409,33 @@ def compile_trigger(
     c4_rule_id = RuleItemId("rule:trigger:1361:cinema4")
     c4_derived, c4_template = _independent_severance(c4_rule_id)
     templates = (*templates, c4_template)
+    if config.cinema_level >= 4:
+        entries = (
+            *entries,
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(
+                    "move-entry:character:1361:cinema4-severance"
+                ),
+                character_id=TRIGGER_ID,
+                move_id=None,
+                display_name="4影：断离额外伤害",
+                original_text=c4.description,
+                skill_group=None,
+                damage_tags=c4_derived.template.damage_tags,
+                multiplier_relation=MultiplierRelation.COMPLETE,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(
+                            "variant:character:1361:cinema4-severance"
+                        ),
+                        label="当前攻击力200%",
+                        parameter_name="断离伤害倍率",
+                        multiplier=c4_derived.multiplier,
+                    ),
+                ),
+                main_damage_event=c4_derived.template,
+            ),
+        )
     c4_effect_id = EffectId("effect:character:1361:cinema4:severance")
     rules.append(
         _rule(
@@ -484,6 +523,34 @@ def compile_trigger(
     c6_rule_id = RuleItemId("rule:trigger:1361:cinema6")
     derived, derived_template = _independent_bullet(c6_rule_id, c6_source)
     templates = (*templates, derived_template)
+    if config.cinema_level >= 6:
+        entries = (
+            *entries,
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(
+                    "move-entry:character:1361:cinema6-armor-piercing-round"
+                ),
+                character_id=TRIGGER_ID,
+                move_id=None,
+                display_name="6影：破甲凶弹",
+                original_text=c6.description,
+                skill_group=None,
+                damage_tags=derived.template.damage_tags,
+                multiplier_relation=MultiplierRelation.COMPLETE,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(
+                            "variant:character:1361:cinema6-armor-piercing-round"
+                        ),
+                        label="当前攻击力1200%",
+                        parameter_name="破甲凶弹伤害倍率",
+                        multiplier=derived.multiplier,
+                    ),
+                ),
+                main_damage_event=derived.template,
+                condition_ids=(SNIPER_STANCE_CONDITION_ID,),
+            ),
+        )
     rules.append(
         _rule(
             str(c6_rule_id),
@@ -501,12 +568,19 @@ def compile_trigger(
                     Resolved(0.50),
                     target=EffectTarget.TEAM,
                     filters=(
-                        # The 50% is specific to the independently-created
-                        # bullet; ordinary Trigger attacks keep their normal
-                        # multiplier lane untouched.
-                        CreatedByEffectFilter(
-                            EffectId(
-                                "effect:character:1361:cinema6:armor-piercing-round"
+                        AnyFilter(
+                            (
+                                # The bonus is limited to this typed bullet,
+                                # whether it is selected directly or created
+                                # from a Basic hit.
+                                CreatedByEffectFilter(
+                                    EffectId(
+                                        "effect:character:1361:cinema6:armor-piercing-round"
+                                    )
+                                ),
+                                EventTemplateIdFilter(
+                                    derived.template.template_id
+                                ),
                             )
                         ),
                     ),

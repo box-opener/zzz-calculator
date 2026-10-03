@@ -1316,6 +1316,24 @@ def test_other_self_contained_damage_options_appear_in_character_previews() -> N
             {"core_level": 7, "cinema_level": 0},
             {"move-entry:character:1331:core-prophecy-tick"},
         ),
+        (
+            "character:1361",
+            ["character:1361"],
+            {"core_level": 1, "cinema_level": 6},
+            {
+                "move-entry:character:1361:cinema4-severance",
+                "move-entry:character:1361:cinema6-armor-piercing-round",
+            },
+        ),
+        (
+            "character:1411",
+            ["character:1411"],
+            {"core_level": 1, "cinema_level": 6},
+            {
+                "move-entry:character:1411:cinema6-strong-shell",
+                "move-entry:character:1411:cinema6-sweet-scare-fireworks",
+            },
+        ),
     )
     for character_id, team_ids, config, expected_ids in cases:
         response = client.post(
