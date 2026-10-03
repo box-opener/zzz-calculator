@@ -158,6 +158,7 @@ from .wengine_ids import (
     WENGINE_CRIMSON_DESIRE_ID,
     WENGINE_SCARLET_MOON_COFFIN_ID,
     WENGINE_STEEL_CUSHION_ID,
+    WENGINE_TREASURE_CHEST_ID,
 )
 from .wengine_reviewed import reviewed_mapping_for
 
@@ -173,6 +174,7 @@ YE_VEIL_ACTIVE_CONDITION_ID = YE_MINGXIN_CONDITION_ID
 
 SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     ANBY_ID: WENGINE_DEMARA_BATTERY_II_ID,
+    CharacterId("character:1031"): WENGINE_TREASURE_CHEST_ID,
     CharacterId("character:1021"): WENGINE_STEEL_CUSHION_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
@@ -4797,6 +4799,14 @@ def _treasure_chest_rules(
         suffix="all-damage-buff",
         value=float(talent.numeric_values["all_damage_bonus"]),
     )
+    energy_regen_effect = _panel_modifier(
+        raw=raw,
+        owner=owner,
+        source=source,
+        suffix="energy-regen-flat",
+        path=CalculationNode.CHARACTER_COMBAT_ENERGY_REGEN_FLAT_BONUS,
+        value=float(talent.numeric_values["energy_regen_flat"]),
+    )
     return (
         _rule(
             raw=raw,
@@ -4807,6 +4817,17 @@ def _treasure_chest_rules(
             eligibility=eligibility,
             condition_ids=(condition_id,),
             effects=(effect,),
+            non_stacking_group_id="wengine:13103:treasure-chest:team-damage",
+        ),
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="energy-regen-flat",
+            label=f"{raw.name}·装备者能量自动回复提升",
+            eligibility=eligibility,
+            condition_ids=(condition_id,),
+            effects=(energy_regen_effect,),
         ),
     ), (condition,)
 

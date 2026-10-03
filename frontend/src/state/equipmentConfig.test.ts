@@ -28,6 +28,11 @@ describe("signature W-Engine defaults", () => {
       rarity: "S",
       signature_character_id: "character:1021",
     },
+    {
+      wengine_id: "wengine:13103",
+      rarity: "A",
+      signature_character_id: "character:1031",
+    },
   ] as const;
 
   it("defaults A-rank signatures to R5 and S-rank signatures to R1", () => {
@@ -40,11 +45,13 @@ describe("signature W-Engine defaults", () => {
       "character:1011": { id: "wengine:13101", level: 60, refinement: 5 },
       "character:1361": { id: "wengine:14136", level: 60, refinement: 1 },
       "character:1021": { id: "wengine:14102", level: 60, refinement: 1 },
+      "character:1031": { id: "wengine:13103", level: 60, refinement: 5 },
     });
   });
 });
 
 const roundTripWengines = [
+  { id: "wengine:13103", characterId: "character:1031", specialty: "support" },
   { id: "wengine:14102", characterId: "character:1021", specialty: "attack" },
   { id: "wengine:12001", characterId: "character:1431", specialty: "attack" },
   { id: "wengine:12002", characterId: "character:1431", specialty: "attack" },
@@ -271,6 +278,44 @@ describe("complete character config v2", () => {
       equipment: {
         character_id: "character:1021",
         wengine: { id: "wengine:14102", level: 60, refinement: 1 },
+      },
+    });
+  });
+
+  it("round-trips Nicole's support compile fields and A-rank R5 signature through v2", () => {
+    const nicole = createCharacterConfig(
+      "character:1031",
+      60,
+      "equipment-build",
+      {
+        core_level: 7,
+        cinema_level: 6,
+        skill_levels: {
+          "basic-attack": 16,
+          dodge: 16,
+          "special-attack": 16,
+          "chain-attack": 16,
+          assist: 16,
+          ultimate: 16,
+        },
+      },
+      { id: "wengine:13103", level: 60, refinement: 5 },
+      [],
+      null,
+    );
+    const parsed = parseCharacterConfig(
+      serializeCharacterConfig(nicole),
+      "character:1031",
+      { ...catalog, characterSpecialty: "support" },
+    );
+    expect(parsed).toMatchObject({
+      ok: true,
+      config: nicole,
+      source: "v2",
+      wengineProvided: true,
+      equipment: {
+        character_id: "character:1031",
+        wengine: { id: "wengine:13103", level: 60, refinement: 5 },
       },
     });
   });

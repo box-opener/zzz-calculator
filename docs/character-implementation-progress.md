@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. The catalog order for this queue is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 14 are now present in the calculator registry, leaving 46 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. The catalog order for this queue is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 15 are now present in the calculator registry, leaving 45 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -8,7 +8,7 @@ New live records should retain the complete source JSON and the verified live-3.
 |---:|---|---|---:|---:|---|
 | `1011` | Anby | 安比 | 3 | 2 | 部分实现（live raw + level-60 panel + 13 direct damage moves + electric anomaly/disorder + C2/C6; Daze/Energy results remain outside current calculator contract） |
 | `1021` | Nekomata | 猫又 | 4 | 1 | 部分实现（live raw + potential-0 baseline, all mapped Direct moves, static Physical Anomaly/Disorder and confirmed core/cinema rules; Potential variants and random repeat hit multiplier remain local source limitations） |
-| `1031` | Nicole | 妮可 | 3 | 4 | 待实现 |
+| `1031` | Nicole | 妮可 | 3 | 4 | 部分实现（live raw + normal/enhanced direct curves, static Ether Corrosion/Disorder, confirmed Core/Cinema and R5 signature build; unknown Energy Field/charge branches and resource/Daze outputs remain local source/result limits） |
 | `1041` | Soldier 11 | 「11号」 | 4 | 1 | 待实现 |
 | `1051` | Yidhari | 伊德海莉 | 4 | 6 | 待实现 |
 | `1061` | Corin | 可琳 | 3 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Next unsupported ID: `1031` (妮可 / Nicole). The queue proceeds by ascending numeric ID, skipping the 14 entries already marked supported above. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each new character.
+Next unsupported ID: `1041`（「11号」/ Soldier 11). The queue proceeds by ascending numeric ID, skipping the 15 entries already marked supported above. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each new character.
 
 ## Anby (`character:1011`)
 
@@ -86,3 +86,11 @@ All 14 baseline direct entries use the raw physical damage curves and source ski
 Core damage and Cinema stack effects use explicit current-state inputs. Cinema 1 applies to Nekomata's Direct Physical attack events: it reads the actual enemy-stunned state and otherwise requires the current event's back-hit condition, so the two routes cannot double the 16% Physical resistance ignore. Cinema 2's Energy Gain Efficiency and Support Parry Daze curves remain source notes because the request has no Energy or Daze result. The catalog uses a neutral placeholder because the source `IconRole11` image is not packaged locally.
 
 The existing Nanoka `14102` Steel Cushion record has catalog icon `Weapon_S_1021` and is exposed as Nekomata's signature selection; the S-rank default is R1. The real equipment-build path applies its level-60 white ATK/CR substat and separates the physical-damage bonus from the current back-hit damage bonus.
+
+## Nicole (`character:1031`)
+
+The complete live-3.2 source is retained at `core/data/characters/nicole.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1031.json`; this record declares no Potential variants. The level-60 panel includes +75 base ATK and +0.36 flat Energy Regeneration (`30501`, 36/100) from the raw extra-level record. The source signature mapping is the A-rank Treasure Chest `13103` (`Weapon_A_1031`), which defaults to R5; its level-60 build contributes 624 white ATK, +50% out-of-combat Energy Regeneration, and a separate current +0.8 flat panel effect while its Ether-trigger state is active.
+
+The reviewed list keeps the exact Physical normal/enhanced Basic and Dash curves separate. The raw maximum of eight enhanced-ammo uses does not map to each multi-hit curve component, so an explicit current “enhanced ammo active” condition selects the exact enhanced curve without simulating a charge counter. Ether Dodge Counter, Special, EX cannon, Chain cannon, Ultimate cannon, Quick Assist, and Support Follow-up remain distinct from the Physical Basic/Dash entries. The explicit `A + {B/3}*3`, `/4*4`, and `/20*20` formulas are resolved as sums of the two raw curves once each, without multiplying the repeated component again.
+
+Core Defense Down and its same-target Ether extra ability use an explicit current target state. Cinema 6 is an event-stat target Crit Rate modifier for Standard-Crit Direct/Penetration events; it does not alter formal character panels or NoCrit anomaly results. EX-charge and energy-field branches preserve their separate source curves; when a current branch is selected, a local ambiguity diagnostic keeps the known cannon hit because the raw text does not specify whether the charge/field coefficient is per event or the full total and does not give the hit count. C2/Ultimate Energy and Support Parry Daze remain source notes because the current request has no Energy/Daze result. The catalog uses a neutral placeholder because `IconRole12` is not packaged locally.

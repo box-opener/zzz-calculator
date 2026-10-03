@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import math
 
 from core.types import (
     CharacterId,
@@ -49,6 +50,14 @@ class NanokaDamageParameterSpec:
     parameter_name: str
     condition_ids: tuple[object, ...] = ()
     source_skill_id: str | None = None
+    source_skill_components: tuple[tuple[str, float], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.source_skill_id is not None and self.source_skill_components:
+            raise ValueError("choose one source skill ID or explicit source components")
+        for source_id, coefficient in self.source_skill_components:
+            if not source_id.strip() or not math.isfinite(coefficient):
+                raise ValueError("source skill components require finite coefficients and IDs")
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +130,7 @@ def raw_multiplier(
     subject: str,
     diagnostics: list[CalculationDiagnostic],
     source_skill_id: str | None = None,
+    source_skill_components: tuple[tuple[str, float], ...] = (),
 ) -> float | Unresolved:
     move = raw_moves.get(source_name)
     parameter = (
@@ -128,11 +138,22 @@ def raw_multiplier(
         if move is not None
         else None
     )
-    value = (
-        parameter.value_for_level(level, source_skill_id)
-        if parameter is not None and parameter.format == "%"
-        else None
-    )
+    value = None
+    if parameter is not None and parameter.format == "%":
+        if source_skill_components:
+            component_values = tuple(
+                parameter.value_for_level(level, component_id) for component_id, _ in source_skill_components
+            )
+            if all(component is not None for component in component_values):
+                value = sum(
+                    float(component) * coefficient
+                    for component, (_, coefficient) in zip(
+                        component_values,
+                        source_skill_components,
+                    )
+                )
+        else:
+            value = parameter.value_for_level(level, source_skill_id)
     if value is None:
         message = f"{subject}: missing {parameter_name} from {source_name} at skill level {level}"
         diagnostics.append(
@@ -187,6 +208,7 @@ def compile_direct_moves(
                 f"{character_id}:{spec.entry_key}",
                 entry_diagnostics,
                 parameter.source_skill_id,
+                parameter.source_skill_components,
             )
             variants.append(
                 MultiplierVariant(
