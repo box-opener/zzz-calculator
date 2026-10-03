@@ -8,6 +8,19 @@ export type TeamState = {
   currentOperatorId: string;
 };
 
+export type CalculationGeneration = {
+  calculation: number;
+  editor: number;
+};
+
+export function isCurrentCalculationResponse(
+  request: CalculationGeneration,
+  current: CalculationGeneration,
+): boolean {
+  return request.calculation === current.calculation
+    && request.editor === current.editor;
+}
+
 /**
  * The legacy shape is accepted by the reducer for one release so consumers
  * which still hydrate an old draft do not crash. App itself only uses the
@@ -21,6 +34,7 @@ type LegacyTeamState = {
 export type TeamAction =
   | { type: "add-character" | "add"; characterId: string }
   | { type: "replace-character" | "replace"; slotIndex?: number; slot?: number; index?: number; characterId: string }
+  | { type: "swap-slots"; firstSlot: number; secondSlot: number }
   | { type: "remove-character" | "remove"; characterId: string }
   | { type: "set-current-operator" | "set-operator"; characterId: string }
   // Kept as a migration bridge for saved clients and the pre-library reducer.
@@ -36,12 +50,8 @@ export function createTeamState(
   currentOperatorId = characterIds[0] ?? "",
 ): TeamState {
   const unique = characterIds.filter((id, index) => Boolean(id) && characterIds.indexOf(id) === index).slice(0, 3);
-  const ids = unique.length > 0 ? unique : [currentOperatorId].filter(Boolean);
-  if (ids.length === 0) {
-    throw new Error("a team must contain at least one character");
-  }
-  const operator = ids.includes(currentOperatorId) ? currentOperatorId : ids[0] ?? "";
-  return { teamCharacterIds: ids, currentOperatorId: operator };
+  const operator = unique.includes(currentOperatorId) ? currentOperatorId : unique[0] ?? "";
+  return { teamCharacterIds: unique, currentOperatorId: operator };
 }
 
 export function calculationTeamOrder(
@@ -51,7 +61,16 @@ export function calculationTeamOrder(
   primaryCharacterId: string;
   supportingCharacterIds: string[];
   teamCharacterIds: string[];
+  formationCharacterIds: string[];
 } {
+  if (teamCharacterIds.length === 0 && currentOperatorId === "") {
+    return {
+      primaryCharacterId: "",
+      supportingCharacterIds: [],
+      teamCharacterIds: [],
+      formationCharacterIds: [],
+    };
+  }
   if (
     teamCharacterIds.length < 1
     || teamCharacterIds.length > 3
@@ -66,7 +85,16 @@ export function calculationTeamOrder(
     primaryCharacterId: currentOperatorId,
     supportingCharacterIds,
     teamCharacterIds: [currentOperatorId, ...supportingCharacterIds],
+    formationCharacterIds: [...teamCharacterIds],
   };
+}
+
+export function canAddToTeamSlot(slotIndex: number, teamSize: number): boolean {
+  return Number.isInteger(slotIndex)
+    && Number.isInteger(teamSize)
+    && teamSize >= 0
+    && teamSize < 3
+    && slotIndex === teamSize;
 }
 
 function isLegacyState(state: TeamState | LegacyTeamState): state is LegacyTeamState {
@@ -84,7 +112,10 @@ function reduceTeamState(state: TeamState, action: TeamAction): TeamState {
     case "add-character":
     case "add": {
       if (!action.characterId || ids.includes(action.characterId) || ids.length >= 3) return state;
-      return { ...state, teamCharacterIds: [...ids, action.characterId] };
+      return {
+        teamCharacterIds: [...ids, action.characterId],
+        currentOperatorId: state.currentOperatorId || action.characterId,
+      };
     }
     case "replace-character":
     case "replace": {
@@ -109,14 +140,30 @@ function reduceTeamState(state: TeamState, action: TeamAction): TeamState {
     }
     case "remove-character":
     case "remove": {
-      if (ids.length <= 1 || !ids.includes(action.characterId)) return state;
+      if (!ids.includes(action.characterId)) return state;
+      const removedSlot = ids.indexOf(action.characterId);
       const nextIds = ids.filter((id) => id !== action.characterId);
       return {
         teamCharacterIds: nextIds,
         currentOperatorId: state.currentOperatorId === action.characterId
-          ? nextIds[0]
+          ? nextIds[Math.min(removedSlot, nextIds.length - 1)] ?? ""
           : state.currentOperatorId,
       };
+    }
+    case "swap-slots": {
+      const { firstSlot, secondSlot } = action;
+      if (
+        !Number.isInteger(firstSlot)
+        || !Number.isInteger(secondSlot)
+        || firstSlot < 0
+        || secondSlot < 0
+        || firstSlot >= ids.length
+        || secondSlot >= ids.length
+        || firstSlot === secondSlot
+      ) return state;
+      const nextIds = [...ids];
+      [nextIds[firstSlot], nextIds[secondSlot]] = [nextIds[secondSlot], nextIds[firstSlot]];
+      return { ...state, teamCharacterIds: nextIds };
     }
     case "set-current-operator":
     case "set-operator":

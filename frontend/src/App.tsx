@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import DriveDiscCard from "./components/DriveDiscCard";
 import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTraceDetails";
 import NumberField from "./components/NumberField";
-import { calculationTeamOrder, createTeamState, teamReducer, type TeamAction } from "./state/teamReducer";
+import {
+  canAddToTeamSlot,
+  calculationTeamOrder,
+  createTeamState,
+  isCurrentCalculationResponse,
+  teamReducer,
+  type CalculationGeneration,
+  type TeamAction,
+} from "./state/teamReducer";
 import {
   conditionValuesForViews,
   matchingMoveVariantIndexes,
@@ -279,8 +287,6 @@ type CalculationView = {
   }[];
 };
 
-const YE_ID = "character:1431";
-const ASTRA_ID = "character:1311";
 const VIVIAN_ID = "character:1331";
 const VIVIAN_DISCHARGE_ENTRY_ID = "move-entry:character:1331:discharge-current-panel";
 const VIVIAN_PROPHECY_TICK_ENTRY_ID = "move-entry:character:1331:core-prophecy-tick";
@@ -319,7 +325,7 @@ function App() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [wengines, setWengines] = useState<WEngine[]>([]);
   const [driveDiscSets, setDriveDiscSets] = useState<DriveDiscSet[]>([]);
-  const [teamState, dispatchTeam] = useReducer(teamReducer, createTeamState([YE_ID, ASTRA_ID]));
+  const [teamState, dispatchTeam] = useReducer(teamReducer, createTeamState([]));
   const { teamCharacterIds, currentOperatorId } = teamState;
   const [editorViews, setEditorViews] = useState<Record<string, EditorView | null>>({});
   const [wengineViews, setWengineViews] = useState<Record<string, WEngineEditorView | null>>({});
@@ -333,7 +339,7 @@ function App() {
   const [disabledRules, setDisabledRules] = useState<Set<string>>(new Set());
   const [triggerActors, setTriggerActors] = useState<Record<string, string>>({});
   const [stacks, setStacks] = useState<Record<string, number>>({});
-  const [characterLevels, setCharacterLevels] = useState<Record<string, number>>({ [YE_ID]: 60, [ASTRA_ID]: 60 });
+  const [characterLevels, setCharacterLevels] = useState<Record<string, number>>({});
   const [wengineSelections, setWengineSelections] = useState<Record<string, { id: string; level: number; refinement: number }>>({});
   const [driveDiscSelections, setDriveDiscSelections] = useState<Record<string, DriveDiscConfig[]>>({});
   const [buildPreviews, setBuildPreviews] = useState<Record<string, BuildPreview | null>>({});
@@ -356,6 +362,9 @@ function App() {
   const editorGeneration = useRef(0);
   const editorAbortController = useRef<AbortController | null>(null);
   const equipmentImportInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const dragSourceTeamSlot = useRef<number | null>(null);
+  const [draggingTeamSlot, setDraggingTeamSlot] = useState<number | null>(null);
+  const calculationGeneration = useRef(0);
 
   const commitConditionValues = (next: Record<string, boolean | null>) => {
     conditionValuesRef.current = next;
@@ -393,15 +402,17 @@ function App() {
         : undefined
       : moveOptions.find((option) => option.entryId === selectedMove.entry_id)
     : undefined;
-  const moveSelectionIssue = !selectedMove
-    ? "请选择招式"
-    : selectedMove.multiplier_relation === "mutually-exclusive-variant"
-      ? selectedMoveVariantIndexes.length === 1
-        ? null
-        : selectedMoveVariantIndexes.length === 0
-          ? `${selectedMove.label}需要选择一个倍率版本`
-          : `${selectedMove.label}的倍率条件冲突，请只保留一个版本`
-      : null;
+  const moveSelectionIssue = teamIds.length === 0
+    ? "请先添加至少一名角色"
+    : !selectedMove
+      ? "请选择招式"
+      : selectedMove.multiplier_relation === "mutually-exclusive-variant"
+        ? selectedMoveVariantIndexes.length === 1
+          ? null
+          : selectedMoveVariantIndexes.length === 0
+            ? `${selectedMove.label}需要选择一个倍率版本`
+            : `${selectedMove.label}的倍率条件冲突，请只保留一个版本`
+        : null;
   const moveVariantConditionIds = useMemo(() => new Set(
     teamIds
       .flatMap((owner) => editorViews[owner]?.moves ?? [])
@@ -436,11 +447,32 @@ function App() {
     const abortController = new AbortController();
     editorAbortController.current = abortController;
     setLoading(true);
+    const normalizedTeam = [...new Set(nextTeam)].slice(0, 3);
+    const normalizedOperator = normalizedTeam.includes(nextOperator)
+      ? nextOperator
+      : normalizedTeam[0] ?? "";
+    if (normalizedTeam.length === 0) {
+      // Keep the app shell/catalog available, but issue no character-scoped
+      // editor, equipment, or build-preview requests until a role is selected.
+      calculationGeneration.current += 1;
+      setCalculating(false);
+      setEditorViews({});
+      setWengineViews({});
+      setDriveDiscViews({});
+      setBuildPreviews({});
+      setMoveEntryId("");
+      setCalculation(null);
+      commitConditionValues({});
+      setParameterValues({});
+      setEnabledRules(new Set());
+      setDisabledRules(new Set());
+      setTriggerActors({});
+      setStacks({});
+      setDiagnostics([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const normalizedTeam = [...new Set(nextTeam)].slice(0, 3);
-      const normalizedOperator = normalizedTeam.includes(nextOperator)
-        ? nextOperator
-        : normalizedTeam[0] ?? "";
       const nextEditorViews = await Promise.all(
         normalizedTeam.map((owner) => jsonRequest<EditorView>("/api/v1/definitions/preview", {
           method: "POST",
@@ -582,6 +614,8 @@ function App() {
     const next = teamReducer(teamState, action);
     if (!("teamCharacterIds" in next) || next === teamState) return;
     dispatchTeam(action);
+    calculationGeneration.current += 1;
+    setCalculating(false);
     setCalculation(null);
     void loadEditors(
       next.teamCharacterIds,
@@ -593,6 +627,34 @@ function App() {
       driveDiscSelections,
       characterLevels,
     );
+  };
+
+  const beginTeamSlotDrag = (slotIndex: number, event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest("button, input, select")) return;
+    if (event.pointerType !== "mouse" && !(event.target instanceof Element && event.target.closest(".team-slot-art"))) return;
+    dragSourceTeamSlot.current = slotIndex;
+    setDraggingTeamSlot(slotIndex);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  const finishTeamSlotDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const sourceSlot = dragSourceTeamSlot.current;
+    dragSourceTeamSlot.current = null;
+    setDraggingTeamSlot(null);
+    if (sourceSlot === null) return;
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-team-slot-index]");
+    const targetSlot = Number(target?.dataset.teamSlotIndex);
+    if (!Number.isInteger(targetSlot) || targetSlot === sourceSlot) return;
+    applyTeamAction({ type: "swap-slots", firstSlot: sourceSlot, secondSlot: targetSlot });
+  };
+
+  const cancelTeamSlotDrag = () => {
+    dragSourceTeamSlot.current = null;
+    setDraggingTeamSlot(null);
   };
 
   const openCharacterLibrary = (slotIndex: number) => {
@@ -685,6 +747,8 @@ function App() {
       allConditions,
     );
     setMoveEntryId(entryId);
+    calculationGeneration.current += 1;
+    setCalculating(false);
     setCalculation(null);
     commitConditionValues(next);
     void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }, wengineSelections);
@@ -698,6 +762,8 @@ function App() {
       return;
     }
     setMoveEntryId(option.entryId);
+    calculationGeneration.current += 1;
+    setCalculating(false);
     setCalculation(null);
     if (option.entryId === VIVIAN_PROPHECY_TICK_ENTRY_ID) {
       setParameterValues((current) => (
@@ -951,10 +1017,14 @@ function App() {
   }));
 
   const calculate = async () => {
-    if (!moveEntryId || moveSelectionIssue) {
+    if (teamIds.length === 0 || !currentOperatorId || !moveEntryId || moveSelectionIssue) {
       if (moveSelectionIssue) setDiagnostics([moveSelectionIssue]);
       return;
     }
+    const calculationRequestGeneration: CalculationGeneration = {
+      calculation: ++calculationGeneration.current,
+      editor: editorGeneration.current,
+    };
     setCalculating(true);
     setDiagnostics([]);
     try {
@@ -973,7 +1043,7 @@ function App() {
           // Direct UI defines primary as both operator and move owner.
           team_character_ids: requestTeam.teamCharacterIds,
           // Keep the player's fixed 1-2-3 lineup for effects that reference a slot.
-          formation_character_ids: teamIds,
+          formation_character_ids: requestTeam.formationCharacterIds,
           move_entry_id: moveEntryId,
           compile_configs: Object.fromEntries(teamIds.map((id) => [id, {
             core_level: 7,
@@ -989,11 +1059,20 @@ function App() {
           rule_stack_counts: stacks,
         }),
       });
+      if (!isCurrentCalculationResponse(calculationRequestGeneration, {
+        calculation: calculationGeneration.current,
+        editor: editorGeneration.current,
+      })) return;
       setCalculation(result);
     } catch (error) {
-      setDiagnostics([(error as Error).message]);
+      if (isCurrentCalculationResponse(calculationRequestGeneration, {
+        calculation: calculationGeneration.current,
+        editor: editorGeneration.current,
+      })) setDiagnostics([(error as Error).message]);
     } finally {
-      setCalculating(false);
+      if (calculationRequestGeneration.calculation === calculationGeneration.current) {
+        setCalculating(false);
+      }
     }
   };
 
@@ -1044,29 +1123,36 @@ function App() {
       <section className="dashboard-grid">
         <section className="glass-card roster-panel">
           <div className="section-heading"><div><p className="eyebrow">ROSTER · TEAM BUILDER</p><h2>队伍与当前角色</h2><p className="roster-hint">从角色库选择 1–3 名角色；槽位顺序会保留，当前操作角色负责招式结算。</p></div><span className="counter">{teamIds.length}/3</span></div>
-          <div className="team-slot-grid">
+          <div className="team-slot-grid" onPointerCancel={cancelTeamSlotDrag} onPointerUp={finishTeamSlotDrag}>
             {Array.from({ length: 3 }, (_, slotIndex) => {
               const id = teamIds[slotIndex];
               const character = characters.find((item) => item.character_id === id);
               if (!id || !character) {
-                return <button className="team-slot team-slot-empty" key={`empty-${slotIndex}`} onClick={() => openCharacterLibrary(slotIndex)} type="button">
+                return <button className="team-slot team-slot-empty" data-team-slot-index={slotIndex} disabled={!canAddToTeamSlot(slotIndex, teamIds.length)} key={`empty-${slotIndex}`} onClick={() => openCharacterLibrary(slotIndex)} type="button">
                   <span className="team-slot-plus" aria-hidden="true">＋</span>
                   <strong>添加角色</strong>
                   <small>第 {slotIndex + 1} 个队伍槽位</small>
                 </button>;
               }
               const isOperator = id === currentOperatorId;
-              return <article className={`team-slot team-slot-filled ${isOperator ? "team-slot-operator" : ""}`} key={id}>
+              return <article
+                aria-grabbed={draggingTeamSlot === slotIndex}
+                className={`team-slot team-slot-filled ${isOperator ? "team-slot-operator" : ""} ${draggingTeamSlot === slotIndex ? "team-slot-dragging" : ""}`}
+                data-team-slot-index={slotIndex}
+                key={id}
+                onPointerDown={(event) => beginTeamSlotDrag(slotIndex, event)}
+              >
                 <div className="team-slot-art">
-                  <img alt={character.display_name} src={character.image_path} style={{ objectPosition: character.image_object_position }} />
+                  <img alt={character.display_name} draggable={false} src={character.image_path} style={{ objectPosition: character.image_object_position }} />
                   <span className="rarity">{character.rarity}</span>
                   {isOperator && <span className="operator-badge">当前操作</span>}
+                  <span className="team-slot-drag-hint" aria-hidden="true">⠿ 拖动交换</span>
                 </div>
                 <div className="team-slot-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small></div>
                 <div className="team-slot-actions">
                   <button className="secondary-button" disabled={isOperator} onClick={() => applyTeamAction({ type: "set-current-operator", characterId: id })} type="button">设为当前操作</button>
                   <button className="secondary-button" onClick={() => openCharacterLibrary(slotIndex)} type="button">替换</button>
-                  <button className="secondary-button team-slot-remove" disabled={teamIds.length <= 1} onClick={() => applyTeamAction({ type: "remove-character", characterId: id })} type="button">移除</button>
+                  <button className="secondary-button team-slot-remove" onClick={() => applyTeamAction({ type: "remove-character", characterId: id })} type="button">移除</button>
                 </div>
               </article>;
             })}
@@ -1109,7 +1195,9 @@ function App() {
         <section className="glass-card build-panel">
           <div className="section-heading build-panel-heading"><div><p className="eyebrow">BUILD INPUT</p><h2>角色装备配置</h2></div><span className="muted">每个角色独立保存</span></div>
           <div className="build-character-fields">
-            {teamIds.map((id, teamIndex) => {
+            {teamIds.length === 0
+              ? <div className="empty-team-hint">先从上方角色库添加角色，再配置音擎和驱动盘。</div>
+              : teamIds.map((id, teamIndex) => {
               const driveView = driveDiscViews[id];
               const selectedDiscs = driveDiscSelections[id] ?? [];
               const preview = buildPreviews[id];
@@ -1236,10 +1324,10 @@ function App() {
         </section>
 
         <section className="glass-card result-panel">
-          <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={calculating || loading || !moveEntryId || Boolean(moveSelectionIssue)} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
-          <label className="move-select">招式<select value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
+          <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={teamIds.length === 0 || calculating || loading || !moveEntryId || Boolean(moveSelectionIssue)} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
+          <label className="move-select">招式<select disabled={teamIds.length === 0} value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
           {moveSelectionIssue && <p className="control-section-hint">⚠ {moveSelectionIssue}；未发送计算请求。</p>}
-          {calculation ? <div className="calculation-output"><div className="totals-grid">{(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div><AnomalyStrengthDetails event={event} />{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div><VivianPanelSourceResults results={(calculation.panel_source_results ?? []).filter((source) => calculation.move_entry_id !== VIVIAN_DISCHARGE_ENTRY_ID || source.source_character_id !== VIVIAN_ID)} />{calculation.panel_traces.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">PANEL PROVENANCE</span><strong>面板来源明细</strong></span><small>{calculation.panel_traces.length} 项</small></summary>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</details>}{calculation.resolved_character_snapshots.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">RESOLVED PANELS</span><strong>结算面板快照</strong></span><small>{calculation.resolved_character_snapshots.length} 名</small></summary>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span></div>)}</details>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>选择招式后开始结算</strong><p className="muted">结果、派生事件和白盒说明将由计算内核返回。</p></div>}
+          {calculation ? <div className="calculation-output"><div className="totals-grid">{(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div><AnomalyStrengthDetails event={event} />{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div><VivianPanelSourceResults results={(calculation.panel_source_results ?? []).filter((source) => calculation.move_entry_id !== VIVIAN_DISCHARGE_ENTRY_ID || source.source_character_id !== VIVIAN_ID)} />{calculation.panel_traces.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">PANEL PROVENANCE</span><strong>面板来源明细</strong></span><small>{calculation.panel_traces.length} 项</small></summary>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</details>}{calculation.resolved_character_snapshots.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">RESOLVED PANELS</span><strong>结算面板快照</strong></span><small>{calculation.resolved_character_snapshots.length} 名</small></summary>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span></div>)}</details>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>{teamIds.length === 0 ? "先配置队伍角色" : "选择招式后开始结算"}</strong><p className="muted">{teamIds.length === 0 ? "请从左侧角色槽位添加至少一名角色。" : "结果、派生事件和白盒说明将由计算内核返回。"}</p></div>}
         </section>
       </section>
 
@@ -1305,10 +1393,12 @@ function LivePanel({ teamIds, characters, previews, loading }: LivePanelProps) {
   return <section className="live-panel" aria-label="实时局外面板">
     <div className="section-heading compact live-panel-heading">
       <div><p className="eyebrow">LIVE OUT-OF-COMBAT PANEL</p><h2>实时局外面板</h2><p className="live-panel-subtitle">当前队伍的最终局外属性与来源</p></div>
-      <span className={`live-update-status ${loading ? "updating" : "synced"}`} aria-live="polite">{loading ? "更新中…" : "已同步"}</span>
+      <span className={`live-update-status ${loading ? "updating" : "synced"}`} aria-live="polite">{teamIds.length === 0 ? "待配置" : loading ? "更新中…" : "已同步"}</span>
     </div>
     <div className="live-panel-list">
-      {teamIds.map((id, teamIndex) => {
+      {teamIds.length === 0
+        ? <div className="empty-team-hint">添加角色后显示其局外面板与属性来源。</div>
+        : teamIds.map((id, teamIndex) => {
         const preview = previews[id];
         const stats = preview?.out_of_combat_stats;
         const character = characters.find((item) => item.character_id === id);
