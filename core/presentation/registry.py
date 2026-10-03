@@ -86,6 +86,12 @@ from core.application.characters.nicole import (
     compile_nicole,
     load_raw_record as load_nicole_raw_record,
 )
+from core.application.characters.soldier11 import (
+    SOLDIER11_ID,
+    Soldier11CompileConfig,
+    compile_soldier11,
+    load_raw_record as load_soldier11_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -597,6 +603,39 @@ def _nicole_fields(
     )
 
 
+def _soldier11_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "11号核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "11号影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        _slider_field(
+            "potential_level",
+            "11号潜能",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "潜能0为基础；潜能1解锁潜能招式，潜能2–6提升额外能力暴击伤害。",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
 def _nekomata_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -686,6 +725,56 @@ def _compile_nicole(
             ),
         ),
         load_nicole_raw_record(load_character_record(str(NICOLE_ID))),
+    )
+
+
+def _soldier11_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(SOLDIER11_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == SOLDIER11_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.base_element is Element.FIRE:
+            return True
+        camps = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camps, Mapping) and own_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
+def _compile_soldier11(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = Soldier11CompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=_integer_with_default(values, "potential_level", 0, False),
+        additional_ability_eligible=_soldier11_additional_ability_eligibility(
+            team_ids
+        ),
+    )
+    return compile_soldier11(
+        config,
+        load_soldier11_raw_record(
+            load_character_record(str(SOLDIER11_ID)),
+            potential_level=config.potential_level,
+        ),
     )
 
 
@@ -1272,6 +1361,90 @@ def _compile_qingyi(
 
 
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
+    SOLDIER11_ID: CharacterPresentationRegistration(
+        character_id=SOLDIER11_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1041",
+            display_name="「11号」",
+            rarity="S",
+            element="fire",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.FIRE,
+        compile_definition=_compile_soldier11,
+        config_fields=_soldier11_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SOLDIER11_ID,
+            role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset(
+                            {DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK}
+                        ),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
+                    ),
+                }
+            ),
+        ),
+    ),
     NICOLE_ID: CharacterPresentationRegistration(
         character_id=NICOLE_ID,
         catalog=CharacterCatalogItem(

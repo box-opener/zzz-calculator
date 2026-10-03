@@ -106,6 +106,7 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1011",
         "character:1021",
         "character:1031",
+        "character:1041",
         "character:1311",
         "character:1431",
         "character:1401",
@@ -127,6 +128,9 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
     assert load_character_record("character:1031")["name"] == "妮可"
     assert load_character_record("character:1031")["source_version"] == "3.2"
     assert load_character_record("character:1031")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1031.json"
+    assert load_character_record("character:1041")["name"] == "「11号」"
+    assert load_character_record("character:1041")["source_version"] == "3.2"
+    assert load_character_record("character:1041")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1041.json"
     assert load_character_record("character:1311")["name"] == "耀嘉音"
     assert load_character_record("character:1431")["name"] == "叶瞬光"
     assert load_character_record("character:1401")["name"] == "爱丽丝"

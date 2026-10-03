@@ -864,3 +864,13 @@ generic explicit-history Direct Feathering Blossoms path still requires its
 caller-provided target record; the browser's static B5 panel groups are separate
 and the formal Direct result is no longer blocked by that missing historical
 record. This B6 stack-default change does not alter those source rules.
+
+## Soldier 11 (`character:1041`)
+
+### Potential use count and Cinema 6 charges
+
+The Potential description says `额外获得3次必定触发[火力镇压]的次数` and sets an upper limit of eight. Cinema 6 separately says `获得8层充能` and that a Fire-Suppression trigger consumes one charge for Fire resistance ignore. The raw text does not explicitly identify these as the same current counter. The compiler therefore exposes separate current-state inputs: Potential use count for the enhanced fifth-stage extra curve, and Cinema 6 charges for resistance ignore. Neither input replays generation, consumption, or a timeline.
+
+### Source-only results and portrait
+
+Cinema 1's combat-entry Energy restoration is retained as a non-blocking source diagnostic because the calculation request has no Energy result. The source Daze curves are retained, but the request has no Daze output. Cinema 4's damage reduction and invulnerability do not produce an outgoing damage result. Nanoka references `IconRole05`, but that portrait asset is not packaged locally; the catalog uses the neutral portrait placeholder and does not substitute another character's image.
