@@ -87,7 +87,7 @@ class MoveVariantView:
 @dataclass(frozen=True, slots=True)
 class MoveView:
     entry_id: str
-    move_id: str
+    move_id: str | None
     label: str
     skill_group: str | None
     damage_tags: tuple[str, ...]

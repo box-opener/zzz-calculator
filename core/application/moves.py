@@ -134,7 +134,7 @@ class DerivedDamageEventTemplateRef:
 class MoveCalculationEntry:
     entry_id: MoveEntryId
     character_id: CharacterId
-    move_id: MoveId
+    move_id: MoveId | None
     display_name: str
     original_text: str
     skill_group: SkillGroup | None
@@ -148,8 +148,14 @@ class MoveCalculationEntry:
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 
     def __post_init__(self) -> None:
-        if not str(self.entry_id) or not self.character_id or not self.move_id:
-            raise ValueError("move entry identities must not be empty")
+        if not str(self.entry_id) or not self.character_id:
+            raise ValueError("move entry ID and character ID are required")
+        if self.move_id is None and (
+            self.skill_group is not None or self.damage_tags
+        ):
+            raise ValueError(
+                "entries without move identity cannot declare skill groups or tags"
+            )
         if not self.display_name.strip():
             raise ValueError("move display_name must not be empty")
         if not self.multiplier_variants:

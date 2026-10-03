@@ -15,13 +15,16 @@ from core.application.characters.vivian import (
 from core.application.characters.vivian.reviewed import BASIC_BLOSSOMS_MOVE_ID, C6_FEATHER_COUNT
 from core.data.loader import load_character_record, supported_character_ids
 from core.presentation.base_stats import character_base_stats
-from core.presentation.calculation_service import calculate_payload
+from core.presentation.calculation_service import (
+    _synthetic_panel_source_entry,
+    calculate_payload,
+)
 from core.presentation.registry import (
     compile_registered_definition,
     config_fields_for,
     registration_for,
 )
-from core.types import CharacterRole, DamageSubtype, DamageTag, DamageType, Element
+from core.types import CharacterId, CharacterRole, DamageSubtype, DamageTag, DamageType, Element
 
 
 VIVIAN = str(VIVIAN_ID)
@@ -279,6 +282,148 @@ def test_discharge_uses_the_source_teammates_historical_record_and_vivian_curren
     assert mutation["modes"]["expected"]["anomaly_effect_strength_trace"]["character_id"] == YIXUAN
     assert _node(mutation, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
     assert result["totals"]["expected"]["complete"] is True
+
+
+def test_vivian_discharge_shows_separate_current_panel_sources_without_joining_move_total() -> None:
+    result = calculate_payload(
+        _payload(
+            primary=YIXUAN,
+            supporting=(VIVIAN,),
+            move_entry_id=YIXUAN_XUANMO_ANOMALY,
+            core_level=7,
+            cinema_level=4,
+            condition_values={
+                MUTATION_CONDITION: True,
+                "condition:vivian:mind4-attack-buff-active": True,
+            },
+            enabled_rule_item_ids=(
+                "rule:character:1331:core:anomaly-mutation:ether:xuanmo",
+                "rule:character:1331:core:anomaly-mutation:ether",
+                "rule:character:1331:cinema4:prophecy-attack",
+            ),
+            manual_stats={
+                YIXUAN: _stats(attack=777.0, ap=100.0, am=92.0, element="ether", element_bonus=0.4),
+                VIVIAN: _stats(attack=1000.0, ap=200.0, am=144.0, element="ether", element_bonus=0.3),
+            },
+        )
+    )
+    sources = {
+        (item["source_character_id"], item["element"]): item
+        for item in result["panel_source_results"]
+    }
+    yixuan = sources[(YIXUAN, "ether:xuanmo")]
+    vivian = sources[(VIVIAN, "ether")]
+    yixuan_trace = yixuan["events"][0]["modes"]["expected"]["anomaly_effect_strength_trace"]
+    vivian_trace = vivian["events"][0]["modes"]["expected"]["anomaly_effect_strength_trace"]
+    assert yixuan_trace["character_id"] == YIXUAN
+    assert yixuan_trace["attack"] == pytest.approx(777.0)
+    assert yixuan_trace["anomaly_proficiency"] == pytest.approx(100.0)
+    assert yixuan_trace["final_strength"] == pytest.approx(2175.6)
+    assert vivian_trace["character_id"] == VIVIAN
+    assert vivian_trace["attack"] == pytest.approx(1120.0)
+    assert vivian_trace["anomaly_proficiency"] == pytest.approx(200.0)
+    assert vivian_trace["final_strength"] == pytest.approx(5824.0)
+    vivian_panel = next(
+        item for item in result["resolved_character_snapshots"] if item["character_id"] == VIVIAN
+    )
+    assert vivian_panel["stats"]["attack"] == pytest.approx(1120.0)
+    assert _node(yixuan["events"][0], "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
+    assert _node(vivian["events"][0], "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
+    assert result["totals"]["expected"]["value"] == pytest.approx(
+        sum(item["modes"]["expected"]["known_value"] for item in result["events"])
+    )
+    assert result["totals"]["expected"]["value"] != pytest.approx(
+        result["totals"]["expected"]["value"]
+        + yixuan["totals"]["expected"]["value"]
+        + vivian["totals"]["expected"]["value"]
+    )
+
+
+def test_vivian_panel_sources_cover_active_roles_without_anomaly_entries_and_report_zero_when_disabled() -> None:
+    ye = "character:1431"
+    astra = "character:1311"
+    synthetic_entry, synthetic_template = _synthetic_panel_source_entry(
+        CharacterId(ye), Element.PHYSICAL
+    )
+    assert synthetic_entry.move_id is None
+    assert synthetic_entry.skill_group is None
+    assert synthetic_entry.damage_tags == frozenset()
+    assert synthetic_template.move_id is None
+
+    def active_stats(*, attack: float, ap: float, am: float, physical: float, ether: float):
+        return {
+            "hp": 10000.0,
+            "attack": attack,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.2,
+            "crit_damage": 0.5,
+            "anomaly_mastery": am,
+            "anomaly_proficiency": ap,
+            "energy_regen": 1.2,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "element_damage_bonus": {"physical": physical, "ether": ether},
+        }
+
+    payload = {
+        "primary_character_id": ye,
+        "supporting_character_ids": [astra, VIVIAN],
+        "team_character_ids": [ye, astra, VIVIAN],
+        "move_entry_id": "move-entry:ye:1431:basic-fast-1",
+        "compile_configs": {
+            ye: {"core_level": 1, "cinema_level": 0, "mingxin_active": False, "entry_move_uses_linren": False},
+            astra: {"core_level": 1, "cinema_level": 0},
+            VIVIAN: {"core_level": 7, "cinema_level": 2},
+        },
+        "condition_values": {MUTATION_CONDITION: True},
+        "parameter_values": {},
+        "character_builds": {
+            ye: {"level": 60, "out_of_combat_stats": active_stats(attack=1000, ap=120, am=100, physical=0.2, ether=0.1)},
+            astra: {"level": 60, "out_of_combat_stats": active_stats(attack=800, ap=150, am=100, physical=0.1, ether=0.4)},
+            VIVIAN: {"level": 60, "out_of_combat_stats": active_stats(attack=1000, ap=200, am=144, physical=0.1, ether=0.3)},
+        },
+        "enemy": {
+            "enemy_id": "enemy:vivian-panel-source",
+            "level": 60,
+            "initial_defense": 1000.0,
+            "damage_resistance": {"physical": 0.2, "ether": 0.2},
+            "damage_reduction": 0.0,
+            "stun_vulnerability_bonus": 0.0,
+            "is_stunned": False,
+        },
+        "enabled_rule_item_ids": [
+            "rule:character:1331:core:anomaly-mutation:physical",
+            "rule:character:1331:core:anomaly-mutation:ether",
+        ],
+        "selected_trigger_inputs": [],
+        "rule_stack_counts": {},
+    }
+
+    result = calculate_payload(payload)
+    sources = {
+        (item["source_character_id"], item["element"]): item
+        for item in result["panel_source_results"]
+    }
+    ye_source = sources[(ye, "physical")]
+    astra_source = sources[(astra, "ether")]
+    vivian_source = sources[(VIVIAN, "ether")]
+    assert ye_source["events"][0]["modes"]["expected"]["anomaly_effect_strength_trace"]["anomaly_proficiency"] == pytest.approx(120)
+    assert astra_source["events"][0]["modes"]["expected"]["anomaly_effect_strength_trace"]["anomaly_proficiency"] == pytest.approx(150)
+    assert vivian_source["events"][0]["modes"]["expected"]["anomaly_effect_strength_trace"]["anomaly_proficiency"] == pytest.approx(200)
+    assert all(item["totals"]["expected"]["complete"] for item in (ye_source, astra_source, vivian_source))
+    assert result["totals"]["expected"]["value"] == pytest.approx(
+        sum(item["modes"]["expected"]["known_value"] for item in result["events"])
+    )
+
+    payload["condition_values"][MUTATION_CONDITION] = False
+    payload["enabled_rule_item_ids"] = []
+    disabled = calculate_payload(payload)
+    assert len(disabled["panel_source_results"]) == 3
+    assert all(item["events"] == [] for item in disabled["panel_source_results"])
+    assert all(item["totals"]["expected"]["value"] == 0.0 for item in disabled["panel_source_results"])
+    assert all(item["totals"]["expected"]["complete"] for item in disabled["panel_source_results"])
+    assert all(item["diagnostics"] == [] for item in disabled["panel_source_results"])
 
 
 def test_vivian_current_ap_changes_only_the_mutation_ratio_not_teammate_history() -> None:

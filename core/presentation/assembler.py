@@ -497,7 +497,7 @@ def _move_display_modes(capabilities) -> tuple[str, ...]:
 def _move_view(entry) -> MoveView:
     return MoveView(
         entry_id=str(entry.entry_id),
-        move_id=str(entry.move_id),
+        move_id=str(entry.move_id) if entry.move_id is not None else None,
         label=entry.display_name,
         skill_group=entry.skill_group.value if entry.skill_group else None,
         damage_tags=tuple(sorted(item.value for item in entry.damage_tags)),

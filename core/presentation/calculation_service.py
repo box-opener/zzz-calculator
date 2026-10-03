@@ -23,6 +23,11 @@ from core.application import (
 )
 from core.application.characters.dialyn import DIALYN_ID
 from core.application.characters.definition import CharacterCalculationDefinition
+from core.application.characters.templates import (
+    AttributeAnomalyDamageEventTemplate,
+    DamageEventTemplate,
+)
+from core.application.characters.vivian.reviewed import VIVIAN_ID
 from core.application.characters.nekomata.reviewed import (
     NEKOMATA_C1_STUN_BACK_HIT_RULE_ID,
     NEKOMATA_ID,
@@ -30,14 +35,28 @@ from core.application.characters.nekomata.reviewed import (
 from core.application.equipment.wengine_ids import (
     NEKOMATA_C1_STUN_BACK_HIT_MECHANISM,
 )
-from core.application.ids import MoveEntryId, RuleItemId
-from core.application.moves import DerivedDamageEventTemplateRef
-from core.application.characters.templates import DamageEventTemplate
+from core.application.ids import (
+    DamageEventSemanticId,
+    MoveEntryId,
+    MultiplierVariantId,
+    RuleItemId,
+)
+from core.application.moves import (
+    DamageEventTemplateRef,
+    DerivedDamageEventTemplateRef,
+    MoveCalculationEntry,
+    MultiplierRelation,
+    MultiplierVariant,
+)
 from core.application.rules import CalculationRuleItem, RuleEligibility
 from core.application.scenario import ScenarioCondition
+from core.application.execution.modifiers import is_panel_modifier_path
 from core.types import (
+    AnomalyRecordId,
     BattleEventKind,
     BattleStateId,
+    DamageSubtype,
+    DamageType,
     BuildMode,
     BuildStatContribution,
     CharacterBuildDefinition,
@@ -46,14 +65,18 @@ from core.types import (
     CharacterSnapshot,
     CharacterStats,
     CalculationNode,
+    NoCritRule,
+    FixedMultiplier,
     EffectId,
     Element,
     EnemyId,
     EnemySnapshot,
     InitialCharacterSnapshot,
     Modifier,
+    ModifierEffect,
     EffectOperation,
     Resolved,
+    EventTemplateId,
     SnapshotRule,
     StateId,
     Unresolved,
@@ -68,6 +91,12 @@ from core.types import (
 )
 
 from core.presentation.assembler import build_move_calculation_view
+from core.presentation.calculation import (
+    DamageEventView,
+    MoveTotalsView,
+    PanelSourceResultView,
+)
+from core.presentation.diagnostics import DiagnosticView
 from core.presentation.requests import (
     CharacterBuildInput,
     EnemyInput,
@@ -190,6 +219,7 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         for character_id in team_ids
     )
     executions = {}
+    requests = {}
     for mode in (
         CritDisplayMode.NON_CRIT,
         CritDisplayMode.EXPECTED,
@@ -217,6 +247,7 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             history_record_mode=HistoryRecordMode.STATIC_SINGLE_CHARACTER,
             crit_display_mode=mode,
         )
+        requests[mode] = request
         executions[mode] = calculate_move(request)
     source_labels = {
         str(rule.rule_id): rule.display_name
@@ -282,6 +313,14 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             if effect.rule.owner is not None
         }
     )
+    panel_source_results = _vivian_panel_source_results(
+        definitions=definitions,
+        requests=requests,
+        executions=executions,
+        source_labels=source_labels,
+        source_types=source_types,
+        source_owners=source_owners,
+    )
     selected_entry = next(
         (
             item
@@ -290,22 +329,425 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         ),
         None,
     )
-    return to_jsonable(
-        build_move_calculation_view(
-            executions,
-            source_labels,
-            build_provenance=build_provenance,
-            source_types=source_types,
-            source_owners=source_owners,
-            selected_entry_diagnostics=(
-                tuple(
-                    item for item in selected_entry.diagnostics if not item.blocking
-                )
-                if selected_entry is not None
-                else ()
-            ),
-        )
+    view = build_move_calculation_view(
+        executions,
+        source_labels,
+        build_provenance=build_provenance,
+        source_types=source_types,
+        source_owners=source_owners,
+        selected_entry_diagnostics=(
+            tuple(
+                item for item in selected_entry.diagnostics if not item.blocking
+            )
+            if selected_entry is not None
+            else ()
+        ),
     )
+    return to_jsonable(replace(view, panel_source_results=panel_source_results))
+
+
+def _vivian_panel_source_results(
+    *,
+    definitions: tuple[CharacterCalculationDefinition, ...],
+    requests: Mapping[CritDisplayMode, MoveCalculationRequest],
+    executions: Mapping[CritDisplayMode, object],
+    source_labels: dict[str, str],
+    source_types: dict[str, str],
+    source_owners: dict[str, str],
+) -> tuple[PanelSourceResultView, ...]:
+    """Show Vivian mutation results for each active member's own static source.
+
+    Each source is evaluated in a separate calculation using the formal current
+    panels already settled for the selected request. These source results are
+    presented beside, never added to, the selected move's battle total.
+    """
+
+    if not any(item.character_id == VIVIAN_ID for item in definitions):
+        return ()
+
+    expected_execution = executions[CritDisplayMode.EXPECTED]
+    settled_snapshots = expected_execution.resolved_character_snapshots
+    stripped_definitions = tuple(_without_panel_effects(item) for item in definitions)
+    base_request = requests[CritDisplayMode.EXPECTED]
+    stripped_build_rules = tuple(
+        _without_panel_effects_from_rule(item)
+        for item in base_request.additional_rule_items
+    )
+    result_views: list[PanelSourceResultView] = []
+    scenario = base_request.scenario
+    enabled_rule_ids = {str(item) for item in scenario.enabled_rule_item_ids}
+    mutation_condition = next(
+        (
+            item.value
+            for item in scenario.conditions
+            if str(item.condition_id) == "condition:vivian:mutation-triggered"
+        ),
+        None,
+    )
+    c6_count = next(
+        (
+            item.value
+            for item in scenario.parameters
+            if str(item.parameter_id) == "parameter:vivian:cinema6-feather-count"
+        ),
+        None,
+    )
+    vivian_definition = next(
+        item for item in definitions if item.character_id == VIVIAN_ID
+    )
+    vivian_rule_items = {str(item.rule_id): item for item in vivian_definition.rule_items}
+
+    for source_definition in definitions:
+        registration = registration_for(source_definition.character_id)
+        source_entries = _panel_source_entries(source_definition)
+        if not source_entries:
+            source_element = registration.base_element
+            unsupported_diagnostic = (
+                None
+                if source_element in _FULL_GAUGE_ANOMALY_MULTIPLIERS
+                else DiagnosticView(
+                    diagnostic_id=f"vivian-panel-source:{source_definition.character_id}:{source_element.value}",
+                    kind="missing-data",
+                    message=(
+                        "This active character's element has no supported static "
+                        f"attribute-anomaly source: {source_element.value}."
+                    ),
+                    blocking=True,
+                    original_text="The result uses one static full-gauge source from this active character's current panel.",
+                )
+            )
+            specs = ((source_element, None, source_definition, unsupported_diagnostic),)
+        else:
+            specs = tuple(
+                (element, entry, source_definition, None)
+                for element, entry, source_definition in source_entries
+            )
+
+        for source_element, source_entry, probe_definition, source_data_diagnostic in specs:
+            mutation_element_suffix = _VIVIAN_MUTATION_ELEMENT_RULE_SUFFIX.get(
+                source_element
+            )
+            core_rule_id = (
+                f"rule:character:1331:core:anomaly-mutation:{mutation_element_suffix}"
+                if mutation_element_suffix is not None
+                else ""
+            )
+            c6_rule_id = (
+                f"rule:character:1331:cinema6:max-feather-mutation:{mutation_element_suffix}"
+                if mutation_element_suffix is not None
+                else ""
+            )
+            core_rule = vivian_rule_items.get(core_rule_id)
+            c6_rule = vivian_rule_items.get(c6_rule_id)
+            core_enabled = bool(
+                core_rule is not None
+                and core_rule.eligibility is not RuleEligibility.INELIGIBLE
+                and core_rule_id in enabled_rule_ids
+            )
+            c6_enabled = bool(
+                c6_rule is not None
+                and c6_rule.eligibility is not RuleEligibility.INELIGIBLE
+                and c6_rule_id in enabled_rule_ids
+            )
+            core_expected = core_enabled and mutation_condition is True
+            c6_expected = c6_enabled and c6_count is not None and c6_count > 0
+            unresolved_activation = (
+                (core_enabled and mutation_condition is None)
+                or (c6_enabled and c6_count is None)
+            )
+            expected_event = core_expected or c6_expected or unresolved_activation
+
+            if not expected_event:
+                result_views.append(
+                    PanelSourceResultView(
+                        source_character_id=str(source_definition.character_id),
+                        source_character_name=registration.catalog.display_name,
+                        element=source_element.value,
+                        events=(),
+                        totals=_panel_source_totals((), zero=True),
+                    )
+                )
+                continue
+
+            if source_data_diagnostic is not None:
+                totals = _panel_source_totals((), diagnostics=(source_data_diagnostic,))
+                result_views.append(
+                    PanelSourceResultView(
+                        source_character_id=str(source_definition.character_id),
+                        source_character_name=registration.catalog.display_name,
+                        element=source_element.value,
+                        events=(),
+                        totals=totals,
+                        diagnostics=(source_data_diagnostic,),
+                    )
+                )
+                continue
+
+            if source_entry is None:
+                synthetic = _synthetic_panel_source_entry(
+                    source_definition.character_id,
+                    source_element,
+                )
+                if synthetic is None:
+                    diagnostic = DiagnosticView(
+                        diagnostic_id=f"vivian-panel-source:{source_definition.character_id}:{source_element.value}",
+                        kind="missing-data",
+                        message=(
+                            f"No static full-gauge anomaly multiplier is available for {source_element.value}; "
+                            "this source result cannot be calculated."
+                        ),
+                        blocking=True,
+                        original_text="The result uses one static full-gauge source from this active character's current panel.",
+                    )
+                    result_views.append(
+                        PanelSourceResultView(
+                            source_character_id=str(source_definition.character_id),
+                            source_character_name=registration.catalog.display_name,
+                            element=source_element.value,
+                            events=(),
+                            totals=_panel_source_totals((), diagnostics=(diagnostic,)),
+                            diagnostics=(diagnostic,),
+                        )
+                    )
+                    continue
+                synthetic_entry, synthetic_template = synthetic
+                probe_definition = replace(
+                    source_definition,
+                    move_entries=(*source_definition.move_entries, synthetic_entry),
+                    damage_event_templates=(
+                        *source_definition.damage_event_templates,
+                        synthetic_template,
+                    ),
+                )
+                source_entry = synthetic_entry
+            elif source_definition is not probe_definition:
+                probe_definition = source_definition
+
+            stripped_probe = _without_panel_effects(probe_definition)
+            supporting = tuple(
+                _without_panel_effects(item)
+                for item in definitions
+                if item.character_id != source_definition.character_id
+            )
+            source_executions = {}
+            for mode, original_request in requests.items():
+                source_executions[mode] = calculate_move(
+                    replace(
+                        original_request,
+                        definition=stripped_probe,
+                        supporting_definitions=supporting,
+                        move_entry_id=source_entry.entry_id,
+                        base_character_snapshots=settled_snapshots,
+                        additional_rule_items=stripped_build_rules,
+                    )
+                )
+
+            source_view = build_move_calculation_view(
+                source_executions,
+                source_labels,
+                source_types=source_types,
+                source_owners=source_owners,
+            )
+            mutation_events = tuple(
+                event
+                for event in source_view.events
+                if event.damage_subtype == "discharge"
+            )
+            source_diagnostics: tuple[DiagnosticView, ...] = ()
+            if not mutation_events:
+                source_diagnostics = _unique_view_diagnostics(
+                    (
+                        *source_view.diagnostics,
+                        DiagnosticView(
+                            diagnostic_id=f"vivian-panel-source:{source_definition.character_id}:{source_element.value}:discharge-missing",
+                            kind="missing-data",
+                            message=(
+                                "A Vivian mutation result was selected for this source, "
+                                "but no discharge event was produced; inspect the source-rule trace."
+                            ),
+                            blocking=True,
+                            original_text=(
+                                core_rule.original_text if core_expected and core_rule is not None
+                                else c6_rule.original_text if c6_rule is not None
+                                else None
+                            ),
+                        ),
+                    )
+                )
+                totals = _panel_source_totals((), diagnostics=source_diagnostics)
+            else:
+                source_diagnostics = _unique_view_diagnostics(source_view.diagnostics)
+                totals = _panel_source_totals(
+                    mutation_events,
+                    diagnostics=source_diagnostics,
+                )
+
+            result_views.append(
+                PanelSourceResultView(
+                    source_character_id=str(source_definition.character_id),
+                    source_character_name=registration.catalog.display_name,
+                    element=source_element.value,
+                    events=mutation_events,
+                    totals=totals,
+                    diagnostics=source_diagnostics,
+                )
+            )
+    return tuple(result_views)
+
+
+_FULL_GAUGE_ANOMALY_MULTIPLIERS = {
+    Element.PHYSICAL: 7.13,
+    Element.LINREN: 7.13,
+    Element.ICE: 5.0,
+    Element.LIESHUANG: 5.0,
+    Element.ETHER: 12.5,
+    Element.XUANMO: 12.5,
+    Element.FIRE: 10.0,
+    Element.ELECTRIC: 12.5,
+    Element.WIND: 17.5,
+}
+
+_VIVIAN_MUTATION_ELEMENT_RULE_SUFFIX = {
+    Element.ETHER: "ether",
+    Element.XUANMO: "ether:xuanmo",
+    Element.ELECTRIC: "electric",
+    Element.FIRE: "fire",
+    Element.PHYSICAL: "physical",
+    Element.LINREN: "physical:linren",
+    Element.ICE: "ice",
+    Element.LIESHUANG: "ice:lieshuang",
+    Element.WIND: "wind",
+}
+
+
+def _panel_source_entries(definition):
+    templates = {item.ref.template_id: item for item in definition.damage_event_templates}
+    entries: dict[Element, object] = {}
+    for entry in definition.move_entries:
+        template = templates.get(entry.main_damage_event.template_id)
+        if isinstance(template, AttributeAnomalyDamageEventTemplate):
+            entries.setdefault(template.element, entry)
+    if entries:
+        return tuple((element, entry, definition) for element, entry in entries.items())
+    return ()
+
+
+def _synthetic_panel_source_entry(character_id: CharacterId, element: Element):
+    multiplier = _FULL_GAUGE_ANOMALY_MULTIPLIERS.get(element)
+    if multiplier is None:
+        return None
+    suffix = f"{character_id}:{element.value}"
+    template_id = EventTemplateId(f"template:panel-source:{suffix}")
+    semantic_id = DamageEventSemanticId(f"event:panel-source:{suffix}")
+    record_id = AnomalyRecordId(f"anomaly:panel-source:{suffix}")
+    ref = DamageEventTemplateRef(
+        template_id=template_id,
+        semantic_id=semantic_id,
+        label=f"当前面板满异常来源（{element.value}）",
+        damage_type=DamageType.ANOMALY,
+        damage_subtype=DamageSubtype.ATTRIBUTE_ANOMALY,
+        element=element,
+    )
+    template = AttributeAnomalyDamageEventTemplate(
+        ref=ref,
+        damage_dealer=character_id,
+        element=element,
+        anomaly_triggerer=character_id,
+        history_record_source=record_id,
+        crit_rule=NoCritRule(),
+        move_id=None,
+    )
+    entry = MoveCalculationEntry(
+        entry_id=MoveEntryId(f"move-entry:panel-source:{suffix}"),
+        character_id=character_id,
+        move_id=None,
+        display_name=f"当前面板满异常来源（{element.value}）",
+        original_text="按静态单人100%积蓄假设，从该上场角色已结算面板创建一份来源记录。",
+        skill_group=None,
+        damage_tags=frozenset(),
+        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_variants=(
+            MultiplierVariant(
+                variant_id=MultiplierVariantId(f"variant:panel-source:{suffix}"),
+                label="规范中的单次满异常倍率",
+                parameter_name="满异常倍率",
+                multiplier=FixedMultiplier(Resolved(multiplier)),
+            ),
+        ),
+        main_damage_event=ref,
+    )
+    return entry, template
+
+
+def _panel_source_totals(
+    events: tuple[DamageEventView, ...],
+    *,
+    zero: bool = False,
+    diagnostics: tuple[DiagnosticView, ...] = (),
+) -> dict[str, MoveTotalsView]:
+    totals: dict[str, MoveTotalsView] = {}
+    for mode in CritDisplayMode:
+        event_modes = tuple(item.modes[mode.value] for item in events)
+        known_values = tuple(
+            item.known_value for item in event_modes if item.known_value is not None
+        )
+        event_diagnostics = _unique_view_diagnostics(
+            (
+                *diagnostics,
+                *(diagnostic for item in event_modes for diagnostic in item.diagnostics),
+            )
+        )
+        totals[mode.value] = MoveTotalsView(
+            value=0.0 if zero else sum(known_values) if known_values else None,
+            complete=(
+                zero
+                or (
+                    bool(event_modes)
+                    and len(known_values) == len(event_modes)
+                    and all(item.status == "calculated" for item in event_modes)
+                    and not any(item.blocking for item in event_diagnostics)
+                )
+            ),
+            diagnostics=event_diagnostics,
+        )
+    return totals
+
+
+def _without_panel_effects(
+    definition: CharacterCalculationDefinition,
+) -> CharacterCalculationDefinition:
+    return replace(
+        definition,
+        rule_items=tuple(
+            _without_panel_effects_from_rule(item)
+            for item in definition.rule_items
+        ),
+    )
+
+
+def _without_panel_effects_from_rule(rule: CalculationRuleItem) -> CalculationRuleItem:
+    return replace(
+        rule,
+        effects=tuple(
+            effect
+            for effect in rule.effects
+            if not (
+                isinstance(effect, ModifierEffect)
+                and is_panel_modifier_path(effect.result.modifier_path)
+            )
+        ),
+    )
+
+
+def _unique_view_diagnostics(items):
+    seen = set()
+    result = []
+    for item in items:
+        identity = (item.message, item.blocking)
+        if identity not in seen:
+            seen.add(identity)
+            result.append(item)
+    return tuple(result)
 
 
 def _compile_definitions(

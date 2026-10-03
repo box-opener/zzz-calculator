@@ -180,6 +180,16 @@ class MoveTotalsView:
 
 
 @dataclass(frozen=True, slots=True)
+class PanelSourceResultView:
+    source_character_id: str
+    source_character_name: str
+    element: str
+    events: tuple[DamageEventView, ...]
+    totals: dict[str, MoveTotalsView]
+    diagnostics: tuple[DiagnosticView, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class CalculationView:
     schema_version: str
     move_entry_id: str
@@ -190,6 +200,7 @@ class CalculationView:
     build_provenance: tuple[BuildContributionView, ...]
     diagnostics: tuple[DiagnosticView, ...]
     display_modes: tuple[str, ...] = ("non-crit", "expected", "full-crit")
+    panel_source_results: tuple[PanelSourceResultView, ...] = ()
 
 
 MoveCalculationView = CalculationView
@@ -503,6 +514,7 @@ __all__ = [
     "MoveTotalsView",
     "PanelSnapshotView",
     "PanelTraceView",
+    "PanelSourceResultView",
     "RuleMatchView",
     "calculation_node_view",
     "event_trace_view",

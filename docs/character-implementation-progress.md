@@ -37,7 +37,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1301` | Orphie & Magus | 奥菲丝&「鬼火」 | 4 | 1 | 待实现 |
 | `1311` | Astra | 耀嘉音 | 4 | 4 | 已实现（已有registry/compiler） |
 | `1321` | Evelyn | 伊芙琳 | 4 | 1 | 待实现 |
-| `1331` | Vivian | 薇薇安 | 4 | 3 | 已实现（已有registry/compiler） |
+| `1331` | Vivian | 薇薇安 | 4 | 3 | 已实现（已有registry/compiler；B5在当前上场角色面板下分组显示各自异放结果，不计入所选招式总计） |
 | `1341` | Zhao | 照 | 4 | 5 | 已实现（已有registry/compiler） |
 | `1351` | Pulchra | 波可娜 | 3 | 2 | 待实现 |
 | `1361` | Trigger | 「扳机」 | 4 | 2 | 已实现（已有registry/compiler） |

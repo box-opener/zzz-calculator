@@ -343,6 +343,12 @@ _PANEL_NODES = frozenset(
     }
 )
 
+
+def is_panel_modifier_path(path: CalculationNode) -> bool:
+    """Return whether a modifier is resolved into a character snapshot."""
+
+    return path in _PANEL_NODES
+
 _PANEL_FLAT_FIELDS = {
     CalculationNode.CHARACTER_COMBAT_HP_FLAT_BONUS: "hp",
     CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS: "attack",

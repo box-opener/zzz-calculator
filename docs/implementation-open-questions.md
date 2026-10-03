@@ -354,6 +354,19 @@ not recalculate the target anomaly from Vivian's panel. Selecting a typed
 Attribute Anomaly event as the source allows the mutation to use that exact
 record.
 
+The user confirmed B5: in multiplayer, show Vivian's Anomaly Mutation result
+for each currently active character's own current panel as a separate source
+group. When a typed static Attribute Anomaly entry exists, its actual source
+element and record pipeline are reused. If an active role has no such entry,
+the side calculation uses the specification's static full-gauge multiplier
+for its registered element through the shared typed record adapter. Vivian's
+current Anomaly Proficiency still supplies the mutation coefficient. The
+source groups are separate panel calculations and are never added to the
+selected move's battle total; they do not claim that several anomaly records
+occurred in one real battle. If the source is disabled or its current trigger
+is false, its displayed result is zero; a missing source or required result
+keeps a local diagnostic without blocking the selected move.
+
 Cinema 4's 12% ATK buff lasts for 12 seconds after either named Basic hit, so a
 separate current-buff condition controls Vivian's formal self panel. It is not
 coupled to Prophecy. Cinema 6's 40% Ether bonus is applied through the ordinary
