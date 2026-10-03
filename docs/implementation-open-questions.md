@@ -243,22 +243,27 @@ calculator does not extend stun duration or replay complaint expiry.
 
 ### Previous teammate and Guessing Game identities
 
-The Additional Ability source gives an extra `320%` of an Attack teammate's
-attack or `400%` of a Rupture teammate's penetration force for the three
-Rock/Scissors/Paper EX hits. It identifies the source as Dialyn's “previous
-teammate,” but the request contains only the primary and supporting character
-IDs, with no ordered active-party history or typed previous-teammate reference.
-It also does not fully identify the generated hit's damage dealer, element, or
-crit owner. Only this added hit is blocked on a selected Stone, Scissors, or
-Paper EX calculation; the known EX damage and other buffs remain available.
-The unresolved diagnostic preserves both source formulas.
+The user confirmed that “previous teammate” means the preceding member in a
+fixed three-slot formation: slot 1 reads slot 3, slot 2 reads slot 1, and slot
+3 reads slot 2. The API now accepts `formation_character_ids` separately from
+the operator-first calculation roster, and the editor sends its stable slot
+order. Attack predecessors contribute their current Attack at `320%`; Rupture
+predecessors contribute their current Penetration Force at `400%`. The generated
+component keeps Dialyn as dealer and crit owner, uses Physical direct damage,
+and retains the selected Stone/Scissors/Paper EX move identity and EX tag. A
+Rupture source's current Force includes matched active Force bonuses, with its
+source and contributing effect IDs exposed in the calculation trace.
 
-The raw Guessing Game entry gives unique, numbered stage curves `1481005`–
-`1481008`, while its prose says there are up to two stages after Stone or
-Scissors. Each numbered curve is a separately selectable damage entry, with
-its exact source label and value. The source does not assign which two numbered
-curves belong to each preceding move or how the two pairs aggregate. The
-implementation does not infer those pairings or combine their values.
+Legacy requests without formation order preserve the known EX hit and mark only
+the selected extra-hit component `MISSING_DATA`. If the fixed predecessor has
+a role other than Attack or Rupture, no extra hit is generated and the selected
+move entry carries a non-blocking unsupported-role diagnostic; the calculator
+does not search another slot for a supported role.
+
+The user confirmed the numbered Guessing Game mapping: stages 1 and 2 are Stone,
+stages 3 and 4 are Scissors. Curves `1481005`–`1481008` remain separately
+selectable raw stages; the calculator does not infer an additional combined
+sequence or hit count.
 
 ### Cinema 6 AfterSound and static resource states
 

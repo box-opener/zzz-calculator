@@ -972,6 +972,8 @@ function App() {
           // calculation transport puts the current operator first because
           // Direct UI defines primary as both operator and move owner.
           team_character_ids: requestTeam.teamCharacterIds,
+          // Keep the player's fixed 1-2-3 lineup for effects that reference a slot.
+          formation_character_ids: teamIds,
           move_entry_id: moveEntryId,
           compile_configs: Object.fromEntries(teamIds.map((id) => [id, configs[id] ?? {}])),
           condition_values: scenarioConditionValues,

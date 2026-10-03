@@ -73,6 +73,8 @@ class EventTraceView:
     guaranteed_crit_effect_ids: tuple[str, ...]
     created_by_effect_id: str | None
     diagnostics: tuple[DiagnosticView, ...]
+    base_source_character_id: str | None = None
+    base_source_effect_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +305,12 @@ def event_trace_view(
             if trace.created_by_effect_id is not None
             else None
         ),
+        base_source_character_id=(
+            str(trace.base_source_character_id)
+            if trace.base_source_character_id is not None
+            else None
+        ),
+        base_source_effect_ids=trace.base_source_effect_ids,
         diagnostics=tuple(
             DiagnosticView(
                 diagnostic_id=str(item.diagnostic_id),

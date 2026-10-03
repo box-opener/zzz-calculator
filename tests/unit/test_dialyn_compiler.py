@@ -12,6 +12,7 @@ from core.application.characters.dialyn import (
     compile_dialyn,
     load_raw_record,
 )
+from core.application.characters.dialyn.reviewed import EX_STONE_MOVE_ID
 from core.application.execution.event_factory import instantiate_damage_event
 from core.application.execution.static_records import static_attribute_anomaly_record
 from core.application.rules import RuleEligibility
@@ -26,6 +27,7 @@ from core.presentation.registry import (
 from core.types import (
     BattleStateId,
     CharacterSnapshot,
+    CharacterRole,
     DamageTag,
     DamageType,
     Element,
@@ -41,6 +43,7 @@ ASTRA = "character:1311"
 YE = "character:1431"
 YIXUAN = "character:1371"
 TRIGGER = "character:1361"
+LUCIA = "character:1451"
 
 
 def _stats(
@@ -52,6 +55,8 @@ def _stats(
     crit_rate: float = 0.194,
     crit_damage: float = 0.50,
 ) -> dict[str, object]:
+    element_bonuses = {"physical": 0.0, "ether": 0.0, "electric": 0.0}
+    element_bonuses[element] = 0.20
     return {
         "hp": hp,
         "attack": attack,
@@ -64,7 +69,7 @@ def _stats(
         "crit_damage": crit_damage,
         "penetration_rate": 0.0,
         "penetration_flat": 0.0,
-        "element_damage_bonus": {"physical": 0.20, "ether": 0.0},
+        "element_damage_bonus": element_bonuses,
     }
 
 
@@ -97,6 +102,7 @@ def _payload(
     is_stunned: bool = False,
     manual_stats: dict[str, dict[str, object]] | None = None,
     equipment_build: bool = False,
+    formation_character_ids: tuple[str, ...] | None = None,
 ) -> dict[str, object]:
     team = (primary, *supporting)
     configs: dict[str, dict[str, object]] = {}
@@ -112,6 +118,20 @@ def _payload(
                 if equipment_build
                 else {"level": 60, "out_of_combat_stats": (manual_stats or {}).get(character_id, _stats())}
             )
+        elif character_id == YE:
+            configs[character_id] = {
+                "core_level": 1,
+                "cinema_level": 0,
+                "mingxin_active": False,
+                "entry_move_uses_linren": False,
+            }
+            builds[character_id] = {
+                "level": 60,
+                "out_of_combat_stats": (manual_stats or {}).get(
+                    character_id,
+                    _stats("physical", hp=9000.0, attack=800.0, crit_rate=0.12, crit_damage=0.50),
+                ),
+            }
         elif character_id == ASTRA:
             builds[character_id] = {
                 "level": 60,
@@ -133,12 +153,20 @@ def _payload(
                 "level": 60,
                 "out_of_combat_stats": (manual_stats or {}).get(
                     character_id,
-                    _stats("physical", hp=9000.0, attack=700.0, crit_rate=0.20, crit_damage=0.50),
+                    _stats("electric", hp=9000.0, attack=700.0, crit_rate=0.20, crit_damage=0.50),
+                ),
+            }
+        elif character_id == LUCIA:
+            builds[character_id] = {
+                "level": 60,
+                "out_of_combat_stats": (manual_stats or {}).get(
+                    character_id,
+                    _stats("ether", hp=24000.0, attack=600.0, crit_rate=0.05, crit_damage=0.50),
                 ),
             }
         else:
             raise AssertionError(f"no Dialyn test build for {character_id}")
-    return {
+    payload = {
         "primary_character_id": primary,
         "supporting_character_ids": list(supporting),
         "team_character_ids": list(team),
@@ -151,7 +179,7 @@ def _payload(
             "enemy_id": "enemy:dialyn-test",
             "level": 60,
             "initial_defense": 1000.0,
-            "damage_resistance": {"physical": 0.20, "ether": 0.20},
+            "damage_resistance": {"physical": 0.20, "ether": 0.20, "electric": 0.20},
             "damage_reduction": 0.0,
             "stun_vulnerability_bonus": 1.5,
             "is_stunned": is_stunned,
@@ -160,6 +188,9 @@ def _payload(
         "selected_trigger_inputs": list(selected_trigger_inputs),
         "rule_stack_counts": {},
     }
+    if formation_character_ids is not None:
+        payload["formation_character_ids"] = list(formation_character_ids)
+    return payload
 
 
 def _event(result, semantic_id: str | None = None):
@@ -220,6 +251,9 @@ def test_dialyn_source_registration_panel_and_all_raw_damage_curves() -> None:
         ("三段伤害倍率", "1481007"),
         ("四段伤害倍率", "1481008"),
     ]
+    assert [item.stage_index for item in guessing] == [1, 2, 3, 4]
+    assert ["石头" in item.display_name for item in guessing] == [True, True, False, False]
+    assert ["剪刀" in item.display_name for item in guessing] == [False, False, True, True]
 
     registration = registration_for(DIALYN)
     assert registration.role.value == "stun"
@@ -559,48 +593,162 @@ def test_dialyn_static_physical_assault_and_disorder_absorb_cinema2_normal_bonus
         assert event["modes"]["expected"]["anomaly_effect_strength_trace"]["normal_bonus"] == pytest.approx(0.15)
 
 
-def test_previous_teammate_extra_damage_is_blocked_only_on_its_three_ex_hits() -> None:
+def test_previous_teammate_extra_damage_uses_fixed_three_slot_predecessor() -> None:
     rule_id = "rule:character:1481:extra-ability:previous-teammate-extra-hit"
-    eligible = calculate_payload(
+    cases = (
+        ((DIALYN, YE, YIXUAN), YIXUAN, CharacterRole.RUPTURE, 5_800.0),
+        ((YE, DIALYN, YIXUAN), YE, CharacterRole.ATTACK, 2_560.0),
+        ((YIXUAN, YE, DIALYN), YE, CharacterRole.ATTACK, 2_560.0),
+    )
+    for formation, previous_id, previous_role, expected_base in cases:
+        result = calculate_payload(
+            _payload(
+                supporting=(YE, YIXUAN),
+                move_entry_id="move-entry:character:1481:ex-stone",
+                enabled_rule_item_ids=(rule_id,),
+                formation_character_ids=formation,
+            )
+        )
+        assert len(result["events"]) == 2
+        assert result["totals"]["expected"]["complete"] is True
+        child = _event(result, "event:character:1481:previous-teammate-extra-hit:ex-stone")
+        assert child["common_application_trace"]["created_by_effect_id"] == (
+            "effect:character:1481:extra-ability:previous-teammate-hit:ex-stone"
+        )
+        assert _node(child, "damage.base-value")["value"] == pytest.approx(expected_base)
+        assert _node(child, "character.current.crit-rate")["value"] == pytest.approx(0.194)
+        assert _node(child, "character.current.crit-damage")["value"] == pytest.approx(0.50)
+        assert _node(child, "damage.normal-bonus")["value"] == pytest.approx(0.0)
+        assert _node(child, "damage.normal-bonus-region")["value"] == pytest.approx(1.20)
+
+        definition = compile_registered_definition(
+            DIALYN,
+            {"core_level": 1, "cinema_level": 0, "formation_character_ids": formation},
+            (DIALYN, YE, YIXUAN),
+        )
+        template = next(
+            item for item in definition.damage_event_templates
+            if str(item.ref.template_id)
+            == "template:character:1481:previous-teammate-extra-hit:ex-stone"
+        )
+        assert template.damage_dealer == DIALYN_ID
+        assert template.base_source.character_id == previous_id
+        assert template.allow_external_base_source is True
+        assert template.crit_rule.stat_owner == DIALYN_ID
+        assert template.element is Element.PHYSICAL
+        assert template.move_id == EX_STONE_MOVE_ID
+        assert template.ref.skill_group is SkillGroup.SPECIAL_ATTACK
+        assert template.ref.damage_tags == frozenset({DamageTag.EX_SPECIAL_ATTACK})
+        if previous_role is CharacterRole.ATTACK:
+            assert template.base_source.kind == "current-attack"
+        else:
+            assert template.base_source.kind == "current-penetration-force"
+
+    # Reordering the calculation's operator/support list cannot change the
+    # predecessor when the stable formation order remains explicit.
+    fixed_formation = (DIALYN, YE, YIXUAN)
+    for active_order in (
+        (DIALYN, YE, YIXUAN),
+        (DIALYN, YIXUAN, YE),
+    ):
+        definition = compile_registered_definition(
+            DIALYN,
+            {"core_level": 1, "cinema_level": 0, "formation_character_ids": fixed_formation},
+            active_order,
+        )
+        template = next(
+            item for item in definition.damage_event_templates
+            if str(item.ref.template_id)
+            == "template:character:1481:previous-teammate-extra-hit:ex-stone"
+        )
+        assert template.base_source.character_id == YIXUAN
+
+
+def test_previous_teammate_extra_hit_is_local_when_slot_source_is_missing_or_unsupported() -> None:
+    rule_id = "rule:character:1481:extra-ability:previous-teammate-extra-hit"
+    missing_formation = calculate_payload(
         _payload(
             supporting=(YIXUAN,),
             move_entry_id="move-entry:character:1481:ex-stone",
             enabled_rule_item_ids=(rule_id,),
         )
     )
-    assert _event(eligible)["modes"]["expected"]["known_value"] is not None
-    assert eligible["totals"]["expected"]["complete"] is False
-    diagnostic = next(
-        item
-        for item in eligible["totals"]["expected"]["diagnostics"]
-        if item["diagnostic_id"].endswith(":unresolved-template")
+    assert len(missing_formation["events"]) == 1
+    assert missing_formation["totals"]["expected"]["complete"] is False
+    assert any(
+        "fixed 1-2-3 predecessor slot" in item["message"]
+        for item in missing_formation["totals"]["expected"]["diagnostics"]
     )
-    assert diagnostic["kind"] == "ambiguous-semantics"
-    assert any("320%" in item for item in diagnostic["candidates"])
-    assert any("400%" in item for item in diagnostic["candidates"])
-    assert "previous-teammate" in diagnostic["message"]
-
-    unrelated = calculate_payload(
+    known_basic_without_formation = calculate_payload(
         _payload(
             supporting=(YIXUAN,),
             move_entry_id="move-entry:character:1481:basic-service-1",
             enabled_rule_item_ids=(rule_id,),
         )
     )
-    assert unrelated["totals"]["expected"]["complete"] is True
+    assert known_basic_without_formation["totals"]["expected"]["complete"] is True
+    assert known_basic_without_formation["totals"]["expected"]["diagnostics"] == []
 
-    ineligible = calculate_payload(
+    unsupported_previous = calculate_payload(
         _payload(
-            supporting=(ASTRA,),
+            supporting=(YIXUAN, TRIGGER),
             move_entry_id="move-entry:character:1481:ex-stone",
             enabled_rule_item_ids=(rule_id,),
+            formation_character_ids=(DIALYN, YIXUAN, TRIGGER),
         )
     )
-    assert ineligible["totals"]["expected"]["complete"] is True
-    assert not any(
-        item["diagnostic_id"].endswith(":unresolved-template")
-        for item in ineligible["totals"]["expected"]["diagnostics"]
+    assert len(unsupported_previous["events"]) == 1
+    assert unsupported_previous["totals"]["expected"]["complete"] is True
+    assert any(
+        "Attack and Rupture" in item["message"]
+        for item in unsupported_previous["diagnostics"]
     )
+    compiled = compile_registered_definition(
+        DIALYN,
+        {
+            "core_level": 1,
+            "cinema_level": 0,
+            "formation_character_ids": (DIALYN, YIXUAN, TRIGGER),
+        },
+        (DIALYN, YIXUAN, TRIGGER),
+    )
+    unsupported_entry = next(
+        item for item in compiled.move_entries if str(item.entry_id).endswith("ex-stone")
+    )
+    assert any(
+        "Attack and Rupture" in item.message for item in unsupported_entry.diagnostics
+    )
+
+
+def test_previous_rupture_source_uses_current_force_including_team_force_effects() -> None:
+    result = calculate_payload(
+        _payload(
+            supporting=(LUCIA, YIXUAN),
+            move_entry_id="move-entry:character:1481:ex-stone",
+            enabled_rule_item_ids=(
+                "rule:character:1481:extra-ability:previous-teammate-extra-hit",
+                "rule:character:1451:ex-special:break-dark-penetration-force",
+            ),
+            condition_values={"condition:lucia:break-dark-active": True},
+            formation_character_ids=(DIALYN, LUCIA, YIXUAN),
+            manual_stats={
+                DIALYN: _stats(),
+                LUCIA: _stats("ether", hp=24000.0, attack=600.0),
+                YIXUAN: _stats("ether", hp=12000.0, attack=1000.0),
+            },
+        )
+    )
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 2
+    child = _event(result, "event:character:1481:previous-teammate-extra-hit:ex-stone")
+    assert _node(child, "penetration.force")["value"] == pytest.approx(2350.0)
+    assert _node(child, "damage.base-value")["value"] == pytest.approx(9400.0)
+    trace = child["common_application_trace"]
+    assert trace["base_source_character_id"] == YIXUAN
+    assert trace["base_source_effect_ids"] == [
+        "effect:character:1451:ex-special:break-dark-penetration-force-base",
+        "effect:character:1451:ex-special:break-dark-penetration-force-from-initial-hp",
+    ]
 
 
 def test_dialyn_c6_after_sound_uses_explicit_beneficiary_hit_and_bounded_count() -> None:
@@ -652,9 +800,7 @@ def test_dialyn_c6_after_sound_uses_explicit_beneficiary_hit_and_bounded_count()
     assert template.element is Element.PHYSICAL
     assert template.move_id is None
     assert template.ref.skill_group is SkillGroup.SPECIAL_ATTACK
-    assert template.ref.damage_tags == frozenset(
-        {DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK}
-    )
+    assert template.ref.damage_tags == frozenset({DamageTag.EX_SPECIAL_ATTACK})
     typed_child = instantiate_damage_event(
         template,
         FixedMultiplier(Resolved(0.48)),

@@ -79,7 +79,11 @@ class SettledDamageValueSource:
 
 @dataclass(frozen=True, slots=True)
 class CurrentPenetrationForceValueSource:
+    """Current 0.25 ATK + 0.10 max-HP Force, optionally with resolved additions."""
+
     character_id: CharacterId
+    additional_force: Resolvable[float] | None = None
+    source_effect_ids: tuple[str, ...] = ()
     kind: Literal["current-penetration-force"] = field(
         default="current-penetration-force", init=False
     )
@@ -196,6 +200,7 @@ class DirectDamageEvent:
         CurrentAttackValueSource
         | CurrentMaxHPValueSource
         | CurrentAnomalyProficiencyValueSource
+        | CurrentPenetrationForceValueSource
     )
     multiplier: DamageMultiplier
     crit_rule: StandardCritRule | Unresolved

@@ -36,16 +36,21 @@ class DirectDamageEventTemplate:
         CurrentAttackValueSource
         | CurrentMaxHPValueSource
         | CurrentAnomalyProficiencyValueSource
+        | CurrentPenetrationForceValueSource
     )
     crit_rule: StandardCritRule
     move_id: MoveId | None
+    allow_external_base_source: bool = False
 
     def __post_init__(self) -> None:
         if self.ref.damage_type is not DamageType.DIRECT:
             raise ValueError("DirectDamageEventTemplate requires direct damage type")
         if self.ref.element is not self.element:
             raise ValueError("template ref element must match typed template element")
-        if self.damage_dealer != self.base_source.character_id:
+        if (
+            self.damage_dealer != self.base_source.character_id
+            and not self.allow_external_base_source
+        ):
             raise ValueError("base attack source must match damage dealer")
         if self.damage_dealer != self.crit_rule.stat_owner:
             raise ValueError("crit stat owner must match damage dealer")

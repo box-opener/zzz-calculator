@@ -41,7 +41,7 @@ ULTIMATE_TERMINATE_CALL_MOVE_ID = MoveId("move:dialyn:ultimate-terminate-call")
 QUICK_ASSIST_TRANSFER_MOVE_ID = MoveId("move:dialyn:quick-assist-transfer")
 SUPPORT_FOLLOWUP_CHAIN_CALL_MOVE_ID = MoveId("move:dialyn:support-follow-up-chain-call")
 DIALYN_EX_MOVE_IDS = (EX_STONE_MOVE_ID, EX_SCISSORS_MOVE_ID, EX_PAPER_MOVE_ID)
-DIALYN_EX_CINEMA6_TAGS = frozenset({DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK})
+DIALYN_EX_CINEMA6_TAGS = frozenset({DamageTag.EX_SPECIAL_ATTACK})
 
 _BASIC = frozenset({DamageTag.BASIC_ATTACK})
 _DASH = frozenset({DamageTag.DASH_ATTACK})
@@ -121,42 +121,50 @@ DIALYN_REVIEWED_MAPPING = NanokaReviewedMapping(
         _move(
             "guessing-game-stage-1",
             GUESSING_GAME_MOVE_ID,
-            "普通攻击：猜拳把戏（一段）",
+            "普通攻击：猜拳把戏（石头·一段）",
             "普通攻击：猜拳把戏",
             SkillGroup.BASIC_ATTACK,
             _BASIC,
             "一段伤害倍率",
             "1481005",
+            relation=MultiplierRelation.SEQUENTIAL_STAGE,
+            stage=1,
         ),
         _move(
             "guessing-game-stage-2",
             GUESSING_GAME_MOVE_ID,
-            "普通攻击：猜拳把戏（二段）",
+            "普通攻击：猜拳把戏（石头·二段）",
             "普通攻击：猜拳把戏",
             SkillGroup.BASIC_ATTACK,
             _BASIC,
             "二段伤害倍率",
             "1481006",
+            relation=MultiplierRelation.SEQUENTIAL_STAGE,
+            stage=2,
         ),
         _move(
             "guessing-game-stage-3",
             GUESSING_GAME_MOVE_ID,
-            "普通攻击：猜拳把戏（三段）",
+            "普通攻击：猜拳把戏（剪刀·三段）",
             "普通攻击：猜拳把戏",
             SkillGroup.BASIC_ATTACK,
             _BASIC,
             "三段伤害倍率",
             "1481007",
+            relation=MultiplierRelation.SEQUENTIAL_STAGE,
+            stage=3,
         ),
         _move(
             "guessing-game-stage-4",
             GUESSING_GAME_MOVE_ID,
-            "普通攻击：猜拳把戏（四段）",
+            "普通攻击：猜拳把戏（剪刀·四段）",
             "普通攻击：猜拳把戏",
             SkillGroup.BASIC_ATTACK,
             _BASIC,
             "四段伤害倍率",
             "1481008",
+            relation=MultiplierRelation.SEQUENTIAL_STAGE,
+            stage=4,
         ),
         _move(
             "dash-sudden-call",

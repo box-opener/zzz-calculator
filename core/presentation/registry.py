@@ -1099,9 +1099,30 @@ def _compile_dialyn(
     team_ids: Sequence[CharacterId],
     strict: bool = True,
 ) -> CharacterCalculationDefinition:
-    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels", "formation_character_ids"}))
     if strict:
         _required(values, frozenset({"core_level", "cinema_level"}))
+    raw_slots = values.get("formation_character_ids")
+    formation_order_known = raw_slots is not None
+    if raw_slots is not None and not isinstance(raw_slots, (list, tuple)):
+        raise ValueError("formation_character_ids must be an ordered array or null")
+    slots = (
+        tuple(CharacterId(str(item)) for item in raw_slots)
+        if raw_slots is not None
+        else ()
+    )
+    if raw_slots is not None and (
+        len(set(slots)) != len(slots) or set(slots) != set(team_ids)
+    ):
+        raise ValueError("formation_character_ids must contain each active teammate exactly once")
+    previous_teammate_id = None
+    previous_teammate_role = None
+    if formation_order_known and DIALYN_ID in slots:
+        dialyn_slot = slots.index(DIALYN_ID)
+        previous_slot = (dialyn_slot - 1) % 3
+        if previous_slot < len(slots):
+            previous_teammate_id = slots[previous_slot]
+            previous_teammate_role = _REGISTRATIONS[previous_teammate_id].role
     return compile_dialyn(
         DialynCompileConfig(
             skill_levels=_skill_levels(values),
@@ -1109,6 +1130,9 @@ def _compile_dialyn(
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_dialyn_eligibility(team_ids),
             after_sound_eligible=any(item != DIALYN_ID for item in team_ids),
+            previous_teammate_id=previous_teammate_id,
+            previous_teammate_role=previous_teammate_role,
+            previous_teammate_order_known=formation_order_known,
         ),
         load_dialyn_raw_record(load_character_record(str(DIALYN_ID))),
     )

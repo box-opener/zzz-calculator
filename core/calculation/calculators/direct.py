@@ -9,6 +9,7 @@ from core.types import (
     CalculationNodeMultiplier,
     CurrentAnomalyProficiencyValueSource,
     CurrentMaxHPValueSource,
+    CurrentPenetrationForceValueSource,
     CharacterId,
     CharacterSnapshot,
     DirectDamageEvent,
@@ -29,12 +30,14 @@ from ..regions import (
     CritRegionInput,
     DefenseRegionInput,
     NormalDamageBonusRegionInput,
+    PenetrationForceInput,
     ResistanceRegionInput,
     SpecialIndependentRegionInput,
     calculate_broad_vulnerability_region,
     calculate_crit_region,
     calculate_defense_region,
     calculate_normal_damage_bonus_region,
+    calculate_penetration_force,
     calculate_resistance_region,
     calculate_special_independent_region,
 )
@@ -177,6 +180,7 @@ class DirectDamageCalculator:
                 "direct damage only supports StandardCritRule"
             )
 
+        base_source_breakdown: tuple[CalculationNodeValue, ...]
         if isinstance(
             event.base_settlement_data_source,
             CurrentAnomalyProficiencyValueSource,
@@ -186,6 +190,9 @@ class DirectDamageCalculator:
                 unresolved,
             )
             base_value_node = CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY
+            base_source_breakdown = (
+                (_node(base_value_node, base_value),) if base_value is not None else ()
+            )
         elif isinstance(
             event.base_settlement_data_source,
             CurrentMaxHPValueSource,
@@ -195,12 +202,52 @@ class DirectDamageCalculator:
                 unresolved,
             )
             base_value_node = CalculationNode.CHARACTER_CURRENT_MAX_HP
+            base_source_breakdown = (
+                (_node(base_value_node, base_value),) if base_value is not None else ()
+            )
+        elif isinstance(
+            event.base_settlement_data_source,
+            CurrentPenetrationForceValueSource,
+        ):
+            current_attack = _resolved_number(
+                base_source.settlement_stats.attack,
+                unresolved,
+            )
+            current_max_hp = _resolved_number(
+                base_source.settlement_stats.hp,
+                unresolved,
+            )
+            additional_force = (
+                _resolved_number(
+                    event.base_settlement_data_source.additional_force,
+                    unresolved,
+                )
+                if event.base_settlement_data_source.additional_force is not None
+                else 0.0
+            )
+            base_value_node = CalculationNode.PENETRATION_FORCE
+            if current_attack is None or current_max_hp is None or additional_force is None:
+                base_value = None
+                base_source_breakdown = ()
+            else:
+                force = calculate_penetration_force(
+                    PenetrationForceInput(
+                        current_attack=current_attack,
+                        current_max_hp=current_max_hp,
+                        additional_force=additional_force,
+                    )
+                )
+                base_value = force.value
+                base_source_breakdown = force.breakdown
         else:
             base_value = _resolved_number(
                 base_source.settlement_stats.attack,
                 unresolved,
             )
             base_value_node = CalculationNode.CHARACTER_CURRENT_ATTACK
+            base_source_breakdown = (
+                (_node(base_value_node, base_value),) if base_value is not None else ()
+            )
         if isinstance(event.multiplier, FixedMultiplier):
             skill_multiplier = _resolved_number(event.multiplier.value, unresolved)
         elif isinstance(event.multiplier, CalculationNodeMultiplier):
@@ -374,7 +421,7 @@ class DirectDamageCalculator:
         )
         assert final_damage is not None
         base_breakdown = (
-            _node(base_value_node, base_value),
+            *base_source_breakdown,
             _node(CalculationNode.DAMAGE_SKILL_MULTIPLIER, skill_multiplier),
             _node(CalculationNode.DAMAGE_BASE_VALUE, base_damage),
         )

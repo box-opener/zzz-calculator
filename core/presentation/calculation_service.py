@@ -21,6 +21,7 @@ from core.application import (
     compile_drive_discs,
     stable_set_id,
 )
+from core.application.characters.dialyn import DIALYN_ID
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.ids import MoveEntryId, RuleItemId
 from core.application.rules import CalculationRuleItem
@@ -258,6 +259,14 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             if effect.rule.owner is not None
         }
     )
+    selected_entry = next(
+        (
+            item
+            for item in primary.move_entries
+            if str(item.entry_id) == move_entry_id
+        ),
+        None,
+    )
     return to_jsonable(
         build_move_calculation_view(
             executions,
@@ -265,6 +274,13 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             build_provenance=build_provenance,
             source_types=source_types,
             source_owners=source_owners,
+            selected_entry_diagnostics=(
+                tuple(
+                    item for item in selected_entry.diagnostics if not item.blocking
+                )
+                if selected_entry is not None
+                else ()
+            ),
         )
     )
 
@@ -281,6 +297,16 @@ def _compile_definitions(
     ids = (primary_id, *supporting)
     if len(set(ids)) != len(ids):
         raise ValueError("primary and supporting character IDs must be unique")
+    raw_formation_ids = payload.get("formation_character_ids")
+    formation_ids = None
+    if raw_formation_ids is not None:
+        if not isinstance(raw_formation_ids, (list, tuple)):
+            raise ValueError("formation_character_ids must be an ordered array")
+        formation_ids = tuple(str(item) for item in raw_formation_ids)
+        if len(set(formation_ids)) != len(formation_ids) or set(formation_ids) != set(ids):
+            raise ValueError(
+                "formation_character_ids must contain each active teammate exactly once"
+            )
     configs = payload.get("compile_configs", {})
     if not isinstance(configs, Mapping):
         raise ValueError("compile_configs must be an object")
@@ -289,9 +315,10 @@ def _compile_definitions(
         config = configs.get(character_id, {})
         if not isinstance(config, Mapping):
             raise ValueError(f"compile config must be an object: {character_id}")
-        definitions.append(
-            compile_registered_definition(character_id, dict(config), ids)
-        )
+        compile_values = dict(config)
+        if character_id == str(DIALYN_ID):
+            compile_values["formation_character_ids"] = formation_ids
+        definitions.append(compile_registered_definition(character_id, compile_values, ids))
     return tuple(definitions)
 
 
@@ -312,6 +339,15 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
         raise ValueError(
             "team_character_ids must exactly equal primary plus supporting character IDs"
         )
+    raw_formation_ids = payload.get("formation_character_ids")
+    if raw_formation_ids is not None:
+        if not isinstance(raw_formation_ids, (list, tuple)):
+            raise ValueError("formation_character_ids must be an ordered array")
+        formation_ids = tuple(str(item) for item in raw_formation_ids)
+        if len(set(formation_ids)) != len(formation_ids) or set(formation_ids) != set(team_ids):
+            raise ValueError(
+                "formation_character_ids must contain each active teammate exactly once"
+            )
     raw_builds = payload.get("character_builds")
     if not isinstance(raw_builds, Mapping):
         raise ValueError("character_builds must be an object keyed by character ID")

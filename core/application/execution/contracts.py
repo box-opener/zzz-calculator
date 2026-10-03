@@ -338,6 +338,8 @@ class DamageEventExecutionTrace:
     guaranteed_crit_effect_ids: tuple[EffectId, ...] = ()
     created_by_effect_id: EffectId | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
+    base_source_character_id: CharacterId | None = None
+    base_source_effect_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

@@ -14,7 +14,9 @@ from core.types import (
     AttributeAnomalyDamageEvent,
     DamageEvent,
     DamageEventId,
+    DamageEventMetadata,
     DamageMultiplier,
+    CurrentPenetrationForceValueSource,
     DirectDamageEvent,
     DamageTypeFilter,
     DamageTagFilter,
@@ -39,6 +41,7 @@ from core.types import (
 )
 
 from ..matching import (
+    EffectMatchStatus,
     EffectMatchContext,
     EffectMatcher,
     RuleItemMatchResult,
@@ -48,6 +51,7 @@ from ..characters.definition import CharacterCalculationDefinition
 from ..characters.templates import (
     AttributeAnomalyDamageEventTemplate,
     DamageEventTemplate,
+    DirectDamageEventTemplate,
     DisorderDamageEventTemplate,
 )
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -279,6 +283,18 @@ class DirectMoveApplicationService:
                     ),
                     created_by_effect_id=instantiated.created_by_effect_id,
                     diagnostics=calculation[2],
+                    base_source_character_id=getattr(
+                        instantiated.event.base_settlement_data_source,
+                        "character_id",
+                        None,
+                    ),
+                    base_source_effect_ids=tuple(
+                        getattr(
+                            instantiated.event.base_settlement_data_source,
+                            "source_effect_ids",
+                            (),
+                        )
+                    ),
                 )
             )
             move_diagnostics.extend(calculation[2])
@@ -309,6 +325,7 @@ class DirectMoveApplicationService:
                     effect_application.effect,
                     ancestry,
                     seen_semantics,
+                    current_character_snapshots=application.character_snapshots,
                     source_event_id=instantiated.event.metadata.event_id,
                     source_history_record_id=(
                         instantiated.event.history_record_source
@@ -479,6 +496,7 @@ class DirectMoveApplicationService:
         ancestry: tuple[EventTemplateId, ...],
         seen_semantics,
         *,
+        current_character_snapshots: tuple[CharacterSnapshot, ...] = (),
         source_event_id: DamageEventId | None = None,
         source_history_record_id: AnomalyRecordId | None = None,
         source_anomaly_multiplier: DamageMultiplier | None = None,
@@ -554,6 +572,16 @@ class DirectMoveApplicationService:
                 DiagnosticKind.MISSING_DATA,
                 "EventCreation template is not registered",
             )
+        if (
+            isinstance(template, DirectDamageEventTemplate)
+            and template.allow_external_base_source
+            and isinstance(template.base_source, CurrentPenetrationForceValueSource)
+        ):
+            template = self._resolve_external_penetration_force_source(
+                request,
+                template,
+                current_character_snapshots,
+            )
         repeat_count = derived_ref.repeat_count
         if derived_ref.repeat_count_parameter_id is not None:
             parameter = next(
@@ -615,6 +643,142 @@ class DirectMoveApplicationService:
             source_anomaly_multiplier=source_anomaly_multiplier,
         )
         return child, (*ancestry, template_id)
+
+    def _resolve_external_penetration_force_source(
+        self,
+        request: MoveCalculationRequest,
+        template: DirectDamageEventTemplate,
+        current_character_snapshots: tuple[CharacterSnapshot, ...],
+    ) -> DirectDamageEventTemplate:
+        """Read the previous teammate's current Force without changing the dealer.
+
+        Penetration Force bonuses are matched against a typed, identity-only
+        Penetration context for that source owner. The resulting bonus is folded
+        into the Direct child event's base Force source; its damage dealer,
+        element, crit owner, and ordinary damage regions remain Dialyn's.
+        """
+
+        base_source = template.base_source
+        assert isinstance(base_source, CurrentPenetrationForceValueSource)
+        definitions = _all_definitions(request)
+        source_definition = next(
+            (
+                item for item in definitions
+                if item.character_id == base_source.character_id
+            ),
+            None,
+        )
+        if source_definition is None:
+            return replace(
+                template,
+                base_source=replace(
+                    base_source,
+                    additional_force=Unresolved(
+                        reason=UnresolvedReason.MISSING_DATA,
+                        notes=(
+                            "The previous teammate's compiled definition is required "
+                            "to resolve current Penetration Force bonuses."
+                        ),
+                    ),
+                ),
+            )
+
+        synthetic_source_event = PenetrationDamageEvent(
+            metadata=DamageEventMetadata(
+                event_id=DamageEventId(
+                    f"event:{request.battle_state_id}:source-force:{base_source.character_id}"
+                ),
+                battle_state_id=request.battle_state_id,
+                damage_dealer=base_source.character_id,
+                target_enemy=request.target_snapshot.enemy_id,
+                element=source_definition.base_element,
+                created_at=request.battle_time,
+            ),
+            base_settlement_data_source=CurrentPenetrationForceValueSource(
+                base_source.character_id
+            ),
+            multiplier=FixedMultiplier(Resolved(1.0)),
+            crit_rule=StandardCritRule(base_source.character_id),
+        )
+        rule_items = _all_rule_items(request)
+        source_context = _match_context(
+            request,
+            synthetic_source_event,
+            current_character_snapshots,
+            request.base_calculation_modifiers,
+        )
+        matches = self._matcher.match_rule_items(rule_items, source_context)
+        source_force_rule_ids = {
+            rule.rule_id
+            for rule in rule_items
+            if any(
+                isinstance(effect, ModifierEffect)
+                and effect.result.modifier_path is CalculationNode.PENETRATION_FORCE_BONUS
+                for effect in rule.effects
+            )
+        }
+        source_force_effects = tuple(
+            application
+            for application in _matched_effects(matches, rule_items, request.scenario)
+            if isinstance(application.effect, ModifierEffect)
+            and application.effect.result.modifier_path is CalculationNode.PENETRATION_FORCE_BONUS
+        )
+        source_force_effect_ids = tuple(
+            application.effect.rule.effect_id
+            for application in source_force_effects
+        )
+        source_application = apply_matched_modifiers(
+            current_character_snapshots,
+            request.base_calculation_modifiers,
+            source_force_effects,
+            request.scenario.current_operator,
+            initial_character_snapshots=request.initial_character_snapshots,
+            scenario=request.scenario,
+            event=synthetic_source_event,
+            apply_panel=False,
+        )
+        blocked_force_diagnostics = tuple(
+            diagnostic
+            for match in matches
+            if match.rule_id in source_force_rule_ids
+            and match.status is EffectMatchStatus.BLOCKED
+            for diagnostic in match.diagnostics
+        )
+        relevant_value_diagnostics = tuple(
+            diagnostic
+            for diagnostic in source_application.diagnostics
+            if any(
+                str(effect_id) in str(diagnostic.diagnostic_id)
+                for effect_id in source_force_effect_ids
+            )
+        )
+        unresolved_force = (*blocked_force_diagnostics, *relevant_value_diagnostics)
+        force_values = tuple(
+            modifier.value
+            for modifier in source_application.event_modifiers
+            if modifier.modifier_path is CalculationNode.PENETRATION_FORCE_BONUS
+        )
+        if unresolved_force or any(not isinstance(value, Resolved) for value in force_values):
+            additional_force = Unresolved(
+                reason=UnresolvedReason.MISSING_DATA,
+                notes=(
+                    "The previous teammate's current Penetration Force bonus could not "
+                    "be completely resolved from active source-owner effects."
+                ),
+                original_text="上一位命破队友当前贯穿力及其生效的贯穿力加成",
+            )
+        else:
+            additional_force = Resolved(
+                sum(value.value for value in force_values if isinstance(value, Resolved))
+            )
+        return replace(
+            template,
+            base_source=replace(
+                base_source,
+                additional_force=additional_force,
+                source_effect_ids=tuple(str(item) for item in source_force_effect_ids),
+            ),
+        )
 
 
 def calculate_move(request: MoveCalculationRequest) -> MoveCalculationExecution:

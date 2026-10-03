@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from core.types import (
     AnyFilter,
     BattleEventKind,
     CharacterRole,
     CalculationNode,
+    CreatedByEffectFilter,
     CurrentAttackValueSource,
+    CurrentPenetrationForceValueSource,
     DamageDealerFilter,
     DamageDealerIdentityFilter,
     DamageSubtype,
@@ -300,6 +303,8 @@ def _direct_template(
     skill_group: SkillGroup,
     damage_tags: frozenset[DamageTag],
     source_rule_item_id: RuleItemId | None = None,
+    base_source: CurrentAttackValueSource | CurrentPenetrationForceValueSource | None = None,
+    allow_external_base_source: bool = False,
 ) -> DirectDamageEventTemplate:
     ref = DamageEventTemplateRef(
         template_id=f"template:character:1481:{key}",
@@ -315,52 +320,156 @@ def _direct_template(
         ref=ref,
         damage_dealer=DIALYN_ID,
         element=Element.PHYSICAL,
-        base_source=CurrentAttackValueSource(DIALYN_ID),
+        base_source=base_source or CurrentAttackValueSource(DIALYN_ID),
         crit_rule=StandardCritRule(DIALYN_ID),
         move_id=move_id,
+        allow_external_base_source=allow_external_base_source,
     )
 
 
 def _previous_teammate_extra_damage(
     raw: NanokaRawRecord,
     source: RuleSource,
-) -> EventCreationEffect:
+    config: DialynCompileConfig,
+) -> tuple[
+    tuple[EventCreationEffect, ...],
+    tuple[DirectDamageEventTemplate, ...],
+    tuple[DerivedDamageEventTemplateRef, ...],
+    CalculationDiagnostic | None,
+]:
     extra = raw.extra_ability_description
-    unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            "The Additional Ability states two formulas for the 'previous teammate' "
-            "but the calculation request carries only primary and supporting team "
-            "membership, not an ordered active-party history or typed previous-"
-            "teammate reference. It also does not fully identify the generated hit's "
-            "damage dealer, element, or crit owner. No teammate panel or damage value "
-            "is selected."
-        ),
-        original_text=extra,
-        candidates=(
-            "Previous Attack teammate: 320% of that teammate's attack",
-            "Previous Rupture teammate: 400% of that teammate's penetration force",
-        ),
-    )
-    ex_move_filters = tuple(MoveIdFilter(move_id) for move_id in DIALYN_EX_MOVE_IDS)
-    return EventCreationEffect(
-        rule=EffectRule(
-            effect_id=_PREVIOUS_TEAMMATE_DAMAGE_EFFECT_ID,
-            source=source,
-            owner=DIALYN_ID,
-            target=EffectTarget.TEAM,
-            snapshot_rule=SnapshotRule.SETTLEMENT,
-            filters=(
-                DamageDealerFilter(DIALYN_ID),
-                DamageTypeFilter(DamageType.DIRECT),
-                AnyFilter(ex_move_filters),
+    if not config.additional_ability_eligible:
+        return (), (), (), None
+    previous_id = config.previous_teammate_id
+    previous_role = config.previous_teammate_role
+    if previous_id is None or previous_role is None:
+        missing = Unresolved(
+            reason=UnresolvedReason.MISSING_DATA,
+            notes=(
+                "The Additional Ability uses the teammate in the fixed 1-2-3 "
+                "predecessor slot, but this request has no explicit formation order "
+                "or the predecessor slot is empty. No generated damage owner or "
+                "panel is fabricated."
             ),
-        ),
-        result=EventCreationResult(
-            event_kind=BattleEventKind.DAMAGE,
-            unresolved_template=unresolved,
-        ),
+            original_text=extra,
+            candidates=(
+                "Attack predecessor: 320% of that teammate's current Attack",
+                "Rupture predecessor: 400% of that teammate's current Penetration Force",
+            ),
+        )
+        effects = tuple(
+            EventCreationEffect(
+                rule=EffectRule(
+                    effect_id=EffectId(
+                        f"{_PREVIOUS_TEAMMATE_DAMAGE_EFFECT_ID}:{str(move_id).rsplit(':', 1)[-1]}"
+                    ),
+                    source=source,
+                    owner=DIALYN_ID,
+                    target=EffectTarget.SELF,
+                    snapshot_rule=SnapshotRule.SETTLEMENT,
+                    filters=(
+                        DamageDealerFilter(DIALYN_ID),
+                        DamageTypeFilter(DamageType.DIRECT),
+                        MoveIdFilter(move_id),
+                    ),
+                ),
+                result=EventCreationResult(
+                    event_kind=BattleEventKind.DAMAGE,
+                    unresolved_template=missing,
+                ),
+            )
+            for move_id in DIALYN_EX_MOVE_IDS
+        )
+        return effects, (), (), None
+    if previous_role not in {CharacterRole.ATTACK, CharacterRole.RUPTURE}:
+        diagnostic = _diagnostic(
+            "unsupported:character:1481:extra-ability:previous-teammate-role",
+            DiagnosticKind.UNSUPPORTED_CALCULATOR,
+            (
+                f"The fixed predecessor slot is occupied by {previous_id} "
+                f"({previous_role.value}), while the source extra-hit formulas only "
+                "cover Attack and Rupture teammates. No extra hit is created."
+            ),
+            extra,
+            blocking=False,
+        )
+        return (), (), (), diagnostic
+
+    plain = re.sub(r"<[^>]+>", "", extra)
+    if previous_role is CharacterRole.ATTACK:
+        multiplier = _ratio(
+            plain,
+            r"额外造成等同于该\[强攻\]代理人(?P<value>[\d.]+)%攻击力的伤害",
+            subject="Dialyn previous Attack teammate multiplier",
+        )
+        base_source = CurrentAttackValueSource(previous_id)
+    else:
+        multiplier = _ratio(
+            plain,
+            r"额外造成等同于该\[命破\]代理人(?P<value>[\d.]+)%贯穿力的伤害",
+            subject="Dialyn previous Rupture teammate multiplier",
+        )
+        base_source = CurrentPenetrationForceValueSource(previous_id)
+
+    rule_item_id = RuleItemId(
+        "rule:character:1481:extra-ability:previous-teammate-extra-hit"
     )
+    effects: list[EventCreationEffect] = []
+    templates: list[DirectDamageEventTemplate] = []
+    derived: list[DerivedDamageEventTemplateRef] = []
+    for move_id in DIALYN_EX_MOVE_IDS:
+        move_key = str(move_id).rsplit(":", 1)[-1]
+        effect_id = EffectId(f"{_PREVIOUS_TEAMMATE_DAMAGE_EFFECT_ID}:{move_key}")
+        template_ref = DamageEventTemplateRef(
+            template_id=f"template:character:1481:previous-teammate-extra-hit:{move_key}",
+            semantic_id=DamageEventSemanticId(
+                f"event:character:1481:previous-teammate-extra-hit:{move_key}"
+            ),
+            label="额外能力：上一位队友强化特殊技追加伤害",
+            damage_type=DamageType.DIRECT,
+            skill_group=SkillGroup.SPECIAL_ATTACK,
+            damage_tags=frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+            element=Element.PHYSICAL,
+            source_rule_item_id=rule_item_id,
+        )
+        template = DirectDamageEventTemplate(
+            ref=template_ref,
+            damage_dealer=DIALYN_ID,
+            element=Element.PHYSICAL,
+            base_source=base_source,
+            crit_rule=StandardCritRule(DIALYN_ID),
+            move_id=move_id,
+            allow_external_base_source=True,
+        )
+        effects.append(
+            EventCreationEffect(
+                rule=EffectRule(
+                    effect_id=effect_id,
+                    source=source,
+                    owner=DIALYN_ID,
+                    target=EffectTarget.SELF,
+                    snapshot_rule=SnapshotRule.SETTLEMENT,
+                    filters=(
+                        DamageDealerFilter(DIALYN_ID),
+                        DamageTypeFilter(DamageType.DIRECT),
+                        MoveIdFilter(move_id),
+                        NotFilter(CreatedByEffectFilter(effect_id)),
+                    ),
+                ),
+                result=EventCreationResult(
+                    event_kind=BattleEventKind.DAMAGE,
+                    event_template_id=template_ref.template_id,
+                ),
+            )
+        )
+        templates.append(template)
+        derived.append(
+            DerivedDamageEventTemplateRef(
+                template=template_ref,
+                multiplier=FixedMultiplier(Resolved(multiplier)),
+            )
+        )
+    return tuple(effects), tuple(templates), tuple(derived), None
 
 
 def compile_dialyn(
@@ -379,10 +488,11 @@ def compile_dialyn(
         reviewed_mapping=DIALYN_REVIEWED_MAPPING,
         id_namespace="character:1481",
     )
-    entries, anomaly_templates, disorder_remaining_parameter = _static_physical_anomaly_entries()
-    entries = (*direct_entries, *entries)
+    static_entries, anomaly_templates, disorder_remaining_parameter = _static_physical_anomaly_entries()
+    entries = list((*direct_entries, *static_entries))
     templates: list[object] = [*direct_templates, *anomaly_templates]
     rules: list[CalculationRuleItem] = []
+    independent_derived: list[DerivedDamageEventTemplateRef] = []
     conditions = [
         _condition(
             GOOD_REVIEW_ACTIVE,
@@ -542,14 +652,26 @@ def compile_dialyn(
             ),
         )
     )
+    previous_effects, previous_templates, previous_derived, previous_diagnostic = (
+        _previous_teammate_extra_damage(raw_record, extra_source, config)
+    )
+    templates.extend(previous_templates)
+    independent_derived.extend(previous_derived)
+    if previous_diagnostic is not None:
+        entries = [
+            replace(entry, diagnostics=(*entry.diagnostics, previous_diagnostic))
+            if entry.move_id in DIALYN_EX_MOVE_IDS
+            else entry
+            for entry in entries
+        ]
     rules.append(
         _rule(
             "extra-ability:previous-teammate-extra-hit",
             extra_source,
-            "额外能力：上一位队友强化特殊技追加伤害（身份未决）",
+            "额外能力：上一位队友强化特殊技追加伤害",
             raw_record.extra_ability_description,
             extra_eligibility,
-            effects=(_previous_teammate_extra_damage(raw_record, extra_source),),
+            effects=previous_effects,
         )
     )
 
@@ -865,7 +987,7 @@ def compile_dialyn(
         scenario_conditions=tuple(conditions),
         scenario_parameters=parameters,
         damage_event_templates=tuple(templates),
-        independent_derived_damage_events=(c6_derived,),
+        independent_derived_damage_events=(*independent_derived, c6_derived),
         diagnostics=tuple(diagnostics),
     )
 

@@ -265,6 +265,7 @@ def build_move_calculation_view(
     *,
     source_types: Mapping[str, str] | None = None,
     source_owners: Mapping[str, str] | None = None,
+    selected_entry_diagnostics=(),
 ) -> CalculationView:
     """Align three application executions by semantic event ID."""
 
@@ -447,6 +448,18 @@ def build_move_calculation_view(
                 continue
             seen_output_diagnostics.add(identity)
             diagnostics.append(diagnostic_view(item))
+    for item in selected_entry_diagnostics:
+        identity = (
+            item.diagnostic_id,
+            item.kind,
+            item.message,
+            item.original_text,
+            item.candidates,
+        )
+        if identity in seen_output_diagnostics:
+            continue
+        seen_output_diagnostics.add(identity)
+        diagnostics.append(diagnostic_view(item))
     return CalculationView(
         schema_version=SCHEMA_VERSION,
         move_entry_id=str(expected.output.move_entry_id),
