@@ -231,6 +231,33 @@ describe("complete character config v2", () => {
     });
   });
 
+  it("defaults only missing core/cinema values to 7/0 and keeps explicit progress", () => {
+    const base = {
+      schema_version: "zzz-character-config-v2",
+      character_id: "character:demo",
+      character_level: 60,
+      build_mode: "equipment-build",
+      compile_config: {},
+      wengine: null,
+      drive_discs: [],
+      manual_panel_stats: null,
+    };
+    const defaulted = parseCharacterConfig(JSON.stringify(base), "character:demo", catalog);
+    expect(defaulted).toMatchObject({
+      ok: true,
+      config: { compile_config: { core_level: 7, cinema_level: 0 } },
+    });
+
+    const explicit = parseCharacterConfig(JSON.stringify({
+      ...base,
+      compile_config: { core_level: 3, cinema_level: 5 },
+    }), "character:demo", catalog);
+    expect(explicit).toMatchObject({
+      ok: true,
+      config: { compile_config: { core_level: 3, cinema_level: 5 } },
+    });
+  });
+
   it("accepts cross-specialty W-Engines and retains their explicit equipment selection", () => {
     const config = createCharacterConfig(
       "character:demo",
@@ -701,7 +728,12 @@ describe("complete character config v2", () => {
       drive_discs: [],
     });
     const explicitNull = parseCharacterConfig(v1, "character:demo", catalog);
-    expect(explicitNull).toMatchObject({ ok: true, source: "v1", wengineProvided: true });
+    expect(explicitNull).toMatchObject({
+      ok: true,
+      source: "v1",
+      wengineProvided: true,
+      config: { compile_config: { core_level: 7, cinema_level: 0 } },
+    });
     const missingWeapon = parseCharacterConfig(JSON.stringify({
       schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
       character_id: "character:demo",

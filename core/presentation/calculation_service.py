@@ -58,6 +58,7 @@ from core.types import (
     AnomalyRecordId,
     BattleEventKind,
     BattleStateId,
+    BASE_ELEMENT_BY_ELEMENT,
     DamageSubtype,
     DamageType,
     BuildMode,
@@ -807,7 +808,14 @@ def _compile_definitions(
         compile_values = dict(config)
         if character_id == str(DIALYN_ID):
             compile_values["formation_character_ids"] = formation_ids
-        definitions.append(compile_registered_definition(character_id, compile_values, ids))
+        definitions.append(
+            compile_registered_definition(
+                character_id,
+                compile_values,
+                ids,
+                strict=False,
+            )
+        )
     return tuple(definitions)
 
 
@@ -1215,13 +1223,27 @@ def _stats_mapping(stats: CharacterStats) -> dict[str, object]:
 
 def _enemy_inputs(enemy: EnemyInput):
     enemy_id = EnemyId(enemy.enemy_id)
-    resistances = {element: Resolved(0.0) for element in Element}
-    resistances.update(
-        {
-            _element(key): Resolved(float(value))
-            for key, value in enemy.damage_resistance.items()
-        }
-    )
+    specified_resistances: dict[Element, float] = {}
+    for key, value in enemy.damage_resistance.items():
+        element = _element(key)
+        base_element = BASE_ELEMENT_BY_ELEMENT[element]
+        numeric = float(value)
+        previous = specified_resistances.get(base_element)
+        if previous is not None and previous != numeric:
+            raise ValueError(
+                "enemy resistance aliases must share the base-element value: "
+                f"{base_element.value}"
+            )
+        specified_resistances[base_element] = numeric
+    base_resistances = {
+        element: Resolved(specified_resistances.get(element, 0.0))
+        for element in Element
+        if BASE_ELEMENT_BY_ELEMENT[element] is element
+    }
+    resistances = {
+        element: base_resistances[BASE_ELEMENT_BY_ELEMENT[element]]
+        for element in Element
+    }
     snapshot = EnemySnapshot(
         enemy_id=enemy_id,
         level=enemy.level,

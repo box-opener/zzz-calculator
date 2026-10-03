@@ -78,12 +78,15 @@ def test_anby_live_source_and_level_60_build_are_retained() -> None:
     assert stats.energy_regen == Resolved(1.2)
 
 
-def test_anby_default_a_rank_config_is_cinema_six_and_all_skills_level_sixteen() -> None:
+def test_anby_default_config_is_max_core_zero_cinema_sliders_and_all_skills_level_sixteen() -> None:
     fields = {
         item.field_id: item
         for item in config_fields_for(ANBY_ID, {}, [ANBY_ID])
     }
-    assert fields["cinema_level"].value == 6
+    assert fields["core_level"].value == 7
+    assert fields["core_level"].field_type == "slider"
+    assert fields["cinema_level"].value == 0
+    assert fields["cinema_level"].field_type == "slider"
     assert {
         key: fields[key].value
         for key in fields

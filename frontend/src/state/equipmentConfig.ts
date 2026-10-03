@@ -261,11 +261,12 @@ function validateCompileConfig(raw: unknown, characterId: string): Record<string
   if (unknown.length > 0) {
     invalid(`compile_config has unsupported fields: ${unknown.join(", ")}`);
   }
-  if (!("core_level" in raw) || !("cinema_level" in raw)) {
-    invalid("compile_config must include core_level and cinema_level");
-  }
-  integerInRange(raw.core_level, 1, 7, "compile_config.core_level");
-  integerInRange(raw.cinema_level, 0, 6, "compile_config.cinema_level");
+  const coreLevel = "core_level" in raw
+    ? integerInRange(raw.core_level, 1, 7, "compile_config.core_level")
+    : 7;
+  const cinemaLevel = "cinema_level" in raw
+    ? integerInRange(raw.cinema_level, 0, 6, "compile_config.cinema_level")
+    : 0;
   if (characterId === "character:1021" && "potential_level" in raw) {
     integerInRange(raw.potential_level, 0, 6, "compile_config.potential_level");
   }
@@ -280,7 +281,11 @@ function validateCompileConfig(raw: unknown, characterId: string): Record<string
       integerInRange(value, 1, 16, `compile_config.skill_levels.${group}`);
     }
   }
-  return JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
+  return {
+    ...(JSON.parse(JSON.stringify(raw)) as Record<string, unknown>),
+    core_level: coreLevel,
+    cinema_level: cinemaLevel,
+  };
 }
 
 function validateManualPanelStats(raw: unknown): Record<string, unknown> | null {
@@ -434,7 +439,7 @@ export function parseCharacterConfig(
       );
       return {
         ok: true,
-        config: createCharacterConfig(expectedCharacterId, 60, "equipment-build", { core_level: 1, cinema_level: 0 }, equipment.wengine, equipment.drive_discs, null),
+        config: createCharacterConfig(expectedCharacterId, 60, "equipment-build", { core_level: 7, cinema_level: 0 }, equipment.wengine, equipment.drive_discs, null),
         equipment,
         source: "v1",
         wengineProvided: !weaponMissing,
@@ -450,7 +455,7 @@ export function parseCharacterConfig(
       }, expectedCharacterId, catalog);
       return {
         ok: true,
-        config: createCharacterConfig(expectedCharacterId, 60, "equipment-build", { core_level: 1, cinema_level: 0 }, null, equipment.drive_discs, null),
+        config: createCharacterConfig(expectedCharacterId, 60, "equipment-build", { core_level: 7, cinema_level: 0 }, null, equipment.drive_discs, null),
         equipment,
         source: "drive-only",
         wengineProvided: false,

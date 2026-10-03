@@ -230,8 +230,10 @@ def test_nicole_registered_a_rank_defaults_signature_and_v2_catalog() -> None:
     assert engine_row["signature_character_id"] == "character:1031"
 
     fields = {item.field_id: item for item in config_fields_for(NICOLE_ID, {}, [NICOLE_ID])}
-    assert fields["core_level"].value == 1
-    assert fields["cinema_level"].value == 6
+    assert fields["core_level"].value == 7
+    assert fields["core_level"].field_type == "slider"
+    assert fields["cinema_level"].value == 0
+    assert fields["cinema_level"].field_type == "slider"
     assert {key: fields[key].value for key in fields if key.startswith("skill_level:")} == {
         f"skill_level:{group}": 16 for group in _SKILL_GROUPS
     }

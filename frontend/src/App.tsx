@@ -281,6 +281,25 @@ type CalculationView = {
 
 const YE_ID = "character:1431";
 const ASTRA_ID = "character:1311";
+const ENEMY_RESISTANCE_FIELDS = [
+  { element: "physical", label: "物理抗性" },
+  { element: "fire", label: "火抗性" },
+  { element: "ice", label: "冰抗性" },
+  { element: "electric", label: "电抗性" },
+  { element: "ether", label: "以太抗性" },
+  { element: "wind", label: "风抗性" },
+  { element: "luminance", label: "明光抗性" },
+] as const;
+type EnemyResistanceElement = typeof ENEMY_RESISTANCE_FIELDS[number]["element"];
+const INITIAL_ENEMY_RESISTANCES: Record<EnemyResistanceElement, number> = {
+  physical: 0,
+  fire: 0,
+  ice: 0,
+  electric: 0,
+  ether: 0,
+  wind: 0,
+  luminance: 0,
+};
 
 async function jsonRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -314,13 +333,11 @@ function App() {
   const [wengineSelections, setWengineSelections] = useState<Record<string, { id: string; level: number; refinement: number }>>({});
   const [driveDiscSelections, setDriveDiscSelections] = useState<Record<string, DriveDiscConfig[]>>({});
   const [buildPreviews, setBuildPreviews] = useState<Record<string, BuildPreview | null>>({});
-  const [enemyLevel, setEnemyLevel] = useState(60);
+  const [enemyLevel, setEnemyLevel] = useState(70);
   const [enemyDamageReduction, setEnemyDamageReduction] = useState(0);
   const [enemyIsStunned, setEnemyIsStunned] = useState(false);
-  const [enemyDefense, setEnemyDefense] = useState(1000);
-  const [enemyPhysicalResistance, setEnemyPhysicalResistance] = useState(0.2);
-  const [enemyEtherResistance, setEnemyEtherResistance] = useState(0.2);
-  const [enemyElectricResistance, setEnemyElectricResistance] = useState(0.2);
+  const [enemyDefense, setEnemyDefense] = useState(857);
+  const [enemyResistances, setEnemyResistances] = useState(INITIAL_ENEMY_RESISTANCES);
   const [stunVulnerability, setStunVulnerability] = useState(1.5);
   const [calculation, setCalculation] = useState<CalculationView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -689,11 +706,15 @@ function App() {
     void loadEditors(teamIds, currentOperatorId, configs, conditionValuesRef.current, {}, nextSelections);
   };
 
+  const updateEnemyResistance = (element: EnemyResistanceElement, value: number) => {
+    setEnemyResistances((current) => ({ ...current, [element]: value }));
+  };
+
   const exportEquipmentConfig = (owner: string) => {
     const selection = wengineSelections[owner];
     const currentCompileConfig = configs[owner] ?? {};
     const compileConfig: Record<string, unknown> = {
-      core_level: currentCompileConfig.core_level ?? 1,
+      core_level: currentCompileConfig.core_level ?? 7,
       cinema_level: currentCompileConfig.cinema_level ?? 0,
       ...(currentCompileConfig.skill_levels ? { skill_levels: currentCompileConfig.skill_levels } : {}),
       ...(typeof currentCompileConfig.mingxin_active === "boolean" ? { mingxin_active: currentCompileConfig.mingxin_active } : {}),
@@ -910,11 +931,15 @@ function App() {
           // Keep the player's fixed 1-2-3 lineup for effects that reference a slot.
           formation_character_ids: teamIds,
           move_entry_id: moveEntryId,
-          compile_configs: Object.fromEntries(teamIds.map((id) => [id, configs[id] ?? {}])),
+          compile_configs: Object.fromEntries(teamIds.map((id) => [id, {
+            core_level: 7,
+            cinema_level: 0,
+            ...(configs[id] ?? {}),
+          }])),
           condition_values: scenarioConditionValues,
           parameter_values: parameterValues,
           character_builds: buildPayloads(),
-          enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: { physical: enemyPhysicalResistance, ether: enemyEtherResistance, electric: enemyElectricResistance }, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
+          enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: enemyResistances, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
           enabled_rule_item_ids: [...enabledRules],
           selected_trigger_inputs: Object.entries(triggerActors).filter(([, actor_id]) => actor_id).map(([input_id, actor_id]) => ({ input_id, actor_id })),
           rule_stack_counts: stacks,
@@ -1147,13 +1172,12 @@ function App() {
           <div className="target-fields">
             <NumberField label="等级" value={enemyLevel} integer min={1} max={80} unit="级" helper="敌人等级 1–80" onCommit={setEnemyLevel} />
             <NumberField label="防御力" value={enemyDefense} min={0} helper="敌方初始防御力" onCommit={setEnemyDefense} />
-            <NumberField label="物理抗性" value={enemyPhysicalResistance} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyPhysicalResistance} />
-            <NumberField label="以太抗性" value={enemyEtherResistance} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyEtherResistance} />
-            <NumberField label="电抗性" value={enemyElectricResistance} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyElectricResistance} />
+            {ENEMY_RESISTANCE_FIELDS.map(({ element, label }) => <NumberField key={element} label={label} value={enemyResistances[element]} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={(value) => updateEnemyResistance(element, value)} />)}
             <NumberField label="失衡易伤" value={stunVulnerability} unit="×" helper="伤害倍率，例如 1.5×" onCommit={setStunVulnerability} />
             <NumberField label="减易伤" value={enemyDamageReduction} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyDamageReduction} />
             <label className="check-field"><span>当前处于失衡</span><input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label>
           </div>
+          <p className="target-resistance-note">烈霜、玄墨、凛刃分别沿用冰、以太、物理抗性。</p>
         </section>
       </section>
 

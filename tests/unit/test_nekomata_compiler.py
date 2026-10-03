@@ -208,8 +208,10 @@ def test_nekomata_registry_defaults_and_signature_selection_are_s_rank_attack() 
     assert engine_row["signature_character_id"] == "character:1021"
 
     fields = {item.field_id: item for item in config_fields_for(NEKOMATA_ID, {}, [NEKOMATA_ID])}
-    assert fields["core_level"].value == 1
+    assert fields["core_level"].value == 7
+    assert fields["core_level"].field_type == "slider"
     assert fields["cinema_level"].value == 0
+    assert fields["cinema_level"].field_type == "slider"
     assert fields["potential_level"].field_type == "slider"
     assert fields["potential_level"].value == 0
     assert fields["potential_level"].minimum == 0

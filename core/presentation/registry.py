@@ -159,25 +159,6 @@ class CharacterPresentationRegistration:
     equipment_capabilities: EquipmentOwnerCapabilities
 
 
-def _integer_field(
-    field_id: str,
-    label: str,
-    value: int,
-    minimum: int,
-    maximum: int,
-    help_text: str,
-) -> CompileConfigFieldView:
-    return CompileConfigFieldView(
-        field_id=field_id,
-        label=label,
-        field_type="integer",
-        value=value,
-        minimum=minimum,
-        maximum=maximum,
-        help_text=help_text,
-    )
-
-
 def _slider_field(
     field_id: str,
     label: str,
@@ -220,15 +201,15 @@ def _ye_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "叶瞬光核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "叶瞬光影画",
             int(values.get("cinema_level", 0)),
@@ -257,15 +238,15 @@ def _astra_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "耀嘉音核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "耀嘉音影画",
             int(values.get("cinema_level", 0)),
@@ -282,15 +263,15 @@ def _alice_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "爱丽丝核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "爱丽丝影画",
             int(values.get("cinema_level", 0)),
@@ -307,15 +288,15 @@ def _miyabi_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "雅核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "雅影画",
             int(values.get("cinema_level", 0)),
@@ -332,15 +313,15 @@ def _yixuan_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "仪玄核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "仪玄影画",
             int(values.get("cinema_level", 0)),
@@ -357,15 +338,15 @@ def _lucia_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "卢西娅核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "卢西娅影画",
             int(values.get("cinema_level", 0)),
@@ -382,15 +363,15 @@ def _dialyn_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "琉音核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "琉音影画",
             int(values.get("cinema_level", 0)),
@@ -407,15 +388,15 @@ def _vivian_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "薇薇安核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "薇薇安影画",
             int(values.get("cinema_level", 0)),
@@ -432,15 +413,15 @@ def _zhao_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "照核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "照影画",
             int(values.get("cinema_level", 0)),
@@ -457,15 +438,15 @@ def _qingyi_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "青衣核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "青衣影画",
             int(values.get("cinema_level", 0)),
@@ -482,15 +463,15 @@ def _yuzuha_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "柚叶核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "柚叶影画",
             int(values.get("cinema_level", 0)),
@@ -507,15 +488,15 @@ def _trigger_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "扳机核心等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "扳机影画",
             int(values.get("cinema_level", 0)),
@@ -532,18 +513,18 @@ def _anby_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "安比核心被动等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "安比影画",
-            int(values.get("cinema_level", 6)),
+            int(values.get("cinema_level", 0)),
             0,
             6,
             "A级角色默认按6影配置；已解锁影画等级",
@@ -557,15 +538,15 @@ def _nekomata_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "猫又核心被动等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级；将与选定潜能曲线组合",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "猫又影画",
             int(values.get("cinema_level", 0)),
@@ -590,18 +571,18 @@ def _nicole_fields(
     _team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
     return (
-        _integer_field(
+        _slider_field(
             "core_level",
             "妮可核心被动等级",
-            int(values.get("core_level", 1)),
+            int(values.get("core_level", 7)),
             1,
             7,
             "角色核心被动等级",
         ),
-        _integer_field(
+        _slider_field(
             "cinema_level",
             "妮可影画",
-            int(values.get("cinema_level", 6)),
+            int(values.get("cinema_level", 0)),
             0,
             6,
             "A级角色默认按6影配置；已解锁影画等级",
@@ -644,7 +625,7 @@ def _compile_nekomata(
         _required(values, frozenset({"core_level", "cinema_level"}))
     config = NekomataCompileConfig(
         skill_levels=_skill_levels(values),
-        core_level=_integer_with_default(values, "core_level", 1, strict),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
         cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
         potential_level=_integer_with_default(values, "potential_level", 0, strict),
         additional_ability_eligible=_nekomata_additional_ability_eligibility(
@@ -692,8 +673,8 @@ def _compile_nicole(
     return compile_nicole(
         NicoleCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
-            cinema_level=_integer_with_default(values, "cinema_level", 6, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_nicole_additional_ability_eligibility(
                 team_ids
             ),
@@ -734,8 +715,8 @@ def _compile_anby(
     return compile_anby(
         AnbyCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
-            cinema_level=_integer_with_default(values, "cinema_level", 6, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_anby_additional_ability_eligibility(
                 team_ids
             ),
@@ -882,7 +863,7 @@ def _compile_ye(
     return compile_ye_shunguang(
         YeShunguangCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             mingxin_active=_boolean_with_default(
                 values, "mingxin_active", False, strict
@@ -918,7 +899,7 @@ def _compile_astra(
     return compile_astra(
         AstraCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_astra_eligibility(team_ids),
         ),
@@ -971,7 +952,7 @@ def _compile_alice(
     return compile_alice(
         AliceCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_alice_eligibility(team_ids),
         ),
@@ -990,7 +971,7 @@ def _compile_yuzuha(
     return compile_yuzuha(
         YuzuhaCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_yuzuha_eligibility(team_ids),
         ),
@@ -1009,7 +990,7 @@ def _compile_trigger(
     return compile_trigger(
         TriggerCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_trigger_eligibility(team_ids),
         ),
@@ -1046,7 +1027,7 @@ def _compile_miyabi(
     return compile_miyabi(
         MiyabiCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_miyabi_additional_ability_eligibility(
                 team_ids
@@ -1078,7 +1059,7 @@ def _compile_yixuan(
     return compile_yixuan(
         YixuanCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=(
                 _yixuan_additional_ability_eligibility(team_ids)
@@ -1110,7 +1091,7 @@ def _compile_lucia(
     return compile_lucia(
         LuciaCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=(
                 _lucia_additional_ability_eligibility(team_ids)
@@ -1161,7 +1142,7 @@ def _compile_dialyn(
     return compile_dialyn(
         DialynCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=_dialyn_eligibility(team_ids),
             after_sound_eligible=any(item != DIALYN_ID for item in team_ids),
@@ -1198,7 +1179,7 @@ def _compile_vivian(
     return compile_vivian(
         VivianCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=(
                 _vivian_additional_ability_eligibility(team_ids)
@@ -1231,7 +1212,7 @@ def _compile_zhao(
     return compile_zhao(
         ZhaoCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=(
                 _zhao_additional_ability_eligibility(team_ids)
@@ -1274,7 +1255,7 @@ def _compile_qingyi(
     return compile_qingyi(
         QingyiCompileConfig(
             skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
             cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
             additional_ability_eligible=(
                 _qingyi_additional_ability_eligibility(team_ids)

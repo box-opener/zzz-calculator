@@ -1156,6 +1156,68 @@ def test_definition_preview_returns_versioned_editor_view() -> None:
     assert "additional_ability_eligible" not in field_ids
 
 
+def test_progress_preview_defaults_core_and_cinema_to_full_core_and_zero_sliders() -> None:
+    response = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1011",
+            "team_character_ids": ["character:1011"],
+            "compile_config": {},
+        },
+    )
+    assert response.status_code == 200, response.text
+    fields = {item["field_id"]: item for item in response.json()["compile_config_fields"]}
+    assert fields["core_level"]["value"] == 7
+    assert fields["core_level"]["field_type"] == "slider"
+    assert fields["cinema_level"]["value"] == 0
+    assert fields["cinema_level"]["field_type"] == "slider"
+
+    explicit = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1011",
+            "team_character_ids": ["character:1011"],
+            "compile_config": {"core_level": 2, "cinema_level": 4},
+        },
+    )
+    assert explicit.status_code == 200, explicit.text
+    explicit_fields = {item["field_id"]: item for item in explicit.json()["compile_config_fields"]}
+    assert explicit_fields["core_level"]["value"] == 2
+    assert explicit_fields["cinema_level"]["value"] == 4
+
+
+def test_calculate_api_accepts_missing_progress_config_with_full_core_defaults() -> None:
+    owner = "character:1091"
+    payload = _valid_calculation_payload()
+    payload.update(
+        {
+            "primary_character_id": owner,
+            "supporting_character_ids": [],
+            "team_character_ids": [owner],
+            "move_entry_id": "move-entry:character:1091:kazahana-1",
+            "compile_configs": {owner: {}},
+            "character_builds": {
+                owner: {"level": 60, "build_mode": "equipment-build", "drive_discs": []}
+            },
+            "enemy": {
+                "enemy_id": "enemy:ui",
+                "level": 70,
+                "initial_defense": 857.0,
+                "damage_resistance": {},
+                "damage_reduction": 0.0,
+                "stun_vulnerability_bonus": 1.5,
+                "is_stunned": False,
+            },
+            "enabled_rule_item_ids": [],
+            "selected_trigger_inputs": [],
+            "rule_stack_counts": {},
+        }
+    )
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["totals"]["expected"]["complete"] is True
+
+
 def test_astra_aria_condition_controls_preview_availability_and_move_execution() -> None:
     previews = {
         aria: client.post(
@@ -1705,6 +1767,130 @@ def test_bare_ice_equipment_build_calculates_without_bonus_map_or_enemy_resistan
     )
     assert snapshot["stats"]["element_damage_bonus"]["ice"] == pytest.approx(0.0)
     assert all(item["source_type"] not in {"weapon", "drive-disc"} for item in result["build_provenance"])
+
+
+@pytest.mark.parametrize(
+    ("owner", "move_entry_id", "compile_config", "resistance_key", "alias_key", "resistance", "expected_region"),
+    (
+        (
+            "character:1091",
+            "move-entry:character:1091:lieshuang-anomaly",
+            {"core_level": 7, "cinema_level": 0},
+            "ice",
+            "ice:lieshuang",
+            0.20,
+            0.80,
+        ),
+        (
+            "character:1371",
+            "move-entry:character:1371:basic-xiaoyun-jin-1",
+            {"core_level": 7, "cinema_level": 0},
+            "ether",
+            "ether:xuanmo",
+            0.25,
+            0.75,
+        ),
+        (
+            "character:1431",
+            "move-entry:ye:1431:assist-zhaoying",
+            {
+                "core_level": 7,
+                "cinema_level": 0,
+                "mingxin_active": False,
+                "entry_move_uses_linren": True,
+            },
+            "physical",
+            "physical:linren",
+            0.30,
+            0.70,
+        ),
+    ),
+)
+def test_alias_enemy_resistance_uses_base_element_pool(
+    owner: str,
+    move_entry_id: str,
+    compile_config: dict[str, object],
+    resistance_key: str,
+    alias_key: str,
+    resistance: float,
+    expected_region: float,
+) -> None:
+    for input_key in (resistance_key, alias_key):
+        payload = _valid_calculation_payload()
+        payload.update(
+            {
+                "primary_character_id": owner,
+                "supporting_character_ids": [],
+                "team_character_ids": [owner],
+                "move_entry_id": move_entry_id,
+                "compile_configs": {owner: compile_config},
+                "character_builds": {
+                    owner: {"level": 60, "build_mode": "equipment-build", "drive_discs": []}
+                },
+                "enemy": {
+                    "enemy_id": "enemy:ui",
+                    "level": 70,
+                    "initial_defense": 857.0,
+                    "damage_resistance": {input_key: resistance},
+                    "damage_reduction": 0.0,
+                    "stun_vulnerability_bonus": 1.5,
+                    "is_stunned": False,
+                },
+                "enabled_rule_item_ids": [],
+                "selected_trigger_inputs": [],
+                "rule_stack_counts": {},
+            }
+        )
+        response = client.post("/api/v1/moves/calculate", json=payload)
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["totals"]["expected"]["complete"] is True
+        assert _breakdown_value(
+            result["events"][0], "resistance.enemy-initial-region"
+        ) == pytest.approx(expected_region)
+
+
+def test_enemy_resistance_snapshot_has_all_base_elements_and_shared_alias_pools() -> None:
+    from core.presentation.calculation_service import _enemy_inputs
+    from core.presentation.requests import EnemyInput
+    from core.types import Element, Resolved
+
+    def snapshot_for(resistances: dict[str, float]):
+        return _enemy_inputs(
+            EnemyInput(
+                enemy_id="enemy:unit-test",
+                level=70,
+                initial_defense=857.0,
+                damage_resistance=resistances,
+            )
+        )[0]
+
+    defaults = snapshot_for({})
+    assert set(defaults.damage_resistance) == set(Element)
+    assert all(value == Resolved(0.0) for value in defaults.damage_resistance.values())
+
+    supplied = snapshot_for(
+        {
+            "physical": 0.11,
+            "fire": 0.12,
+            "ice:lieshuang": 0.13,
+            "electric": 0.14,
+            "ether:xuanmo": 0.15,
+            "wind": 0.16,
+            "luminance": 0.17,
+            "physical:linren": 0.11,
+        }
+    )
+    assert supplied.damage_resistance[Element.ICE] == Resolved(0.13)
+    assert supplied.damage_resistance[Element.LIESHUANG] == Resolved(0.13)
+    assert supplied.damage_resistance[Element.ETHER] == Resolved(0.15)
+    assert supplied.damage_resistance[Element.XUANMO] == Resolved(0.15)
+    assert supplied.damage_resistance[Element.PHYSICAL] == Resolved(0.11)
+    assert supplied.damage_resistance[Element.LINREN] == Resolved(0.11)
+    assert supplied.damage_resistance[Element.FIRE] == Resolved(0.12)
+    assert supplied.damage_resistance[Element.ELECTRIC] == Resolved(0.14)
+    assert supplied.damage_resistance[Element.WIND] == Resolved(0.16)
+    assert supplied.damage_resistance[Element.LUMINANCE] == Resolved(0.17)
 
 
 @pytest.mark.parametrize("required_source", ("attack", "hp"))
