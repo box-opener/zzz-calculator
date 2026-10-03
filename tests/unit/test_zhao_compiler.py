@@ -23,7 +23,7 @@ from core.presentation.registry import (
     compile_registered_definition,
     registration_for,
 )
-from core.types import CharacterRole, Element, Unresolved
+from core.types import CharacterRole, Element
 
 
 ZHAO = str(ZHAO_ID)
@@ -196,7 +196,6 @@ def test_zhao_raw_source_mapping_preserves_every_reviewed_damage_curve() -> None
         "1341008",
         "1341009",
         "1341010",
-        "1341011",
         "1341012",
         "1341013",
         "1341015",
@@ -208,7 +207,7 @@ def test_zhao_raw_source_mapping_preserves_every_reviewed_damage_curve() -> None
         ZhaoCompileConfig(core_level=1, cinema_level=0), raw
     )
     entries = {str(item.entry_id): item for item in definition.move_entries}
-    assert len(entries) == 17  # 13 source moves, two explicit sums, two static paths.
+    assert len(entries) == 16  # 12 reviewed source moves, two explicit sums, two static paths.
     assert entries["move-entry:character:1341:basic-cold-judgment-1"].multiplier_variants[0].multiplier.value.value == pytest.approx(1.471)
     assert entries["move-entry:character:1341:basic-cold-judgment-5"].multiplier_variants[0].multiplier.value.value == pytest.approx(7.736)
     assert entries["move-entry:character:1341:ultimate-rabbit-slash"].multiplier_variants[0].multiplier.value.value == pytest.approx(43.752)
@@ -216,9 +215,12 @@ def test_zhao_raw_source_mapping_preserves_every_reviewed_damage_curve() -> None
     assert "1341006=" in entries["move-entry:character:1341:basic-cold-judgment-5"].original_text
     assert "1341014=" in entries["move-entry:character:1341:ultimate-rabbit-slash"].original_text
     assert "1341023=" in entries["move-entry:character:1341:ultimate-rabbit-slash"].original_text
-    dash = entries["move-entry:character:1341:dash-bouncing-sprint"].multiplier_variants[0].multiplier
-    assert isinstance(dash, Unresolved)
-    assert dash.candidates == ("Raw combined curve: 173.2%",)
+    assert "move-entry:character:1341:dash-bouncing-sprint" not in entries
+    assert not any(
+        "mixed-element" in str(item.diagnostic_id)
+        for item in definition.diagnostics
+    )
+    assert "omitted from the calculator" in ZHAO_REVIEWED_MAPPING.data_quality_notes
     assert "1341017" not in source_ids  # Defensive Assist has daze only.
 
     registration = registration_for(ZHAO)

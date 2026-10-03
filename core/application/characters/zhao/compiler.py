@@ -42,8 +42,6 @@ from core.types import (
     RuleSource,
     SnapshotRule,
     StandardCritRule,
-    Unresolved,
-    UnresolvedReason,
     SkillGroup,
 )
 
@@ -90,11 +88,9 @@ from .reviewed import (
     BASIC_JUDGMENT_MOVE_ID,
     CHAIN_TEMPORARY_COOPERATION_MOVE_ID,
     CHARGE_SECONDS,
-    DASH_BOUNCING_SPRINT_MOVE_ID,
     FROSTBITE_FULL,
     ICE_DISORDER_REMAINING_SECONDS,
     IN_COMBAT,
-    MIXED_ELEMENT_MOVE_IDS,
     SPRING_CURTAIN_ACTIVE,
     SPRING_CURTAIN_ATTACK_BUFF_ACTIVE,
     SUPPORT_FOLLOWUP_AFTERGLOW_MOVE_ID,
@@ -460,44 +456,8 @@ def compile_zhao(
         reviewed_mapping=ZHAO_REVIEWED_MAPPING,
         id_namespace="character:1341",
     )
-    entries: list[MoveCalculationEntry] = []
+    entries: list[MoveCalculationEntry] = list(direct_entries)
     diagnostics = list(direct_diagnostics)
-    for item in direct_entries:
-        if item.move_id not in MIXED_ELEMENT_MOVE_IDS:
-            entries.append(item)
-            continue
-        multiplier = item.multiplier_variants[0].multiplier
-        raw_percent = (
-            multiplier.value.value * 100.0
-            if isinstance(multiplier, FixedMultiplier)
-            and isinstance(multiplier.value, Resolved)
-            else None
-        )
-        diagnostic = _diag(
-            f"ambiguous:character:1341:mixed-element:{item.entry_id}",
-            "Nanoka describes the Dash attack as both Physical and Ice but gives one combined curve without per-element shares; no element split is guessed.",
-            item.original_text,
-            blocking=True,
-            candidates=(f"Raw combined curve: {raw_percent:.1f}%" if raw_percent is not None else "Per-element split unavailable",),
-        )
-        entries.append(
-            replace(
-                item,
-                multiplier_variants=(
-                    replace(
-                        item.multiplier_variants[0],
-                        multiplier=Unresolved(
-                            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-                            notes=diagnostic.message,
-                            original_text=item.original_text,
-                            candidates=diagnostic.candidates,
-                        ),
-                    ),
-                ),
-                diagnostics=(*item.diagnostics, diagnostic),
-            )
-        )
-        diagnostics.append(diagnostic)
 
     composite_entries, composite_templates = _composite_multipliers(config, raw_record)
     entries.extend(composite_entries)

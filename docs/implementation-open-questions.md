@@ -383,9 +383,10 @@ The Fifth Basic and Ultimate source parameters explicitly combine source IDs
 `1341005 + 1341006` and `1341014 + 1341023`; both component curves are kept in
 the move text and their same-level values are added. C3 and C5 raise the
 effective Basic, Dodge, Special, Chain, and Assist skill levels by two each;
-Ultimate is not raised by them. Dash Attack has one source curve for combined
-Physical and Ice damage but no per-element split, so only that selected entry
-is blocked as ambiguous.
+Ultimate is not raised by them. The user chose not to calculate the combined
+Physical/Ice Dash Attack because its one curve has no reviewed per-element split.
+No calculator entry or blocking diagnostic is generated; the full source remains
+in the lossless raw record and the reviewed mapping records this scope decision.
 
 The Core Crit Rate conversion reads Zhao's **initial** Max HP at 0.8% per 1000
 HP at Core 1, increasing to 1.4% at Core 7. Cinema 6 multiplies that converted
@@ -791,8 +792,10 @@ Cinema 1's 16% Physical resistance ignore is matched to Nekomata's Direct Physic
 
 ## Nicole (`character:1031`)
 
-The live source says EX Special, Chain, and Ultimate create an Ether Energy Field that deals damage. It exposes separate `能量场伤害倍率` curves for source IDs `1031106`, `1031303`, and `1031305`; EX Special also has `蓄力伤害倍率` at source ID `1031103`, and its prose says long-press charge deals additional damage. The text does not establish whether each field/charge coefficient is one event or the complete total, or state the number/interval of hits. The reviewed compiler calculates the exact one-shot cannon entries; only when a current field/charge hit branch is explicitly selected does its source-linked child return `AMBIGUOUS_TEXT`. It does not add a field ratio into the cannon's main multiplier or choose a hit count.
+The user confirmed that Nicole's charge and Energy Field coefficients are complete totals. The compiler includes each total once with its source cannon curve: EX tap is `(1031104 + 1031105) + 1031106`, Chain is `(1031301 + 1031302) + 1031303`, and Ultimate is `1031304 + 1031305`. EX charge is a second selectable entry that adds `1031103` once to the EX tap total. At skill level 12 the totals are 12.048, 16.354, 9.876, and 30.402 respectively; at level 16 they are 14.24, 19.33, 11.676, and 35.930. Each Energy Field and charge formula is already total; the calculator does not multiply by duration, ticks, range, or repeat count.
+
+The Basic and Dash tables retain distinct normal and enhanced-ammo curves. The one current `enhanced-ammo-active` input selects the whole enhanced set; it does not model the 0–8 reload counter or distribute enhanced bullets among stages. Cinema 4's field diameter is not part of the damage calculation, per the user's instruction to ignore range.
 
 The source signature 13103 has two R5 effects from the same Ether-trigger state. The TEAM target damage component uses its stable non-stacking group; the +0.8 Energy Regeneration effect is an independent SELF panel contribution for each wearer. Two active 13103 holders should therefore apply the TEAM damage bonus once while each wearer keeps their own Energy panel increase.
 
-Cinema 1 states that each additional 0.1 seconds of EX charge increases the Energy Field duration by 0.15 seconds, and Cinema 4 increases the field diameter by 3 meters. These source values are retained, but this request has no field duration/area result and no base duration with which to infer hit count, so they do not alter damage totals.
+Cinema 1's charge-duration extension and Cinema 4's field-diameter increase remain in the lossless source, but durations and range are outside this static damage result and do not scale the complete charge/field totals.

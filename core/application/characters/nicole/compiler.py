@@ -7,10 +7,8 @@ import re
 
 from core.types import (
     AnyFilter,
-    BattleEventKind,
     CalculationNode,
     CharacterRole,
-    DamageDealerFilter,
     DamageSubtype,
     DamageTag,
     DamageTagFilter,
@@ -25,10 +23,7 @@ from core.types import (
     EffectTarget,
     Element,
     ElementFilter,
-    EventCreationEffect,
-    EventCreationResult,
     EventTemplateId,
-    EventTemplateIdFilter,
     FixedMultiplier,
     ModifierEffect,
     ModifierResult,
@@ -38,8 +33,6 @@ from core.types import (
     ScenarioParameterDerivedValue,
     SkillGroup,
     SnapshotRule,
-    Unresolved,
-    UnresolvedReason,
 )
 
 from ...diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -74,6 +67,7 @@ from ..nanoka_compiler import (
 from ..nanoka_source import NanokaRawRecord, load_nanoka_raw_record
 from ..templates import (
     AttributeAnomalyDamageEventTemplate,
+    DirectDamageEventTemplate,
     DisorderDamageEventTemplate,
 )
 from .config import NicoleCompileConfig
@@ -82,22 +76,18 @@ from .reviewed import (
     CHAIN_EXPENSIVE_ETHER_BOMB_MOVE_ID,
     CINEMA6_TARGET_CRIT_ACTIVE,
     CORE_DEFENSE_DOWN_ACTIVE,
-    CHAIN_ENERGY_FIELD_HIT_OCCURRED,
     DASH_SURPRISE_BOX_MOVE_ID,
     DODGE_COUNTER_PINNING_SHOT_MOVE_ID,
     ENHANCED_AMMO_ACTIVE,
     ETHER_ANOMALY_MOVE_ID,
     ETHER_ANOMALY_RECORD_ID,
     ETHER_DISORDER_MOVE_ID,
-    EX_CHARGED_HIT_OCCURRED,
-    EX_ENERGY_FIELD_HIT_OCCURRED,
     EX_SPECIAL_CANDY_BULLET_MOVE_ID,
     NICOLE_ID,
     NICOLE_REVIEWED_MAPPING,
     QUICK_ASSIST_EMERGENCY_SHELLING_MOVE_ID,
     SPECIAL_CANDY_BULLET_MOVE_ID,
     SUPPORT_FOLLOWUP_TAKE_ADVANTAGE_MOVE_ID,
-    ULTIMATE_ENERGY_FIELD_HIT_OCCURRED,
     ULTIMATE_CUSTOM_ETHER_GRENADE_MOVE_ID,
 )
 
@@ -125,6 +115,106 @@ def _one_number(text: str, pattern: str, subject: str) -> float:
     if len(matches) != 1:
         raise ValueError(f"{subject} must contain one reviewed value; found {len(matches)}")
     return float(matches[0].group("value"))
+
+
+def _source_curve_ratio(
+    raw_move,
+    parameter_name: str,
+    source_skill_id: str,
+    level: int,
+) -> float:
+    parameter = next(
+        (item for item in raw_move.parameters if item.name == parameter_name),
+        None,
+    )
+    if parameter is None:
+        raise ValueError(
+            f"Nicole source parameter is missing: {raw_move.name}:{parameter_name}"
+        )
+    value = parameter.value_for_level(level, source_skill_id)
+    if value is None:
+        raise ValueError(
+            f"Nicole source curve is missing: {raw_move.name}:{parameter_name}:{source_skill_id}"
+        )
+    return value / 100.0
+
+
+def _entry_with_total_multiplier(
+    entry: MoveCalculationEntry,
+    multiplier: float,
+    *,
+    display_name: str,
+    label: str,
+    parameter_name: str,
+    source_note: str,
+) -> MoveCalculationEntry:
+    variant = entry.multiplier_variants[0]
+    template_ref = replace(entry.main_damage_event, label=display_name)
+    return replace(
+        entry,
+        display_name=display_name,
+        original_text=f"{entry.original_text}\n静态总式：{source_note}。",
+        main_damage_event=template_ref,
+        multiplier_variants=(
+            replace(
+                variant,
+                label=label,
+                parameter_name=parameter_name,
+                multiplier=FixedMultiplier(Resolved(multiplier)),
+            ),
+        ),
+    )
+
+
+def _charged_ex_entry(
+    tap_entry: MoveCalculationEntry,
+    direct_templates: tuple[object, ...],
+    multiplier: float,
+    original_text: str,
+) -> tuple[MoveCalculationEntry, DirectDamageEventTemplate]:
+    base_template = next(
+        item
+        for item in direct_templates
+        if isinstance(item, DirectDamageEventTemplate)
+        and item.ref.template_id == tap_entry.main_damage_event.template_id
+    )
+    template_id = EventTemplateId(
+        "template:character:1031:ex-special-candy-bullet-shelling-charged"
+    )
+    template_ref = replace(
+        base_template.ref,
+        template_id=template_id,
+        semantic_id=DamageEventSemanticId(
+            "event:character:1031:ex-special-candy-bullet-shelling-charged"
+        ),
+        label="强化特殊技：夹心糖衣炮弹（蓄力总伤害）",
+    )
+    charged_template = replace(base_template, ref=template_ref)
+    variant = tap_entry.multiplier_variants[0]
+    charged_entry = replace(
+        tap_entry,
+        entry_id=MoveEntryId(
+            "move-entry:character:1031:ex-special-candy-bullet-shelling-charged"
+        ),
+        display_name="强化特殊技：夹心糖衣炮弹（蓄力总伤害）",
+        original_text=original_text,
+        main_damage_event=template_ref,
+        multiplier_variants=(
+            replace(
+                variant,
+                variant_id=MultiplierVariantId(
+                    "variant:character:1031:ex-special-candy-bullet-shelling-charged:total"
+                ),
+                label="炮击、蓄力与能量场总倍率",
+                parameter_name="炮击伤害倍率 + 蓄力伤害倍率 + 能量场伤害倍率",
+                multiplier=FixedMultiplier(Resolved(multiplier)),
+            ),
+        ),
+        derived_damage_events=(),
+        condition_ids=(),
+        diagnostics=(),
+    )
+    return charged_entry, charged_template
 
 
 def _condition(condition_id, label: str, original_text: str, value: bool = False):
@@ -305,59 +395,6 @@ def _ether_static_entries():
     )
 
 
-def _unresolved_extra_damage_effect(
-    *,
-    effect_key: str,
-    source: RuleSource,
-    parent_template_id: EventTemplateId,
-    source_move_name: str,
-    parameter_name: str,
-    source_skill_id: str,
-    raw_moves,
-    skill_level: int,
-    scope_label: str,
-) -> EventCreationEffect:
-    raw_move = raw_moves[source_move_name]
-    parameter = next(item for item in raw_move.parameters if item.name == parameter_name)
-    source_rate = parameter.value_for_level(skill_level, source_skill_id)
-    if source_rate is None:
-        raise ValueError(
-            f"Nicole raw branch curve is missing: {source_move_name}:{parameter_name}:{source_skill_id}"
-        )
-    unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_TEXT,
-        notes=(
-            f"The raw {parameter_name} curve is {source_rate:g}% at effective skill level {skill_level}. "
-            f"The source text identifies the {scope_label}, but does not establish whether that coefficient "
-            "is one damage event or the complete multi-hit total, nor how many hit events occur. No total is chosen."
-        ),
-        original_text=raw_move.description,
-        candidates=(
-            "The raw curve is the complete total for the selected branch",
-            "The raw curve applies separately to multiple field/charge damage events",
-        ),
-    )
-    return EventCreationEffect(
-        rule=EffectRule(
-            effect_id=EffectId(f"effect:character:1031:{effect_key}"),
-            source=source,
-            owner=NICOLE_ID,
-            target=EffectTarget.TEAM,
-            snapshot_rule=SnapshotRule.SETTLEMENT,
-            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-            filters=(
-                DamageDealerFilter(NICOLE_ID),
-                DamageTypeFilter(DamageType.DIRECT),
-                EventTemplateIdFilter(parent_template_id),
-            ),
-        ),
-        result=EventCreationResult(
-            event_kind=BattleEventKind.DAMAGE,
-            unresolved_template=unresolved,
-        ),
-    )
-
-
 def compile_nicole(
     config: NicoleCompileConfig,
     raw_record: NanokaRawRecord,
@@ -392,6 +429,127 @@ def compile_nicole(
         else entry
         for entry in direct_entries
     )
+    raw_moves = raw_move_index(raw_record)
+    ex_raw_move = raw_moves["强化特殊技：夹心糖衣炮弹"]
+    chain_raw_move = raw_moves["连携技：高价以太爆弹"]
+    ultimate_raw_move = raw_moves["终结技：特制以太榴弹"]
+
+    def entry_ratio(entry_id: str) -> float:
+        entry = next(item for item in direct_entries if str(item.entry_id) == entry_id)
+        multiplier = entry.multiplier_variants[0].multiplier
+        if not isinstance(multiplier, FixedMultiplier) or not isinstance(
+            multiplier.value, Resolved
+        ):
+            raise ValueError(f"Nicole source curve is unresolved for {entry_id}")
+        return multiplier.value.value
+
+    ex_cannon_ratio = entry_ratio(
+        "move-entry:character:1031:ex-special-candy-bullet-shelling"
+    )
+    ex_skill_level = effective_skill_level(config, SkillGroup.SPECIAL_ATTACK)
+    ex_field_ratio = _source_curve_ratio(
+        ex_raw_move, "能量场伤害倍率", "1031106", ex_skill_level
+    )
+    ex_charge_ratio = _source_curve_ratio(
+        ex_raw_move, "蓄力伤害倍率", "1031103", ex_skill_level
+    )
+    chain_cannon_ratio = entry_ratio(
+        "move-entry:character:1031:chain-expensive-ether-bomb-shelling"
+    )
+    chain_field_ratio = _source_curve_ratio(
+        chain_raw_move,
+        "能量场伤害倍率",
+        "1031303",
+        effective_skill_level(config, SkillGroup.CHAIN_ATTACK),
+    )
+    ultimate_cannon_ratio = entry_ratio(
+        "move-entry:character:1031:ultimate-custom-ether-grenade-shelling"
+    )
+    ultimate_field_ratio = _source_curve_ratio(
+        ultimate_raw_move,
+        "能量场伤害倍率",
+        "1031305",
+        effective_skill_level(config, SkillGroup.ULTIMATE),
+    )
+
+    tap_ex_entry = _entry_with_total_multiplier(
+        next(
+            item
+            for item in direct_entries
+            if str(item.entry_id)
+            == "move-entry:character:1031:ex-special-candy-bullet-shelling"
+        ),
+        ex_cannon_ratio + ex_field_ratio,
+        display_name="强化特殊技：夹心糖衣炮弹（点按总伤害）",
+        label="炮击与能量场总倍率",
+        parameter_name="炮击伤害倍率 + 能量场伤害倍率",
+        source_note=(
+            f"炮击1031104+1031105={ex_cannon_ratio * 100:g}% + "
+            f"能量场1031106={ex_field_ratio * 100:g}%（各一次）"
+        ),
+    )
+    chain_entry = _entry_with_total_multiplier(
+        next(
+            item
+            for item in direct_entries
+            if str(item.entry_id)
+            == "move-entry:character:1031:chain-expensive-ether-bomb-shelling"
+        ),
+        chain_cannon_ratio + chain_field_ratio,
+        display_name="连携技：高价以太爆弹（炮击与能量场总伤害）",
+        label="炮击与能量场总倍率",
+        parameter_name="炮击伤害倍率 + 能量场伤害倍率",
+        source_note=(
+            f"炮击1031301+1031302={chain_cannon_ratio * 100:g}% + "
+            f"能量场1031303={chain_field_ratio * 100:g}%（各一次）"
+        ),
+    )
+    ultimate_entry = _entry_with_total_multiplier(
+        next(
+            item
+            for item in direct_entries
+            if str(item.entry_id)
+            == "move-entry:character:1031:ultimate-custom-ether-grenade-shelling"
+        ),
+        ultimate_cannon_ratio + ultimate_field_ratio,
+        display_name="终结技：特制以太榴弹（炮击与能量场总伤害）",
+        label="炮击与能量场总倍率",
+        parameter_name="炮击伤害倍率 + 能量场伤害倍率",
+        source_note=(
+            f"炮击1031304={ultimate_cannon_ratio * 100:g}% + "
+            f"能量场1031305={ultimate_field_ratio * 100:g}%（各一次）"
+        ),
+    )
+    total_entries = {
+        str(tap_ex_entry.entry_id): tap_ex_entry,
+        str(chain_entry.entry_id): chain_entry,
+        str(ultimate_entry.entry_id): ultimate_entry,
+    }
+    direct_entries = tuple(
+        total_entries.get(str(entry.entry_id), entry) for entry in direct_entries
+    )
+    total_refs = {
+        entry.main_damage_event.template_id: entry.main_damage_event
+        for entry in (tap_ex_entry, chain_entry, ultimate_entry)
+    }
+    direct_templates = tuple(
+        replace(template, ref=total_refs[template.ref.template_id])
+        if template.ref.template_id in total_refs
+        else template
+        for template in direct_templates
+    )
+    charged_ex_entry, charged_ex_template = _charged_ex_entry(
+        tap_ex_entry,
+        direct_templates,
+        ex_cannon_ratio + ex_field_ratio + ex_charge_ratio,
+        (
+            f"{ex_raw_move.description}\n静态总式：点按总倍率"
+            f"{(ex_cannon_ratio + ex_field_ratio) * 100:g}% + "
+            f"蓄力系数1031103 {ex_charge_ratio * 100:g}%（一次）。"
+        ),
+    )
+    direct_entries = (*direct_entries, charged_ex_entry)
+    direct_templates = (*direct_templates, charged_ex_template)
     anomaly_entries, anomaly_templates, disorder_seconds = _ether_static_entries()
     core = raw_record.core_levels[config.core_level - 1]
     core_source = source_for(
@@ -418,11 +576,6 @@ def compile_nicole(
         r"以太伤害额外提升(?P<value>[\d.]+)%",
         "Nicole Additional Ability target Ether damage bonus",
     ) / 100.0
-    raw_moves = raw_move_index(raw_record)
-    ex_raw_move = raw_moves["强化特殊技：夹心糖衣炮弹"]
-    chain_raw_move = raw_moves["连携技：高价以太爆弹"]
-    ultimate_raw_move = raw_moves["终结技：特制以太榴弹"]
-
     conditions = (
         _condition(
             ENHANCED_AMMO_ACTIVE,
@@ -433,26 +586,6 @@ def compile_nicole(
             CORE_DEFENSE_DOWN_ACTIVE,
             "妮可的核心被动减防当前对目标有效",
             core.description,
-        ),
-        _condition(
-            EX_CHARGED_HIT_OCCURRED,
-            "本次强化特殊技的额外蓄力伤害分支已触发",
-            ex_raw_move.description,
-        ),
-        _condition(
-            EX_ENERGY_FIELD_HIT_OCCURRED,
-            "本次强化特殊技的能量场对目标造成伤害",
-            ex_raw_move.description,
-        ),
-        _condition(
-            CHAIN_ENERGY_FIELD_HIT_OCCURRED,
-            "本次连携技的能量场对目标造成伤害",
-            chain_raw_move.description,
-        ),
-        _condition(
-            ULTIMATE_ENERGY_FIELD_HIT_OCCURRED,
-            "本次终结技的能量场对目标造成伤害",
-            ultimate_raw_move.description,
         ),
         _condition(
             CINEMA6_TARGET_CRIT_ACTIVE,
@@ -484,11 +617,6 @@ def compile_nicole(
         "unsupported:character:1031:cinema2:energy-result",
         "Cinema 2's 5-point Energy restore and 15-second internal cooldown remain source-only; the calculation request has no Energy resource result and does not convert this to Energy Regeneration.",
         raw_record.mindscapes[1].description,
-    )
-    c4_field_diagnostic = _diagnostic(
-        "unsupported:character:1031:cinema4:field-size-result",
-        "Cinema 4's 3-meter Energy Field diameter increase is preserved in the raw source but the request has no area/range result.",
-        raw_record.mindscapes[3].description,
     )
     c6_duration_diagnostic = _diagnostic(
         "unsupported:character:1031:cinema6:stack-duration",
@@ -624,17 +752,6 @@ def compile_nicole(
                     eligibility,
                 )
             )
-        elif level == 4:
-            rules.append(
-                _rule(
-                    "cinema4:field-size-source-only",
-                    source,
-                    "4影：能量场范围提升",
-                    mindscape.description,
-                    eligibility,
-                    diagnostics=(c4_field_diagnostic,),
-                )
-            )
         elif level == 6:
             crit_per_stack = _one_number(
                 mindscape.description,
@@ -692,104 +809,6 @@ def compile_nicole(
             diagnostics=(resource_diagnostic,),
         )
     )
-
-    ex_charge_source = source_for(
-        NICOLE_ID,
-        "ex-special-charge-damage",
-        EffectSourceType.SKILL,
-        "强化特殊技：蓄力额外伤害",
-        ex_raw_move.description,
-    )
-    ex_cannon_template = EventTemplateId(
-        "template:character:1031:ex-special-candy-bullet-shelling:main"
-    )
-    rules.append(
-        _rule(
-            "ex-special:charged-damage-unresolved",
-            ex_charge_source,
-            "强化特殊技：蓄力额外伤害（总伤害未定）",
-            ex_raw_move.description,
-            RuleEligibility.ELIGIBLE,
-            conditions=(EX_CHARGED_HIT_OCCURRED,),
-            effects=(
-                _unresolved_extra_damage_effect(
-                    effect_key="ex-special:charged-damage-unresolved",
-                    source=ex_charge_source,
-                    parent_template_id=ex_cannon_template,
-                    source_move_name=ex_raw_move.name,
-                    parameter_name="蓄力伤害倍率",
-                    source_skill_id="1031103",
-                    raw_moves=raw_moves,
-                    skill_level=effective_skill_level(config, SkillGroup.SPECIAL_ATTACK),
-                    scope_label="EX Special charged-damage branch",
-                ),
-            ),
-        )
-    )
-
-    energy_field_branches = (
-        (
-            "ex-special:energy-field-damage-unresolved",
-            EX_ENERGY_FIELD_HIT_OCCURRED,
-            ex_raw_move,
-            "1031106",
-            "强化特殊技：夹心糖衣炮弹（炮击）",
-            "template:character:1031:ex-special-candy-bullet-shelling:main",
-            SkillGroup.SPECIAL_ATTACK,
-            "EX Special Energy Field",
-        ),
-        (
-            "chain:energy-field-damage-unresolved",
-            CHAIN_ENERGY_FIELD_HIT_OCCURRED,
-            chain_raw_move,
-            "1031303",
-            "连携技：高价以太爆弹（炮击）",
-            "template:character:1031:chain-expensive-ether-bomb-shelling:main",
-            SkillGroup.CHAIN_ATTACK,
-            "Chain Attack Energy Field",
-        ),
-        (
-            "ultimate:energy-field-damage-unresolved",
-            ULTIMATE_ENERGY_FIELD_HIT_OCCURRED,
-            ultimate_raw_move,
-            "1031305",
-            "终结技：特制以太榴弹（炮击）",
-            "template:character:1031:ultimate-custom-ether-grenade-shelling:main",
-            SkillGroup.ULTIMATE,
-            "Ultimate Energy Field",
-        ),
-    )
-    for suffix, condition_id, source_move, source_skill_id, label, parent_template_id, group, scope in energy_field_branches:
-        field_source = source_for(
-            NICOLE_ID,
-            suffix.replace(":", "-"),
-            EffectSourceType.SKILL,
-            label,
-            source_move.description,
-        )
-        rules.append(
-            _rule(
-                suffix,
-                field_source,
-                f"{label}（伤害次数/倍率单位未定）",
-                source_move.description,
-                RuleEligibility.ELIGIBLE,
-                conditions=(condition_id,),
-                effects=(
-                    _unresolved_extra_damage_effect(
-                        effect_key=suffix,
-                        source=field_source,
-                        parent_template_id=EventTemplateId(parent_template_id),
-                        source_move_name=source_move.name,
-                        parameter_name="能量场伤害倍率",
-                        source_skill_id=source_skill_id,
-                        raw_moves=raw_moves,
-                        skill_level=effective_skill_level(config, group),
-                        scope_label=scope,
-                    ),
-                ),
-            )
-        )
 
     daze_diagnostic = _diagnostic(
         "unsupported:character:1031:daze-result",

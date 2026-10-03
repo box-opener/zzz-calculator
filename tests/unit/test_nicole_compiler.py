@@ -112,10 +112,6 @@ def _payload(
         "condition_values": {
             "condition:nicole:enhanced-ammo-active": False,
             "condition:nicole:core-defense-down-active": False,
-            "condition:nicole:ex-charged-hit-occurred": False,
-            "condition:nicole:ex-energy-field-hit-occurred": False,
-            "condition:nicole:chain-energy-field-hit-occurred": False,
-            "condition:nicole:ultimate-energy-field-hit-occurred": False,
             "condition:nicole:cinema6-target-crit-active": False,
             **(conditions or {}),
         },
@@ -183,7 +179,7 @@ def test_nicole_live_raw_base_stats_and_formula_curves_are_complete() -> None:
         raw,
     )
     direct = {entry.display_name: entry for entry in definition.move_entries if entry.skill_group is not None}
-    assert len(direct) == 16
+    assert len(direct) == 17
     expected = {
         "普通攻击：狡兔连打（一段）": 1.331,
         "普通攻击：狡兔连打（二段）": 1.44,
@@ -196,9 +192,10 @@ def test_nicole_live_raw_base_stats_and_formula_curves_are_complete() -> None:
         "冲刺攻击：为所欲为（前闪强化弹）": 3.18,
         "闪避反击：牵制炮击": 3.65,
         "特殊技：糖衣炮弹": 1.054,
-        "强化特殊技：夹心糖衣炮弹（炮击）": 4.306,
-        "连携技：高价以太爆弹（炮击）": 4.208,
-        "终结技：特制以太榴弹（炮击）": 12.936,
+        "强化特殊技：夹心糖衣炮弹（点按总伤害）": 12.048,
+        "强化特殊技：夹心糖衣炮弹（蓄力总伤害）": 16.354,
+        "连携技：高价以太爆弹（炮击与能量场总伤害）": 9.876,
+        "终结技：特制以太榴弹（炮击与能量场总伤害）": 30.402,
         "快速支援：救急炮击": 1.272,
         "支援突击：趁虚而入": 7.544,
     }
@@ -244,7 +241,7 @@ def test_nicole_registered_a_rank_defaults_signature_and_v2_catalog() -> None:
         [NICOLE_ID],
         strict=False,
     )
-    assert len(definition.move_entries) == 18
+    assert len(definition.move_entries) == 19
     assert next(
         item for item in definition.rule_items
         if str(item.rule_id) == "rule:character:1031:extra-ability:target-ether-damage"
@@ -293,7 +290,7 @@ def test_nicole_cinema1_changes_ex_bonus_and_buildup_not_the_skill_ratio() -> No
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200, response.text
     event = response.json()["events"][0]
-    assert _node(event, CalculationNode.DAMAGE_SKILL_MULTIPLIER) == pytest.approx(4.306)
+    assert _node(event, CalculationNode.DAMAGE_SKILL_MULTIPLIER) == pytest.approx(12.048)
     assert _node(event, CalculationNode.DAMAGE_NORMAL_BONUS) == pytest.approx(0.16)
     assert _node(event, CalculationNode.DAMAGE_NORMAL_BONUS_REGION) == pytest.approx(1.16)
     assert any(
@@ -339,37 +336,94 @@ def test_nicole_cinema6_is_target_specific_event_crit_and_never_changes_formal_p
     assert len({mode["value"] for mode in anomaly_event["modes"].values()}) == 1
 
 
-def test_nicole_energy_field_uncertainty_is_local_and_preserves_the_cannon_hit() -> None:
-    entry = "move-entry:character:1031:ex-special-candy-bullet-shelling"
-    base = client.post("/api/v1/moves/calculate", json=_payload(entry))
-    assert base.status_code == 200, base.text
-    assert base.json()["totals"]["expected"]["complete"] is True
+@pytest.mark.parametrize(
+    ("entry_id", "level12_ratio", "level16_ratio"),
+    (
+        (
+            "move-entry:character:1031:ex-special-candy-bullet-shelling",
+            12.048,
+            14.24,
+        ),
+        (
+            "move-entry:character:1031:ex-special-candy-bullet-shelling-charged",
+            16.354,
+            19.33,
+        ),
+        (
+            "move-entry:character:1031:chain-expensive-ether-bomb-shelling",
+            9.876,
+            11.676,
+        ),
+        (
+            "move-entry:character:1031:ultimate-custom-ether-grenade-shelling",
+            30.402,
+            35.93,
+        ),
+    ),
+)
+def test_nicole_charge_and_energy_field_curves_are_complete_totals(
+    entry_id: str,
+    level12_ratio: float,
+    level16_ratio: float,
+) -> None:
+    for skill_level, expected_ratio in ((12, level12_ratio), (16, level16_ratio)):
+        response = client.post(
+            "/api/v1/moves/calculate",
+            json=_payload(entry_id, skill_level=skill_level),
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["totals"]["expected"]["complete"] is True
+        assert len(result["events"]) == 1
+        assert len(result["diagnostics"]) == 0
+        assert _node(
+            result["events"][0], CalculationNode.DAMAGE_SKILL_MULTIPLIER
+        ) == pytest.approx(expected_ratio)
 
-    field_rule = "rule:character:1031:ex-special:energy-field-damage-unresolved"
-    field_payload = _payload(
-        entry,
-        conditions={"condition:nicole:ex-energy-field-hit-occurred": True},
-        enabled=(field_rule,),
-    )
-    response = client.post("/api/v1/moves/calculate", json=field_payload)
-    assert response.status_code == 200, response.text
-    result = response.json()
-    assert result["totals"]["expected"]["complete"] is False
-    assert result["totals"]["expected"]["value"] > 0
-    assert result["events"][0]["modes"]["expected"]["status"] == "calculated"
-    assert any(item["blocking"] and item["kind"] == "ambiguous-semantics" for item in result["diagnostics"])
 
-    charge_payload = _payload(
-        entry,
-        conditions={"condition:nicole:ex-charged-hit-occurred": True},
-        enabled=("rule:character:1031:ex-special:charged-damage-unresolved",),
+def test_nicole_plain_and_enhanced_ammo_are_selectable_without_reload_count() -> None:
+    plain_cases = (
+        ("move-entry:character:1031:basic-rabbit-combo-1", 1.331),
+        ("move-entry:character:1031:dash-surprise-box-front", 3.18),
     )
-    charge_response = client.post("/api/v1/moves/calculate", json=charge_payload)
-    assert charge_response.status_code == 200, charge_response.text
-    charge_result = charge_response.json()
-    assert charge_result["totals"]["expected"]["complete"] is False
-    assert charge_result["events"][0]["modes"]["expected"]["value"] > 0
-    assert any(item["blocking"] for item in charge_result["diagnostics"])
+    enhanced_cases = (
+        ("move-entry:character:1031:basic-enhanced-cunning-shot-1", 1.774),
+        ("move-entry:character:1031:dash-surprise-box-front-enhanced", 3.18),
+    )
+    for entry_id, expected_ratio in plain_cases:
+        response = client.post(
+            "/api/v1/moves/calculate",
+            json=_payload(entry_id, conditions={"condition:nicole:enhanced-ammo-active": False}),
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["totals"]["expected"]["complete"] is True
+        assert _node(
+            result["events"][0], CalculationNode.DAMAGE_SKILL_MULTIPLIER
+        ) == pytest.approx(expected_ratio)
+
+    for entry_id, expected_ratio in enhanced_cases:
+        response = client.post(
+            "/api/v1/moves/calculate",
+            json=_payload(entry_id, conditions={"condition:nicole:enhanced-ammo-active": True}),
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["totals"]["expected"]["complete"] is True
+        assert _node(
+            result["events"][0], CalculationNode.DAMAGE_SKILL_MULTIPLIER
+        ) == pytest.approx(expected_ratio)
+
+    definition = compile_nicole(
+        NicoleCompileConfig(core_level=1, cinema_level=0),
+        load_raw_record(load_character_record(str(NICOLE_ID))),
+    )
+    assert all("reload" not in str(item.parameter_id) for item in definition.scenario_parameters)
+    assert not any("ammo-stack" in str(item.parameter_id) for item in definition.scenario_parameters)
+    condition_ids = {str(item.condition_id) for item in definition.scenario_conditions}
+    assert not any("energy-field-hit" in item for item in condition_ids)
+    assert "condition:nicole:ex-charged-hit-occurred" not in condition_ids
+    assert not any("unresolved" in str(item.rule_id) for item in definition.rule_items)
 
 
 def test_nicole_r5_treasure_chest_signature_build_preserves_white_stats_and_current_flat_regen() -> None:

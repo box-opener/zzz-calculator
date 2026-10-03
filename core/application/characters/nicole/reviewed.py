@@ -15,18 +15,6 @@ ENHANCED_AMMO_ACTIVE = ScenarioConditionId("condition:nicole:enhanced-ammo-activ
 CORE_DEFENSE_DOWN_ACTIVE = ScenarioConditionId(
     "condition:nicole:core-defense-down-active"
 )
-EX_CHARGED_HIT_OCCURRED = ScenarioConditionId(
-    "condition:nicole:ex-charged-hit-occurred"
-)
-EX_ENERGY_FIELD_HIT_OCCURRED = ScenarioConditionId(
-    "condition:nicole:ex-energy-field-hit-occurred"
-)
-CHAIN_ENERGY_FIELD_HIT_OCCURRED = ScenarioConditionId(
-    "condition:nicole:chain-energy-field-hit-occurred"
-)
-ULTIMATE_ENERGY_FIELD_HIT_OCCURRED = ScenarioConditionId(
-    "condition:nicole:ultimate-energy-field-hit-occurred"
-)
 CINEMA6_TARGET_CRIT_ACTIVE = ScenarioConditionId(
     "condition:nicole:cinema6-target-crit-active"
 )
@@ -307,16 +295,15 @@ NICOLE_REVIEWED_MAPPING = NanokaReviewedMapping(
     ),
     data_quality_notes=(
         "The base Physical Basic/Dash entries and Ether Dodge Counter/Special/Chain/Ultimate/Assist entries follow the exact Nanoka prose and skill_list element IDs.",
-        "Nicole's source supplies distinct Basic/Dash normal and enhanced-ammo curves. The enhanced entries are separate current-state selections; mapping the 0–8 reload counter to a hit position/count is not inferred.",
+        "Nicole's source supplies distinct Basic/Dash normal and enhanced-ammo curves. The enhanced entries share one current-state selection; mapping the 0–8 reload counter to a hit position/count is not inferred.",
         "For the explicit source formulas `A + {B/3}*3`, `A + {B/4}*4`, and `A + {B/20}*20`, the reviewed component weights sum the corresponding curves once each; the divisors and repeats cancel and are not multiplied a second time.",
-        "EX Special, Chain, and Ultimate cannon curves are mapped as separate one-shot entries. Charge and Energy Field hit branches retain their raw source multipliers, but hit count and the total-field multiplier unit are not silently selected.",
+        "EX Special, Chain, and Ultimate entries include each raw cannon and Energy Field total curve once. The EX charged entry is a separate selectable total that adds the charge curve once; no hit count, duration, or field range scales these totals.",
     ),
 )
 
 
 __all__ = [
     "BASIC_RABBIT_COMBO_MOVE_ID",
-    "CHAIN_ENERGY_FIELD_HIT_OCCURRED",
     "CHAIN_EXPENSIVE_ETHER_BOMB_MOVE_ID",
     "CINEMA6_TARGET_CRIT_ACTIVE",
     "CORE_DEFENSE_DOWN_ACTIVE",
@@ -326,14 +313,11 @@ __all__ = [
     "ETHER_ANOMALY_MOVE_ID",
     "ETHER_ANOMALY_RECORD_ID",
     "ETHER_DISORDER_MOVE_ID",
-    "EX_CHARGED_HIT_OCCURRED",
-    "EX_ENERGY_FIELD_HIT_OCCURRED",
     "EX_SPECIAL_CANDY_BULLET_MOVE_ID",
     "NICOLE_ID",
     "NICOLE_REVIEWED_MAPPING",
     "QUICK_ASSIST_EMERGENCY_SHELLING_MOVE_ID",
     "SPECIAL_CANDY_BULLET_MOVE_ID",
     "SUPPORT_FOLLOWUP_TAKE_ADVANTAGE_MOVE_ID",
-    "ULTIMATE_ENERGY_FIELD_HIT_OCCURRED",
     "ULTIMATE_CUSTOM_ETHER_GRENADE_MOVE_ID",
 ]
