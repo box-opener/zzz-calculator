@@ -1089,7 +1089,7 @@ def compile_yixuan(
             RuleEligibility.ELIGIBLE
             if config.cinema_level >= 4
             else RuleEligibility.INELIGIBLE,
-            stack_count=0,
+            stack_count=2,
             stack_min=0,
             stack_max=2,
             effects=(

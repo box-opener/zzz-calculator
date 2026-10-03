@@ -810,3 +810,54 @@ The Basic and Dash tables retain distinct normal and enhanced-ammo curves. The o
 The source signature 13103 has two R5 effects from the same Ether-trigger state. The TEAM target damage component uses its stable non-stacking group; the +0.8 Energy Regeneration effect is an independent SELF panel contribution for each wearer. Two active 13103 holders should therefore apply the TEAM damage bonus once while each wearer keeps their own Energy panel increase.
 
 Cinema 1's charge-duration extension and Cinema 4's field-diameter increase remain in the lossless source, but durations and range are outside this static damage result and do not scale the complete charge/field totals.
+
+## B6 stack-default and scope audit
+
+The user confirmed that an unspecified stack effect starts at its maximum, while
+any explicit user stack selection—including zero—wins. The compiler now defaults
+bounded stack RuleItems across registered characters, reviewed W-Engines, and
+Drive Discs to their maximum; the API uses the same compiled default when
+`rule_stack_counts` omits an entry. The editor shows that default and retains a
+previous zero or intermediate value when definition previews refresh.
+
+Current typed stack parameters also default to maximum where they represent
+current buff layers: Nekomata's Additional Ability/Cinema 4/Cinema 6 layers,
+Nicole's Cinema 6 target Crit Rate layers, and Qingyi's Subjugation layers. This
+does not set non-stack scenario inputs to their range maximum. In particular,
+Anby's 0–8 available C6 charges remain a resource count defaulting to zero;
+Vivian's C6 feather count, Yuzuha's extra shell count, Vivian Prophecy tick count,
+charge-time, Flashover excess, and Disorder remaining-time inputs retain their
+existing defaults. W-Engine 13001 and 14003 are per-charge effect stacks,
+so their selected stack defaults are three and six respectively; no charge
+generation or consumption timing is replayed.
+
+Character configuration v2 continues to contain build, equipment, and compile
+configuration only; it does not serialize scenario stack selections. Importing a
+v2 character/build file therefore leaves current scenario choices in editor
+state, and a newly appearing stack rule displays its compiled maximum.
+
+## Confirmed-decision implementation audit (non-authoritative)
+
+This audit covers only the user's confirmed repair batch for already registered
+characters and reviewed equipment; it is not a claim that every game character,
+weapon, or mechanic is implemented. The user's confirmed A/B decisions are
+covered as follows:
+
+| Scope | Implementation status |
+|---|---|
+| A1–A6: Miyabi cumulative charge hits, Yixuan Penetration, Lucia Follow-up and split Ultimate entries | Pushed in `fa7386c` |
+| A7–A8: Dialyn fixed formation-slot source and Rock/Paper/Scissors mapping | Pushed in `1654100` |
+| A9–A10: Vivian Basic elements and C6 feather scaling | Pushed in `8aa7630` |
+| A11–A15: Zhao mixed Dash omission, Qingyi element/rush/EX coefficient decisions | Pushed in `64401c7` and `8aa7630` |
+| A16–A19: W-Engine owner identity, Direct source, Lip Gloss target scope, TEAM-only uniqueness | Pushed in `b431288` |
+| A20: static maximum for matching same-name effects | Pushed in `5406e4c` |
+| A21–A22, B4: Nekomata random baseline omitted, C1 back-hit interaction, Potential 0–6 | Pushed in `b440139` |
+| A23–A24: Nicole complete field totals and normal/enhanced selection | Pushed in `64401c7` |
+| B5: Vivian active-panel anomaly results shown separately from the selected-move total | Pushed in `be1baec` |
+| B6: maximum defaults for supported stack effects, with explicit selections preserved | Implemented in this B6 change |
+
+B1 and B2 remain parked as the user requested. B3 uses only selected current
+states and stack counts; no timeline or duration simulation is introduced. The
+earlier local diagnosis for Vivian's Direct Feathering Blossoms target record
+remains scoped to that child-event path; this stack-default batch does not alter
+or claim to close it.

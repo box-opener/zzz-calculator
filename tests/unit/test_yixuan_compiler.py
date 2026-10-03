@@ -326,12 +326,19 @@ def test_cinema_modifiers_keep_their_move_and_damage_type_scopes() -> None:
     assert c2_event["modes"]["expected"]["status"] == "calculated"
 
     c4_rule = "rule:character:1371:cinema4:stillness-damage"
+    c4_definition = compile_yixuan(
+        YixuanCompileConfig(cinema_level=4),
+        _yixuan_raw(),
+    )
+    c4_compiled_rule = next(
+        item for item in c4_definition.rule_items if str(item.rule_id) == c4_rule
+    )
+    assert (c4_compiled_rule.stack_count, c4_compiled_rule.stack_max) == (2, 2)
     c4 = calculate_payload(
         _payload(
             move_entry_id=CLOUD_ENTRY,
             cinema_level=4,
             enabled_rule_item_ids=(c4_rule,),
-            rule_stack_counts={c4_rule: 2},
         )
     )
     assert _node(_event(c4), "damage.normal-bonus")["value"] == pytest.approx(0.60)

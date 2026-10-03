@@ -1992,6 +1992,42 @@ def test_friendly_cannon_mixed_refinements_maximizes_effective_attack_layers(
     }
 
 
+def test_friendly_cannon_defaults_to_four_layers_without_inferring_from_unit_count() -> None:
+    rule_id = "rule:wengine:13115:owner:1311:team-attack-per-ally-stack"
+    payload = _with_supporting_wengine(
+        _valid_calculation_payload(),
+        [("character:1311", "wengine:13115", 5, "ether")],
+    )
+    payload["enabled_rule_item_ids"] = [rule_id]
+
+    def ye_attack(selected: int | None) -> tuple[float, int | None]:
+        current = deepcopy(payload)
+        if selected is not None:
+            current["rule_stack_counts"] = {rule_id: selected}
+        response = client.post("/api/v1/moves/calculate", json=current)
+        assert response.status_code == 200, response.text
+        result = response.json()
+        snapshot = next(
+            item for item in result["resolved_character_snapshots"]
+            if item["character_id"] == "character:1431"
+        )
+        traces = [
+            item for item in result["panel_traces"]
+            if item["effect_id"] == "effect:wengine:13115:owner:1311:team-attack-per-ally-stack"
+        ]
+        return snapshot["stats"]["attack"], traces[0]["stack_count"] if traces else None
+
+    default_attack, default_stack = ye_attack(None)
+    zero_attack, zero_stack = ye_attack(0)
+    middle_attack, middle_stack = ye_attack(2)
+    assert default_stack == 4
+    assert zero_stack is None
+    assert middle_stack == 2
+    assert default_attack == pytest.approx(1200.0 * 1.16)
+    assert zero_attack == pytest.approx(1200.0)
+    assert middle_attack == pytest.approx(1200.0 * 1.08)
+
+
 @pytest.mark.parametrize(
     ("refinements", "expected_delta"),
     (((1, 1), 0.08), ((1, 5), 0.12)),
@@ -2338,7 +2374,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
 
 
 @pytest.mark.parametrize(
-    ("owner", "wengine_id", "element", "rule_suffix", "source_fragment"),
+    ("owner", "wengine_id", "element", "rule_suffix", "source_fragment", "damage_change_expected"),
     (
         (
             "character:1401",
@@ -2346,6 +2382,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "physical",
             "anomaly-energy-restore",
             "回复<color=#2BAD00>5.5</color>点能量",
+            False,
         ),
         (
             "character:1341",
@@ -2353,6 +2390,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "ice",
             "enemy-outgoing-damage-reduction",
             "造成的伤害降低<color=#2BAD00>10%</color>",
+            False,
         ),
         (
             "character:1311",
@@ -2360,6 +2398,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "ether",
             "resource-gains",
             "喧响值",
+            False,
         ),
         (
             "character:1341",
@@ -2367,6 +2406,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "ice",
             "incoming-damage-and-resource-effects",
             "能量获得效率提升",
+            False,
         ),
         (
             "character:1341",
@@ -2374,6 +2414,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "ice",
             "incoming-damage-and-malaise-reduction",
             "秽息浸染",
+            False,
         ),
         (
             "character:1341",
@@ -2381,6 +2422,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "ice",
             "incoming-damage-reduction",
             "受到的伤害降低",
+            False,
         ),
         (
             "character:1341",
@@ -2388,6 +2430,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "ice",
             "team-energy-restore",
             "回复<color=#2BAD00>3.2</color>点能量",
+            False,
         ),
         (
             "character:1311",
@@ -2395,6 +2438,7 @@ def test_street_superstar_uses_explicit_current_charge_count_on_ultimate_only() 
             "ether",
             "team-attack-per-ally-stack",
             "每名友方单位最多提供1层增益效果",
+            True,
         ),
     ),
 )
@@ -2404,6 +2448,7 @@ def test_result_only_weapon_effects_keep_scoped_nonblocking_diagnostics(
     element: str,
     rule_suffix: str,
     source_fragment: str,
+    damage_change_expected: bool,
 ) -> None:
     payload = _with_supporting_wengine(
         _valid_calculation_payload(), [(owner, wengine_id, 5, element)]
@@ -2420,9 +2465,12 @@ def test_result_only_weapon_effects_keep_scoped_nonblocking_diagnostics(
         item for item in result["diagnostics"] if source_fragment in (item["original_text"] or "")
     )
     assert diagnostic["blocking"] is False
-    assert result["events"][0]["modes"]["expected"]["value"] == pytest.approx(
-        baseline["events"][0]["modes"]["expected"]["value"]
-    )
+    if damage_change_expected:
+        assert result["events"][0]["modes"]["expected"]["value"] > baseline["events"][0]["modes"]["expected"]["value"]
+    else:
+        assert result["events"][0]["modes"]["expected"]["value"] == pytest.approx(
+            baseline["events"][0]["modes"]["expected"]["value"]
+        )
 
 
 def test_electric_lip_gloss_field_anomaly_state_applies_owner_and_any_target_bonus() -> None:

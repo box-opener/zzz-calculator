@@ -231,6 +231,55 @@ def test_nekomata_registry_defaults_and_signature_selection_are_s_rank_attack() 
     assert len(definition.move_entries) == 16
 
 
+def test_nekomata_stack_parameters_default_full_and_keep_zero_or_partial_selection() -> None:
+    definition = compile_nekomata(
+        NekomataCompileConfig(cinema_level=6),
+        load_raw_record(load_character_record(str(NEKOMATA_ID))),
+    )
+    defaults = {str(item.parameter_id): item.value for item in definition.scenario_parameters}
+    assert defaults["parameter:nekomata:extra-ability-ex-damage-stacks"] == 2
+    assert defaults["parameter:nekomata:cinema4-crit-rate-stacks"] == 2
+    assert defaults["parameter:nekomata:cinema6-crit-damage-stacks"] == 3
+
+    enabled = (
+        "rule:character:1021:cinema4:current-crit-rate-stacks",
+        "rule:character:1021:cinema6:current-crit-damage-stacks",
+    )
+    def panel(parameters):
+        response = client.post(
+            "/api/v1/moves/calculate",
+            json=_payload(
+                "move-entry:character:1021:ex-special-super-ferocious-ambush",
+                cinema_level=6,
+                parameters=parameters,
+                enabled=enabled,
+            ),
+        )
+        assert response.status_code == 200, response.text
+        return next(
+            item["stats"]
+            for item in response.json()["resolved_character_snapshots"]
+            if item["character_id"] == "character:1021"
+        )
+
+    maximum = panel({})
+    zero = panel(
+        {
+            "parameter:nekomata:cinema4-crit-rate-stacks": 0,
+            "parameter:nekomata:cinema6-crit-damage-stacks": 0,
+        }
+    )
+    middle = panel(
+        {
+            "parameter:nekomata:cinema4-crit-rate-stacks": 1,
+            "parameter:nekomata:cinema6-crit-damage-stacks": 2,
+        }
+    )
+    assert (maximum["crit_rate"], maximum["crit_damage"]) == pytest.approx((0.334, 1.04))
+    assert (zero["crit_rate"], zero["crit_damage"]) == pytest.approx((0.194, 0.5))
+    assert (middle["crit_rate"], middle["crit_damage"]) == pytest.approx((0.264, 0.86))
+
+
 def test_nekomata_real_payload_applies_core_cinema_panels_and_c1_enemy_stun_once() -> None:
     payload = _payload(
         "move-entry:character:1021:ex-special-super-ferocious-ambush",

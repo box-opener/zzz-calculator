@@ -42,7 +42,8 @@ from core.application.equipment.wengine_ids import (
     WENGINE_ATTACK_SAMPLE_IDS,
     WENGINE_SUPPORT_SAMPLE_IDS,
 )
-from core.presentation.registry import registration_for
+from core.presentation.registry import compile_registered_definition, registration_for
+from core.data.loader import supported_character_ids
 from core.data.wengines.loader import load_wengine_record, supported_wengine_ids
 from core.application.matching import (
     CharacterMatchProfile,
@@ -490,7 +491,7 @@ def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_ref
             assert effect.result.value == Resolved(value)
             if numeric_key == "ultimate_bonus_per_charge":
                 assert (result.rule_items[0].stack_count, result.rule_items[0].stack_min, result.rule_items[0].stack_max) == (
-                    0,
+                    3,
                     0,
                     3,
                 )
@@ -1764,6 +1765,81 @@ def test_stage_18_2_5_reviewed_effects_keep_damage_filters_and_stack_bounds() ->
     )
     assert cradle.rule_items[1].stack_count == 6
     assert cradle.rule_items[1].effects[0].result.value == Resolved(0.017)
+
+
+def test_b6_defaults_character_and_wengine_stack_effects_to_max() -> None:
+    roaming = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:13003"), CharacterId("character:1331")),
+        owner_capabilities=registration_for("character:1331").equipment_capabilities,
+    )
+    attack_stacks = next(
+        item for item in roaming.rule_items
+        if str(item.rule_id).endswith(":attack-per-energy-stack")
+    )
+    assert (attack_stacks.stack_count, attack_stacks.stack_min, attack_stacks.stack_max) == (10, 0, 10)
+
+    rotor = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14003"), CharacterId("character:1431")),
+        owner_capabilities=registration_for("character:1431").equipment_capabilities,
+    )
+    charge = next(
+        item for item in rotor.rule_items
+        if str(item.rule_id).endswith(":ex-special-daze-per-charge")
+    )
+    assert (charge.stack_count, charge.stack_min, charge.stack_max) == (6, 0, 6)
+
+
+def test_b6_reviewed_character_and_wengine_rule_stacks_default_to_max() -> None:
+    character_parameter_defaults = {}
+    for character_id in supported_character_ids():
+        definition = compile_registered_definition(
+            character_id,
+            {},
+            [character_id],
+            strict=False,
+        )
+        for rule in definition.rule_items:
+            if rule.stack_count is None:
+                continue
+            if str(rule.rule_id) == "rule:character:1011:cinema6:charge-stacks":
+                assert rule.stack_count == 0
+                continue
+            assert rule.stack_count == rule.stack_max, str(rule.rule_id)
+        character_parameter_defaults.update(
+            {
+                str(parameter.parameter_id): parameter.value
+                for parameter in definition.scenario_parameters
+            }
+        )
+
+    assert character_parameter_defaults["parameter:nekomata:extra-ability-ex-damage-stacks"] == 2
+    assert character_parameter_defaults["parameter:nekomata:cinema4-crit-rate-stacks"] == 2
+    assert character_parameter_defaults["parameter:nekomata:cinema6-crit-damage-stacks"] == 3
+    assert character_parameter_defaults["parameter:nekomata:physical-disorder-remaining-seconds"] == 10
+    assert character_parameter_defaults["parameter:astra:wind-chime-tremolo-count"] is None
+    assert character_parameter_defaults["parameter:ye:flowing-cloud-sword-count"] is None
+    assert character_parameter_defaults["parameter:yuzuha:cinema6:strong-shell-count"] == 0
+    assert character_parameter_defaults["parameter:alice:periodic-extra-tick-count"] == 1
+    assert character_parameter_defaults["parameter:alice:victory-extra-attack-count"] == 6
+    assert character_parameter_defaults["parameter:vivian:prophecy-tick-count"] is None
+    assert character_parameter_defaults["parameter:vivian:cinema6-feather-count"] == 5
+    assert character_parameter_defaults["parameter:nicole:cinema6-target-crit-stacks"] == 10
+    assert character_parameter_defaults["parameter:zhao:final-judgment-charge-seconds"] is None
+    assert character_parameter_defaults["parameter:qingyi:subjugation-stacks"] == 20
+    assert character_parameter_defaults["parameter:qingyi:flashover-excess-percent"] == 0
+
+    owner = CharacterId("character:b6-audit")
+    for wengine_id in supported_wengine_ids():
+        raw = load_wengine_raw_record(wengine_id)
+        result = compile_wengine(
+            WEngineBuildInput(WEngineId(wengine_id), owner),
+            equipped_character_role=raw.specialty,
+        )
+        assert all(
+            rule.stack_count == rule.stack_max
+            for rule in result.rule_items
+            if rule.stack_count is not None
+        ), wengine_id
 
 
 def test_equipment_effect_eligibility_uses_owner_capabilities_not_only_role() -> None:

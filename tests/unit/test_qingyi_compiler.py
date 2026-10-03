@@ -371,6 +371,23 @@ def test_additional_ability_reads_current_impact_after_real_engine_panel_buff() 
 
 
 def test_subjugation_core_and_cinema2_use_one_layer_parameter() -> None:
+    default_max = calculate_payload(
+        _payload(
+            move_entry_id="move-entry:character:1251:chain-peaceful-order",
+            core_level=7,
+            condition_values={},
+            enabled_rule_item_ids=(CORE_RULE, CHAIN_RULE),
+        )
+    )
+    explicit_zero = calculate_payload(
+        _payload(
+            move_entry_id="move-entry:character:1251:chain-peaceful-order",
+            core_level=7,
+            condition_values={},
+            parameter_values={SUBJUGATION_STACKS: 0},
+            enabled_rule_item_ids=(CORE_RULE, CHAIN_RULE),
+        )
+    )
     c0 = calculate_payload(
         _payload(
             move_entry_id="move-entry:character:1251:chain-peaceful-order",
@@ -388,6 +405,9 @@ def test_subjugation_core_and_cinema2_use_one_layer_parameter() -> None:
         )
     )
     event0, event2 = _event(c0), _event(c2)
+    assert _node(_event(default_max), "vulnerability.enemy-stun") == pytest.approx(2.3)
+    assert _node(_event(explicit_zero), "vulnerability.enemy-stun") == pytest.approx(1.5)
+    assert _node(event0, "vulnerability.enemy-stun") == pytest.approx(1.7)
     assert _node(event0, "damage.normal-bonus") == pytest.approx(0.30)
     assert _node(event2, "damage.normal-bonus") == pytest.approx(0.30)
     assert _node(event0, "vulnerability.effective-stun") == pytest.approx(0.0)

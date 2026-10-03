@@ -37,6 +37,7 @@ from core.types import (
     RuleStackCondition,
     SkillGroup,
 )
+from core.data.drive_discs.loader import DRIVE_DISC_SET_IDS
 
 
 def _stats(
@@ -224,11 +225,21 @@ def test_yunkui_full_stack_effect_reuses_the_same_rule_stack_truth() -> None:
         for item in resolution.rule_items
         if item.rule_id.endswith("full-stack-penetration")
     )
+    assert stack_rule.stack_count == stack_rule.stack_max == 3
     condition = full_rule.effects[0].rule.condition
     assert isinstance(condition, RuleStackCondition)
     assert condition.rule_item_id == str(stack_rule.rule_id)
     assert condition.required_value == 3
     assert not resolution.scenario_conditions
+
+
+def test_b6_all_reviewed_drive_disc_stacks_default_to_maximum() -> None:
+    owner = CharacterId("character:drive-stack-audit")
+    for set_id in DRIVE_DISC_SET_IDS:
+        resolution = _resolution(set_id, owner)
+        for rule in resolution.rule_items:
+            if rule.stack_count is not None:
+                assert rule.stack_count == rule.stack_max, str(rule.rule_id)
 
 
 def test_base_element_scopes_explicitly_include_variant_elements() -> None:

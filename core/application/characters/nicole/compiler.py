@@ -598,7 +598,7 @@ def compile_nicole(
         label="6影：当前目标暴击率增益层数",
         original_text=raw_record.mindscapes[5].description,
         resolution=ParameterResolution.USER_SELECTED,
-        value=0,
+        value=10,
         minimum=0,
         maximum=10,
     )

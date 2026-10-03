@@ -305,7 +305,6 @@ def test_nicole_cinema6_is_target_specific_event_crit_and_never_changes_formal_p
         "move-entry:character:1031:ex-special-candy-bullet-shelling",
         cinema_level=6,
         conditions={"condition:nicole:cinema6-target-crit-active": True},
-        parameters={"parameter:nicole:cinema6-target-crit-stacks": 10},
         enabled=("rule:character:1031:cinema6:target-crit-rate-stacks",),
     )
     response = client.post("/api/v1/moves/calculate", json=payload)
@@ -319,6 +318,19 @@ def test_nicole_cinema6_is_target_specific_event_crit_and_never_changes_formal_p
     event = result["events"][0]
     assert _node(event, CalculationNode.CHARACTER_CURRENT_CRIT_RATE) == pytest.approx(0.20)
     assert event["common_application_trace"]["event_stat_modifiers"]
+
+    for selected_stacks, expected_event_rate in ((0, 0.05), (5, 0.125)):
+        selected = _payload(
+            "move-entry:character:1031:ex-special-candy-bullet-shelling",
+            cinema_level=6,
+            conditions={"condition:nicole:cinema6-target-crit-active": True},
+            parameters={"parameter:nicole:cinema6-target-crit-stacks": selected_stacks},
+            enabled=("rule:character:1031:cinema6:target-crit-rate-stacks",),
+        )
+        selected_response = client.post("/api/v1/moves/calculate", json=selected)
+        assert selected_response.status_code == 200, selected_response.text
+        selected_result = selected_response.json()
+        assert _node(selected_result["events"][0], CalculationNode.CHARACTER_CURRENT_CRIT_RATE) == pytest.approx(expected_event_rate)
 
     anomaly_payload = _payload(
         "move-entry:character:1031:ether-corrosion",

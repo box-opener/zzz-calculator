@@ -6,6 +6,7 @@ import {
   reconcileEditorState,
   resolveAuthoritativeConditionContext,
   selectMoveVariantConditions,
+  stackValueForDisplay,
 } from "./editorState";
 
 const previous = {
@@ -30,6 +31,32 @@ describe("reconcileEditorState", () => {
     expect(next.enabledRules.has("hedao")).toBe(false);
     expect(next.disabledRules.has("hedao")).toBe(true);
     expect(next.triggerActors.entry).toBe("character:ye");
+  });
+
+  it("uses a new rule's maximum by default while preserving manual layers through a v2-shaped refresh", () => {
+    const previousWithSelections = {
+      ...previous,
+      stacks: { zero: 0, middle: 3 },
+    };
+    const rules = ["zero", "middle", "new"].map((rule_id) => ({
+      rule_id,
+      availability: "available",
+      enabled_by_default: true,
+      toggleable: true,
+      stack: { default: 6, minimum: 0, maximum: 6 },
+    }));
+    // A v2 equipment/build import refreshes editor definitions but contains no
+    // scenario stack fields, so the current explicit scenario choices survive.
+    const refreshed = reconcileEditorState(
+      previousWithSelections,
+      { conditions: [], parameters: [], rules, triggers: [] },
+      ["character:ye"],
+    );
+
+    expect(stackValueForDisplay(undefined, rules[2].stack.default, rules[2].stack.minimum)).toBe(6);
+    expect(refreshed.stacks).toEqual({ zero: 0, middle: 3 });
+    expect(stackValueForDisplay(refreshed.stacks.zero, rules[0].stack.default, rules[0].stack.minimum)).toBe(0);
+    expect(stackValueForDisplay(refreshed.stacks.middle, rules[1].stack.default, rules[1].stack.minimum)).toBe(3);
   });
 
   it("prunes stale actors, stacks, and rules", () => {

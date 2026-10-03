@@ -4416,7 +4416,7 @@ def _rule(
         eligibility=eligibility,
         condition_ids=condition_ids,
         effects=effects,
-        stack_count=stack_count,
+        stack_count=stack_max if stack_max is not None else stack_count,
         stack_min=stack_min,
         stack_max=stack_max,
         non_stacking_group_id=non_stacking_group_id,

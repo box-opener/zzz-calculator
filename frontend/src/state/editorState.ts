@@ -7,6 +7,17 @@ export type EditorState = {
   stacks: Record<string, number>;
 };
 
+export function stackValueForDisplay(
+  selected: number | undefined,
+  defaultValue: number | null,
+  minimum: number | null,
+): number | "" {
+  if (selected !== undefined) return selected;
+  if (defaultValue !== null) return defaultValue;
+  if (minimum !== null) return minimum;
+  return "";
+}
+
 export type MoveVariantProjection = {
   optionKey: string;
   entryId: string;

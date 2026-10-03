@@ -176,6 +176,18 @@ The user confirmed that `14151`'s “team unique” phrase scopes the TEAM damag
 
 `14161` is retained as white Defense plus Defense-percent Build data, not Attack. It has no registered Vanguard owner. Its Electric Sharp damage bonus remains a typed source rule with a non-blocking limitation because the current request has no Sharp result lane; no Anomaly or Direct event is fabricated. `14162` retains the current TEAM_OTHER damage buff and excludes the holder. Its Daze modifier is typed with a non-blocking result limitation, and the currently registered Stun owners cannot produce Wind EX Special.
 
+## B6 confirmed stack defaults (non-authoritative)
+
+All bounded stack RuleItems in the currently supported W-Engine catalog now use
+their maximum as the initial stack selection; exact values in `rule_stack_counts`
+still override that default, including zero and intermediate values. Current
+charge resources that are not per-layer modifiers remain distinct from stacks;
+Anby's Cinema 6 available-charge state remains zero by default, while each charge
+layer on `13001` and `14003` contributes its documented per-layer effect and
+therefore defaults to three and six. This does not model charge generation or
+consumption timing. The character stack defaults and Drive Disc stack metadata
+follow the same rule.
+
 ## User-confirmed static maximum for duplicate W-Engine effects
 
 The user confirmed that this static calculator resolves same-name effects by the

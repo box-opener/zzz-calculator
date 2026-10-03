@@ -426,6 +426,38 @@ def test_vivian_panel_sources_cover_active_roles_without_anomaly_entries_and_rep
     assert all(item["diagnostics"] == [] for item in disabled["panel_source_results"])
 
 
+def test_wengine_stack_defaults_to_max_and_explicit_zero_or_middle_stack_is_kept() -> None:
+    rule_id = "rule:wengine:13003:owner:1331:attack-per-energy-stack"
+
+    def run(stack_count: int | None):
+        payload = _payload(move_entry_id="move-entry:character:1331:basic-feather-flurry-1")
+        payload["character_builds"][VIVIAN] = {
+            "level": 60,
+            "build_mode": "equipment-build",
+            "wengine_id": "wengine:13003",
+            "wengine_level": 60,
+            "wengine_refinement": 1,
+            "drive_discs": [],
+        }
+        payload["enabled_rule_item_ids"] = [rule_id]
+        if stack_count is not None:
+            payload["rule_stack_counts"] = {rule_id: stack_count}
+        return calculate_payload(payload)
+
+    default = run(None)
+    zero = run(0)
+    middle = run(4)
+    default_stack = next(item for item in default["panel_traces"] if item["rule_item_id"] == rule_id)
+    middle_stack = next(item for item in middle["panel_traces"] if item["rule_item_id"] == rule_id)
+    default_attack = next(item["stats"]["attack"] for item in default["resolved_character_snapshots"] if item["character_id"] == VIVIAN)
+    zero_attack = next(item["stats"]["attack"] for item in zero["resolved_character_snapshots"] if item["character_id"] == VIVIAN)
+    middle_attack = next(item["stats"]["attack"] for item in middle["resolved_character_snapshots"] if item["character_id"] == VIVIAN)
+    assert default_stack["stack_count"] == 10
+    assert middle_stack["stack_count"] == 4
+    assert default_attack > middle_attack > zero_attack
+    assert middle_attack - zero_attack == pytest.approx((default_attack - zero_attack) * 0.4)
+
+
 def test_vivian_current_ap_changes_only_the_mutation_ratio_not_teammate_history() -> None:
     yixuan_stats = _stats(attack=777.0, ap=100.0, am=92.0)
 

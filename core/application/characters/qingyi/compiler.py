@@ -630,7 +630,7 @@ def compile_qingyi(
             label="目标当前羁服层数",
             original_text="羁服上限20层；这里输入本次静态分析开始时已经存在的层数，不模拟施加、普通/精英翻倍或失衡恢复清零。",
             resolution=ParameterResolution.USER_SELECTED,
-            value=0,
+            value=20,
             minimum=0,
             maximum=20,
         ),
