@@ -90,7 +90,7 @@ type Parameter = {
 type CompileField = {
   field_id: string;
   label: string;
-  field_type: "integer" | "boolean" | "select";
+  field_type: "integer" | "boolean" | "select" | "slider";
   value: boolean | number | string;
   minimum: number | null;
   maximum: number | null;
@@ -1010,6 +1010,22 @@ function App() {
     }
     if (field.field_type === "select") {
       return <label className="select-field" key={`${owner}-${field.field_id}`}><span>{field.label}</span><select disabled={!field.editable} value={String(fieldValue)} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+    }
+    if (field.field_type === "slider") {
+      return <label className="slider-field" key={`${owner}-${field.field_id}`}>
+        <span><strong>{field.label}</strong><output>{Number(fieldValue)}</output></span>
+        <input
+          aria-label={field.label}
+          disabled={!field.editable}
+          type="range"
+          min={field.minimum ?? 0}
+          max={field.maximum ?? 6}
+          step={1}
+          value={Number(fieldValue)}
+          onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}
+        />
+        {field.help_text && <small>{field.help_text}</small>}
+      </label>;
     }
     return <NumberField key={`${owner}-${field.field_id}`} label={field.label} value={Number(fieldValue)} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} unit={unit} helper={field.help_text ?? "整数配置"} disabled={!field.editable} onCommit={(value) => updateConfigField(owner, field, value)} />;
   };

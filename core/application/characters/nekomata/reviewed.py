@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from core.types import AnomalyRecordId, CharacterId, DamageTag, Element, MoveId, SkillGroup, StateId
 
-from ...ids import ScenarioConditionId, ScenarioParameterId
+from ...ids import RuleItemId, ScenarioConditionId, ScenarioParameterId
 from ...moves import MultiplierRelation
 from ..nanoka_compiler import NanokaDamageParameterSpec, NanokaMoveSpec, NanokaReviewedMapping
 
@@ -13,8 +13,13 @@ NEKOMATA_ID = CharacterId("character:1021")
 
 CORE_DAMAGE_BUFF_ACTIVE = ScenarioConditionId("condition:nekomata:core-damage-buff-active")
 BACK_HIT_ACTIVE = ScenarioConditionId("condition:nekomata:back-hit-active")
-RANDOM_REPEAT_OCCURRED = ScenarioConditionId("condition:nekomata:random-repeat-occurred")
+POTENTIAL_POUNCE_ACTIVE = ScenarioConditionId(
+    "condition:nekomata:potential-pounce-active"
+)
 ENEMY_STUNNED_STATE_ID = StateId("state:enemy:stunned")
+NEKOMATA_C1_STUN_BACK_HIT_RULE_ID = RuleItemId(
+    "rule:character:1021:cinema1:stunned-target-physical-resistance-ignore"
+)
 
 EXTRA_ABILITY_DAMAGE_STACKS = ScenarioParameterId(
     "parameter:nekomata:extra-ability-ex-damage-stacks"
@@ -39,6 +44,9 @@ CHAIN_ATTACK_MOVE_ID = MoveId("move:nekomata:chain-blade-claw-swipe")
 ULTIMATE_MOVE_ID = MoveId("move:nekomata:ultimate-blade-claw-onslaught")
 QUICK_ASSIST_MOVE_ID = MoveId("move:nekomata:quick-assist-borrowed-cat-claw")
 SUPPORT_FOLLOWUP_MOVE_ID = MoveId("move:nekomata:support-followup-swift-shadow")
+POTENTIAL_DODGE_COUNTER_MOVE_ID = MoveId(
+    "move:nekomata:potential-dodge-counter-fluffy-claw"
+)
 PHYSICAL_ANOMALY_RECORD_ID = AnomalyRecordId("anomaly:nekomata:physical-assault")
 PHYSICAL_ANOMALY_MOVE_ID = MoveId("move:nekomata:physical-assault")
 PHYSICAL_DISORDER_MOVE_ID = MoveId("move:nekomata:physical-disorder")
@@ -198,9 +206,23 @@ NEKOMATA_REVIEWED_MAPPING = NanokaReviewedMapping(
         ),
     ),
     data_quality_notes=(
-        "This mapping selects only the base potential-0 skill text and curves. The raw detail also contains potential-upgrade move variants; those records are preserved but not compiled as Cinema levels.",
-        "The base source states a 33.33% chance to repeat three attacks on the final Cat Claw hit and on Red Blade, but exposes no separate repeated-hit damage curve. The known main hit remains mapped; only an explicitly selected repeat branch is unresolved.",
+        "The base mapping selects potential 0; the compiler selects potential-1+ source records only when the explicit potential slider is above zero. Potential 1 adds the named Fluffy Claw Dodge Counter and the known stunned-target repeat rule.",
+        "The base source's 33.33% random repeat on Cat Claw 5 and Red Blade is not modeled. The deterministic potential-1+ repeats are separate and use the confirmed main multiplier for the two extra attacks when the target is stunned.",
+        "Tail Lost Technique has no damage curve, so it remains a source-described non-damaging unlock and is not represented as a Direct entry.",
         "Nekomata's two Support Parry Daze curves are preserved in raw but are not direct damage entries; this calculation request has no Daze result.",
+    ),
+)
+
+NEKOMATA_POTENTIAL_ONE_MOVES = (
+    _move(
+        "potential-dodge-counter-fluffy-claw",
+        POTENTIAL_DODGE_COUNTER_MOVE_ID,
+        "潜能解锁：闪避反击：绒爪穿刺",
+        "闪避反击：绒爪穿刺",
+        SkillGroup.DODGE,
+        _COUNTER,
+        "伤害倍率",
+        "1021019",
     ),
 )
 
@@ -219,13 +241,16 @@ __all__ = [
     "EX_SPECIAL_MOVE_ID",
     "EXTRA_ABILITY_DAMAGE_STACKS",
     "NEKOMATA_ID",
+    "NEKOMATA_C1_STUN_BACK_HIT_RULE_ID",
+    "NEKOMATA_POTENTIAL_ONE_MOVES",
     "NEKOMATA_REVIEWED_MAPPING",
     "PHYSICAL_ANOMALY_MOVE_ID",
     "PHYSICAL_ANOMALY_RECORD_ID",
     "PHYSICAL_DISORDER_MOVE_ID",
     "PHYSICAL_DISORDER_REMAINING_SECONDS",
+    "POTENTIAL_DODGE_COUNTER_MOVE_ID",
+    "POTENTIAL_POUNCE_ACTIVE",
     "QUICK_ASSIST_MOVE_ID",
-    "RANDOM_REPEAT_OCCURRED",
     "SPECIAL_ATTACK_MOVE_ID",
     "SUPPORT_FOLLOWUP_MOVE_ID",
     "ULTIMATE_MOVE_ID",

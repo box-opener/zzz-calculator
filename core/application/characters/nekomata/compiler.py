@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 import re
 from collections.abc import Mapping
 
 from core.types import (
+    AnyFilter,
     BattleEventKind,
     CalculationNode,
     CharacterRole,
+    CreatedByEffectFilter,
     DamageDealerFilter,
+    DamageTag,
+    DamageTagFilter,
     DamageSubtype,
     DamageType,
     DamageTypeFilter,
@@ -24,6 +29,7 @@ from core.types import (
     Element,
     ElementFilter,
     EnemyStateFilter,
+    CurrentAttackValueSource,
     EventTemplateId,
     EventTemplateIdFilter,
     EventCreationEffect,
@@ -38,9 +44,8 @@ from core.types import (
     RuleSource,
     ScenarioParameterDerivedValue,
     SkillGroup,
+    StandardCritRule,
     SnapshotRule,
-    Unresolved,
-    UnresolvedReason,
 )
 
 from ...diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -53,6 +58,7 @@ from ...ids import (
 )
 from ...moves import (
     DamageEventTemplateRef,
+    DerivedDamageEventTemplateRef,
     MoveCalculationEntry,
     MultiplierRelation,
     MultiplierVariant,
@@ -73,6 +79,7 @@ from ..nanoka_compiler import (
 from ..nanoka_source import NanokaRawRecord, load_nanoka_raw_record
 from ..templates import (
     AttributeAnomalyDamageEventTemplate,
+    DirectDamageEventTemplate,
     DisorderDamageEventTemplate,
 )
 from .config import NekomataCompileConfig
@@ -85,12 +92,14 @@ from .reviewed import (
     EX_SPECIAL_MOVE_ID,
     EXTRA_ABILITY_DAMAGE_STACKS,
     NEKOMATA_ID,
+    NEKOMATA_POTENTIAL_ONE_MOVES,
     NEKOMATA_REVIEWED_MAPPING,
+    POTENTIAL_DODGE_COUNTER_MOVE_ID,
+    POTENTIAL_POUNCE_ACTIVE,
     PHYSICAL_ANOMALY_MOVE_ID,
     PHYSICAL_ANOMALY_RECORD_ID,
     PHYSICAL_DISORDER_MOVE_ID,
     PHYSICAL_DISORDER_REMAINING_SECONDS,
-    RANDOM_REPEAT_OCCURRED,
 )
 
 
@@ -269,16 +278,27 @@ def _static_physical_entries():
     )
 
 
-def _random_repeat_effect(
+def _potential_stun_repeat(
     *,
     key: str,
     source: RuleSource,
-    template_id: EventTemplateId,
+    parent_template: DirectDamageEventTemplate,
+    multiplier,
     original_text: str,
-) -> EventCreationEffect:
-    return EventCreationEffect(
+) -> tuple[CalculationRuleItem, DirectDamageEventTemplate, DerivedDamageEventTemplateRef]:
+    rule_id = RuleItemId(f"rule:character:1021:potential:{key}")
+    effect_id = EffectId(f"effect:character:1021:potential:{key}")
+    template_ref = replace(
+        parent_template.ref,
+        template_id=EventTemplateId(f"template:character:1021:potential:{key}"),
+        semantic_id=DamageEventSemanticId(f"event:character:1021:potential:{key}"),
+        label=f"潜能：失衡目标重复攻击（{parent_template.ref.label}）",
+        source_rule_item_id=rule_id,
+    )
+    template = replace(parent_template, ref=template_ref)
+    effect = EventCreationEffect(
         rule=EffectRule(
-            effect_id=EffectId(f"effect:character:1021:{key}"),
+            effect_id=effect_id,
             source=source,
             owner=NEKOMATA_ID,
             target=EffectTarget.TEAM,
@@ -287,26 +307,95 @@ def _random_repeat_effect(
             filters=(
                 DamageDealerFilter(NEKOMATA_ID),
                 DamageTypeFilter(DamageType.DIRECT),
-                EventTemplateIdFilter(template_id),
+                EventTemplateIdFilter(parent_template.ref.template_id),
+                EnemyStateFilter(ENEMY_STUNNED_STATE_ID),
             ),
         ),
         result=EventCreationResult(
             event_kind=BattleEventKind.DAMAGE,
-            unresolved_template=Unresolved(
-                reason=UnresolvedReason.AMBIGUOUS_TEXT,
-                notes=(
-                    "The selected current source state says this move produced the "
-                    "33.33% random repeat (three repeated attacks). Nanoka provides "
-                    "the main move multiplier but no separate multiplier curve or "
-                    "event identity for those repeats, so their damage remains unknown; "
-                    "the known main hit is preserved."
-                ),
-                original_text=original_text,
-                candidates=(
-                    "The repeat uses a separate unprovided multiplier curve",
-                    "The repeat inherits the listed main-hit curve",
-                ),
-            ),
+            event_template_id=template_ref.template_id,
+            unique_per_source_event=True,
+        ),
+    )
+    rule = _rule(
+        f"potential:{key}",
+        source,
+        f"潜能：失衡目标重复攻击（{parent_template.ref.label}）",
+        original_text,
+        RuleEligibility.ELIGIBLE,
+        effects=(effect,),
+    )
+    return (
+        rule,
+        template,
+        DerivedDamageEventTemplateRef(
+            template=template_ref,
+            multiplier=multiplier,
+            repeat_count=2,
+        ),
+    )
+
+
+def _potential_pounce_mark(
+    source: RuleSource,
+    *,
+    stun_repeat_effect_ids: tuple[EffectId, ...],
+) -> tuple[CalculationRuleItem, DirectDamageEventTemplate, DerivedDamageEventTemplateRef]:
+    rule_id = RuleItemId("rule:character:1021:potential:super-furry-mark")
+    effect_id = EffectId("effect:character:1021:potential:super-furry-mark")
+    template_ref = DamageEventTemplateRef(
+        template_id="template:character:1021:potential:super-furry-mark",
+        semantic_id=DamageEventSemanticId("event:character:1021:potential:super-furry-mark"),
+        label="潜能：超凶爪印",
+        damage_type=DamageType.DIRECT,
+        element=Element.PHYSICAL,
+        source_rule_item_id=rule_id,
+    )
+    template = DirectDamageEventTemplate(
+        ref=template_ref,
+        damage_dealer=NEKOMATA_ID,
+        element=Element.PHYSICAL,
+        base_source=CurrentAttackValueSource(NEKOMATA_ID),
+        crit_rule=StandardCritRule(NEKOMATA_ID),
+        move_id=None,
+    )
+    source_filter = (
+        DamageDealerFilter(NEKOMATA_ID),
+        DamageTypeFilter(DamageType.DIRECT),
+        NotFilter(CreatedByEffectFilter(effect_id)),
+        *(NotFilter(CreatedByEffectFilter(item)) for item in stun_repeat_effect_ids),
+    )
+    effect = EventCreationEffect(
+        rule=EffectRule(
+            effect_id=effect_id,
+            source=source,
+            owner=NEKOMATA_ID,
+            target=EffectTarget.TEAM,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+            condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
+            filters=source_filter,
+        ),
+        result=EventCreationResult(
+            event_kind=BattleEventKind.DAMAGE,
+            event_template_id=template_ref.template_id,
+            unique_per_source_event=True,
+        ),
+    )
+    rule = _rule(
+        "potential:super-furry-mark",
+        source,
+        "潜能：肉球突袭时的超凶爪印",
+        source.raw_text or "肉球突袭状态下，猫又自身攻击命中会触发超凶爪印",
+        RuleEligibility.ELIGIBLE,
+        conditions=(POTENTIAL_POUNCE_ACTIVE,),
+        effects=(effect,),
+    )
+    return (
+        rule,
+        template,
+        DerivedDamageEventTemplateRef(
+            template=template_ref,
+            multiplier=FixedMultiplier(Resolved(0.30)),
         ),
     )
 
@@ -316,13 +405,108 @@ def compile_nekomata(
     raw_record: NanokaRawRecord,
 ) -> CharacterCalculationDefinition:
     _validate_raw_record(raw_record, config)
+    reviewed_mapping = NEKOMATA_REVIEWED_MAPPING
+    if config.potential_level > 0:
+        reviewed_mapping = replace(
+            NEKOMATA_REVIEWED_MAPPING,
+            moves=(*NEKOMATA_REVIEWED_MAPPING.moves, *NEKOMATA_POTENTIAL_ONE_MOVES),
+        )
     direct_entries, direct_templates, direct_diagnostics = compile_direct_moves(
         character_id=NEKOMATA_ID,
         config=config,
         raw_record=raw_record,
-        reviewed_mapping=NEKOMATA_REVIEWED_MAPPING,
+        reviewed_mapping=reviewed_mapping,
         id_namespace="character:1021",
     )
+    potential_rules: list[CalculationRuleItem] = []
+    potential_templates: list[DirectDamageEventTemplate] = []
+    potential_derived: list[DerivedDamageEventTemplateRef] = []
+    potential_numeric_rule: CalculationRuleItem | None = None
+    potential_source: RuleSource | None = None
+    if config.potential_level > 0:
+        selected_detail = next(
+            item
+            for item in raw_record.potential_details
+            if item.level == config.potential_level
+        )
+        potential_source = source_for(
+            NEKOMATA_ID,
+            f"potential-{config.potential_level}",
+            EffectSourceType.SPECIAL_MECHANISM,
+            selected_detail.name or selected_detail.level_show_name,
+            selected_detail.description or raw_record.core_levels[0].description,
+        )
+        entries_by_id = {str(item.entry_id): item for item in direct_entries}
+        templates_by_id = {item.ref.template_id: item for item in direct_templates}
+        raw_moves = {move.name: move for move in raw_record.moves}
+        stun_repeat_effect_ids: list[EffectId] = []
+        for key, entry_id, source_name in (
+            (
+                "basic-cat-claw-final-stun-repeat",
+                "move-entry:character:1021:basic-cat-claw-5",
+                "普通攻击：猫猫爪刺",
+            ),
+            (
+                "basic-red-blade-stun-repeat",
+                "move-entry:character:1021:basic-red-blade",
+                "普通攻击：赤色之刃",
+            ),
+        ):
+            entry = entries_by_id[entry_id]
+            parent_template = templates_by_id[entry.main_damage_event.template_id]
+            repeat_source = source_for(
+                NEKOMATA_ID,
+                f"potential-{config.potential_level}-{key}",
+                EffectSourceType.SPECIAL_MECHANISM,
+                source_name,
+                raw_moves[source_name].description,
+            )
+            rule, template, derived = _potential_stun_repeat(
+                key=key,
+                source=repeat_source,
+                parent_template=parent_template,
+                multiplier=entry.multiplier_variants[0].multiplier,
+                original_text=raw_moves[source_name].description,
+            )
+            potential_rules.append(rule)
+            potential_templates.append(template)
+            potential_derived.append(derived)
+            stun_repeat_effect_ids.append(
+                EffectId(f"effect:character:1021:potential:{key}")
+            )
+
+        mark_rule, mark_template, mark_derived = _potential_pounce_mark(
+            potential_source,
+            stun_repeat_effect_ids=tuple(stun_repeat_effect_ids),
+        )
+        potential_rules.append(mark_rule)
+        potential_templates.append(mark_template)
+        potential_derived.append(mark_derived)
+
+        if config.potential_level >= 2:
+            crit_damage_bonus = _one_number(
+                selected_detail.description,
+                r"暴击伤害提升(?P<value>[\d.]+)%",
+                f"Nekomata potential {config.potential_level} Pounce Crit Damage",
+            ) / 100.0
+            potential_numeric_rule = _rule(
+                "potential:pounce-crit-damage",
+                potential_source,
+                f"潜能：肉球突袭暴击伤害+{crit_damage_bonus * 100:g}%",
+                selected_detail.description,
+                RuleEligibility.ELIGIBLE,
+                conditions=(POTENTIAL_POUNCE_ACTIVE,),
+                effects=(
+                    _modifier(
+                        "potential:pounce-crit-damage",
+                        potential_source,
+                        CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+                        Resolved(crit_damage_bonus),
+                        target=EffectTarget.SELF,
+                    ),
+                ),
+            )
+
     static_entries, static_templates, disorder_seconds = _static_physical_entries()
     core = raw_record.core_levels[config.core_level - 1]
     core_source = source_for(
@@ -347,11 +531,11 @@ def compile_nekomata(
     )
     extra_bonus = _one_number(
         core.extra_ability_description,
-        r"招式造成的伤害提升(?P<value>[\d.]+)%",
+        r"伤害提升(?P<value>[\d.]+)%",
         "Nekomata Additional Ability EX damage bonus",
     ) / 100.0
 
-    conditions = (
+    conditions = [
         _condition(
             CORE_DAMAGE_BUFF_ACTIVE,
             "核心被动：闪避反击/快速支援后的伤害增益当前有效",
@@ -362,12 +546,15 @@ def compile_nekomata(
             "本次物理攻击确认为背后命中",
             raw_record.mindscapes[0].description,
         ),
-        _condition(
-            RANDOM_REPEAT_OCCURRED,
-            "本次猫猫爪刺五段/赤色之刃触发了33.33%重复攻击",
-            "普通攻击原文明确有33.33%随机重复分支；此状态只表示本次结果已发生，不模拟概率。",
-        ),
-    )
+    ]
+    if config.potential_level > 0:
+        conditions.append(
+            _condition(
+                POTENTIAL_POUNCE_ACTIVE,
+                "潜能：肉球突袭状态当前有效",
+                core.description,
+            )
+        )
     parameters = (
         ScenarioIntegerParameter(
             parameter_id=EXTRA_ABILITY_DAMAGE_STACKS,
@@ -459,11 +646,30 @@ def compile_nekomata(
         if config.additional_ability_eligible
         else RuleEligibility.INELIGIBLE
     )
+    extra_move_filters = [
+        DamageDealerFilter(NEKOMATA_ID),
+        DamageTypeFilter(DamageType.DIRECT),
+    ]
+    if config.potential_level == 0:
+        extra_move_filters.append(MoveIdFilter(EX_SPECIAL_MOVE_ID))
+    else:
+        extra_move_filters.append(
+            AnyFilter(
+                (
+                    DamageTagFilter(DamageTag.EX_SPECIAL_ATTACK),
+                    DamageTagFilter(DamageTag.DODGE_COUNTER),
+                )
+            )
+        )
     rules.append(
         _rule(
             "extra-ability:ex-current-stacks",
             extra_source,
-            "额外能力：猫步秀·当前强化特殊技增伤层数",
+            (
+                "潜能：猫步秀·强化特殊技/闪避反击当前增伤层数"
+                if config.potential_level > 0
+                else "额外能力：猫步秀·当前强化特殊技增伤层数"
+            ),
             core.extra_ability_description,
             extra_eligibility,
             effects=(
@@ -479,16 +685,15 @@ def compile_nekomata(
                     ),
                     target=EffectTarget.TEAM,
                     condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-                    filters=(
-                        DamageDealerFilter(NEKOMATA_ID),
-                        DamageTypeFilter(DamageType.DIRECT),
-                        MoveIdFilter(EX_SPECIAL_MOVE_ID),
-                    ),
+                    filters=tuple(extra_move_filters),
                 ),
             ),
             diagnostics=(extra_diagnostic,),
         )
     )
+    rules.extend(potential_rules)
+    if potential_numeric_rule is not None:
+        rules.append(potential_numeric_rule)
 
     for level, mindscape in enumerate(raw_record.mindscapes, start=1):
         source = source_for(
@@ -638,55 +843,6 @@ def compile_nekomata(
                 )
             )
 
-    raw_moves = {move.name: move for move in raw_record.moves}
-    repeat_specs = (
-        (
-            "basic-cat-claw-final-repeat",
-            EventTemplateId("template:character:1021:basic-cat-claw-5:main"),
-            "普通攻击：猫猫爪刺",
-        ),
-        (
-            "basic-red-blade-repeat",
-            EventTemplateId("template:character:1021:basic-red-blade:main"),
-            "普通攻击：赤色之刃",
-        ),
-    )
-    for key, template_id, source_name in repeat_specs:
-        raw_move = raw_moves[source_name]
-        repeat_rule_source = source_for(
-            NEKOMATA_ID,
-            key,
-            EffectSourceType.SKILL,
-            raw_move.name,
-            raw_move.description,
-        )
-        unresolved_effect = _random_repeat_effect(
-            key=key,
-            source=repeat_rule_source,
-            template_id=template_id,
-            original_text=raw_move.description,
-        )
-        rules.append(
-            _rule(
-                f"random-repeat:{key}",
-                repeat_rule_source,
-                f"随机重复分支：{raw_move.name}",
-                raw_move.description,
-                RuleEligibility.ELIGIBLE,
-                conditions=(RANDOM_REPEAT_OCCURRED,),
-                effects=(unresolved_effect,),
-            )
-        )
-
-    potential_diagnostic = CalculationDiagnostic(
-        diagnostic_id=DiagnosticId("unsupported:character:1021:potential-variants"),
-        kind=DiagnosticKind.UNSUPPORTED_CALCULATOR,
-        message=(
-            "Potential IDs 102100–102105 are distinct Nanoka source variants. The current compile config has no Potential selection, so only potential 0 is compiled; the full raw variants remain preserved."
-        ),
-        blocking=False,
-        original_text="Nanoka potential_detail names these as 猫的报恩 I–VI / 潜能觉醒.",
-    )
     daze_diagnostic = CalculationDiagnostic(
         diagnostic_id=DiagnosticId("unsupported:character:1021:daze-result"),
         kind=DiagnosticKind.UNSUPPORTED_CALCULATOR,
@@ -702,11 +858,12 @@ def compile_nekomata(
         element=Element.PHYSICAL,
         source=core_source,
         entries=(*direct_entries, *static_entries),
-        templates=(*direct_templates, *static_templates),
+        templates=(*direct_templates, *static_templates, *potential_templates),
         rules=rules,
         conditions=conditions,
         parameters=parameters,
-        diagnostics=(*direct_diagnostics, potential_diagnostic, daze_diagnostic),
+        independent_derived_damage_events=potential_derived,
+        diagnostics=(*direct_diagnostics, daze_diagnostic),
     )
 
 
@@ -718,8 +875,54 @@ def _is_base_potential(value: object) -> bool:
     return not value or 0 in value
 
 
-def _potential_zero_view(data: Mapping[str, object]) -> dict[str, object]:
-    """Create a local compile view; the packaged full raw source stays lossless."""
+def _potential_level_view(
+    data: Mapping[str, object],
+    potential_level: int,
+) -> dict[str, object]:
+    """Select the raw 0 or potential-1+ variant without changing the fixture."""
+
+    if not 0 <= potential_level <= 6:
+        raise ValueError("potential_level must be between 0 and 6")
+    selected_potential_id: int | None = None
+    if potential_level > 0:
+        details = data.get("potential_detail")
+        if not isinstance(details, Mapping):
+            raise ValueError("Nekomata raw source is missing potential_detail")
+        detail = next(
+            (
+                item
+                for item in details.values()
+                if isinstance(item, Mapping) and item.get("level") == potential_level
+            ),
+            None,
+        )
+        if detail is None or not isinstance(detail.get("id"), int):
+            raise ValueError(
+                f"Nekomata raw source is missing potential level {potential_level}"
+            )
+        selected_potential_id = int(detail["id"])
+
+    def selected(value: object) -> bool:
+        if potential_level == 0:
+            return _is_base_potential(value)
+        if _is_base_potential(value):
+            return True
+        return (
+            selected_potential_id is not None
+            and isinstance(value, (list, tuple))
+            and selected_potential_id in value
+        )
+
+    def selected_passive(value: object) -> bool:
+        if potential_level == 0:
+            return _is_base_potential(value)
+        if value is None:
+            return True
+        return (
+            selected_potential_id is not None
+            and isinstance(value, (list, tuple))
+            and selected_potential_id in value
+        )
 
     view = deepcopy(dict(data))
     skill_root = view.get("skill")
@@ -732,21 +935,23 @@ def _potential_zero_view(data: Mapping[str, object]) -> dict[str, object]:
                 section_data["description"] = [
                     item
                     for item in descriptions
-                    if isinstance(item, dict) and _is_base_potential(item.get("potential"))
+                    if isinstance(item, dict) and selected(item.get("potential"))
                 ]
     passive = view.get("passive")
     if isinstance(passive, dict) and isinstance(passive.get("level"), dict):
         passive["level"] = {
             key: item
             for key, item in passive["level"].items()
-            if isinstance(item, dict) and _is_base_potential(item.get("potential"))
+            if isinstance(item, dict) and selected_passive(item.get("potential"))
         }
     return view
 
 
-def load_raw_record(data: Mapping[str, object]) -> NanokaRawRecord:
+def load_raw_record(
+    data: Mapping[str, object], *, potential_level: int = 0
+) -> NanokaRawRecord:
     return load_nanoka_raw_record(
-        _potential_zero_view(data),
+        _potential_level_view(data, potential_level),
         expected_character_id=str(NEKOMATA_ID),
     )
 
@@ -760,6 +965,15 @@ def _validate_raw_record(raw: NanokaRawRecord, config: NekomataCompileConfig) ->
         raise ValueError("Nekomata raw role or element does not match reviewed source")
     if len(raw.core_levels) != 7 or len(raw.mindscapes) != 6:
         raise ValueError("Nekomata compile view must contain seven cores and six cinemas")
+    expected_core_source = "1021501" if config.potential_level == 0 else "1021508"
+    if raw.core_levels[0].source_id != expected_core_source:
+        raise ValueError(
+            "Nekomata raw potential view does not match the selected compile config"
+        )
+    if config.potential_level > 0 and not any(
+        item.level == config.potential_level for item in raw.potential_details
+    ):
+        raise ValueError("Nekomata raw source is missing selected potential detail")
 
 
 __all__ = ["compile_nekomata", "load_raw_record"]

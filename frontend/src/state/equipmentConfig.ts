@@ -276,7 +276,7 @@ function legacyDriveOnlyPayload(value: unknown): value is DriveDiscConfig[] | { 
       && Object.prototype.hasOwnProperty.call(value, "drive_discs"));
 }
 
-function validateCompileConfig(raw: unknown): Record<string, unknown> {
+function validateCompileConfig(raw: unknown, characterId: string): Record<string, unknown> {
   if (!isRecord(raw)) invalid("compile_config must be an object");
   const allowed = new Set([
     "core_level",
@@ -285,6 +285,7 @@ function validateCompileConfig(raw: unknown): Record<string, unknown> {
     "mingxin_active",
     "entry_move_uses_linren",
   ]);
+  if (characterId === "character:1021") allowed.add("potential_level");
   const unknown = Object.keys(raw).filter((key) => !allowed.has(key));
   if (unknown.length > 0) {
     invalid(`compile_config has unsupported fields: ${unknown.join(", ")}`);
@@ -294,6 +295,9 @@ function validateCompileConfig(raw: unknown): Record<string, unknown> {
   }
   integerInRange(raw.core_level, 1, 7, "compile_config.core_level");
   integerInRange(raw.cinema_level, 0, 6, "compile_config.cinema_level");
+  if (characterId === "character:1021" && "potential_level" in raw) {
+    integerInRange(raw.potential_level, 0, 6, "compile_config.potential_level");
+  }
   for (const key of ["mingxin_active", "entry_move_uses_linren"]) {
     if (key in raw && typeof raw[key] !== "boolean") invalid(`compile_config.${key} must be boolean`);
   }
@@ -368,7 +372,7 @@ function validateCharacterObject(
   if (raw.build_mode !== "manual-panel" && raw.build_mode !== "equipment-build") {
     invalid("build_mode must be manual-panel or equipment-build");
   }
-  const compileConfig = validateCompileConfig(raw.compile_config);
+  const compileConfig = validateCompileConfig(raw.compile_config, characterId);
   const manualStats = validateManualPanelStats(raw.manual_panel_stats);
   const equipment = validateEquipmentObject({
     schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,

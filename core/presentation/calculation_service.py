@@ -23,10 +23,17 @@ from core.application import (
 )
 from core.application.characters.dialyn import DIALYN_ID
 from core.application.characters.definition import CharacterCalculationDefinition
+from core.application.characters.nekomata.reviewed import (
+    NEKOMATA_C1_STUN_BACK_HIT_RULE_ID,
+    NEKOMATA_ID,
+)
+from core.application.equipment.wengine_ids import (
+    NEKOMATA_C1_STUN_BACK_HIT_MECHANISM,
+)
 from core.application.ids import MoveEntryId, RuleItemId
 from core.application.moves import DerivedDamageEventTemplateRef
 from core.application.characters.templates import DamageEventTemplate
-from core.application.rules import CalculationRuleItem
+from core.application.rules import CalculationRuleItem, RuleEligibility
 from core.application.scenario import ScenarioCondition
 from core.types import (
     BattleEventKind,
@@ -141,7 +148,7 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if current_operator not in set(team_ids):
         raise ValueError("current_operator must be a team member")
 
-    build_records = _build_records(view_request.character_builds)
+    build_records = _build_records(view_request.character_builds, definitions)
     additional_rule_items = tuple(
         rule for record in build_records for rule in record.rule_items
     )
@@ -559,8 +566,21 @@ def _parse_drive_discs(raw_value: object) -> tuple[EquippedDriveDisc, ...]:
 
 def _build_records(
     builds: tuple[CharacterBuildInput, ...],
+    definitions: tuple[CharacterCalculationDefinition, ...],
 ) -> tuple[_BuiltCharacterRecord, ...]:
     records = []
+    nekomata_definition = next(
+        (item for item in definitions if item.character_id == NEKOMATA_ID),
+        None,
+    )
+    nekomata_c1_unlocked = bool(
+        nekomata_definition
+        and any(
+            item.rule_id == NEKOMATA_C1_STUN_BACK_HIT_RULE_ID
+            and item.eligibility is RuleEligibility.ELIGIBLE
+            for item in nekomata_definition.rule_items
+        )
+    )
     for build in builds:
         character_id = CharacterId(build.character_id)
         registration = registration_for(character_id)
@@ -595,6 +615,17 @@ def _build_records(
             character_base_stat_contributions(character_id)
         )
         if build.wengine_id is not None:
+            owner_capabilities = registration.equipment_capabilities
+            if (
+                character_id == NEKOMATA_ID
+                and nekomata_c1_unlocked
+                and owner_capabilities is not None
+            ):
+                owner_capabilities = replace(
+                    owner_capabilities,
+                    mechanisms=owner_capabilities.mechanisms
+                    | frozenset({NEKOMATA_C1_STUN_BACK_HIT_MECHANISM}),
+                )
             wengine = compile_wengine(
                 WEngineBuildInput(
                     WEngineId(build.wengine_id),
@@ -602,7 +633,7 @@ def _build_records(
                     level=build.wengine_level,
                     refinement=build.wengine_refinement,
                 ),
-                owner_capabilities=registration.equipment_capabilities,
+                owner_capabilities=owner_capabilities,
             )
             if not wengine.complete:
                 messages = "; ".join(item.message for item in wengine.diagnostics)

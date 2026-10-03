@@ -98,6 +98,16 @@ class NanokaRawMindscape:
 
 
 @dataclass(frozen=True, slots=True)
+class NanokaRawPotentialDetail:
+    potential_id: int
+    level: int
+    name: str
+    level_show_name: str
+    description: str
+    source_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class NanokaRawRecord:
     character_id: CharacterId
     name: str
@@ -113,6 +123,7 @@ class NanokaRawRecord:
     core_levels: tuple[NanokaRawCoreLevel, ...]
     mindscapes: tuple[NanokaRawMindscape, ...]
     special_element: str | None = None
+    potential_details: tuple[NanokaRawPotentialDetail, ...] = ()
 
     @property
     def extra_ability_name(self) -> str:
@@ -234,6 +245,34 @@ def load_nanoka_raw_record(
             )
         )
 
+    raw_potential_detail = data.get("potential_detail", {})
+    potential_details: list[NanokaRawPotentialDetail] = []
+    if isinstance(raw_potential_detail, Mapping):
+        for key, raw_detail in sorted(
+            raw_potential_detail.items(), key=lambda item: int(item[0])
+        ):
+            if not isinstance(raw_detail, Mapping):
+                continue
+            potential_id = raw_detail.get("id", key)
+            level = raw_detail.get("level")
+            if (
+                isinstance(potential_id, bool)
+                or not isinstance(potential_id, int)
+                or isinstance(level, bool)
+                or not isinstance(level, int)
+            ):
+                raise ValueError(f"Nanoka potential detail has invalid IDs: {key}")
+            potential_details.append(
+                NanokaRawPotentialDetail(
+                    potential_id=potential_id,
+                    level=level,
+                    name=str(raw_detail.get("name", "")),
+                    level_show_name=str(raw_detail.get("level_show_name", "")),
+                    description=str(raw_detail.get("desc", "")),
+                    source_id=str(key),
+                )
+            )
+
     weapon_type = _mapping(data, "weapon_type")
     element_type = _mapping(data, "element_type")
     raw_special_element = data.get("special_element_type", {})
@@ -271,6 +310,7 @@ def load_nanoka_raw_record(
             if isinstance(special_element, str) and special_element.strip()
             else None
         ),
+        potential_details=tuple(potential_details),
     )
 
 
@@ -398,6 +438,7 @@ __all__ = [
     "NanokaRawCoreLevel",
     "NanokaRawMindscape",
     "NanokaRawMoveRecord",
+    "NanokaRawPotentialDetail",
     "NanokaRawRecord",
     "NanokaRawSkillParameter",
     "load_nanoka_raw_record",

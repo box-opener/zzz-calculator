@@ -440,6 +440,45 @@ describe("complete character config v2", () => {
     });
   });
 
+  it("round-trips Nekomata's potential slider value through v2", () => {
+    const nekomata = createCharacterConfig(
+      "character:1021",
+      60,
+      "equipment-build",
+      { core_level: 1, cinema_level: 0, potential_level: 6 },
+      { id: "wengine:14102", level: 60, refinement: 1 },
+      [],
+      null,
+    );
+    const parsed = parseCharacterConfig(
+      serializeCharacterConfig(nekomata),
+      "character:1021",
+      catalog,
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.config.compile_config.potential_level).toBe(6);
+  });
+
+  it("rejects a Nekomata potential value outside its slider range", () => {
+    const nekomata = createCharacterConfig(
+      "character:1021",
+      60,
+      "equipment-build",
+      { core_level: 1, cinema_level: 0, potential_level: 7 },
+      null,
+      [],
+      null,
+    );
+    const parsed = parseCharacterConfig(
+      serializeCharacterConfig(nekomata),
+      "character:1021",
+      catalog,
+    );
+    expect(parsed.ok).toBe(false);
+  });
+
   it("round-trips Lucia's core, cinema, and skill levels through v2", () => {
     const lucia = createCharacterConfig(
       "character:1451",

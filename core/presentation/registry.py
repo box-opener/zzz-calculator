@@ -178,6 +178,25 @@ def _integer_field(
     )
 
 
+def _slider_field(
+    field_id: str,
+    label: str,
+    value: int,
+    minimum: int,
+    maximum: int,
+    help_text: str,
+) -> CompileConfigFieldView:
+    return CompileConfigFieldView(
+        field_id=field_id,
+        label=label,
+        field_type="slider",
+        value=value,
+        minimum=minimum,
+        maximum=maximum,
+        help_text=help_text,
+    )
+
+
 def _boolean_field(
     field_id: str,
     label: str,
@@ -544,7 +563,7 @@ def _nekomata_fields(
             int(values.get("core_level", 1)),
             1,
             7,
-            "角色核心被动等级；仅编译Nanoka明确标为潜能0的基础核心曲线",
+            "角色核心被动等级；将与选定潜能曲线组合",
         ),
         _integer_field(
             "cinema_level",
@@ -552,7 +571,15 @@ def _nekomata_fields(
             int(values.get("cinema_level", 0)),
             0,
             6,
-            "已解锁影画等级；潜能觉醒单独记录且当前配置无潜能选择器",
+            "已解锁影画等级",
+        ),
+        _slider_field(
+            "potential_level",
+            "猫又潜能",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "潜能0为基础记录；潜能1解锁潜能招式与核心效果，潜能2–6使用对应源数值。",
         ),
         *_skill_level_fields(values),
     )
@@ -609,19 +636,27 @@ def _compile_nekomata(
     team_ids: Sequence[CharacterId],
     strict: bool = True,
 ) -> CharacterCalculationDefinition:
-    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    _allowed(
+        values,
+        frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}),
+    )
     if strict:
         _required(values, frozenset({"core_level", "cinema_level"}))
-    return compile_nekomata(
-        NekomataCompileConfig(
-            skill_levels=_skill_levels(values),
-            core_level=_integer_with_default(values, "core_level", 1, strict),
-            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
-            additional_ability_eligible=_nekomata_additional_ability_eligibility(
-                team_ids
-            ),
+    config = NekomataCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 1, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=_integer_with_default(values, "potential_level", 0, strict),
+        additional_ability_eligible=_nekomata_additional_ability_eligibility(
+            team_ids
         ),
-        load_nekomata_raw_record(load_character_record(str(NEKOMATA_ID))),
+    )
+    return compile_nekomata(
+        config,
+        load_nekomata_raw_record(
+            load_character_record(str(NEKOMATA_ID)),
+            potential_level=config.potential_level,
+        ),
     )
 
 

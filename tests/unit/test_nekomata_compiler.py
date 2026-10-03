@@ -9,7 +9,7 @@ from core.application.characters.nekomata import (
     compile_nekomata,
     load_raw_record,
 )
-from core.application.equipment import signature_wengine_id_for
+from core.application.equipment import compile_wengine, signature_wengine_id_for
 from core.data.loader import load_character_record, supported_character_ids
 from core.presentation.base_stats import character_base_stats
 from core.presentation.registry import (
@@ -17,7 +17,15 @@ from core.presentation.registry import (
     config_fields_for,
     registration_for,
 )
-from core.types import CalculationNode, CharacterId, CharacterRole, Element, Resolved
+from core.types import (
+    CalculationNode,
+    CharacterId,
+    CharacterRole,
+    Element,
+    Resolved,
+    WEngineBuildInput,
+    WEngineId,
+)
 from web.api import app
 
 
@@ -29,6 +37,7 @@ def _payload(
     *,
     cinema_level: int = 0,
     core_level: int = 1,
+    potential_level: int = 0,
     enemy_stunned: bool = False,
     conditions: dict[str, bool] | None = None,
     parameters: dict[str, int] | None = None,
@@ -93,6 +102,7 @@ def _payload(
             "character:1021": {
                 "core_level": core_level,
                 "cinema_level": cinema_level,
+                "potential_level": potential_level,
             },
             **{
                 character_id: {
@@ -107,7 +117,6 @@ def _payload(
         "condition_values": {
             "condition:nekomata:core-damage-buff-active": False,
             "condition:nekomata:back-hit-active": False,
-            "condition:nekomata:random-repeat-occurred": False,
             **(conditions or {}),
         },
         "parameter_values": parameters or {},
@@ -201,6 +210,10 @@ def test_nekomata_registry_defaults_and_signature_selection_are_s_rank_attack() 
     fields = {item.field_id: item for item in config_fields_for(NEKOMATA_ID, {}, [NEKOMATA_ID])}
     assert fields["core_level"].value == 1
     assert fields["cinema_level"].value == 0
+    assert fields["potential_level"].field_type == "slider"
+    assert fields["potential_level"].value == 0
+    assert fields["potential_level"].minimum == 0
+    assert fields["potential_level"].maximum == 6
     assert {key: fields[key].value for key in fields if key.startswith("skill_level:")} == {
         "skill_level:basic-attack": 12,
         "skill_level:dodge": 12,
@@ -263,48 +276,130 @@ def test_nekomata_real_payload_applies_core_cinema_panels_and_c1_enemy_stun_once
     assert _node(stunned_event, CalculationNode.DAMAGE_RESISTANCE_IGNORE) == pytest.approx(0.16)
 
 
-def test_nekomata_repeat_diagnostic_is_limited_to_exact_authored_hit_templates() -> None:
-    enabled = (
-        "rule:character:1021:random-repeat:basic-cat-claw-final-repeat",
-        "rule:character:1021:random-repeat:basic-red-blade-repeat",
-    )
-    condition = {"condition:nekomata:random-repeat-occurred": True}
-    stage_four = client.post(
+def test_nekomata_random_baseline_is_omitted_but_potential_stun_repeats_are_deterministic() -> None:
+    baseline = client.post(
         "/api/v1/moves/calculate",
-        json=_payload(
-            "move-entry:character:1021:basic-cat-claw-4",
-            conditions=condition,
-            enabled=enabled,
-        ),
+        json=_payload("move-entry:character:1021:basic-cat-claw-5"),
     )
-    assert stage_four.status_code == 200, stage_four.text
-    assert stage_four.json()["totals"]["expected"]["complete"] is True
+    assert baseline.status_code == 200, baseline.text
+    baseline_result = baseline.json()
+    assert baseline_result["totals"]["expected"]["complete"] is True
+    assert len(baseline_result["events"]) == 1
+    assert baseline_result["events"][0]["repeat_count"] == 1
 
-    stage_five = client.post(
-        "/api/v1/moves/calculate",
-        json=_payload(
-            "move-entry:character:1021:basic-cat-claw-5",
-            conditions=condition,
-            enabled=enabled,
-        ),
+    repeat_rule_ids = (
+        "rule:character:1021:potential:basic-cat-claw-final-stun-repeat",
+        "rule:character:1021:potential:basic-red-blade-stun-repeat",
     )
-    assert stage_five.status_code == 200, stage_five.text
-    stage_five_result = stage_five.json()
-    assert stage_five_result["totals"]["expected"]["complete"] is False
-    assert stage_five_result["totals"]["expected"]["value"] > 0
-    assert stage_five_result["events"][0]["modes"]["expected"]["status"] == "calculated"
-    assert any(item["kind"] == "ambiguous-semantics" and item["blocking"] for item in stage_five_result["diagnostics"])
+    for entry_id, rule_id in (
+        ("move-entry:character:1021:basic-cat-claw-5", repeat_rule_ids[0]),
+        ("move-entry:character:1021:basic-red-blade", repeat_rule_ids[1]),
+    ):
+        for stunned, expected_events in ((False, 1), (True, 2)):
+            response = client.post(
+                "/api/v1/moves/calculate",
+                json=_payload(
+                    entry_id,
+                    potential_level=1,
+                    enemy_stunned=stunned,
+                    enabled=(rule_id,),
+                ),
+            )
+            assert response.status_code == 200, response.text
+            result = response.json()
+            assert result["totals"]["expected"]["complete"] is True
+            assert len(result["events"]) == expected_events
+            assert sum(item["repeat_count"] for item in result["events"]) == (
+                3 if stunned else 1
+            )
+            assert result["totals"]["expected"]["value"] > 0
 
-    red_blade = client.post(
+
+def test_nekomata_potential_slider_selects_source_moves_and_pounce_stats() -> None:
+    raw_full = load_character_record(str(NEKOMATA_ID))
+    for potential_level in range(7):
+        raw = load_raw_record(raw_full, potential_level=potential_level)
+        definition = compile_nekomata(
+            NekomataCompileConfig(potential_level=potential_level), raw
+        )
+        names = {entry.display_name for entry in definition.move_entries}
+        assert ("潜能解锁：闪避反击：绒爪穿刺" in names) is (potential_level > 0)
+        assert raw.core_levels[0].source_id == (
+            "1021501" if potential_level == 0 else "1021508"
+        )
+        crit_rule = next(
+            (
+                item
+                for item in definition.rule_items
+                if str(item.rule_id)
+                == "rule:character:1021:potential:pounce-crit-damage"
+            ),
+            None,
+        )
+        assert (crit_rule is not None) is (potential_level >= 2)
+
+    for potential_level, expected_bonus in ((2, 0.20), (3, 0.30), (4, 0.40), (5, 0.50), (6, 0.60)):
+        response = client.post(
+            "/api/v1/moves/calculate",
+            json=_payload(
+                "move-entry:character:1021:basic-cat-claw-1",
+                potential_level=potential_level,
+                conditions={"condition:nekomata:potential-pounce-active": True},
+                enabled=("rule:character:1021:potential:pounce-crit-damage",),
+            ),
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["totals"]["expected"]["complete"] is True
+        snapshot = next(
+            item
+            for item in result["resolved_character_snapshots"]
+            if item["character_id"] == "character:1021"
+        )
+        assert snapshot["stats"]["crit_damage"] == pytest.approx(0.5 + expected_bonus)
+
+    unlocked_move = client.post(
         "/api/v1/moves/calculate",
         json=_payload(
-            "move-entry:character:1021:basic-red-blade",
-            conditions=condition,
-            enabled=enabled,
+            "move-entry:character:1021:potential-dodge-counter-fluffy-claw",
+            potential_level=1,
         ),
     )
-    assert red_blade.status_code == 200, red_blade.text
-    assert red_blade.json()["totals"]["expected"]["complete"] is False
+    assert unlocked_move.status_code == 200, unlocked_move.text
+    assert unlocked_move.json()["totals"]["expected"]["complete"] is True
+    assert _node(unlocked_move.json()["events"][0], CalculationNode.DAMAGE_SKILL_MULTIPLIER) == pytest.approx(25.278)
+
+
+def test_nekomata_potential_pounce_mark_is_one_owner_physical_direct_child() -> None:
+    response = client.post(
+        "/api/v1/moves/calculate",
+        json=_payload(
+            "move-entry:character:1021:basic-cat-claw-1",
+            potential_level=1,
+            conditions={"condition:nekomata:potential-pounce-active": True},
+            enabled=("rule:character:1021:potential:super-furry-mark",),
+        ),
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 2
+    mark = next(item for item in result["events"] if "超凶爪印" in item["label"])
+    assert mark["repeat_count"] == 1
+    assert _node(mark, CalculationNode.DAMAGE_SKILL_MULTIPLIER) == pytest.approx(0.30)
+    assert _node(mark, CalculationNode.DAMAGE_BASE_VALUE) == pytest.approx(300.0)
+
+    definition = compile_registered_definition(
+        NEKOMATA_ID,
+        {"core_level": 1, "cinema_level": 0, "potential_level": 1},
+        [NEKOMATA_ID],
+        strict=False,
+    )
+    mark_template = next(
+        item for item in definition.damage_event_templates if "super-furry-mark" in str(item.ref.template_id)
+    )
+    assert mark_template.element is Element.PHYSICAL
+    assert mark_template.move_id is None
 
 
 def test_nekomata_additional_ability_uses_current_explicit_stacks_and_real_roster_gate() -> None:
@@ -351,6 +446,52 @@ def test_nekomata_signature_build_has_catalog_and_live_refinement_source() -> No
     snapshot = next(item for item in result["resolved_character_snapshots"] if item["character_id"] == "character:1021")
     assert snapshot["stats"]["crit_rate"] > 0.194
     assert _node(result["events"][0], CalculationNode.DAMAGE_NORMAL_BONUS_REGION) == pytest.approx(1.45)
+
+
+def test_nekomata_c1_stun_automatically_counts_as_steel_cushion_back_hit_once() -> None:
+    automatic_rule = (
+        "rule:wengine:14102:owner:1021:nekomata-c1-stunned-target-back-attack-damage"
+    )
+    for cinema, stunned, manual_back_hit, expected_region in (
+        (1, True, False, 1.45),
+        (1, True, True, 1.45),
+        (1, False, False, 1.20),
+        (1, False, True, 1.45),
+        (0, True, False, 1.20),
+    ):
+        enabled = [
+            "rule:wengine:14102:owner:1021:physical-damage",
+            "rule:wengine:14102:owner:1021:back-attack-damage",
+        ]
+        if cinema >= 1:
+            enabled.append(automatic_rule)
+        response = client.post(
+            "/api/v1/moves/calculate",
+            json=_payload(
+                "move-entry:character:1021:basic-cat-claw-1",
+                cinema_level=cinema,
+                equipment_build=True,
+                enemy_stunned=stunned,
+                conditions={
+                    "condition:wengine:14102:owner:1021:back-attack-active": manual_back_hit,
+                },
+                enabled=tuple(enabled),
+            ),
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["totals"]["expected"]["complete"] is True
+        assert _node(result["events"][0], CalculationNode.DAMAGE_NORMAL_BONUS_REGION) == pytest.approx(expected_region)
+
+    ye_id = CharacterId("character:1431")
+    ye_wengine = compile_wengine(
+        WEngineBuildInput(WEngineId("wengine:14102"), ye_id),
+        owner_capabilities=registration_for(ye_id).equipment_capabilities,
+    )
+    assert not any(
+        "nekomata-c1-stunned-target-back-attack-damage" in str(item.rule_id)
+        for item in ye_wengine.rule_items
+    )
 
 
 def test_nekomata_physical_assault_and_disorder_use_static_nocrit_records() -> None:

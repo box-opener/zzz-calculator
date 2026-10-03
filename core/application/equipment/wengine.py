@@ -42,6 +42,7 @@ from core.types import (
     DamageType,
     DamageTypeFilter,
     CreatedByEffectFilter,
+    EnemyStateFilter,
     DynamicIdentityCondition,
     DynamicIdentity,
     EffectId,
@@ -70,6 +71,7 @@ from core.types import (
     RuleSourceId,
     SkillGroup,
     SnapshotRule,
+    StateId,
     StandardCritRule,
     WEngineBuildInput,
     WEngineId,
@@ -171,6 +173,7 @@ from .wengine_ids import (
     WENGINE_CRIMSON_DESIRE_ID,
     WENGINE_SCARLET_MOON_COFFIN_ID,
     WENGINE_STEEL_CUSHION_ID,
+    NEKOMATA_C1_STUN_BACK_HIT_MECHANISM,
     WENGINE_TREASURE_CHEST_ID,
 )
 from .wengine_reviewed import reviewed_mapping_for
@@ -1111,7 +1114,14 @@ def _reviewed_rules(
             ),
         )
     if effect_family == "attack-steel-cushion":
-        return _steel_cushion_rules(raw, build_input, talent, source, eligibility)
+        return _steel_cushion_rules(
+            raw,
+            build_input,
+            talent,
+            source,
+            eligibility,
+            owner_capabilities,
+        )
     if effect_family == "attack-brimstone":
         return _brimstone_rules(raw, build_input, talent, source, eligibility)
     if effect_family == "attack-deep-sea-visitor":
@@ -4421,6 +4431,7 @@ def _steel_cushion_rules(
     talent: WEngineRawTalent,
     source: RuleSource,
     eligibility: RuleEligibility,
+    owner_capabilities: EquipmentOwnerCapabilities,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
     values = talent.numeric_values
@@ -4432,7 +4443,15 @@ def _steel_cushion_rules(
         "从背后攻击命中敌人",
     )
     physical_scope = (element_scope_filter(Element.PHYSICAL),)
-    rules = (
+    automatic_stunned_back_hit = (
+        NEKOMATA_C1_STUN_BACK_HIT_MECHANISM in owner_capabilities.mechanisms
+    )
+    back_filters = (
+        (NotFilter(EnemyStateFilter(StateId("state:enemy:stunned"))),)
+        if automatic_stunned_back_hit
+        else ()
+    )
+    rules = [
         _rule(
             raw=raw,
             owner=owner,
@@ -4468,11 +4487,34 @@ def _steel_cushion_rules(
                     suffix="back-attack-damage",
                     path=CalculationNode.DAMAGE_NORMAL_BONUS,
                     value=float(values["back_attack_damage_bonus"]),
+                    filters=back_filters,
                 ),
             ),
         ),
-    )
-    return rules, (back_condition,)
+    ]
+    if automatic_stunned_back_hit:
+        rules.append(
+            _rule(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="nekomata-c1-stunned-target-back-attack-damage",
+                label=f"{raw.name}·猫又1影失衡目标背击增伤",
+                eligibility=eligibility,
+                effects=(
+                    _wearer_modifier(
+                        raw=raw,
+                        owner=owner,
+                        source=source,
+                        suffix="c1-stunned-back-attack-damage",
+                        path=CalculationNode.DAMAGE_NORMAL_BONUS,
+                        value=float(values["back_attack_damage_bonus"]),
+                        filters=(EnemyStateFilter(StateId("state:enemy:stunned")),),
+                    ),
+                ),
+            )
+        )
+    return tuple(rules), (back_condition,)
 
 
 def _brimstone_rules(
