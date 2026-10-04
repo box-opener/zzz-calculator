@@ -1395,8 +1395,8 @@ function App() {
                     <div>
                       <strong>{event.label}</strong>
                       <small>{event.semantic_id} · ×{event.repeat_count}</small>
+                      {dischargeSummary && <p className="discharge-multiplier-summary">{dischargeSummary}</p>}
                     </div>
-                    {dischargeSummary && <p className="discharge-multiplier-summary">{dischargeSummary}</p>}
                     <div className="event-values">
                       {(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => {
                         const modeResult = event.modes[mode];
