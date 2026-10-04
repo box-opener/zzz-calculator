@@ -147,6 +147,7 @@ type EditorView = {
     label: string;
     actor_options: string[];
     selected_actor: string | null;
+    rule_item_id?: string | null;
   }[];
 };
 
@@ -165,6 +166,7 @@ type WEngineEditorView = {
     label: string;
     actor_options: string[];
     selected_actor: string | null;
+    rule_item_id?: string | null;
   }[];
   diagnostics: { diagnostic_id: string; message: string; blocking: boolean }[];
 };
@@ -182,6 +184,7 @@ type DriveDiscEditorView = {
     label: string;
     actor_options: string[];
     selected_actor: string | null;
+    rule_item_id?: string | null;
   }[];
   diagnostics: { diagnostic_id: string; message: string; blocking: boolean }[];
 };

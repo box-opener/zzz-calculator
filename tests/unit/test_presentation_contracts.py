@@ -177,6 +177,7 @@ def test_character_editor_exposes_static_conditions_and_trigger_inputs() -> None
         item.input_id.startswith("scenario-trigger:")
         for item in view.scenario_trigger_inputs
     )
+    assert all(item.rule_item_id for item in view.scenario_trigger_inputs)
     assert all(
         "effect:" not in option
         for item in view.scenario_trigger_inputs

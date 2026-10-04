@@ -21,6 +21,35 @@ export type EditorAggregation<R, C, P, T, F> = {
   configFields: { owner: string; field: F }[];
 };
 
+type EquipmentRuleControls = {
+  rule_id?: string;
+  eligibility?: string;
+  condition_ids?: readonly string[];
+  condition_not_ids?: readonly string[];
+};
+
+function eligibleEquipmentControls<R, C, T>(equipment: EquipmentEditorProjection<R, C, unknown, T>) {
+  const eligibleRuleIds = new Set<string>();
+  const referencedConditionIds = new Set<string>();
+  for (const rawRule of equipment.rule_items) {
+    const rule = rawRule as unknown as EquipmentRuleControls;
+    if (rule.eligibility === "ineligible") continue;
+    if (rule.rule_id) eligibleRuleIds.add(rule.rule_id);
+    rule.condition_ids?.forEach((conditionId) => referencedConditionIds.add(conditionId));
+    rule.condition_not_ids?.forEach((conditionId) => referencedConditionIds.add(conditionId));
+  }
+  const conditions = equipment.scenario_conditions.filter((rawCondition) => {
+    const condition = rawCondition as unknown as { condition_id?: string; id?: string };
+    const conditionId = condition.condition_id ?? condition.id;
+    return conditionId !== undefined && referencedConditionIds.has(conditionId);
+  });
+  const triggers = equipment.scenario_trigger_inputs.filter((rawTrigger) => {
+    const trigger = rawTrigger as unknown as { rule_item_id?: string | null };
+    return trigger.rule_item_id == null || eligibleRuleIds.has(trigger.rule_item_id);
+  });
+  return { conditions, triggers };
+}
+
 /**
  * Merge only active team members, in stable slot order.  This is shared by
  * the UI and its tests so removing a member can never leave an equipment or
@@ -56,10 +85,11 @@ export function aggregateEditorViews<
     }
     for (const equipment of [wengineViews[owner], driveDiscViews[owner]]) {
       if (!equipment) continue;
+      const activeControls = eligibleEquipmentControls(equipment);
       result.ruleItems.push(...equipment.rule_items);
-      result.conditions.push(...equipment.scenario_conditions);
+      result.conditions.push(...activeControls.conditions);
       result.parameters.push(...equipment.scenario_parameters ?? []);
-      result.triggers.push(...equipment.scenario_trigger_inputs);
+      result.triggers.push(...activeControls.triggers);
     }
   }
   return result;

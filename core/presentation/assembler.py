@@ -618,6 +618,7 @@ def _trigger_inputs_for_rules(
                     actor_options=team_ids,
                     required=True,
                     selected_actor=selected,
+                    rule_item_id=str(rule.rule_id),
                 )
             )
     return tuple(inputs)

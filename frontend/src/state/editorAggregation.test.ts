@@ -10,10 +10,16 @@ const characterView = (id: string) => ({
 });
 
 const equipmentView = (id: string, source: string) => ({
-  rule_items: [{ id: `${source}-rule:${id}` }],
-  scenario_conditions: [{ id: `${source}-condition:${id}` }],
+  rule_items: [{
+    id: `${source}-rule:${id}`,
+    rule_id: `${source}-rule:${id}`,
+    eligibility: "eligible",
+    condition_ids: [`${source}-condition:${id}`],
+    condition_not_ids: [],
+  }],
+  scenario_conditions: [{ id: `${source}-condition:${id}`, condition_id: `${source}-condition:${id}` }],
   scenario_parameters: [{ id: `${source}-parameter:${id}` }],
-  scenario_trigger_inputs: [{ id: `${source}-trigger:${id}` }],
+  scenario_trigger_inputs: [{ id: `${source}-trigger:${id}`, rule_item_id: `${source}-rule:${id}` }],
 });
 
 describe("aggregateEditorViews", () => {
@@ -55,5 +61,107 @@ describe("aggregateEditorViews", () => {
       "character-rule:character:two",
     ]);
     expect(result.conditions.every((item) => !item.id.includes("three"))).toBe(true);
+  });
+
+  it("hides equipment conditions referenced only by ineligible rules but keeps eligible false states", () => {
+    const ye = "character:1431";
+    const astra = "character:1311";
+    const assaultCondition = "condition:drive-disc:32600:owner:character_1431:assault-target-active";
+    const mismatchedWeaponCondition = "condition:wengine:14131:owner:1431:damage-buff-active";
+    const matchedWeaponCondition = "condition:wengine:14131:owner:1311:damage-buff-active";
+    const sharedCondition = "condition:shared-equipment-state";
+    type Rule = {
+      rule_id: string;
+      eligibility: string;
+      availability: string;
+      condition_ids: readonly string[];
+      condition_not_ids: readonly string[];
+      stack: { default: number | null; minimum: number | null; maximum: number | null };
+    };
+    type Condition = { condition_id: string; value: boolean; editable: boolean };
+    type Trigger = { input_id: string; rule_item_id: string };
+    const driveRules: Rule[] = [
+      {
+        rule_id: "rule:drive-disc:31000:owner:character_1431:4pc:attack-stacks",
+        eligibility: "eligible",
+        availability: "available",
+        condition_ids: [],
+        condition_not_ids: [],
+        stack: { default: 3, minimum: 0, maximum: 3 },
+      },
+      {
+        rule_id: "rule:drive-disc:32600:owner:character_1431:4pc:assault-target-damage",
+        eligibility: "ineligible",
+        availability: "unavailable",
+        condition_ids: [assaultCondition],
+        condition_not_ids: [],
+        stack: { default: null, minimum: null, maximum: null },
+      },
+    ];
+    const wrongWeaponRule: Rule = {
+      rule_id: "rule:wengine:14131:owner:1431:team-damage",
+      eligibility: "ineligible",
+      availability: "unavailable",
+      condition_ids: [mismatchedWeaponCondition, sharedCondition],
+      condition_not_ids: [],
+      stack: { default: 2, minimum: 0, maximum: 2 },
+    };
+    const rightWeaponRule: Rule = {
+      rule_id: "rule:wengine:14131:owner:1311:team-damage",
+      eligibility: "eligible",
+      availability: "unavailable",
+      condition_ids: [matchedWeaponCondition, sharedCondition],
+      condition_not_ids: [],
+      stack: { default: 2, minimum: 0, maximum: 2 },
+    };
+    const result = aggregateEditorViews<Rule, Condition, unknown, Trigger, unknown>(
+      [ye, astra],
+      {},
+      {
+        [ye]: {
+          rule_items: [wrongWeaponRule],
+          scenario_conditions: [
+            { condition_id: mismatchedWeaponCondition, value: false, editable: true },
+            { condition_id: sharedCondition, value: false, editable: true },
+          ],
+          scenario_trigger_inputs: [
+            { input_id: "trigger:wrong", rule_item_id: wrongWeaponRule.rule_id },
+          ],
+        },
+        [astra]: {
+          rule_items: [rightWeaponRule],
+          scenario_conditions: [
+            { condition_id: matchedWeaponCondition, value: false, editable: true },
+            { condition_id: sharedCondition, value: false, editable: true },
+          ],
+          scenario_trigger_inputs: [
+            { input_id: "trigger:right", rule_item_id: rightWeaponRule.rule_id },
+          ],
+        },
+      },
+      {
+        [ye]: {
+          rule_items: driveRules,
+          scenario_conditions: [
+            { condition_id: assaultCondition, value: false, editable: true },
+          ],
+          scenario_trigger_inputs: [],
+        },
+      },
+    );
+
+    expect(result.ruleItems.map((rule) => rule.rule_id)).toEqual([
+      wrongWeaponRule.rule_id,
+      driveRules[0].rule_id,
+      driveRules[1].rule_id,
+      rightWeaponRule.rule_id,
+    ]);
+    expect(result.ruleItems.find((rule) => rule.rule_id === driveRules[0].rule_id)?.stack.default).toBe(3);
+    expect(result.conditions.map((condition) => condition.condition_id)).toEqual([
+      matchedWeaponCondition,
+      sharedCondition,
+    ]);
+    expect(result.conditions.every((condition) => condition.value === false)).toBe(true);
+    expect(result.triggers.map((trigger) => trigger.input_id)).toEqual(["trigger:right"]);
   });
 });

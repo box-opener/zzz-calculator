@@ -48,6 +48,7 @@ class ScenarioTriggerInputView:
     actor_options: tuple[str, ...]
     required: bool
     selected_actor: str | None
+    rule_item_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
