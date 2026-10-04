@@ -48,6 +48,7 @@ import {
 } from "./state/equipmentConfig";
 import { filterCharacterCatalog, isCharacterSelectable } from "./state/characterLibrary";
 import { aggregateEditorViews } from "./state/editorAggregation";
+import { formatMultiplierPercent } from "./state/calculationDisplay";
 
 type Character = {
   character_id: string;
@@ -1480,7 +1481,7 @@ function dischargeMultiplierSummary(event: CalculationEvent): string | null {
     || !Number.isFinite(sourceTickMultiplier)
     || !Number.isFinite(dischargeMultiplier)
     || !Number.isFinite(totalMultiplier)) return null;
-  return `原异常每跳 ${formatNumber(sourceTickMultiplier * 100)}% × 异放倍率 ${formatNumber(dischargeMultiplier * 100)}% = 结算倍率 ${formatNumber(totalMultiplier * 100)}%`;
+  return `原异常每跳 ${formatMultiplierPercent(sourceTickMultiplier)} × 异放倍率 ${formatMultiplierPercent(dischargeMultiplier)} = 结算倍率 ${formatMultiplierPercent(totalMultiplier)}`;
 }
 
 function CalculationDiagnosticList({
