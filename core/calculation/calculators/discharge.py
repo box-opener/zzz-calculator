@@ -125,6 +125,7 @@ class DischargeDamageCalculator:
             "DischargeDamageCalculator",
             unresolved,
         )
+        source_anomaly_multiplier = multiplier
         crit_rate, crit_damage = _crit_values(
             context,
             event,
@@ -163,12 +164,16 @@ class DischargeDamageCalculator:
             unresolved,
         )
         if multiplier is not None:
-            proficiency_ratio = modifiers[CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER]
             has_proficiency_ratio = any(
                 item.modifier_path is CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER
                 for item in context.modifiers
             )
-            multiplier *= proficiency_ratio if has_proficiency_ratio else 1.0
+            proficiency_ratio = (
+                modifiers[CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER]
+                if has_proficiency_ratio
+                else 1.0
+            )
+            multiplier *= proficiency_ratio
         required = (
             effect_strength,
             historical_anomaly_bonus,
@@ -193,6 +198,7 @@ class DischargeDamageCalculator:
         assert effect_strength is not None
         assert historical_anomaly_bonus is not None
         assert multiplier is not None
+        assert source_anomaly_multiplier is not None
         assert crit_rate is not None
         assert crit_damage is not None
         assert penetration_rate is not None
@@ -259,11 +265,15 @@ class DischargeDamageCalculator:
             value=final,
             breakdown=(
                 node_value(CalculationNode.ANOMALY_EFFECT_STRENGTH, effect_strength),
-                node_value(CalculationNode.DISCHARGE_TOTAL_MULTIPLIER, multiplier),
+                node_value(
+                    CalculationNode.DISCHARGE_ORIGINAL_ANOMALY_MULTIPLIER,
+                    source_anomaly_multiplier,
+                ),
                 node_value(
                     CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER,
-                    modifiers[CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER],
+                    proficiency_ratio,
                 ),
+                node_value(CalculationNode.DISCHARGE_TOTAL_MULTIPLIER, multiplier),
                 node_value(CalculationNode.DAMAGE_BASE_VALUE, base_damage),
                 node_value(
                     CalculationNode.ANOMALY_DAMAGE_BONUS_REGION,

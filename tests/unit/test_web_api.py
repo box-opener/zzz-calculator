@@ -430,6 +430,28 @@ def test_wengine_catalog_exposes_source_verified_signature_owners() -> None:
         assert catalog[wengine_id]["signature_character_id"] == values["owner"]
 
 
+def test_vivian_signature_timeline_note_is_tagged_for_calculation_details() -> None:
+    response = client.post(
+        "/api/v1/wengines/preview",
+        json={
+            "wengine_id": "wengine:14133",
+            "equipped_character_id": "character:1331",
+            "team_character_ids": ["character:1331"],
+            "level": 60,
+            "refinement": 1,
+        },
+    )
+    assert response.status_code == 200, response.text
+    note = next(
+        item
+        for item in response.json()["diagnostics"]
+        if item["diagnostic_id"] == "wengine:wengine:14133:result-scope"
+    )
+    assert note["blocking"] is False
+    assert note["details_only"] is True
+    assert "0.5-second cooldown" in note["message"]
+
+
 def test_every_supported_character_has_a_signature_for_picker_ordering() -> None:
     registered_ids = {
         registration.character_id

@@ -5,6 +5,8 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from core.application import CritDisplayMode
+from core.application.diagnostics import CalculationDiagnostic, DiagnosticKind
+from core.application.ids import DiagnosticId
 from core.application.characters.astra import (
     AstraCompileConfig,
     compile_astra,
@@ -39,6 +41,7 @@ from core.presentation import (
     config_fields_for,
 )
 from core.presentation.calculation import panel_snapshot_view
+from core.presentation.diagnostics import diagnostic_view
 from core.presentation.serialization import to_jsonable
 from core.types import (
     CharacterId,
@@ -99,6 +102,28 @@ def _execution(mode: CritDisplayMode, value: float) -> MoveCalculationExecution:
             ),
         ),
     )
+
+
+def test_only_named_nonblocking_static_notes_are_details_only() -> None:
+    def view(diagnostic_id: str, *, blocking: bool = False):
+        return diagnostic_view(
+            CalculationDiagnostic(
+                diagnostic_id=DiagnosticId(diagnostic_id),
+                kind=DiagnosticKind.UNSUPPORTED_CALCULATOR,
+                message="static analysis note",
+                blocking=blocking,
+                original_text="source text",
+            )
+        )
+
+    expected_notes = (
+        "unsupported:character:1331:core:prophecy-timing",
+        "unsupported:character:1331:core:feather-resource-sequence",
+        "wengine:wengine:14133:result-scope",
+    )
+    assert all(view(item).details_only for item in expected_notes)
+    assert not view("unsupported:some-other:real-unimplemented-lane").details_only
+    assert not view(expected_notes[0], blocking=True).details_only
 
 
 def test_production_character_records_are_the_single_raw_data_source() -> None:

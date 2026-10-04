@@ -68,6 +68,8 @@ def test_discharge_golden_and_triggerer_identity() -> None:
 
     assert event.discharge_triggerer != history.anomaly_triggerer
     assert result.value == pytest.approx(75292.8)
+    assert values[CalculationNode.DISCHARGE_ORIGINAL_ANOMALY_MULTIPLIER] == 14.26
+    assert values[CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER] == 1.0
     assert values[CalculationNode.DISCHARGE_TOTAL_MULTIPLIER] == 14.26
     assert values[CalculationNode.ANOMALY_DAMAGE_BONUS_REGION] == 1.2
     assert values[CalculationNode.DISCHARGE_CRIT_REGION] == 1.0

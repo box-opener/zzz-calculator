@@ -265,22 +265,44 @@ type AnomalyEffectStrengthTraceView = {
   contributor_traces: { contributor_character_id: string; actual_written_buildup: number; trace: AnomalyEffectStrengthTraceView }[];
 };
 
+type CalculationDiagnostic = {
+  diagnostic_id?: string;
+  kind?: string;
+  message: string;
+  blocking: boolean;
+  original_text?: string | null;
+  candidates?: string[];
+  details_only?: boolean;
+};
+
+type CalculationEventMode = {
+  value: number | null;
+  known_value: number | null;
+  status: string;
+  diagnostics: CalculationDiagnostic[];
+  calculation_breakdown: { node: string; value: number | null; read_rule: string }[];
+  anomaly_effect_strength_trace?: AnomalyEffectStrengthTraceView | null;
+  anomaly_record_id?: string | null;
+};
+
+type CalculationEvent = {
+  semantic_id: string;
+  label: string;
+  damage_type: string;
+  damage_subtype: string | null;
+  repeat_count: number;
+  crit_capability?: string;
+  display_modes?: string[];
+  modes: Record<string, CalculationEventMode>;
+  common_application_trace: EventTraceEnvelope | null;
+};
+
 type CalculationView = {
   move_entry_id: string;
   display_modes?: string[];
-  events: {
-    semantic_id: string;
-    label: string;
-    damage_type: string;
-    damage_subtype: string | null;
-    repeat_count: number;
-    crit_capability?: string;
-    display_modes?: string[];
-    modes: Record<string, { value: number | null; known_value: number | null; status: string; diagnostics: { message: string }[]; calculation_breakdown: { node: string; value: number | null; read_rule: string }[]; anomaly_effect_strength_trace?: AnomalyEffectStrengthTraceView | null; anomaly_record_id?: string | null }>;
-    common_application_trace: EventTraceEnvelope | null;
-  }[];
+  events: CalculationEvent[];
   totals: Record<string, { value: number | null; complete: boolean; diagnostics: { message: string }[] }>;
-  diagnostics: { message: string; blocking: boolean }[];
+  diagnostics: CalculationDiagnostic[];
   resolved_character_snapshots: { character_id: string; stats: Record<string, number | null | Record<string, number | null>> }[];
   panel_traces: { recipient_character_id: string; effect_id: string; source_label: string | null; source_type: string | null; resolved_value: number; modifier_path: string }[];
   build_provenance: { character_id: string; contribution_id: string; source_id: string; source_type: string; source_label: string; stat: string; layer: string; value: number | null; element: string | null; unresolved: string | null }[];
@@ -288,9 +310,9 @@ type CalculationView = {
     source_character_id: string;
     source_character_name: string;
     element: string;
-    events: CalculationView["events"];
+    events: CalculationEvent[];
     totals: CalculationView["totals"];
-    diagnostics: { message: string; blocking: boolean }[];
+    diagnostics: CalculationDiagnostic[];
   }[];
 };
 
@@ -1349,13 +1371,152 @@ function App() {
           <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={teamIds.length === 0 || calculating || loading || !moveEntryId || Boolean(moveSelectionIssue)} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
           <label className="move-select">招式<select disabled={teamIds.length === 0} value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
           {moveSelectionIssue && <p className="control-section-hint">⚠ {moveSelectionIssue}；未发送计算请求。</p>}
-          {calculation ? <div className="calculation-output"><div className="totals-grid">{(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <div className="total-card" key={mode}><small>{mode}</small><strong>{formatNumber(calculation.totals[mode]?.value)}</strong><span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>{calculation.totals[mode]?.complete ? "complete" : "partial"}</span></div>)}</div><div className="event-list">{calculation.events.map((event) => <article className="event-card" key={event.semantic_id}><div><strong>{event.label}</strong><small>{event.semantic_id} · ×{event.repeat_count}</small></div><div className="event-values">{(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => <span key={mode}><small>{mode} · {event.modes[mode]?.status}</small><b>{formatNumber(event.modes[mode]?.known_value)}</b></span>)}</div><details className="event-details"><summary>查看 breakdown</summary><div className="breakdown-list">{(event.modes.expected?.calculation_breakdown ?? []).map((node) => <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>)}</div><AnomalyStrengthDetails event={event} />{event.common_application_trace && <EventTraceDetails trace={event.common_application_trace} rules={allRules} conditions={allConditions} conditionValues={conditionValuesRef.current} enabledRuleIds={enabledRules} formatNumber={formatNumber} isEquipmentSource={isEquipmentSource} />}{Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>))}</details></article>)}</div><VivianPanelSourceResults results={(calculation.panel_source_results ?? []).filter((source) => calculation.move_entry_id !== VIVIAN_DISCHARGE_ENTRY_ID || source.source_character_id !== VIVIAN_ID)} />{calculation.panel_traces.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">PANEL PROVENANCE</span><strong>面板来源明细</strong></span><small>{calculation.panel_traces.length} 项</small></summary>{calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}><span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong><small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small></div>)}</details>}{calculation.resolved_character_snapshots.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">RESOLVED PANELS</span><strong>结算面板快照</strong></span><small>{calculation.resolved_character_snapshots.length} 名</small></summary>{calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}><strong>{snapshot.character_id}</strong><span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span><span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span><span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span></div>)}</details>}{calculation.diagnostics.length > 0 && <div className="diagnostic-list">{calculation.diagnostics.map((item, index) => <div className="diagnostic" key={`${item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}</div> : <div className="empty-state"><span className="empty-icon">◈</span><strong>{teamIds.length === 0 ? "先配置队伍角色" : "选择招式后开始结算"}</strong><p className="muted">{teamIds.length === 0 ? "请从左侧角色槽位添加至少一名角色。" : "结果、派生事件和白盒说明将由计算内核返回。"}</p></div>}
+          {calculation ? (
+            <div className="calculation-output">
+              <div className="totals-grid">
+                {(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => (
+                  <div className="total-card" key={mode}>
+                    <small>{mode}</small>
+                    <strong>{formatNumber(calculation.totals[mode]?.value)}</strong>
+                    <span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>
+                      {calculation.totals[mode]?.complete ? "complete" : "partial"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="event-list">
+                {calculation.events.map((event) => {
+                  const dischargeSummary = dischargeMultiplierSummary(event);
+                  const periodicAnomaly = event.damage_type === "anomaly"
+                    && event.damage_subtype === "attribute-anomaly"
+                    && event.repeat_count > 1;
+                  return <article className="event-card" key={event.semantic_id}>
+                    <div>
+                      <strong>{event.label}</strong>
+                      <small>{event.semantic_id} · ×{event.repeat_count}</small>
+                    </div>
+                    {dischargeSummary && <p className="discharge-multiplier-summary">{dischargeSummary}</p>}
+                    <div className="event-values">
+                      {(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => {
+                        const modeResult = event.modes[mode];
+                        return <span key={mode}>
+                          <small>{mode} · {modeResult?.status}{event.repeat_count > 1 ? " · 合计" : ""}</small>
+                          <b>{formatNumber(modeResult?.known_value)}</b>
+                          {periodicAnomaly && modeResult?.value !== null && modeResult?.value !== undefined
+                            && <small className="event-per-tick">每跳 {formatNumber(modeResult.value)}</small>}
+                        </span>;
+                      })}
+                    </div>
+                    <details className="event-details">
+                      <summary>查看 breakdown</summary>
+                      <div className="breakdown-list">
+                        {(event.modes.expected?.calculation_breakdown ?? []).map((node) => (
+                          <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>
+                        ))}
+                      </div>
+                      <AnomalyStrengthDetails event={event} />
+                      {event.common_application_trace && <EventTraceDetails
+                        trace={event.common_application_trace}
+                        rules={allRules}
+                        conditions={allConditions}
+                        conditionValues={conditionValuesRef.current}
+                        enabledRuleIds={enabledRules}
+                        formatNumber={formatNumber}
+                        isEquipmentSource={isEquipmentSource}
+                      />}
+                      {Object.entries(event.modes).flatMap(([mode, item]) => item.diagnostics.map((diagnostic, index) => (
+                        <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>
+                      )))}
+                    </details>
+                  </article>;
+                })}
+              </div>
+              <VivianPanelSourceResults results={(calculation.panel_source_results ?? []).filter(
+                (source) => calculation.move_entry_id !== VIVIAN_DISCHARGE_ENTRY_ID || source.source_character_id !== VIVIAN_ID,
+              )} />
+              {calculation.panel_traces.length > 0 && <details className="trace-list provenance-details">
+                <summary><span><span className="eyebrow">PANEL PROVENANCE</span><strong>面板来源明细</strong></span><small>{calculation.panel_traces.length} 项</small></summary>
+                {calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}>
+                  <span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong>
+                  <small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small>
+                </div>)}
+              </details>}
+              {calculation.resolved_character_snapshots.length > 0 && <details className="trace-list provenance-details">
+                <summary><span><span className="eyebrow">RESOLVED PANELS</span><strong>结算面板快照</strong></span><small>{calculation.resolved_character_snapshots.length} 名</small></summary>
+                {calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}>
+                  <strong>{snapshot.character_id}</strong>
+                  <span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span>
+                  <span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span>
+                  <span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span>
+                </div>)}
+              </details>}
+              <CalculationDiagnosticList diagnostics={calculation.diagnostics} />
+            </div>
+          ) : (
+            <div className="empty-state">
+              <span className="empty-icon">◈</span>
+              <strong>{teamIds.length === 0 ? "先配置队伍角色" : "选择招式后开始结算"}</strong>
+              <p className="muted">{teamIds.length === 0 ? "请从左侧角色槽位添加至少一名角色。" : "结果、派生事件和白盒说明将由计算内核返回。"}</p>
+            </div>
+          )}
         </section>
       </section>
 
       {diagnostics.length > 0 && <section className="diagnostics glass-card"><p className="eyebrow">DIAGNOSTICS</p>{diagnostics.map((message) => <div className="diagnostic" key={message}><strong>API</strong><span>{message}</span></div>)}</section>}
     </main>
   );
+}
+
+function dischargeMultiplierSummary(event: CalculationEvent): string | null {
+  if (event.damage_subtype !== "discharge") return null;
+  const breakdown = event.modes.expected?.calculation_breakdown ?? [];
+  const valueFor = (node: string) => breakdown.find((item) => item.node === node)?.value;
+  const sourceTickMultiplier = valueFor("anomaly.discharge.original-anomaly-multiplier");
+  const dischargeMultiplier = valueFor("discharge.proficiency-multiplier");
+  const totalMultiplier = valueFor("anomaly.discharge.total-multiplier");
+  if (typeof sourceTickMultiplier !== "number"
+    || typeof dischargeMultiplier !== "number"
+    || typeof totalMultiplier !== "number"
+    || !Number.isFinite(sourceTickMultiplier)
+    || !Number.isFinite(dischargeMultiplier)
+    || !Number.isFinite(totalMultiplier)) return null;
+  return `原异常每跳 ${formatNumber(sourceTickMultiplier * 100)}% × 异放倍率 ${formatNumber(dischargeMultiplier * 100)}% = 结算倍率 ${formatNumber(totalMultiplier * 100)}%`;
+}
+
+function CalculationDiagnosticList({
+  diagnostics,
+}: {
+  diagnostics: CalculationDiagnostic[];
+}) {
+  const unique = [...new Map(
+    diagnostics.map((item) => [
+      `${item.diagnostic_id ?? ""}:${item.message}:${item.blocking}`,
+      item,
+    ]),
+  ).values()];
+  const detailsOnly = unique.filter((item) => !item.blocking && item.details_only === true);
+  const visible = unique.filter((item) => !detailsOnly.includes(item));
+  if (visible.length === 0 && detailsOnly.length === 0) return null;
+  return <>
+    {visible.length > 0 && <div className="diagnostic-list">{visible.map((item, index) => <div className="diagnostic" key={`${item.diagnostic_id ?? item.message}-${index}`}><strong>{item.blocking ? "BLOCKED" : "NOTE"}</strong><span>{item.message}</span></div>)}</div>}
+    {detailsOnly.length > 0 && <details className="calculation-notes">
+      <summary><strong>计算说明</strong><small>{detailsOnly.length} 条</small></summary>
+      <div className="calculation-note-list">{detailsOnly.map((item, index) => <article className="calculation-note" key={`${item.diagnostic_id ?? item.message}-${index}`}>
+        <strong>{calculationNoteTitle(item.diagnostic_id)}</strong>
+        <p>{item.message}</p>
+        {item.original_text && <small>来源原文：{item.original_text}</small>}
+        {item.candidates && item.candidates.length > 0 && <small>候选：{item.candidates.join("；")}</small>}
+      </article>)}</div>
+    </details>}
+  </>;
+}
+
+function calculationNoteTitle(diagnosticId: string | undefined): string {
+  return ({
+    "unsupported:character:1331:core:prophecy-timing": "预言跳数",
+    "unsupported:character:1331:core:feather-resource-sequence": "当前飞羽与护羽状态",
+    "wengine:wengine:14133:result-scope": "专武异常精通层数",
+  } as Record<string, string>)[diagnosticId ?? ""] ?? "静态计算说明";
 }
 
 function VivianPanelSourceResults({ results }: { results: NonNullable<CalculationView["panel_source_results"]> }) {
@@ -1365,9 +1526,14 @@ function VivianPanelSourceResults({ results }: { results: NonNullable<Calculatio
     <div className="vivian-panel-source-grid">{results.map((source) => <article className="vivian-panel-source-card" key={`${source.source_character_id}-${source.element}`}>
       <div className="vivian-panel-source-heading"><strong>薇薇安异放 · {source.source_character_name}/{elementLabel(source.element)}</strong><span className={source.totals.expected?.complete ? "complete" : "incomplete"}>{source.totals.expected?.complete ? "complete" : "partial"}</span></div>
       <div className="vivian-panel-source-total"><span>异放合计</span><strong>{formatNumber(source.totals.expected?.value)}</strong></div>
-      {source.events.map((event) => <div className="vivian-panel-source-row" key={event.semantic_id}><span>{event.label}</span><strong>{formatNumber(event.modes.expected?.known_value)}</strong></div>)}
-      {source.diagnostics.map((diagnostic) => <small className="inline-diagnostic" key={diagnostic.message}>{diagnostic.message}</small>)}
-      {source.events.flatMap((event) => (event.modes.expected?.diagnostics ?? []).map((diagnostic, index) => <small className="inline-diagnostic" key={`${event.semantic_id}-${index}`}>{diagnostic.message}</small>))}
+      {source.events.map((event) => <div className="vivian-panel-source-event" key={event.semantic_id}>
+        <div className="vivian-panel-source-row"><span>{event.label}</span><strong>{formatNumber(event.modes.expected?.known_value)}</strong></div>
+        {dischargeMultiplierSummary(event) && <small className="discharge-multiplier-summary">{dischargeMultiplierSummary(event)}</small>}
+      </div>)}
+      <CalculationDiagnosticList diagnostics={[
+        ...source.diagnostics,
+        ...source.events.flatMap((event) => Object.values(event.modes).flatMap((mode) => mode.diagnostics)),
+      ]} />
     </article>)}</div>
   </section>;
 }

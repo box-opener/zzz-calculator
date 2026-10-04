@@ -557,6 +557,70 @@ def test_vivian_periodic_discharge_sources_use_per_tick_multiplier() -> None:
         ] == pytest.approx(expected_tick_multiplier)
 
 
+def test_vivian_screenshot_calculation_shows_periodic_total_tick_and_discharge_formula() -> None:
+    payload = _payload(
+        move_entry_id=ANOMALY_ENTRY,
+        core_level=7,
+        cinema_level=0,
+        condition_values={MUTATION_CONDITION: True},
+    )
+    payload["character_builds"][VIVIAN] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": "wengine:14133",
+        "wengine_level": 60,
+        "wengine_refinement": 1,
+        "drive_discs": [],
+    }
+    payload["enemy"].update(
+        {
+            "level": 70,
+            "initial_defense": 857.0,
+            "damage_resistance": {
+                "physical": 0.0,
+                "fire": 0.0,
+                "ice": 0.0,
+                "electric": 0.0,
+                "ether": 0.0,
+                "wind": 0.0,
+                "luminance": 0.0,
+            },
+        }
+    )
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1331:core:prophecy-ticks",
+        *(
+            f"rule:character:1331:core:anomaly-mutation:{element}"
+            for element in ("ether", "ether:xuanmo", "electric", "fire", "physical", "physical:linren", "ice", "ice:lieshuang", "wind")
+        ),
+        "rule:character:1331:core:feather-resource",
+        "rule:wengine:14133:owner:1331:anomaly-buildup-efficiency",
+        "rule:wengine:14133:owner:1331:anomaly-proficiency-per-ether-stack",
+    ]
+
+    result = calculate_payload(payload)
+    source = _event(result, "event:character:1331:ether-corrosion")
+    discharge = _event(result, "event:character:1331:core-anomaly-mutation:ether")
+    assert source["repeat_count"] == 20
+    assert source["modes"]["expected"]["value"] == pytest.approx(3142.4078462023012)
+    assert source["modes"]["expected"]["known_value"] == pytest.approx(62848.15692404602)
+    assert discharge["repeat_count"] == 1
+    assert discharge["modes"]["expected"]["known_value"] == pytest.approx(6338.865107359282)
+    assert _node(discharge, "anomaly.discharge.original-anomaly-multiplier")["value"] == pytest.approx(0.625)
+    assert _node(discharge, "discharge.proficiency-multiplier")["value"] == pytest.approx(2.0172)
+    assert _node(discharge, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(1.26075)
+    assert result["totals"]["expected"]["complete"] is True
+
+    notes = {item["diagnostic_id"]: item for item in result["diagnostics"]}
+    expected_notes = {
+        "unsupported:character:1331:core:prophecy-timing",
+        "unsupported:character:1331:core:feather-resource-sequence",
+        "wengine:wengine:14133:result-scope",
+    }
+    assert expected_notes.issubset(notes)
+    assert all(notes[item]["details_only"] and not notes[item]["blocking"] for item in expected_notes)
+
+
 def test_synthetic_panel_anomaly_profiles_keep_periodic_source_tick_counts() -> None:
     expected = {
         Element.ETHER: (0.625, 20),
@@ -803,6 +867,9 @@ def test_c4_attack_buff_is_separate_from_prophecy_and_c6_feather_count_scales_li
     assert _node(five_event, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(0.76875)
     assert _node(one_event, "damage.base-value")["value"] == pytest.approx(3690.0)
     assert _node(five_event, "damage.base-value")["value"] == pytest.approx(3690.0)
+    assert five_event["modes"]["expected"]["value"] == pytest.approx(
+        one_event["modes"]["expected"]["value"]
+    )
     assert five_event["modes"]["expected"]["known_value"] == pytest.approx(
         one_event["modes"]["expected"]["known_value"] * 5
     )
