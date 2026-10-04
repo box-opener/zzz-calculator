@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. The catalog order for this queue is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 16 are now present in the calculator registry, leaving 44 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. The catalog order for this queue is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 17 are now present in the calculator registry, leaving 43 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -10,7 +10,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1021` | Nekomata | 猫又 | 4 | 1 | 部分实现（live raw + potential 0–6 selector, reviewed Direct moves, static Physical Anomaly/Disorder, deterministic stunned-target potential repeats and C1 back-hit interaction; baseline random repeat and Energy/Daze outputs remain outside scope） |
 | `1031` | Nicole | 妮可 | 3 | 4 | 部分实现（live raw + normal/enhanced direct curves, static Ether Corrosion/Disorder, confirmed Core/Cinema and R5 signature build; unknown Energy Field/charge branches and resource/Daze outputs remain local source/result limits） |
 | `1041` | Soldier 11 | 「11号」 | 4 | 1 | 部分实现（live 3.2 raw + level-60 panel + 17 baseline/20 potential Direct entries + static Burn/Disorder + reviewed Core/Cinema/Potential rules; resource and Daze outputs remain outside the current result contract） |
-| `1051` | Yidhari | 伊德海莉 | 4 | 6 | 待实现 |
+| `1051` | Yidhari | 伊德海莉 | 4 | 6 | 部分实现（live 3.2 raw + level-60 panel + Ice Penetration damage entries + Ice Anomaly/Disorder + Core/Cinema; low-HP intermediate damage curve and Ice-tentacle child identity remain local diagnostics） |
 | `1061` | Corin | 可琳 | 3 | 1 | 待实现 |
 | `1071` | Caesar | 凯撒 | 4 | 5 | 待实现 |
 | `1081` | Billy | 比利 | 3 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Next unsupported ID: `1051`（伊德海莉 / Yidhari). The queue proceeds by ascending numeric ID, skipping the 16 entries already marked supported above. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each new character.
+Next unsupported ID: `1061`（可琳 / Corin). The queue proceeds by ascending numeric ID, skipping the 17 entries already marked supported above. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each new character.
 
 ## Anby (`character:1011`)
 
@@ -100,3 +100,9 @@ Core Defense Down and its same-target Ether extra ability use an explicit curren
 The complete live-3.2 source is retained at `core/data/characters/soldier11.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1041.json`. The source identifies 「11号」 as an Attack character with Fire as her base element; source rarity value 4 is represented as S rank in the project catalog. The level-60 panel is normalized from its growth and extra-level records; +75 base ATK and +14.4% Crit Rate are included in the level-60 baseline. `Weapon_S_1041` identifies `wengine:14104` 硫磺石 as the reviewed signature and it follows the S-rank R1 default.
 
 The reviewed baseline maps four Physical Warmup Basic stages, four Fire Fire-Suppression Basic stages, Physical and Fire Dash attacks, Fire Dodge Counter, Special, EX Special, Chain, Ultimate, Quick Assist, and Support Follow-up from their own raw parameter IDs. Potential 1–6 exposes the source's fifth Basic stage, enhanced fifth stage, and Fireburst move; the enhanced fifth-stage multiplier is its source base curve plus the selected current Potential Fire-Suppression use count times its extra curve. Core damage, Extra Ability Fire damage, the actual enemy-stunned bonus, Cinema 2 current damage stacks, Cinema 6 current charges, and Potential crit-damage effects use their respective event or panel scopes. Fire Anomaly and Disorder use the calculator's static 100%-buildup and NoCrit model. The catalog uses the neutral placeholder because `IconRole05` is not packaged locally.
+
+## Yidhari (`character:1051`)
+
+The complete live-3.2 source is retained at `core/data/characters/yidhari.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1051.json`. Yidhari is registered as an S-rank Rupture agent with Ice as her base element. Her reviewed Ice skill curves use the Penetration calculator, so their base uses current Force and their breakdown does not include enemy Defense. Core adds 0.1 current-Max-HP Force on top of the generic 0.25 current ATK + 0.1 current Max HP formula. The R1 Kraken's Cradle (`14105`, `Weapon_S_1051`) is the reviewed signature and its level-60 build path is covered.
+
+The source review maps the three Shattered Strike stages and derived first-stage curve, four selectable Frost-Covering charge curves, Dash/Counter, Special/EX/Pursuit/Polar Crush, Chain with/without Veil, Ultimate, Quick Assist, and Support Follow-up. Static Ice Anomaly and Disorder use NoCrit. Cinema 1 Ice resistance ignore, Cinema 2 Crit Damage, Cinema 4 Veil max-HP, Cinema 6 Insight Penetration bonus, and the additional-ability eligibility/current low-HP conditions retain separate rules.

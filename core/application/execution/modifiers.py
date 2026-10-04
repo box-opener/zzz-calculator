@@ -1521,6 +1521,7 @@ def _resolve_effect_value(
         return None
 
     if value.source_node in {
+        CalculationNode.CHARACTER_CURRENT_MAX_HP,
         CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
         CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
         CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
@@ -1536,6 +1537,8 @@ def _resolve_effect_value(
         )
         if current is None:
             current_stat = None
+        elif value.source_node is CalculationNode.CHARACTER_CURRENT_MAX_HP:
+            current_stat = current.settlement_stats.hp
         elif value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY:
             current_stat = current.settlement_stats.anomaly_mastery
         elif value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY:
@@ -1548,6 +1551,8 @@ def _resolve_effect_value(
             label = (
                 "current anomaly mastery"
                 if value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY
+                else "current maximum HP"
+                if value.source_node is CalculationNode.CHARACTER_CURRENT_MAX_HP
                 else "current anomaly proficiency"
                 if value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY
                 else "current impact"
@@ -1668,6 +1673,7 @@ def _is_current_panel_derived_effect(effect: ModifierEffect) -> bool:
         isinstance(value, PanelStatDerivedValue)
         and value.source_node
         in {
+            CalculationNode.CHARACTER_CURRENT_MAX_HP,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,

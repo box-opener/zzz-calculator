@@ -194,6 +194,7 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1031"): WENGINE_TREASURE_CHEST_ID,
     CharacterId("character:1021"): WENGINE_STEEL_CUSHION_ID,
     CharacterId("character:1041"): WENGINE_BRIMSTONE_ID,
+    CharacterId("character:1051"): WENGINE_KRAKENS_CRADLE_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

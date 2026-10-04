@@ -92,6 +92,12 @@ from core.application.characters.soldier11 import (
     compile_soldier11,
     load_raw_record as load_soldier11_raw_record,
 )
+from core.application.characters.yidhari import (
+    YIDHARI_ID,
+    YidhariCompileConfig,
+    compile_yidhari,
+    load_raw_record as load_yidhari_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -636,6 +642,31 @@ def _soldier11_fields(
     )
 
 
+def _yidhari_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "伊德海莉核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "伊德海莉影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
 def _nekomata_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -775,6 +806,40 @@ def _compile_soldier11(
             load_character_record(str(SOLDIER11_ID)),
             potential_level=config.potential_level,
         ),
+    )
+
+
+def _yidhari_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != YIDHARI_ID
+        and character_id in _REGISTRATIONS
+        and _REGISTRATIONS[character_id].role
+        in {CharacterRole.STUN, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_yidhari(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = YidhariCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_yidhari_additional_ability_eligibility(
+            team_ids
+        ),
+    )
+    return compile_yidhari(
+        config,
+        load_yidhari_raw_record(load_character_record(str(YIDHARI_ID))),
     )
 
 
@@ -1361,6 +1426,81 @@ def _compile_qingyi(
 
 
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
+    YIDHARI_ID: CharacterPresentationRegistration(
+        character_id=YIDHARI_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1051",
+            display_name="伊德海莉",
+            rarity="S",
+            element="ice",
+            specialty="rupture",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.RUPTURE,
+        base_element=Element.ICE,
+        compile_definition=_compile_yidhari,
+        config_fields=_yidhari_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=YIDHARI_ID,
+            role=CharacterRole.RUPTURE,
+            possible_elements=frozenset({Element.ICE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"rupture-krakens-cradle"}),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset(
+                            {DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK}
+                        ),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
+                    ),
+                }
+            ),
+        ),
+    ),
     SOLDIER11_ID: CharacterPresentationRegistration(
         character_id=SOLDIER11_ID,
         catalog=CharacterCatalogItem(

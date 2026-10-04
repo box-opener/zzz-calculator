@@ -874,3 +874,21 @@ The Potential description says `额外获得3次必定触发[火力镇压]的次
 ### Source-only results and portrait
 
 Cinema 1's combat-entry Energy restoration is retained as a non-blocking source diagnostic because the calculation request has no Energy result. The source Daze curves are retained, but the request has no Daze output. Cinema 4's damage reduction and invulnerability do not produce an outgoing damage result. Nanoka references `IconRole05`, but that portrait asset is not packaged locally; the catalog uses the neutral portrait placeholder and does not substitute another character's image.
+
+## Yidhari (`character:1051`)
+
+### Low-HP damage increase between its source maximum states
+
+The Core text says `伊德海莉的当前生命值百分比越低，招式造成的伤害越高` and specifies that below 50% HP the effect reaches its level-dependent maximum (50%, 58%, 66%, 74%, 82%, 90%, or 100%). It also says the maximum effect persists for five seconds after HP returns to 50%. The source does not provide the intermediate HP-to-bonus curve. The calculator does not interpolate. It exposes the current Core damage increase explicitly, bounded by the current Core maximum; when the maximum state is selected, it applies the exact listed maximum. If the current amount is omitted while the intermediate rule is enabled, that event remains incomplete with a local missing-value diagnostic. No timer is simulated.
+
+### Extra Ice-tentacle damage type and identity
+
+The Extra Ability text says `处于[以太帷幕·涌泉]中时` the third-charge `普通攻击：霜寒拥覆` or `强化特殊技：极寒重碾` summons `寒冰触手进行攻击，造成额外伤害` and then says the triggering moves count as EX Special. Its raw `寒冰触手` ratio is preserved under source curve `1051024` and scales with EX Special skill level. The text does not uniquely specify the extra hit's element, damage type, Crit owner, or standalone attack identity. When the current Veil is active and either reviewed source move is selected, the direct move remains calculated and only the separate tentacle branch receives an ambiguity diagnostic; no extra damage event is fabricated. Its 12-second cooldown is not replayed.
+
+### Frost-Sinking Counter MoveId
+
+The raw skill data contains the separate `霜凝千钧` damage curve `1051026`, but no matching `skill_list` action ID. The entry therefore has no MoveId; it retains the Basic skill group and Basic tag indicated by the raw `basic` section. This avoids inventing an external MoveId for the counter attack.
+
+### Source-only result fields and portrait
+
+The Core's Flash restore, Cinema 1/2 Flash changes, and Daze curves remain source-linked because the current request has no Flash or Daze result. Cinema 4's Decibel gain and damage reduction, and Cinema 6's lethal protection/healing, likewise have no result field here. Nanoka references `IconRole52`, which is not packaged locally; the catalog uses the neutral portrait placeholder.
