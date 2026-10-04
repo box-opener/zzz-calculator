@@ -156,6 +156,7 @@ select option { color: #151823; background: #f5f6fb; }
 .number-field-disabled .number-field-input { color: var(--muted-dark) !important; background: rgba(255, 255, 255, .025); }
 
 .build-panel { overflow: hidden; }
+.build-panel:has(.wengine-picker[open]) { overflow: visible; }
 .build-panel-heading { margin-bottom: 22px; }
 .build-character-fields { display: grid; gap: 18px; }
 .build-character { min-width: 0; padding: 19px; border: 1px solid var(--border-strong); border-radius: 18px; background: linear-gradient(145deg, rgba(37, 42, 64, .45), rgba(14, 18, 30, .52)); }
@@ -184,7 +185,21 @@ select option { color: #151823; background: #f5f6fb; }
 .subsection-heading .eyebrow { margin-bottom: 4px; }
 .number-field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
 .wengine-fields { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(115px, .75fr) minmax(115px, .75fr); gap: 13px; }
-.wengine-selection-field { display: grid; align-content: start; gap: 6px; }
+.wengine-selection-field { position: relative; z-index: 2; display: grid; align-content: start; gap: 6px; }
+.wengine-picker { position: relative; z-index: 3; }
+.wengine-picker-summary { display: flex; min-height: 40px; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 11px; border: 1px solid var(--border-strong); border-radius: 10px; color: var(--text); background: rgba(10, 13, 23, .84); cursor: pointer; list-style: none; }
+.wengine-picker-summary::-webkit-details-marker, .wengine-picker-menu summary::-webkit-details-marker { display: none; }
+.wengine-picker-summary > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wengine-picker-chevron { color: var(--muted); }
+.wengine-picker-menu { position: absolute; top: calc(100% + 5px); left: 0; right: 0; z-index: 20; display: grid; max-height: min(58vh, 420px); gap: 4px; overflow: auto; padding: 7px; border: 1px solid var(--border-strong); border-radius: 12px; background: #111522; box-shadow: 0 16px 35px rgba(0, 0, 0, .48); }
+.wengine-picker-option { width: 100%; min-height: 35px; padding: 7px 9px; border: 1px solid transparent; border-radius: 8px; color: var(--text); background: transparent; cursor: pointer; font: inherit; text-align: left; }
+.wengine-picker-option:hover, .wengine-picker-option:focus-visible { border-color: rgba(169, 147, 255, .35); outline: none; background: rgba(169, 147, 255, .11); }
+.wengine-picker-option[aria-current="true"] { color: var(--accent-bright); background: var(--accent-soft); }
+.wengine-picker-menu > details, .wengine-picker-specialty { padding-top: 5px; border-top: 1px solid var(--border); }
+.wengine-picker-menu details > summary { padding: 7px 9px; border-radius: 7px; color: var(--accent-bright); cursor: pointer; list-style: none; }
+.wengine-picker-menu details > summary:hover, .wengine-picker-menu details > summary:focus-visible { outline: none; background: rgba(169, 147, 255, .1); }
+.wengine-picker-other > details { margin-left: 8px; }
+.wengine-picker-specialty .wengine-picker-option { padding-left: 16px; }
 .wengine-specialty-warning { color: var(--amber); font-size: 10px; line-height: 1.5; }
 .drive-disc-area-heading { align-items: center; }
 

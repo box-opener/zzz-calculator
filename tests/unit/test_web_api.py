@@ -372,6 +372,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert yidhari["rarity"] == "S"
     assert yidhari["specialty"] == "rupture"
     assert yidhari["element"] == "ice"
+    assert yidhari["code_name"] == "Yidhari"
     assert yidhari["image_path"] == "/characters/portrait-placeholder.svg"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
@@ -385,6 +386,42 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert (asset_root / "IconRole41.webp").is_file()
     assert (asset_root / "IconRole56.webp").is_file()
     assert (asset_root / "IconRole29.webp").is_file()
+
+
+def test_wengine_catalog_exposes_source_verified_signature_owners() -> None:
+    catalog = {
+        item["wengine_id"]: item
+        for item in client.get("/api/v1/wengines").json()
+    }
+    expected = {
+        "wengine:14109": {
+            "name": "霰落星殿",
+            "owner": "character:1091",
+        },
+        "wengine:14137": {
+            "name": "青溟笼舍",
+            "owner": "character:1371",
+        },
+        "wengine:14133": {
+            "name": "飞鸟星梦",
+            "owner": "character:1331",
+        },
+        "wengine:14125": {
+            "name": "玉壶青冰",
+            "owner": "character:1251",
+        },
+        "wengine:14148": {
+            "name": "昨夜来电",
+            "owner": "character:1481",
+        },
+        "wengine:14145": {
+            "name": "铸梦炉歌",
+            "owner": "character:1451",
+        },
+    }
+    for wengine_id, values in expected.items():
+        assert catalog[wengine_id]["display_name"] == values["name"]
+        assert catalog[wengine_id]["signature_character_id"] == values["owner"]
 
 
 def test_anby_definition_preview_uses_a_rank_defaults_and_exposes_its_actual_rules() -> None:

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState, type PointerEvent as 
 import DriveDiscCard from "./components/DriveDiscCard";
 import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTraceDetails";
 import NumberField from "./components/NumberField";
+import WEnginePicker from "./components/WEnginePicker";
 import {
   canAddToTeamSlot,
   calculationTeamOrder,
@@ -40,6 +41,7 @@ import {
   formatPreviewRatio,
 } from "./state/buildPreview";
 import {
+  characterConfigFilename,
   createCharacterConfig,
   parseCharacterConfig,
   serializeCharacterConfig,
@@ -50,6 +52,7 @@ import { aggregateEditorViews } from "./state/editorAggregation";
 type Character = {
   character_id: string;
   display_name: string;
+  code_name: string;
   rarity: string;
   element: string;
   specialty: string;
@@ -818,6 +821,20 @@ function App() {
     void loadEditors(teamIds, currentOperatorId, configs, conditionValuesRef.current, {}, nextSelections);
   };
 
+  const selectWengine = (owner: string, wengineId: string | null) => {
+    if (wengineId === null) {
+      const nextSelections = { ...wengineSelections };
+      delete nextSelections[owner];
+      setWengineSelections(nextSelections);
+      void loadEditors(teamIds, currentOperatorId, configs, conditionValuesRef.current, {}, nextSelections);
+      return;
+    }
+    updateWengineSelection(owner, {
+      ...(wengineSelections[owner] ?? { level: 60, refinement: 1 }),
+      id: wengineId,
+    });
+  };
+
   const updateEnemyResistance = (element: EnemyResistanceElement, value: number) => {
     setEnemyResistances((current) => ({ ...current, [element]: value }));
   };
@@ -848,9 +865,9 @@ function App() {
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    const safeCharacterId = owner.replace(/[^a-z0-9._-]+/gi, "_");
+    const character = characters.find((item) => item.character_id === owner);
     anchor.href = url;
-    anchor.download = `zzz-character-${safeCharacterId}.json`;
+    anchor.download = characterConfigFilename(character?.code_name, owner);
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -1265,7 +1282,7 @@ function App() {
                   <div className="equipment-build-details">
                     <div className="subsection-heading"><div><span className="eyebrow">W-ENGINE</span><h3>音擎</h3></div><span className="subsection-badge">音擎构筑</span></div>
                     <div className="wengine-fields">
-                      <div className="wengine-selection-field"><label className="select-field wengine-select"><span>音擎</span><select value={wengineSelections[id]?.id ?? ""} onChange={(event) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { level: 60, refinement: 1 }), id: event.target.value })}><option value="">无</option>{wengines.map((item) => <option key={item.wengine_id} value={item.wengine_id}>{item.display_name}</option>)}</select></label>{selectedWengine && selectedWengine.specialty !== character?.specialty && <small className="wengine-specialty-warning">职业与音擎专精不匹配，仅基础攻击力和主词条生效。</small>}</div>
+                      <div className="wengine-selection-field"><div className="select-field wengine-select"><span>音擎</span><WEnginePicker engines={wengines} characterId={id} specialty={character?.specialty} selectedId={wengineSelections[id]?.id} specialtyLabel={specialtyLabel} onSelect={(wengineId) => selectWengine(id, wengineId)} /></div>{selectedWengine && selectedWengine.specialty !== character?.specialty && <small className="wengine-specialty-warning">职业与音擎专精不匹配，仅基础攻击力和主词条生效。</small>}</div>
                       <NumberField label="音擎等级" value={wengineSelections[id]?.level ?? 60} integer min={60} max={60} unit="级" helper="当前构筑等级上限" readOnly />
                       <NumberField label="精炼" value={wengineSelections[id]?.refinement ?? 1} integer min={1} max={5} unit="阶" helper="范围 1–5 阶" onCommit={(value) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: value })} />
                     </div>

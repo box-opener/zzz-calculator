@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createCharacterConfig,
   createEquipmentConfig,
+  characterConfigFilename,
   EQUIPMENT_CONFIG_SCHEMA_VERSION,
   parseCharacterConfig,
   parseEquipmentConfig,
@@ -80,6 +81,15 @@ const roundTripWengines = [
   { id: "wengine:14138", characterId: "character:1431", specialty: "attack" },
   { id: "wengine:14139", characterId: "character:1361", specialty: "stun" },
 ];
+
+describe("character config filenames", () => {
+  it("uses the source English name and a filesystem-safe character ID", () => {
+    expect(characterConfigFilename("Yidhari", "character:1051"))
+      .toBe("zzz-character-Yidhari-character_1051.json");
+    expect(characterConfigFilename("Soldier 11", "character:1041"))
+      .toBe("zzz-character-Soldier_11-character_1041.json");
+  });
+});
 
 const catalog = {
   wengines: [

@@ -6,7 +6,7 @@ contains identity and asset metadata needed to render a roster.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +18,7 @@ class CharacterCatalogItem:
     specialty: str
     image_path: str
     image_object_position: str = "50% 50%"
+    code_name: str | None = None
 
     def __post_init__(self) -> None:
         if not self.character_id.strip() or not self.display_name.strip():
@@ -86,8 +87,18 @@ def supported_drive_disc_catalog() -> tuple[DriveDiscCatalogItem, ...]:
 
 def supported_character_catalog() -> tuple[CharacterCatalogItem, ...]:
     from .registry import supported_character_registrations
+    from core.data.loader import load_character_record
 
-    return tuple(item.catalog for item in supported_character_registrations())
+    items = []
+    for registration in supported_character_registrations():
+        catalog_item = registration.catalog
+        code_name = load_character_record(catalog_item.character_id).get("code_name")
+        if not isinstance(code_name, str) or not code_name.strip():
+            raise ValueError(
+                f"character source is missing its English code_name: {catalog_item.character_id}"
+            )
+        items.append(replace(catalog_item, code_name=code_name))
+    return tuple(items)
 
 
 def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:

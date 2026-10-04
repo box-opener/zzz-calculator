@@ -29,6 +29,20 @@ export type EquipmentConfigParseResult =
 
 export const CHARACTER_CONFIG_SCHEMA_VERSION = "zzz-character-config-v2" as const;
 
+export function characterConfigFilename(
+  codeName: string | undefined,
+  characterId: string,
+): string {
+  const safeCodeName = (codeName ?? "")
+    .trim()
+    .replace(/[^a-z0-9._-]+/gi, "_")
+    .replace(/^_+|_+$/g, "");
+  const safeCharacterId = characterId
+    .replace(/[^a-z0-9._-]+/gi, "_")
+    .replace(/^_+|_+$/g, "");
+  return `zzz-character-${safeCodeName || "Character"}-${safeCharacterId || "character"}.json`;
+}
+
 export type CharacterBuildMode = "equipment-build";
 
 export type CharacterConfig = {
