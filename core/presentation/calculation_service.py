@@ -116,6 +116,7 @@ from core.presentation.registry import (
     registration_for,
     compile_registered_definition,
 )
+from core.presentation.frostbite import frostbite_crit_damage_controls
 from core.presentation.base_stats import (
     character_base_stat_contributions,
     character_base_stats,
@@ -895,6 +896,19 @@ def _compile_definitions(
                 strict=False,
             )
         )
+    primary_definition = definitions[0]
+    frostbite_condition, frostbite_rule = frostbite_crit_damage_controls(
+        primary_definition.character_id,
+        primary_definition.base_element,
+    )
+    definitions[0] = replace(
+        primary_definition,
+        rule_items=(*primary_definition.rule_items, frostbite_rule),
+        scenario_conditions=(
+            *primary_definition.scenario_conditions,
+            frostbite_condition,
+        ),
+    )
     return tuple(definitions)
 
 

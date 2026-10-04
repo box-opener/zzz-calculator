@@ -213,6 +213,7 @@ def preview_definition(payload: dict[str, Any] = Body(default={})) -> JSONRespon
             config_values,
             team_ids,
             condition_values=payload.get("condition_values", {}),
+            primary_character_id=payload.get("primary_character_id"),
         )
         return JSONResponse(to_jsonable(view))
     except (TypeError, ValueError, KeyError) as exc:

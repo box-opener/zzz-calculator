@@ -206,6 +206,14 @@ export function conditionValuesForViews(
   return values;
 }
 
+export function conditionCheckboxChecked(
+  conditionId: string,
+  defaultValue: boolean | null,
+  selected: Readonly<Record<string, boolean | null>>,
+): boolean {
+  return (selected[conditionId] ?? defaultValue) === true;
+}
+
 export function reconcileEditorState(
   previous: EditorState,
   views: EditorStateViews,

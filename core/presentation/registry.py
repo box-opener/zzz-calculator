@@ -154,6 +154,7 @@ from .calculation import build_contribution_view
 from .diagnostics import diagnostic_view
 from .assembler import SCHEMA_VERSION
 from .drive_disc_display import display_drive_disc_value, drive_disc_stat_label
+from .frostbite import frostbite_crit_damage_controls
 
 
 VIVIAN_DISCHARGE_SELECTION_ENTRY_ID = "move-entry:character:1331:discharge-current-panel"
@@ -2244,16 +2245,38 @@ def build_registered_editor_view(
     config_values: Mapping[str, Any],
     team_character_ids: Sequence[str | CharacterId],
     condition_values: Mapping[str, bool | None] | None = None,
+    *,
+    primary_character_id: str | CharacterId | None = None,
 ):
     """Compile and build an editor view without putting role semantics in HTTP."""
 
     team_ids = tuple(CharacterId(str(item)) for item in team_character_ids)
+    primary = CharacterId(
+        str(primary_character_id)
+        if primary_character_id is not None
+        else str(team_ids[0] if team_ids else character_id)
+    )
+    if primary not in team_ids:
+        raise ValueError("primary_character_id must be in team_character_ids")
     definition = compile_registered_definition(
         character_id,
         config_values,
         team_ids,
         strict=False,
     )
+    if CharacterId(str(character_id)) == primary:
+        frostbite_condition, frostbite_rule = frostbite_crit_damage_controls(
+            primary,
+            registration_for(primary).base_element,
+        )
+        definition = replace(
+            definition,
+            rule_items=(*definition.rule_items, frostbite_rule),
+            scenario_conditions=(
+                *definition.scenario_conditions,
+                frostbite_condition,
+            ),
+        )
     if condition_values is not None and not isinstance(condition_values, Mapping):
         raise ValueError("condition_values must be an object")
     selected = condition_values or {}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   conditionValuesForViews,
+  conditionCheckboxChecked,
   matchingMoveVariantIndexes,
   projectMoveOptions,
   reconcileEditorState,
@@ -173,6 +174,17 @@ describe("conditionValuesForViews", () => {
         { condition_id: "condition:static", value: true, editable: false },
       ],
     )).toEqual({ "condition:astra:aria-active": true });
+  });
+
+  it("lets a user turn off an element-defaulted state and isolates primary defaults", () => {
+    const iceCondition = "condition:enemy:frostbite-crit-damage-active:primary:character:1051";
+    const fireCondition = "condition:enemy:frostbite-crit-damage-active:primary:character:1041";
+    expect(conditionCheckboxChecked(iceCondition, true, {})).toBe(true);
+    expect(conditionCheckboxChecked(iceCondition, true, { [iceCondition]: false })).toBe(false);
+    const selected = { [iceCondition]: true };
+    const currentFireView = [{ condition_id: fireCondition, value: false, editable: true }];
+    expect(conditionValuesForViews(selected, currentFireView)).toEqual({ [fireCondition]: false });
+    expect(conditionCheckboxChecked(fireCondition, false, selected)).toBe(false);
   });
 });
 

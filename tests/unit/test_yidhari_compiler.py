@@ -439,3 +439,134 @@ def test_yidhari_static_ice_anomaly_disorder_and_signature_build_are_real_paths(
     assert _owner(result)["stats"]["hp"] > 8497.1437
     assert _breakdown(result["events"][0], "penetration.damage-bonus-region") == pytest.approx(1.18)
     assert result["totals"]["expected"]["complete"] is True
+
+
+def test_frostbite_crit_damage_defaults_from_primary_and_stays_event_scoped() -> None:
+    primary = str(YIDHARI_ID)
+    condition_id = f"condition:enemy:frostbite-crit-damage-active:primary:{primary}"
+    rule_id = f"rule:enemy:frostbite-crit-damage:primary:{primary}"
+    effect_id = f"effect:enemy:frostbite-crit-damage:primary:{primary}"
+    basic = "move-entry:character:1051:basic-shattered-strike-1"
+
+    default_enabled = _payload(basic, enabled=(rule_id,))
+    default_result = _calculate(default_enabled)
+    disabled_input = _payload(basic, enabled=(rule_id,))
+    disabled_input["condition_values"][condition_id] = False
+    disabled_result = _calculate(disabled_input)
+
+    default_event = default_result["events"][0]
+    disabled_event = disabled_result["events"][0]
+    assert default_event["modes"]["non-crit"]["known_value"] == pytest.approx(
+        disabled_event["modes"]["non-crit"]["known_value"]
+    )
+    assert default_event["modes"]["expected"]["known_value"] > disabled_event[
+        "modes"
+    ]["expected"]["known_value"]
+    assert default_event["modes"]["full-crit"]["known_value"] == pytest.approx(
+        disabled_event["modes"]["full-crit"]["known_value"] * 2.2 / 2.1
+    )
+    assert _owner(default_result)["stats"]["crit_damage"] == pytest.approx(1.10)
+    assert _owner(disabled_result)["stats"]["crit_damage"] == pytest.approx(1.10)
+    stat_modifiers = default_event["common_application_trace"][
+        "event_stat_modifiers"
+    ]
+    assert {
+        (item["effect_id"], item["recipient_character_id"], item["value"])
+        for item in stat_modifiers
+    } == {(effect_id, primary, 0.10)}
+
+    anomaly_default = _calculate(
+        _payload("move-entry:character:1051:ice-anomaly", enabled=(rule_id,))
+    )
+    anomaly_disabled_input = _payload(
+        "move-entry:character:1051:ice-anomaly", enabled=(rule_id,)
+    )
+    anomaly_disabled_input["condition_values"][condition_id] = False
+    anomaly_disabled = _calculate(anomaly_disabled_input)
+    assert anomaly_default["totals"] == anomaly_disabled["totals"]
+    assert anomaly_default["events"][0]["common_application_trace"][
+        "event_stat_modifiers"
+    ] == []
+
+
+def test_frostbite_control_is_shown_once_and_uses_current_primary_default() -> None:
+    frost_condition = "condition:enemy:frostbite-crit-damage-active:primary:character:1051"
+    fire_condition = "condition:enemy:frostbite-crit-damage-active:primary:character:1431"
+    yidhari_team = [str(YIDHARI_ID), "character:1341"]
+
+    primary_preview = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": str(YIDHARI_ID),
+            "primary_character_id": str(YIDHARI_ID),
+            "team_character_ids": yidhari_team,
+            "compile_config": {"core_level": 7, "cinema_level": 0},
+        },
+    )
+    supporting_preview = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1341",
+            "primary_character_id": str(YIDHARI_ID),
+            "team_character_ids": yidhari_team,
+            "compile_config": {"core_level": 7, "cinema_level": 0},
+        },
+    )
+    assert primary_preview.status_code == 200, primary_preview.text
+    assert supporting_preview.status_code == 200, supporting_preview.text
+    primary_conditions = primary_preview.json()["scenario_conditions"]
+    frost_control = next(
+        item for item in primary_conditions if item["condition_id"] == frost_condition
+    )
+    assert frost_control["value"] is True
+    frost_rule = next(
+        item
+        for item in primary_preview.json()["rule_items"]
+        if item["rule_id"] == "rule:enemy:frostbite-crit-damage:primary:character:1051"
+    )
+    assert frost_rule["availability"] == "available"
+    assert frost_rule["enabled_by_default"] is True
+    assert all(
+        item["condition_id"] != frost_condition
+        for item in supporting_preview.json()["scenario_conditions"]
+    )
+    assert sum(
+        rule["rule_id"].startswith("rule:enemy:frostbite-crit-damage:")
+        for view in (primary_preview.json(), supporting_preview.json())
+        for rule in view["rule_items"]
+    ) == 1
+
+    switched_primary = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1431",
+            "primary_character_id": "character:1431",
+            "team_character_ids": ["character:1431", str(YIDHARI_ID)],
+            "compile_config": {"core_level": 7, "cinema_level": 0},
+        },
+    )
+    assert switched_primary.status_code == 200, switched_primary.text
+    fire_control = next(
+        item
+        for item in switched_primary.json()["scenario_conditions"]
+        if item["condition_id"] == fire_condition
+    )
+    assert fire_control["value"] is False
+    assert frost_condition != fire_condition
+
+    explicit_off_preview = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": str(YIDHARI_ID),
+            "primary_character_id": str(YIDHARI_ID),
+            "team_character_ids": yidhari_team,
+            "condition_values": {frost_condition: False},
+            "compile_config": {"core_level": 7, "cinema_level": 0},
+        },
+    )
+    assert explicit_off_preview.status_code == 200, explicit_off_preview.text
+    assert next(
+        item
+        for item in explicit_off_preview.json()["scenario_conditions"]
+        if item["condition_id"] == frost_condition
+    )["value"] is False
