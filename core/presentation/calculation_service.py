@@ -509,7 +509,7 @@ def _vivian_panel_source_results(
             source_element = registration.base_element
             unsupported_diagnostic = (
                 None
-                if source_element in _FULL_GAUGE_ANOMALY_MULTIPLIERS
+                if source_element in _FULL_GAUGE_ANOMALY_PROFILE
                 else DiagnosticView(
                     diagnostic_id=f"vivian-panel-source:{source_definition.character_id}:{source_element.value}",
                     kind="missing-data",
@@ -700,16 +700,16 @@ def _vivian_panel_source_results(
     return tuple(result_views)
 
 
-_FULL_GAUGE_ANOMALY_MULTIPLIERS = {
-    Element.PHYSICAL: 7.13,
-    Element.LINREN: 7.13,
-    Element.ICE: 5.0,
-    Element.LIESHUANG: 5.0,
-    Element.ETHER: 12.5,
-    Element.XUANMO: 12.5,
-    Element.FIRE: 10.0,
-    Element.ELECTRIC: 12.5,
-    Element.WIND: 17.5,
+_FULL_GAUGE_ANOMALY_PROFILE: dict[Element, tuple[float, int]] = {
+    Element.PHYSICAL: (7.13, 1),
+    Element.LINREN: (7.13, 1),
+    Element.ICE: (5.0, 1),
+    Element.LIESHUANG: (5.0, 1),
+    Element.ETHER: (0.625, 20),
+    Element.XUANMO: (0.625, 20),
+    Element.FIRE: (0.5, 20),
+    Element.ELECTRIC: (1.25, 10),
+    Element.WIND: (17.5, 1),
 }
 
 _VIVIAN_MUTATION_ELEMENT_RULE_SUFFIX = {
@@ -738,9 +738,11 @@ def _panel_source_entries(definition):
 
 
 def _synthetic_panel_source_entry(character_id: CharacterId, element: Element):
-    multiplier = _FULL_GAUGE_ANOMALY_MULTIPLIERS.get(element)
-    if multiplier is None:
+    profile = _FULL_GAUGE_ANOMALY_PROFILE.get(element)
+    if profile is None:
         return None
+    multiplier, source_repeat_count = profile
+    repeat_count = source_repeat_count if source_repeat_count > 1 else None
     suffix = f"{character_id}:{element.value}"
     template_id = EventTemplateId(f"template:panel-source:{suffix}")
     semantic_id = DamageEventSemanticId(f"event:panel-source:{suffix}")
@@ -770,13 +772,24 @@ def _synthetic_panel_source_entry(character_id: CharacterId, element: Element):
         original_text="按静态单人100%积蓄假设，从该上场角色已结算面板创建一份来源记录。",
         skill_group=None,
         damage_tags=frozenset(),
-        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_relation=(
+            MultiplierRelation.UNIT_REPEAT
+            if repeat_count is not None
+            else MultiplierRelation.COMPLETE
+        ),
         multiplier_variants=(
             MultiplierVariant(
                 variant_id=MultiplierVariantId(f"variant:panel-source:{suffix}"),
-                label="规范中的单次满异常倍率",
-                parameter_name="满异常倍率",
+                label=(
+                    "每跳异常倍率（满异常持续周期）"
+                    if repeat_count is not None
+                    else "单次满异常倍率"
+                ),
+                parameter_name=(
+                    "异常单跳倍率" if repeat_count is not None else "满异常倍率"
+                ),
                 multiplier=FixedMultiplier(Resolved(multiplier)),
+                repeat_count=repeat_count,
             ),
         ),
         main_damage_event=ref,

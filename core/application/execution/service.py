@@ -84,17 +84,17 @@ from .router import CalculationRouter, CalculatorExecutionResult
 from .static_records import static_attribute_anomaly_record
 
 
-def _complete_anomaly_multiplier(
+def _anomaly_tick_multiplier(
     instantiated: InstantiatedDamageEvent,
 ) -> DamageMultiplier:
-    """Carry the source anomaly's complete multiplier into a Discharge child."""
+    """Carry one source damage tick into a Discharge child.
 
-    multiplier = instantiated.event.multiplier
-    if isinstance(multiplier, FixedMultiplier) and isinstance(multiplier.value, Resolved):
-        return FixedMultiplier(
-            Resolved(multiplier.value.value * instantiated.repeat_count)
-        )
-    return multiplier
+    The source event's repeat count describes its total periodic damage. A
+    Discharge hit inherits the per-tick multiplier, never the source duration's
+    accumulated total.
+    """
+
+    return instantiated.event.multiplier
 
 
 class DirectMoveApplicationService:
@@ -325,7 +325,7 @@ class DirectMoveApplicationService:
                         else None
                     ),
                     source_anomaly_multiplier=(
-                        _complete_anomaly_multiplier(instantiated)
+                        _anomaly_tick_multiplier(instantiated)
                         if isinstance(instantiated.event, AttributeAnomalyDamageEvent)
                         else None
                     ),

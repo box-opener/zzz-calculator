@@ -230,8 +230,8 @@ def test_core7_mutation_reads_current_ap_and_c2_is_a_separate_optional_multiplie
     assert c0_event["damage_subtype"] == DamageSubtype.DISCHARGE.value
     assert c0_event["modes"]["expected"]["status"] == "calculated"
     assert _node(c0_event, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
-    assert _node(c0_event, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(15.375)
-    assert _node(c0_event, "damage.base-value")["value"] == pytest.approx(73800.0)
+    assert _node(c0_event, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(0.76875)
+    assert _node(c0_event, "damage.base-value")["value"] == pytest.approx(3690.0)
     source_event = _event(c0, "event:character:1331:ether-corrosion")
     assert source_event["repeat_count"] == 20
     assert _node(source_event, "anomaly.attribute.multiplier")["value"] == pytest.approx(0.625)
@@ -248,8 +248,8 @@ def test_core7_mutation_reads_current_ap_and_c2_is_a_separate_optional_multiplie
     c2_event = _event(c2, "event:character:1331:core-anomaly-mutation:ether")
     assert c2_event["modes"]["expected"]["status"] == "calculated"
     assert _node(c2_event, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.599)
-    assert _node(c2_event, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(19.9875)
-    assert _node(c2_event, "damage.base-value")["value"] == pytest.approx(95940.0)
+    assert _node(c2_event, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(0.999375)
+    assert _node(c2_event, "damage.base-value")["value"] == pytest.approx(4797.0)
     assert _node(c2_event, "resistance.damage-ignore")["value"] == pytest.approx(0.15)
     assert _node(c2_event, "resistance.region")["value"] == pytest.approx(0.95)
     trace = c2_event["modes"]["expected"]["anomaly_effect_strength_trace"]
@@ -276,12 +276,17 @@ def test_discharge_uses_the_source_teammates_historical_record_and_vivian_curren
     )
     source = _event(result, "event:character:1371:xuanmo-anomaly")
     mutation = _event(result, "event:character:1331:core-anomaly-mutation:ether-xuanmo")
+    assert source["repeat_count"] == 20
+    assert _node(source, "anomaly.attribute.multiplier")["value"] == pytest.approx(0.625)
     assert source["modes"]["expected"]["anomaly_record_id"] == "anomaly:yixuan:xuanmo-current"
     assert mutation["modes"]["expected"]["anomaly_record_id"] == "anomaly:yixuan:xuanmo-current"
     assert mutation["damage_type"] == DamageType.ANOMALY.value
     assert mutation["damage_subtype"] == DamageSubtype.DISCHARGE.value
+    assert mutation["repeat_count"] == 1
     assert mutation["modes"]["expected"]["anomaly_effect_strength_trace"]["character_id"] == YIXUAN
     assert _node(mutation, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
+    assert _node(mutation, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(0.76875)
+    assert _node(mutation, "damage.base-value")["value"] == pytest.approx(1845.0)
     assert result["totals"]["expected"]["complete"] is True
 
 
@@ -468,6 +473,115 @@ def test_vivian_panel_sources_cover_active_roles_without_anomaly_entries_and_rep
     )
 
 
+def test_vivian_periodic_discharge_sources_use_per_tick_multiplier() -> None:
+    soldier11 = "character:1041"
+    anby = "character:1011"
+
+    def source_stats(element: str) -> dict[str, object]:
+        return {
+            "hp": 10000.0,
+            "attack": 1000.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.2,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 90.0,
+            "anomaly_proficiency": 100.0,
+            "energy_regen": 1.2,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "element_damage_bonus": {element: 0.2},
+        }
+
+    team = (VIVIAN, soldier11, anby)
+    result = calculate_payload(
+        {
+            "primary_character_id": VIVIAN,
+            "supporting_character_ids": [soldier11, anby],
+            "team_character_ids": list(team),
+            "move_entry_id": ANOMALY_ENTRY,
+            "compile_configs": {
+                character_id: {"core_level": 7, "cinema_level": 0}
+                for character_id in team
+            },
+            "condition_values": {MUTATION_CONDITION: True},
+            "parameter_values": {},
+            "character_builds": {
+                VIVIAN: {"level": 60, "out_of_combat_stats": source_stats("ether")},
+                soldier11: {"level": 60, "out_of_combat_stats": source_stats("fire")},
+                anby: {"level": 60, "out_of_combat_stats": source_stats("electric")},
+            },
+            "enemy": {
+                "enemy_id": "enemy:vivian-periodic-source-test",
+                "level": 60,
+                "initial_defense": 1000.0,
+                "damage_resistance": {"ether": 0.2, "fire": 0.2, "electric": 0.2},
+                "damage_reduction": 0.0,
+                "stun_vulnerability_bonus": 0.0,
+                "is_stunned": False,
+            },
+            "enabled_rule_item_ids": [
+                "rule:character:1331:core:anomaly-mutation:ether",
+                "rule:character:1331:core:anomaly-mutation:fire",
+                "rule:character:1331:core:anomaly-mutation:electric",
+            ],
+            "selected_trigger_inputs": [],
+            "rule_stack_counts": {},
+        }
+    )
+
+    source = _event(result, "event:character:1331:ether-corrosion")
+    assert source["repeat_count"] == 20
+    assert _node(source, "anomaly.attribute.multiplier")["value"] == pytest.approx(0.625)
+
+    source_groups = {
+        (item["source_character_id"], item["element"]): item
+        for item in result["panel_source_results"]
+    }
+    expected_tick_multipliers = {
+        (VIVIAN, "ether"): 0.625,
+        (soldier11, "fire"): 0.5,
+        (anby, "electric"): 1.25,
+    }
+    for key, expected_tick_multiplier in expected_tick_multipliers.items():
+        group = source_groups[key]
+        assert group["totals"]["expected"]["complete"] is True
+        discharge = group["events"][0]
+        breakdown = {
+            item["node"]: item["value"]
+            for item in discharge["modes"]["expected"]["calculation_breakdown"]
+        }
+        assert discharge["repeat_count"] == 1
+        assert breakdown["anomaly.discharge.total-multiplier"] / breakdown[
+            "discharge.proficiency-multiplier"
+        ] == pytest.approx(expected_tick_multiplier)
+
+
+def test_synthetic_panel_anomaly_profiles_keep_periodic_source_tick_counts() -> None:
+    expected = {
+        Element.ETHER: (0.625, 20),
+        Element.XUANMO: (0.625, 20),
+        Element.FIRE: (0.5, 20),
+        Element.ELECTRIC: (1.25, 10),
+        Element.PHYSICAL: (7.13, None),
+        Element.LINREN: (7.13, None),
+        Element.ICE: (5.0, None),
+        Element.LIESHUANG: (5.0, None),
+        Element.WIND: (17.5, None),
+    }
+    for element, (tick_multiplier, repeat_count) in expected.items():
+        entry, _template = _synthetic_panel_source_entry(
+            CharacterId("character:1041"),
+            element,
+        )
+        variant = entry.multiplier_variants[0]
+        assert variant.multiplier.value.value == pytest.approx(tick_multiplier)
+        assert variant.repeat_count == repeat_count
+        assert entry.multiplier_relation.value == (
+            "unit-repeat" if repeat_count is not None else "complete"
+        )
+
+
 def test_wengine_stack_defaults_to_max_and_explicit_zero_or_middle_stack_is_kept() -> None:
     rule_id = "rule:wengine:13003:owner:1331:attack-per-energy-stack"
 
@@ -536,10 +650,10 @@ def test_vivian_current_ap_changes_only_the_mutation_ratio_not_teammate_history(
     assert source_trace200["final_strength"] == source_trace300["final_strength"] == pytest.approx(1864.8)
     assert _node(mutation200, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
     assert _node(mutation300, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.845)
-    assert _node(mutation200, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(15.375)
-    assert _node(mutation300, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(23.0625)
-    assert _node(mutation200, "damage.base-value")["value"] == pytest.approx(28671.3)
-    assert _node(mutation300, "damage.base-value")["value"] == pytest.approx(43006.95)
+    assert _node(mutation200, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(0.76875)
+    assert _node(mutation300, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(1.153125)
+    assert _node(mutation200, "damage.base-value")["value"] == pytest.approx(1433.565)
+    assert _node(mutation300, "damage.base-value")["value"] == pytest.approx(2150.3475)
     assert source200["modes"]["expected"]["known_value"] == source300["modes"]["expected"]["known_value"]
 
 
@@ -685,6 +799,10 @@ def test_c4_attack_buff_is_separate_from_prophecy_and_c6_feather_count_scales_li
     assert five_event["repeat_count"] == 5
     assert _node(one_event, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
     assert _node(five_event, "discharge.proficiency-multiplier")["value"] == pytest.approx(1.23)
+    assert _node(one_event, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(0.76875)
+    assert _node(five_event, "anomaly.discharge.total-multiplier")["value"] == pytest.approx(0.76875)
+    assert _node(one_event, "damage.base-value")["value"] == pytest.approx(3690.0)
+    assert _node(five_event, "damage.base-value")["value"] == pytest.approx(3690.0)
     assert five_event["modes"]["expected"]["known_value"] == pytest.approx(
         one_event["modes"]["expected"]["known_value"] * 5
     )

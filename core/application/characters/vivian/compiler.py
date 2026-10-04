@@ -216,8 +216,9 @@ def _mutation_ref(element: Element, *, cinema6: bool) -> tuple[DischargeDamageEv
         multiplier=Unresolved(
             reason=UnresolvedReason.MISSING_DATA,
             notes=(
-                "Anomaly Mutation inherits the complete original anomaly "
-                "multiplier from its typed Attribute Anomaly source event."
+                "Anomaly Mutation inherits one original anomaly tick multiplier "
+                "from its typed Attribute Anomaly source event; the source event's "
+                "repeat count is not multiplied into each Discharge hit."
             ),
         ),
         repeat_count_parameter_id=C6_FEATHER_COUNT if cinema6 else None,
@@ -270,8 +271,9 @@ def compile_vivian(
         move_id=ETHER_ANOMALY_MOVE_ID,
         display_name="属性异常：侵蚀（10秒满异常）",
         original_text=(
-            "按规范满10秒侵蚀记录结算：单跳62.5%，共20跳；异放子事件读取这个"
-            "typed源事件的完整异常倍率，不用当前薇薇安面板替代原历史来源。"
+            "按规范满10秒侵蚀记录结算：单跳62.5%，共20跳；异放子事件读取"
+            "typed源事件的单跳倍率，不将20跳累计倍率重复作为单次异放基数，"
+            "也不用当前薇薇安面板替代原历史来源。"
         ),
         skill_group=None,
         damage_tags=frozenset(),
