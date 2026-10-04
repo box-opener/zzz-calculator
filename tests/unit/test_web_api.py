@@ -6,6 +6,8 @@ from copy import deepcopy
 import pytest
 from fastapi.testclient import TestClient
 
+from core.application.equipment import SIGNATURE_WENGINE_BY_CHARACTER
+from core.presentation.registry import supported_character_registrations
 from web.api import app
 
 
@@ -418,10 +420,22 @@ def test_wengine_catalog_exposes_source_verified_signature_owners() -> None:
             "name": "铸梦炉歌",
             "owner": "character:1451",
         },
+        "wengine:14134": {
+            "name": "半糖雪兔",
+            "owner": "character:1341",
+        },
     }
     for wengine_id, values in expected.items():
         assert catalog[wengine_id]["display_name"] == values["name"]
         assert catalog[wengine_id]["signature_character_id"] == values["owner"]
+
+
+def test_every_supported_character_has_a_signature_for_picker_ordering() -> None:
+    registered_ids = {
+        registration.character_id
+        for registration in supported_character_registrations()
+    }
+    assert set(SIGNATURE_WENGINE_BY_CHARACTER) == registered_ids
 
 
 def test_anby_definition_preview_uses_a_rank_defaults_and_exposes_its_actual_rules() -> None:

@@ -203,6 +203,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1451"): WENGINE_DREAM_FORGE_ID,
     CharacterId("character:1481"): WENGINE_LAST_NIGHT_ID,
     CharacterId("character:1251"): WENGINE_JADE_TEA_ID,
+    # The live detail for 14134 describes the engine as commissioned for Zhao.
+    CharacterId("character:1341"): WENGINE_SWEETBUNNY_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,
