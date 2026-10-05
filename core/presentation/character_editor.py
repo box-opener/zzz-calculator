@@ -112,6 +112,8 @@ class CharacterEditorView:
     scenario_parameters: tuple[ScenarioParameterView, ...]
     scenario_trigger_inputs: tuple[ScenarioTriggerInputView, ...]
     diagnostics: tuple[DiagnosticView, ...]
+    luminance_source_elements: tuple[str, ...] = ()
+    effective_damage_element: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

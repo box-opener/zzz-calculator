@@ -292,6 +292,7 @@ class PanelStatDerivedValue:
     source_character_id: CharacterId
     source_node: CalculationNode
     coefficient: Resolvable[float]
+    base: Resolvable[float] = Resolved(0.0)
     cap_max: Resolvable[float] | None = None
     threshold: Resolvable[float] | None = None
     # ``minimum`` is retained as a named alias for callers that describe this
@@ -323,6 +324,8 @@ class PanelStatDerivedValue:
             )
         if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
             raise ValueError("derived panel value coefficient must be non-negative")
+        if isinstance(self.base, Resolved) and self.base.value < 0:
+            raise ValueError("derived panel value base must be non-negative")
         if isinstance(self.cap_max, Resolved) and self.cap_max.value < 0:
             raise ValueError("derived panel value cap must be non-negative")
         if isinstance(self.threshold, Resolved) and self.threshold.value < 0:

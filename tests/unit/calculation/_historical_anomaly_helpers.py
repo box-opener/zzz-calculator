@@ -79,6 +79,8 @@ def record(
     effect_strength: float | Unresolved = 10000.0,
     anomaly_bonus_region: float | Unresolved = 1.2,
     crit_capability: AnomalyCritCapability | None = None,
+    penetration_rate: float | Unresolved = 0.0,
+    penetration_flat: float | Unresolved = 0.0,
     target_enemy: EnemyId | None = None,
     triggerer: CharacterId | None = None,
 ) -> AnomalyRecord:
@@ -109,6 +111,8 @@ def record(
                 1.0,
             ),
         ),
+        penetration_rate=value(penetration_rate),
+        penetration_flat=value(penetration_flat),
     )
 
 

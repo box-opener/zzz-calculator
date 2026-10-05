@@ -13,6 +13,7 @@ from core.types import (
     DynamicIdentity,
     BattleEventKind,
     LuminanceDamageEvent,
+    SpecialLuminanceDamageEvent,
     TurbulenceDamageEvent,
 )
 
@@ -55,12 +56,18 @@ class DynamicIdentityResolver:
                 return IdentityResolution(frozenset({event.wind_anomaly_triggerer}))
             return IdentityResolution(frozenset())
         if identity is DynamicIdentity.LUMINANCE_TRIGGER:
-            if isinstance(event, LuminanceDamageEvent):
+            if isinstance(event, (LuminanceDamageEvent, SpecialLuminanceDamageEvent)):
                 return IdentityResolution(frozenset({event.luminance_triggerer}))
             return IdentityResolution(frozenset())
         if identity is DynamicIdentity.DISCHARGE_TRIGGER:
             if isinstance(event, DischargeDamageEvent):
                 return IdentityResolution(frozenset({event.discharge_triggerer}))
+            return IdentityResolution(frozenset())
+
+        if isinstance(event, SpecialLuminanceDamageEvent):
+            # A stored special virtual void has its own source snapshot; it is
+            # not an ordinary AnomalyRecord and therefore does not acquire an
+            # ANOMALY_TRIGGER identity.
             return IdentityResolution(frozenset())
 
         if identity is DynamicIdentity.SUPPORT_ENTRY_CHARACTER:

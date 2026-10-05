@@ -5,7 +5,7 @@ from enum import StrEnum
 import math
 
 from core.calculation import CalculationResult
-from core.types import DamageSubtype, DamageType
+from core.types import DamageSubtype, DamageType, Element
 
 from .diagnostics import CalculationDiagnostic
 from .ids import DamageEventSemanticId, MoveEntryId
@@ -42,6 +42,7 @@ class DamageEventCalculationOutput:
     damage_type: DamageType
     damage_subtype: DamageSubtype | None
     status: EventCalculationStatus
+    element: Element | None = None
     result: CalculationResult | None = None
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
     repeat_count: int = 1
@@ -88,7 +89,9 @@ class MoveCalculationOutput:
         if self.known_total is None and known_values:
             raise ValueError("known events require a known_total")
         if self.known_total is not None:
-            if not known_values:
+            if not known_values and not (
+                not self.events and self.complete and self.known_total == 0.0
+            ):
                 raise ValueError("known_total requires at least one known event")
             if not math.isclose(
                 self.known_total,

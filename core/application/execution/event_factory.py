@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from core.types import (
     AnomalyRecordValueSource,
     AnomalyRecordId,
@@ -11,6 +13,13 @@ from core.types import (
     DamageEventId,
     DamageEventMetadata,
     DamageMultiplier,
+    EventTemplateId,
+    LuminanceSourceChoice,
+    LuminanceSourceKind,
+    LuminanceSpecialSourceId,
+    LuminanceSpecialSourceSnapshot,
+    LuminanceDamageEvent,
+    SpecialLuminanceDamageEvent,
     DirectDamageEvent,
     DisorderDamageEvent,
     DischargeDamageEvent,
@@ -31,6 +40,7 @@ from ..characters.templates import (
     PenetrationDamageEventTemplate,
     DisorderDamageEventTemplate,
     DischargeDamageEventTemplate,
+    LuminanceFlareDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
 )
 from ..ids import DamageEventSemanticId, RuleItemId
@@ -90,6 +100,8 @@ def instantiate_damage_event(
     source_event_id: DamageEventId | None = None,
     source_history_record_id: AnomalyRecordId | None = None,
     source_anomaly_multiplier: DamageMultiplier | None = None,
+    luminance_source_choice: LuminanceSourceChoice | None = None,
+    luminance_special_source: LuminanceSpecialSourceSnapshot | None = None,
 ) -> InstantiatedDamageEvent:
     """Instantiate any typed template without collapsing anomaly identity."""
 
@@ -135,6 +147,60 @@ def instantiate_damage_event(
         target_enemy=target_enemy,
         created_at=created_at,
     )
+    if isinstance(template, LuminanceFlareDamageEventTemplate):
+        if luminance_source_choice is None:
+            raise ValueError("Luminance Flare event requires one selected source slot")
+        semantic_id = DamageEventSemanticId(
+            f"{template.ref.semantic_id}:source-slot:{luminance_source_choice.slot_id}"
+        )
+        template_id = EventTemplateId(
+            f"{template.ref.template_id}:source-slot:{luminance_source_choice.slot_id}"
+        )
+        metadata = replace(
+            metadata,
+            event_id=DamageEventId(f"event:{battle_state_id}:{semantic_id}"),
+            element=(
+                luminance_source_choice.element
+                if luminance_source_choice.kind is LuminanceSourceKind.ORDINARY_ANOMALY
+                else template.element
+            ),
+        )
+        if luminance_source_choice.kind is LuminanceSourceKind.ORDINARY_ANOMALY:
+            record_id = AnomalyRecordId(
+                f"anomaly:remielle:source-slot:{luminance_source_choice.slot_id}"
+            )
+            event = LuminanceDamageEvent(
+                metadata=metadata,
+                luminance_triggerer=template.luminance_triggerer,
+                base_settlement_data_source=AnomalyRecordValueSource(record_id),
+                history_record_source=record_id,
+                multiplier=multiplier,
+                crit_rule=template.crit_rule,
+            )
+        else:
+            if luminance_special_source is None:
+                raise ValueError("special Flare source snapshot is required")
+            expected_source_id = LuminanceSpecialSourceId(
+                f"luminance-special:remielle:{luminance_source_choice.slot_id}"
+            )
+            if luminance_special_source.source_id != expected_source_id:
+                raise ValueError("special Flare source slot identity does not match")
+            event = SpecialLuminanceDamageEvent(
+                metadata=metadata,
+                luminance_triggerer=template.luminance_triggerer,
+                source_snapshot=luminance_special_source,
+                multiplier=multiplier,
+                crit_rule=template.crit_rule,
+            )
+        return InstantiatedDamageEvent(
+            template_id=template_id,
+            semantic_id=semantic_id,
+            label=f"{template.ref.label} · 来源槽 {luminance_source_choice.slot_id}",
+            event=event,
+            source_rule_item_id=source_rule_item_id or template.ref.source_rule_item_id,
+            created_by_effect_id=created_by_effect_id,
+            repeat_count=repeat_count,
+        )
     if isinstance(template, AttributeAnomalyDamageEventTemplate):
         event = AttributeAnomalyDamageEvent(
             metadata=metadata,

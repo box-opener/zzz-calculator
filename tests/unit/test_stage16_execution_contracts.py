@@ -81,7 +81,11 @@ def _source(label: str = "stage 16 test") -> RuleSource:
     )
 
 
-def _stats(attack: float = 1000.0) -> CharacterStats:
+def _stats(
+    attack: float = 1000.0,
+    *,
+    anomaly_proficiency: float = 100.0,
+) -> CharacterStats:
     return CharacterStats(
         hp=Resolved(10000.0),
         attack=Resolved(attack),
@@ -90,7 +94,7 @@ def _stats(attack: float = 1000.0) -> CharacterStats:
         crit_rate=Resolved(0.5),
         crit_damage=Resolved(0.5),
         anomaly_mastery=Resolved(100.0),
-        anomaly_proficiency=Resolved(100.0),
+        anomaly_proficiency=Resolved(anomaly_proficiency),
         penetration_rate=Resolved(0.0),
         penetration_flat=Resolved(0.0),
         energy_regen=Resolved(1.2),
@@ -587,6 +591,40 @@ def test_panel_stat_derived_value_reads_initial_attack_and_applies_cap() -> None
     assert not application.diagnostics
     assert application.character_snapshots[0].settlement_stats.attack == Resolved(
         2200.0
+    )
+
+
+def test_panel_stat_derived_value_can_add_a_base_to_current_anomaly_proficiency() -> None:
+    owner = CharacterId("character:remielle")
+    effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:mutation-coefficient"),
+            source=_source("Remielle mutation coefficient"),
+            owner=owner,
+            target=EffectTarget.TEAM,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+            operation=EffectOperation.ADD,
+            value=PanelStatDerivedValue(
+                source_character_id=owner,
+                source_node=CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
+                coefficient=Resolved(0.0002),
+                base=Resolved(1.3),
+            ),
+        ),
+    )
+    application = apply_matched_modifiers(
+        (CharacterSnapshot(owner, 60, _stats(anomaly_proficiency=500.0)),),
+        (),
+        (MatchedEffectApplication(effect=effect),),
+        owner,
+    )
+
+    assert not application.diagnostics
+    assert application.character_snapshots[0].settlement_stats.anomaly_proficiency == Resolved(
+        501.4
     )
 
 

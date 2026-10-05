@@ -6,6 +6,8 @@ from dataclasses import replace
 
 from core.types import (
     AnomalyRecordId,
+    AnomalyRecordValueSource,
+    AttributeAnomalyDamageEvent,
     BattleEventKind,
     CalculationContext,
     CalculationNode,
@@ -14,7 +16,9 @@ from core.types import (
     DamageEvent,
     DamageEventId,
     DamageEventMetadata,
+    DamageSubtype,
     DamageMultiplier,
+    DamageType,
     CurrentPenetrationForceValueSource,
     DirectDamageEvent,
     DisorderDamageEvent,
@@ -24,10 +28,17 @@ from core.types import (
     FixedMultiplier,
     EventCreationEffect,
     EventTemplateId,
+    Element,
     IndependentAnomalyCrit,
     IndependentAnomalyCritRule,
     ModifierEffect,
     NoCritRule,
+    LuminanceSourceChoice,
+    LuminanceDamageEvent,
+    SpecialLuminanceDamageEvent,
+    LuminanceSourceKind,
+    LuminanceSpecialSourceId,
+    LuminanceSpecialSourceSnapshot,
     RecordedAnomalyCritRule,
     Resolved,
     StandardCritRule,
@@ -47,6 +58,7 @@ from ..characters.templates import (
     AttributeAnomalyDamageEventTemplate,
     DamageEventTemplate,
     DirectDamageEventTemplate,
+    LuminanceFlareDamageEventTemplate,
     DisorderDamageEventTemplate,
 )
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -81,7 +93,10 @@ from .multiplier import (
     resolve_move_multiplier,
 )
 from .router import CalculationRouter, CalculatorExecutionResult
-from .static_records import static_attribute_anomaly_record
+from .static_records import (
+    static_anomaly_effect_strength_source,
+    static_attribute_anomaly_record,
+)
 
 
 def _anomaly_tick_multiplier(
@@ -144,20 +159,60 @@ class DirectMoveApplicationService:
             )
             return _execution_without_events(request, diagnostic)
 
-        main_event = instantiate_damage_event(
-            main_template,
-            multiplier.multiplier,
-            battle_state_id=request.battle_state_id,
-            target_enemy=request.target_snapshot.enemy_id,
-            created_at=request.battle_time,
-            repeat_count=multiplier.repeat_count,
-        )
+        main_repeat_count = multiplier.repeat_count
+        if isinstance(main_template, LuminanceFlareDamageEventTemplate):
+            repeat_rule_id = main_template.repeat_count_rule_item_id
+            repeat_rule = next(
+                (item for item in rule_items if item.rule_id == repeat_rule_id),
+                None,
+            ) if repeat_rule_id is not None else None
+            if (
+                repeat_rule is not None
+                and repeat_rule.eligibility is not RuleEligibility.INELIGIBLE
+                and repeat_rule.rule_id in request.scenario.enabled_rule_item_ids
+            ):
+                main_repeat_count = 2
+
         global_panel_application = apply_global_panel_effects(
             request.base_character_snapshots,
             request.initial_character_snapshots,
             rule_items,
             request.scenario,
             frozenset(profile.character_id for profile in request.team_profiles),
+        )
+        source_diagnostics: tuple[CalculationDiagnostic, ...] = ()
+        special_source = None
+        if isinstance(main_template, LuminanceFlareDamageEventTemplate):
+            if request.luminance_source_choice is None:
+                return MoveCalculationExecution(
+                    output=MoveCalculationOutput(
+                        move_entry_id=entry.entry_id,
+                        crit_display_mode=request.crit_display_mode,
+                        events=(),
+                        known_total=0.0,
+                        complete=True,
+                        diagnostics=(),
+                    ),
+                    resolved_character_snapshots=global_panel_application.character_snapshots,
+                    event_traces=(),
+                    panel_traces=global_panel_application.panel_traces,
+                )
+            request, special_source, source_diagnostics = _prepare_remielle_flare_source(
+                request,
+                main_template,
+                global_panel_application.character_snapshots,
+                rule_items,
+                self._matcher,
+            )
+        main_event = instantiate_damage_event(
+            main_template,
+            multiplier.multiplier,
+            battle_state_id=request.battle_state_id,
+            target_enemy=request.target_snapshot.enemy_id,
+            created_at=request.battle_time,
+            repeat_count=main_repeat_count,
+            luminance_source_choice=request.luminance_source_choice,
+            luminance_special_source=special_source,
         )
         # Static browser requests need an identity-only record before matching
         # (ANOMALY_CONTRIBUTORS can be a filter).  This is deliberately gated
@@ -169,6 +224,7 @@ class DirectMoveApplicationService:
             global_panel_application.character_snapshots,
             (),
         )
+        identity_diagnostics = (*source_diagnostics, *identity_diagnostics)
         identity_request = replace(request, history_records=identity_history)
         main_context = _match_context(
             identity_request,
@@ -276,13 +332,21 @@ class DirectMoveApplicationService:
                     created_by_effect_id=instantiated.created_by_effect_id,
                     diagnostics=calculation[2],
                     base_source_character_id=getattr(
-                        instantiated.event.base_settlement_data_source,
+                        getattr(
+                            instantiated.event,
+                            "base_settlement_data_source",
+                            getattr(instantiated.event, "source_snapshot", None),
+                        ),
                         "character_id",
-                        None,
+                        getattr(
+                            getattr(instantiated.event, "source_snapshot", None),
+                            "source_character_id",
+                            None,
+                        ),
                     ),
                     base_source_effect_ids=tuple(
                         getattr(
-                            instantiated.event.base_settlement_data_source,
+                            getattr(instantiated.event, "base_settlement_data_source", None),
                             "source_effect_ids",
                             (),
                         )
@@ -440,6 +504,7 @@ class DirectMoveApplicationService:
                 label=instantiated.label,
                 damage_type=calculation_event.damage_type,
                 damage_subtype=calculation_event.damage_subtype,
+                element=calculation_event.metadata.element,
                 status=EventCalculationStatus.BLOCKED,
                 diagnostics=diagnostics,
                 repeat_count=instantiated.repeat_count,
@@ -461,7 +526,14 @@ class DirectMoveApplicationService:
             battle_state_id=request.battle_state_id,
             character_snapshots=display_snapshots,
             target_snapshot=request.target_snapshot,
-            modifiers=application.event_modifiers,
+            modifiers=(
+                (*application.event_modifiers, *application.event_multiplier_modifiers)
+                if isinstance(
+                    calculation_event,
+                    (LuminanceDamageEvent, SpecialLuminanceDamageEvent),
+                )
+                else application.event_modifiers
+            ),
             history_records=request.history_records,
             vulnerability_policy=application.vulnerability_policy,
             settled_damage_values=settled_damage_values,
@@ -473,6 +545,7 @@ class DirectMoveApplicationService:
             label=instantiated.label,
             damage_type=calculation_event.damage_type,
             damage_subtype=calculation_event.damage_subtype,
+            element=calculation_event.metadata.element,
             status=calculation.status,
             result=calculation.result,
             diagnostics=all_diagnostics,
@@ -1025,6 +1098,144 @@ def _history_records_for_event(
     return (*request.history_records, assembly.record), assembly.diagnostics
 
 
+def _prepare_remielle_flare_source(
+    request: MoveCalculationRequest,
+    template: LuminanceFlareDamageEventTemplate,
+    snapshots: tuple[CharacterSnapshot, ...],
+    rule_items: tuple[CalculationRuleItem, ...],
+    matcher: EffectMatcher,
+):
+    """Create one selected source snapshot without inventing Flare history.
+
+    Ordinary slots use the existing static AnomalyRecord builder. Special
+    virtual voids use a separate source snapshot and never enter the ordinary
+    AnomalyRecord collection.
+    """
+
+    choice = request.luminance_source_choice
+    if choice is None:
+        raise ValueError("Remielle Flare requires a selected source slot")
+    source_event_id = DamageEventId(
+        f"event:{request.battle_state_id}:luminance-source-generation:{choice.slot_id}"
+    )
+    record_id = AnomalyRecordId(f"anomaly:remielle:source-slot:{choice.slot_id}")
+    source_event = AttributeAnomalyDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=source_event_id,
+            battle_state_id=request.battle_state_id,
+            damage_dealer=choice.source_character_id,
+            target_enemy=request.target_snapshot.enemy_id,
+            element=choice.element,
+            created_at=request.battle_time,
+        ),
+        anomaly_triggerer=choice.source_character_id,
+        base_settlement_data_source=AnomalyRecordValueSource(record_id),
+        history_record_source=record_id,
+        multiplier=FixedMultiplier(Resolved(1.0)),
+        crit_rule=NoCritRule(),
+    )
+    source_scenario = replace(
+        request.scenario,
+        current_operator=choice.source_character_id,
+    )
+    source_request = replace(request, scenario=source_scenario)
+
+    identity_record = None
+    if choice.kind is LuminanceSourceKind.ORDINARY_ANOMALY:
+        identity_assembly = static_attribute_anomaly_record(source_event, snapshots, ())
+        identity_record = identity_assembly.record
+        if identity_record is None:
+            return request, None, identity_assembly.diagnostics
+    source_history = request.history_records + (
+        (identity_record,) if identity_record is not None else ()
+    )
+    match_request = replace(source_request, history_records=source_history)
+    source_context = _match_context(
+        match_request,
+        source_event,
+        snapshots,
+        request.base_calculation_modifiers,
+    )
+    matches = matcher.match_rule_items(rule_items, source_context)
+    source_effects = _matched_effects(matches, rule_items, source_scenario)
+    source_application = apply_matched_modifiers(
+        snapshots,
+        request.base_calculation_modifiers,
+        source_effects,
+        source_scenario.current_operator,
+        initial_character_snapshots=request.initial_character_snapshots,
+        scenario=source_scenario,
+        event=source_event,
+        apply_panel=False,
+    )
+    source_diagnostics = (
+        *_match_diagnostics(matches),
+        *source_application.diagnostics,
+    )
+    modifier_sources = _modifier_sources(request)
+
+    if choice.kind is LuminanceSourceKind.ORDINARY_ANOMALY:
+        assembly = static_attribute_anomaly_record(
+            source_event,
+            source_application.character_snapshots,
+            source_application.event_modifiers,
+            modifier_sources=modifier_sources,
+        )
+        if assembly is None or assembly.record is None:
+            diagnostics = (
+                *source_diagnostics,
+                *(assembly.diagnostics if assembly is not None else ()),
+            )
+            return request, None, diagnostics
+        updated_request = replace(
+            request,
+            history_records=(*request.history_records, assembly.record),
+        )
+        return (
+            updated_request,
+            None,
+            (*source_diagnostics, *assembly.diagnostics),
+        )
+
+    strength = static_anomaly_effect_strength_source(
+        source_event,
+        source_application.character_snapshots,
+        source_application.event_modifiers,
+        modifier_sources=modifier_sources,
+    )
+    rem_snapshot = next(
+        (
+            item for item in source_application.character_snapshots
+            if item.character_id == choice.source_character_id
+        ),
+        None,
+    )
+    if rem_snapshot is None:
+        return request, None, (
+            *source_diagnostics,
+            *strength.diagnostics,
+        )
+    source_factor = 0.25 if choice.kind is LuminanceSourceKind.SPECIAL_BASIC4 else 1.0
+    special_source = LuminanceSpecialSourceSnapshot(
+        source_id=LuminanceSpecialSourceId(
+            f"luminance-special:remielle:{choice.slot_id}"
+        ),
+        slot_id=choice.slot_id,
+        source_character_id=choice.source_character_id,
+        element=choice.element,
+        weighted_anomaly_effect_strength=strength.effect_strength,
+        penetration_rate=strength.penetration_rate,
+        penetration_flat=strength.penetration_flat,
+        source_multiplier=Resolved(
+            2.5 * rem_snapshot.level / 60.0 * source_factor
+        ),
+        source_kind=choice.kind,
+        level=rem_snapshot.level,
+        anomaly_effect_strength_trace=strength.trace,
+    )
+    return request, special_source, (*source_diagnostics, *strength.diagnostics)
+
+
 def _modifier_sources(request: MoveCalculationRequest):
     """Resolve effect provenance without coupling the calculation helper to UI DTOs."""
 
@@ -1220,6 +1431,11 @@ def _apply_event_multiplier_modifiers(
     """Apply supported event multiplier operations to a calculation-only copy."""
 
     if not modifiers:
+        return event
+    if isinstance(event, (LuminanceDamageEvent, SpecialLuminanceDamageEvent)):
+        # The Luminance calculator applies its Skill-multiplier effects after
+        # the source AP contribution, which preserves Remielle's explicit
+        # (base + AP) * Cinema-4 order.
         return event
     if not isinstance(event, DirectDamageEvent):
         diagnostics.append(

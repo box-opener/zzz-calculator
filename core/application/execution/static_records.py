@@ -68,6 +68,21 @@ class StaticAnomalyRecordAssembly:
     diagnostics: tuple[CalculationDiagnostic, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class StaticAnomalyStrengthAssembly:
+    """One source-generation strength value without creating an AnomalyRecord.
+
+    Remielle's special virtual void can use Luminance flow while remaining a
+    separate source type from an ordinary attribute AnomalyRecord.
+    """
+
+    effect_strength: Resolved[float] | Unresolved
+    trace: AnomalyEffectStrengthTrace
+    penetration_rate: Resolved[float] | Unresolved
+    penetration_flat: Resolved[float] | Unresolved
+    diagnostics: tuple[CalculationDiagnostic, ...] = ()
+
+
 def static_attribute_anomaly_record(
     event: DamageEvent,
     snapshots: tuple[CharacterSnapshot, ...],
@@ -149,6 +164,8 @@ def static_attribute_anomaly_record(
         attack = unresolved
         proficiency = unresolved
         impact = unresolved
+        penetration_rate = unresolved
+        penetration_flat = unresolved
     else:
         level = snapshot.level
         stats = snapshot.settlement_stats
@@ -162,6 +179,8 @@ def static_attribute_anomaly_record(
         attack = stats.attack
         proficiency = stats.anomaly_proficiency
         impact = stats.impact
+        penetration_rate = stats.penetration_rate
+        penetration_flat = stats.penetration_flat
         if element_bonus is None:
             element_bonus = _unresolved(
                 f"missing element damage bonus for {event.metadata.element.value}"
@@ -231,6 +250,8 @@ def static_attribute_anomaly_record(
         duration=duration_value,
         contributions=(contribution,),
         anomaly_effect_strength_trace=effect_trace,
+        penetration_rate=penetration_rate,
+        penetration_flat=penetration_flat,
     )
     return StaticAnomalyRecordAssembly(
         record=record,
@@ -239,6 +260,89 @@ def static_attribute_anomaly_record(
             *anomaly_diagnostics,
             *mutation_diagnostics,
         ),
+    )
+
+
+def static_anomaly_effect_strength_source(
+    event: AttributeAnomalyDamageEvent,
+    snapshots: tuple[CharacterSnapshot, ...],
+    modifiers=(),
+    modifier_sources=None,
+) -> StaticAnomalyStrengthAssembly:
+    """Capture the common effect-strength formula without materializing history.
+
+    This adapter intentionally does not check ``ANOMALY_ELEMENTS`` or return an
+    ``AnomalyRecord``. It is for a separate typed source such as Remielle's
+    special virtual void, and preserves its element-specific panel/penetration
+    inputs and normal/mutation factors.
+    """
+
+    snapshot = next(
+        (item for item in snapshots if item.character_id == event.anomaly_triggerer),
+        None,
+    )
+    if snapshot is None:
+        notes = f"missing settlement snapshot for source actor {event.anomaly_triggerer}"
+        unresolved = _unresolved(notes)
+        trace = AnomalyEffectStrengthTrace(
+            character_id=event.anomaly_triggerer,
+            level=None,
+            level_coefficient=None,
+            anomaly_proficiency=None,
+            anomaly_proficiency_factor=None,
+            attack=None,
+            element_bonus=None,
+            normal_bonus=None,
+            mutation=None,
+            final_strength=None,
+            element=event.metadata.element,
+            unresolved=notes,
+        )
+        return StaticAnomalyStrengthAssembly(
+            unresolved,
+            trace,
+            unresolved,
+            unresolved,
+            (_diagnostic(event, "static-source-snapshot", notes),),
+        )
+
+    stats = snapshot.settlement_stats
+    element_bonus = stats.element_damage_bonus.get(
+        event.metadata.element,
+        stats.element_damage_bonus.get(_base_element(event.metadata.element)),
+    )
+    if element_bonus is None:
+        element_bonus = _unresolved(
+            f"missing element damage bonus for {event.metadata.element.value}"
+        )
+    normal_bonus, normal_diagnostics = _modifier_total(
+        modifiers,
+        CalculationNode.DAMAGE_NORMAL_BONUS,
+        event,
+    )
+    mutation, mutation_factors, mutation_diagnostics = _mutation_coefficient(
+        modifiers,
+        event,
+        modifier_sources or {},
+    )
+    effect_strength, trace = _effect_strength(
+        snapshot.level,
+        stats.attack,
+        stats.anomaly_proficiency,
+        element_bonus,
+        normal_bonus,
+        event,
+        _normal_factors(modifiers, modifier_sources or {}),
+        mutation,
+        mutation_factors,
+    )
+    diagnostics = (*normal_diagnostics, *mutation_diagnostics)
+    return StaticAnomalyStrengthAssembly(
+        effect_strength,
+        trace,
+        stats.penetration_rate,
+        stats.penetration_flat,
+        diagnostics,
     )
 
 
@@ -343,7 +447,8 @@ def _normal_factors(modifiers, modifier_sources):
 
 
 def _mutation_coefficient(modifiers, event, modifier_sources):
-    coefficient = 1.0
+    multiplier = 1.0
+    additive = 0.0
     factors: list[AnomalyStrengthFactor] = []
     diagnostics: list[CalculationDiagnostic] = []
     for modifier in modifiers:
@@ -351,12 +456,12 @@ def _mutation_coefficient(modifiers, event, modifier_sources):
             continue
         source_id = str(modifier.effect_id)
         source_label, owner = modifier_sources.get(source_id, (None, None))
-        if modifier.operation is not EffectOperation.MULTIPLY:
+        if modifier.operation not in {EffectOperation.MULTIPLY, EffectOperation.ADD}:
             diagnostics.append(
                 _diagnostic(
                     event,
                     "static-record-mutation-operation",
-                    "static anomaly record requires MULTIPLY for anomaly mutation coefficient",
+                    "static anomaly record supports MULTIPLY and ADD for anomaly mutation coefficient",
                 )
             )
             value = None
@@ -370,10 +475,17 @@ def _mutation_coefficient(modifiers, event, modifier_sources):
         else:
             value = modifier.value.value
             unresolved = None
-            coefficient *= value
+            if modifier.operation is EffectOperation.MULTIPLY:
+                multiplier *= value
+            else:
+                additive += value
         factors.append(
             AnomalyStrengthFactor(
-                factor="mutation",
+                factor=(
+                    "mutation"
+                    if modifier.operation is EffectOperation.MULTIPLY
+                    else "mutation-additive"
+                ),
                 value=value,
                 source_id=source_id,
                 source_label=source_label,
@@ -383,7 +495,7 @@ def _mutation_coefficient(modifiers, event, modifier_sources):
         )
         if value is None:
             return _unresolved("cannot calculate static anomaly mutation coefficient"), tuple(factors), tuple(diagnostics)
-    return Resolved(coefficient), tuple(factors), tuple(diagnostics)
+    return Resolved(multiplier + additive), tuple(factors), tuple(diagnostics)
 
 
 def _impact_strength(level: int | None, impact):
@@ -457,4 +569,9 @@ def _diagnostic(
     )
 
 
-__all__ = ["StaticAnomalyRecordAssembly", "static_attribute_anomaly_record"]
+__all__ = [
+    "StaticAnomalyRecordAssembly",
+    "StaticAnomalyStrengthAssembly",
+    "static_anomaly_effect_strength_source",
+    "static_attribute_anomaly_record",
+]

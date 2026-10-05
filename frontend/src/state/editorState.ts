@@ -155,6 +155,21 @@ export function resolveAuthoritativeConditionContext(
   return resolved;
 }
 
+/** Recompute a role-derived default unless the user explicitly selected it. */
+export function refreshConditionDefault(
+  previous: Readonly<Record<string, boolean | null>>,
+  conditionId: string,
+  explicitValues: Readonly<Record<string, boolean | null>>,
+): Record<string, boolean | null> {
+  const next = { ...previous };
+  if (Object.prototype.hasOwnProperty.call(explicitValues, conditionId)) {
+    next[conditionId] = explicitValues[conditionId];
+  } else {
+    delete next[conditionId];
+  }
+  return next;
+}
+
 type ParameterView = {
   parameter_id: string;
   value: number | null;

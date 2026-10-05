@@ -1508,6 +1508,7 @@ def _resolve_effect_value(
         return effect
 
     coefficient = value.coefficient
+    base = value.base
     cap_max = value.cap_max
     if not isinstance(coefficient, Resolved):
         diagnostics.append(
@@ -1516,6 +1517,16 @@ def _resolve_effect_value(
                 "derived-value-coefficient",
                 DiagnosticKind.MISSING_DATA,
                 coefficient.notes,
+            )
+        )
+        return None
+    if not isinstance(base, Resolved):
+        diagnostics.append(
+            _diagnostic(
+                str(effect.rule.effect_id),
+                "derived-value-base",
+                DiagnosticKind.MISSING_DATA,
+                base.notes,
             )
         )
         return None
@@ -1581,7 +1592,10 @@ def _resolve_effect_value(
                 )
             )
             return None
-        result = max(current_stat.value - threshold.value, 0.0) * coefficient.value
+        result = (
+            base.value
+            + max(current_stat.value - threshold.value, 0.0) * coefficient.value
+        )
     else:
         source = next(
             (
@@ -1637,9 +1651,13 @@ def _resolve_effect_value(
                     )
                 )
                 return None
-            result = max(source_panel_value.value - threshold.value, 0.0) * coefficient.value
+            result = (
+                base.value
+                + max(source_panel_value.value - threshold.value, 0.0)
+                * coefficient.value
+            )
         else:
-            result = source_panel_value.value * coefficient.value
+            result = base.value + source_panel_value.value * coefficient.value
     if cap_max is not None:
         if not isinstance(cap_max, Resolved):
             diagnostics.append(
@@ -2291,6 +2309,15 @@ def _normalize_event_modifiers(
             continue
         for modifier in modifiers:
             if modifier.operation is EffectOperation.ADD:
+                normalized.append(modifier)
+            elif (
+                path is CalculationNode.ANOMALY_MUTATION_COEFFICIENT
+                and modifier.operation is EffectOperation.MULTIPLY
+            ):
+                # Mutation has one reviewed multiplicative source factor plus
+                # explicit additive coefficient increments.  The anomaly
+                # record assembler applies these together before the source
+                # record is frozen.
                 normalized.append(modifier)
             else:
                 diagnostics.append(

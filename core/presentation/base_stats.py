@@ -252,6 +252,7 @@ def _element(value: str) -> Element:
         "风属性": Element.WIND,
         "wind": Element.WIND,
         "明光": Element.LUMINANCE,
+        "流明": Element.LUMINANCE,
         "luminance": Element.LUMINANCE,
     }
     try:

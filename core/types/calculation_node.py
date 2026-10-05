@@ -70,6 +70,8 @@ class CalculationNode(StrEnum):
     ANOMALY_ATTACK_LEVEL_COEFFICIENT = "anomaly.attack-level-coefficient"
     ANOMALY_PROFICIENCY_REGION = "anomaly.proficiency-region"
     ANOMALY_MUTATION_COEFFICIENT = "anomaly.mutation-coefficient"
+    ANOMALY_RECORD_PENETRATION_RATE = "anomaly.record.penetration-rate"
+    ANOMALY_RECORD_PENETRATION_FLAT = "anomaly.record.penetration-flat"
     DISCHARGE_PROFICIENCY_MULTIPLIER = "discharge.proficiency-multiplier"
     ANOMALY_EFFECT_STRENGTH = "anomaly.effect-strength"
     ATTRIBUTE_ANOMALY_MULTIPLIER = "anomaly.attribute.multiplier"
@@ -100,6 +102,11 @@ class CalculationNode(StrEnum):
 
     # Luminance.
     LUMINANCE_MULTIPLIER = "anomaly.luminance.multiplier"
+    LUMINANCE_FLARE_AP_CONTRIBUTION = "anomaly.luminance.flare-ap-contribution"
+    LUMINANCE_FLARE_CINEMA_MULTIPLIER = "anomaly.luminance.flare-cinema-multiplier"
+    LUMINANCE_SPECIAL_SOURCE_MULTIPLIER = "anomaly.luminance.special-source-multiplier"
+    LUMINANCE_SPECIAL_SOURCE_PENETRATION_RATE = "anomaly.luminance.special-source-penetration-rate"
+    LUMINANCE_SPECIAL_SOURCE_PENETRATION_FLAT = "anomaly.luminance.special-source-penetration-flat"
     LUMINANCE_ANOMALY_DAMAGE_BONUS = "anomaly.luminance.anomaly-damage-bonus"
     LUMINANCE_ANOMALY_DAMAGE_BONUS_REGION = (
         "anomaly.luminance.anomaly-damage-bonus-region"

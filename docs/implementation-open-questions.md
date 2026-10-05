@@ -4,6 +4,17 @@ This file records non-authoritative implementation limits. It does not change
 the terminology, calculation, or implementation specifications, and it does
 not decide game semantics.
 
+## Resolved Remielle source decisions (2026-10-05)
+
+The following branches were clarified directly by the user and are now implemented for the static calculation model; they are no longer open questions. The formulas below are implementation notes, not replacements for source text or the authoritative specifications.
+
+- Mutation coefficient on each generated team anomaly-effect-strength record: `1 + current Rem AP × 0.0002`, plus `0.10` for three active Anomaly agents and `0.20` for enabled Cinema 2. A stored record is not recalculated from later panels.
+- Flare uses its reviewed raw CAL expressions at the selected effective skill level, adds the Core's current-AP multiplier contribution, then applies Cinema 4's `×1.12` when that rule is enabled. Cinema 6's second Vertical Rainbow/Surprise trigger is a separate enabled rule.
+- Ordinary virtual-void sources reuse a synthetic current-panel ordinary teammate AnomalyRecord and retain its element and source-time penetration. Special virtual-void sources are represented by a separate typed snapshot of Remielle's own strength/penetration and Flow element, not an ordinary Luminance AnomalyRecord. Their source factor is `2.5 × Rem level/60`; a C6 Basic 4 source adds `×0.25`.
+- The user selects up to three current source slots; ordinary and special slots may be mixed or repeated. Empty slots do not block known direct damage or create a Flare event. The static model does not infer source order, resource history, cooldowns, or durations.
+- A special source's Flare settlement uses the captured source penetration together with the current enemy defense/resistance and current event modifiers. It does not inherit the source's historical Anomaly Damage Bonus or ordinary Crit, and it does not read the caster's current Penetration as a substitute.
+- The old `virtual-lights-available` checkbox is treated as a legacy no-op; selected source slots express current source availability. No ordinary Luminance Anomaly or Disorder record is synthesized for Remielle.
+
 ## Hoshimi Miyabi (`character:1091`)
 
 ### Nanoka source version

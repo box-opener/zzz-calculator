@@ -19,6 +19,7 @@ from .common import (
 )
 from .damage_event import DamageEvent
 from .enums import EffectOperation, Element, SnapshotRule
+from .luminance_source import LuminanceSpecialSourceSnapshot
 from .vulnerability import StandardVulnerabilityPolicy, VulnerabilitySettlementPolicy
 
 
@@ -69,6 +70,7 @@ class CalculationContext:
     target_snapshot: EnemySnapshot
     modifiers: tuple[Modifier, ...] = ()
     history_records: tuple[AnomalyRecord, ...] = ()
+    luminance_special_sources: tuple[LuminanceSpecialSourceSnapshot, ...] = ()
     settled_damage_values: Mapping[DamageEventId, Resolvable[float]] = field(
         default_factory=dict
     )

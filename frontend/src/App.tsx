@@ -18,6 +18,7 @@ import {
   matchingMoveVariantIndexes,
   projectMoveOptions,
   reconcileEditorState,
+  refreshConditionDefault,
   resolveAuthoritativeConditionContext,
   selectMoveVariantConditions,
   stackValueForDisplay,
@@ -49,6 +50,11 @@ import {
 import { filterCharacterCatalog, isCharacterSelectable } from "./state/characterLibrary";
 import { aggregateEditorViews } from "./state/editorAggregation";
 import { formatMultiplierPercent } from "./state/calculationDisplay";
+import {
+  defaultRemielleSourceSlots as remielleDefaultSourceSlots,
+  remielleOrdinarySourceOptions as buildRemielleOrdinarySourceOptions,
+  serializeRemielleSourceSlots,
+} from "./state/remielleSourceSlots";
 
 type Character = {
   character_id: string;
@@ -138,6 +144,8 @@ type Move = {
 type EditorView = {
   character_id: string;
   display_name: string;
+  effective_damage_element?: string | null;
+  luminance_source_elements?: string[];
   moves: Move[];
   rule_items: Rule[];
   scenario_conditions: Condition[];
@@ -291,6 +299,7 @@ type CalculationEvent = {
   label: string;
   damage_type: string;
   damage_subtype: string | null;
+  element?: string | null;
   repeat_count: number;
   crit_capability?: string;
   display_modes?: string[];
@@ -328,7 +337,7 @@ const ENEMY_RESISTANCE_FIELDS = [
   { element: "electric", label: "电抗性" },
   { element: "ether", label: "以太抗性" },
   { element: "wind", label: "风抗性" },
-  { element: "luminance", label: "明光抗性" },
+  { element: "luminance", label: "流明抗性" },
 ] as const;
 type EnemyResistanceElement = typeof ENEMY_RESISTANCE_FIELDS[number]["element"];
 const INITIAL_ENEMY_RESISTANCES: Record<EnemyResistanceElement, number> = {
@@ -362,9 +371,11 @@ function App() {
   const [driveDiscViews, setDriveDiscViews] = useState<Record<string, DriveDiscEditorView | null>>({});
   const [moveEntryId, setMoveEntryId] = useState("");
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({});
+  const [remielleSourceSlotOverrides, setRemielleSourceSlotOverrides] = useState<string[] | null>(null);
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
   const [parameterValues, setParameterValues] = useState<Record<string, number | null>>({});
   const conditionValuesRef = useRef<Record<string, boolean | null>>({});
+  const explicitConditionValuesRef = useRef<Record<string, boolean | null>>({});
   const [enabledRules, setEnabledRules] = useState<Set<string>>(new Set());
   const [disabledRules, setDisabledRules] = useState<Set<string>>(new Set());
   const [triggerActors, setTriggerActors] = useState<Record<string, string>>({});
@@ -402,6 +413,28 @@ function App() {
   };
 
   const teamIds = teamCharacterIds;
+  const remielleId = "character:1581";
+  const activeRemielleCinema = Number(configs[remielleId]?.cinema_level ?? 0);
+  const remielleOrdinarySourceOptions = buildRemielleOrdinarySourceOptions(
+    teamIds,
+    characters,
+    editorViews,
+    remielleId,
+  );
+  const defaultRemielleSourceSlots = remielleDefaultSourceSlots(
+    teamIds,
+    remielleOrdinarySourceOptions,
+  );
+  const validRemielleSourceOptions = new Set([
+    "",
+    ...remielleOrdinarySourceOptions.map((item) => item.key),
+    ...(activeRemielleCinema >= 1 ? ["special-entry"] : []),
+    ...(activeRemielleCinema >= 4 ? ["special-refill"] : []),
+    ...(activeRemielleCinema >= 6 ? ["special-basic4"] : []),
+  ]);
+  const effectiveRemielleSourceSlots = (
+    remielleSourceSlotOverrides ?? defaultRemielleSourceSlots
+  ).slice(0, 3).map((value) => validRemielleSourceOptions.has(value) ? value : "");
   const requestTeam = useMemo(() => calculationTeamOrder(teamIds, currentOperatorId), [teamIds, currentOperatorId]);
   const supportingIds = requestTeam.supportingCharacterIds;
   const aggregatedEditors = useMemo(
@@ -493,6 +526,7 @@ function App() {
       setMoveEntryId("");
       setCalculation(null);
       commitConditionValues({});
+      explicitConditionValuesRef.current = {};
       setParameterValues({});
       setEnabledRules(new Set());
       setDisabledRules(new Set());
@@ -503,6 +537,12 @@ function App() {
       return;
     }
     try {
+      const frostbiteConditionId = `condition:enemy:frostbite-crit-damage-active:primary:${normalizedOperator}`;
+      const previewConditionSource = refreshConditionDefault(
+        conditionSource,
+        frostbiteConditionId,
+        explicitConditionValuesRef.current,
+      );
       const nextEditorViews = await Promise.all(
         normalizedTeam.map((owner) => jsonRequest<EditorView>("/api/v1/definitions/preview", {
           method: "POST",
@@ -510,14 +550,16 @@ function App() {
             character_id: owner,
             team_character_ids: normalizedTeam,
             primary_character_id: normalizedOperator,
-            condition_values: conditionSource,
-            compile_config: configSource[owner] ?? {},
+            condition_values: previewConditionSource,
+            compile_config: owner === "character:1581"
+              ? { ...(configSource[owner] ?? {}), formation_character_ids: normalizedTeam }
+              : configSource[owner] ?? {},
           }),
           signal: abortController.signal,
         })),
       );
       const authoritativeConditionContext = resolveAuthoritativeConditionContext(
-        conditionSource,
+        previewConditionSource,
         nextEditorViews.flatMap((view) => view.scenario_conditions),
       );
       const nextWengineViews = await Promise.all(
@@ -532,6 +574,7 @@ function App() {
               wengine_id: selection.id,
               equipped_character_id: owner,
               team_character_ids: normalizedTeam,
+              formation_character_ids: normalizedTeam,
               level: selection.level,
               refinement: selection.refinement,
               condition_context: authoritativeConditionContext,
@@ -547,6 +590,7 @@ function App() {
             body: JSON.stringify({
               equipped_character_id: owner,
               team_character_ids: normalizedTeam,
+              formation_character_ids: normalizedTeam,
               discs: driveDiscSource[owner] ?? [],
               condition_context: authoritativeConditionContext,
             }),
@@ -561,6 +605,8 @@ function App() {
             method: "POST",
             body: JSON.stringify({
               character_id: owner,
+              team_character_ids: normalizedTeam,
+              formation_character_ids: normalizedTeam,
               level: characterLevelsSource[owner] ?? 60,
               ...(selection?.id ? {
                 wengine_id: selection.id,
@@ -1077,6 +1123,11 @@ function App() {
         conditionValuesRef.current,
         allConditions,
       );
+      const luminanceSourceSlots = serializeRemielleSourceSlots(
+        effectiveRemielleSourceSlots,
+        remielleOrdinarySourceOptions,
+        remielleId,
+      );
       const result = await jsonRequest<CalculationView>("/api/v1/moves/calculate", {
         method: "POST",
         body: JSON.stringify({
@@ -1090,6 +1141,9 @@ function App() {
           // Keep the player's fixed 1-2-3 lineup for effects that reference a slot.
           formation_character_ids: requestTeam.formationCharacterIds,
           move_entry_id: moveEntryId,
+          ...(currentOperatorId === remielleId
+            ? { luminance_source_slots: luminanceSourceSlots }
+            : {}),
           compile_configs: Object.fromEntries(teamIds.map((id) => [id, {
             core_level: 7,
             cinema_level: 0,
@@ -1206,6 +1260,7 @@ function App() {
           <LivePanel
             teamIds={teamIds}
             characters={characters}
+            editorViews={editorViews}
             previews={buildPreviews}
             loading={loading}
           />
@@ -1362,7 +1417,26 @@ function App() {
         <section className="glass-card controls-panel">
           <div className="section-heading"><div><p className="eyebrow">SCENARIO</p><h2>场景与规则</h2></div>{loading && <span className="muted">读取中…</span>}</div>
           <div className="config-field-grid">{allConfigFields.filter(({ field }) => !isCharacterProgressField(field)).map(({ owner, field }) => renderCompileField(owner, field))}</div>
-          {visibleScenarioConditions.length > 0 && <div className="control-list"><div className="section-heading compact"><div><p className="eyebrow">CHARACTER STATES</p><h2>角色状态</h2><p className="control-section-hint">只显示可直接理解的独立状态；招式倍率在右侧招式下拉框中选择。</p></div></div>{visibleScenarioConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution} · 影响相关规则</small></span><input type="checkbox" checked={conditionCheckboxChecked(condition.condition_id, condition.value, conditionValues)} onChange={(event) => { const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }); }} /></label>)}</div>}
+          {visibleScenarioConditions.length > 0 && <div className="control-list"><div className="section-heading compact"><div><p className="eyebrow">CHARACTER STATES</p><h2>角色状态</h2><p className="control-section-hint">只显示可直接理解的独立状态；招式倍率在右侧招式下拉框中选择。</p></div></div>{visibleScenarioConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution} · 影响相关规则</small></span><input type="checkbox" checked={conditionCheckboxChecked(condition.condition_id, condition.value, conditionValues)} onChange={(event) => { explicitConditionValuesRef.current[condition.condition_id] = event.target.checked; const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }); }} /></label>)}</div>}
+          {currentOperatorId === remielleId && <div className="control-list remielle-source-slots">
+            <div className="section-heading compact"><div><p className="eyebrow">VIRTUAL VOID SOURCES</p><h2>虚曜来源槽</h2><p className="control-section-hint">最多选择三个来源；普通来源读取队友当前面板，特殊来源使用蕾米埃尔自身快照。留空表示没有该来源。</p></div></div>
+            {effectiveRemielleSourceSlots.map((value, index) => <label className="select-field" key={`remielle-source-slot-${index}`}>
+              <span>来源 {index + 1}</span>
+              <select value={value} onChange={(event) => setRemielleSourceSlotOverrides((current) => {
+                const next = [...(current ?? defaultRemielleSourceSlots)];
+                next[index] = event.target.value;
+                return next;
+              })}>
+                <option value="">空槽</option>
+                {remielleOrdinarySourceOptions.map((item) => <option key={item.key} value={item.key}>
+                  普通虚曜 · {item.characterName} · {elementLabel(item.element)}
+                </option>)}
+                {activeRemielleCinema >= 1 && <option value="special-entry">特殊虚曜 · 入场来源</option>}
+                {activeRemielleCinema >= 4 && <option value="special-refill">特殊虚曜 · 影画4补充</option>}
+                {activeRemielleCinema >= 6 && <option value="special-basic4">特殊虚曜 · 普攻第四段来源（25%）</option>}
+              </select>
+            </label>)}
+          </div>}
           {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={parameter.maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} />; })}</div></div>}
           <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.eligibility === "ineligible" ? "适用条件未满足" : rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stackValueForDisplay(stacks[rule.rule_id], rule.stack.default, rule.stack.minimum)} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>
           {allTriggers.length > 0 && <><div className="section-heading compact"><div><p className="eyebrow">TRIGGER FACTS</p><h2>场景触发</h2><p className="control-section-hint">需要明确入场角色的 Effect 会在这里显示；留空时计算 trace 会标记为 blocked。</p></div></div><div className="trigger-field-grid">{allTriggers.map((trigger) => { const selectedActor = triggerActors[trigger.input_id]; return <label className={`trigger-field ${selectedActor ? "trigger-field-selected" : "trigger-field-missing"}`} key={trigger.input_id}><span>{trigger.label}</span><select value={selectedActor ?? ""} onChange={(event) => setTriggerActors((current) => { const next = { ...current }; if (event.target.value) next[trigger.input_id] = event.target.value; else delete next[trigger.input_id]; return next; })}><option value="">未指定</option>{trigger.actor_options.map((actor) => <option key={actor} value={actor}>{characters.find((item) => item.character_id === actor)?.display_name ?? actor}</option>)}</select><small>{selectedActor ? `已指定：${characters.find((item) => item.character_id === selectedActor)?.display_name ?? selectedActor}` : "⚠ 需要指定入场角色"}</small></label>; })}</div></>}
@@ -1394,7 +1468,7 @@ function App() {
                   return <article className="event-card" key={event.semantic_id}>
                     <div>
                       <strong>{event.label}</strong>
-                      <small>{event.semantic_id} · ×{event.repeat_count}</small>
+                      <small>{event.semantic_id} · {event.element ? elementLabel(event.element) : "属性未标注"} · ×{event.repeat_count}</small>
                       {dischargeSummary && <p className="discharge-multiplier-summary">{dischargeSummary}</p>}
                     </div>
                     <div className="event-values">
@@ -1448,7 +1522,7 @@ function App() {
                   <strong>{snapshot.character_id}</strong>
                   <span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span>
                   <span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span>
-                  <span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span>
+                  <span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, editorViews[snapshot.character_id]?.effective_damage_element ?? characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span>
                 </div>)}
               </details>}
               <CalculationDiagnosticList diagnostics={calculation.diagnostics} />
@@ -1544,7 +1618,7 @@ function formatNumber(value: number | null | undefined) {
 }
 
 function elementLabel(element: string) {
-  return ({ physical: "物理", ether: "以太", electric: "电", ice: "冰", fire: "火", wind: "风", "ice:lieshuang": "烈霜", "ether:xuanmo": "玄墨", "physical:linren": "凛刃", luminance: "明光" } as Record<string, string>)[element] ?? element;
+  return ({ physical: "物理", ether: "以太", electric: "电", ice: "冰", fire: "火", wind: "风", "ice:lieshuang": "烈霜", "ether:xuanmo": "玄墨", "physical:linren": "凛刃", luminance: "流明" } as Record<string, string>)[element] ?? element;
 }
 
 function specialtyLabel(specialty: string) {
@@ -1560,6 +1634,7 @@ function isCharacterProgressField(field: CompileField) {
 type LivePanelProps = {
   teamIds: string[];
   characters: Character[];
+  editorViews: Record<string, EditorView | null>;
   previews: Record<string, BuildPreview | null>;
   loading: boolean;
 };
@@ -1578,7 +1653,7 @@ const LIVE_PANEL_STATS: { key: string; label: string; ratio?: boolean }[] = [
   { key: "energy_regen", label: "能量自动回复" },
 ];
 
-function LivePanel({ teamIds, characters, previews, loading }: LivePanelProps) {
+function LivePanel({ teamIds, characters, editorViews, previews, loading }: LivePanelProps) {
   return <section className="live-panel" aria-label="实时局外面板">
     <div className="section-heading compact live-panel-heading">
       <div><p className="eyebrow">LIVE OUT-OF-COMBAT PANEL</p><h2>实时局外面板</h2><p className="live-panel-subtitle">当前队伍的最终局外属性与来源</p></div>
@@ -1591,6 +1666,7 @@ function LivePanel({ teamIds, characters, previews, loading }: LivePanelProps) {
         const preview = previews[id];
         const stats = preview?.out_of_combat_stats;
         const character = characters.find((item) => item.character_id === id);
+        const damageElement = editorViews[id]?.effective_damage_element ?? character?.element;
         const status = preview
           ? (preview.complete ? "已解析" : "配置未完成")
           : "等待解析";
@@ -1604,7 +1680,7 @@ function LivePanel({ teamIds, characters, previews, loading }: LivePanelProps) {
           <div className="live-panel-card-heading">
             <div className="live-panel-character">
               {character ? <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} /> : <span className="live-panel-avatar">?</span>}
-              <div><strong>{character?.display_name ?? id}</strong><small>{teamIndex === 0 ? "主控角色" : "支援角色"}{character ? ` · ${character.element}` : ""}</small></div>
+              <div><strong>{character?.display_name ?? id}</strong><small>{teamIndex === 0 ? "主控角色" : "支援角色"}{damageElement ? ` · ${damageElement}` : ""}</small></div>
             </div>
             <span className={`live-panel-status ${statusClass}`}>{status}</span>
           </div>
@@ -1612,7 +1688,7 @@ function LivePanel({ teamIds, characters, previews, loading }: LivePanelProps) {
             <div className="live-panel-stat live-panel-featured-stat"><span>攻击力</span><strong>{readStat("attack")}</strong><small>ATK</small></div>
             <div className="live-panel-stat live-panel-featured-stat"><span>暴击率</span><strong>{readStat("crit_rate", true)}</strong><small>CRIT RATE</small></div>
             <div className="live-panel-stat live-panel-featured-stat"><span>暴击伤害</span><strong>{readStat("crit_damage", true)}</strong><small>CRIT DMG</small></div>
-            <div className="live-panel-stat live-panel-featured-stat live-panel-element-bonuses"><span>属性增伤</span><strong>{formatElementBonus(elementValue as Record<string, number | null> | null, character?.element)}</strong><small>ELEMENT BONUS</small></div>
+            <div className="live-panel-stat live-panel-featured-stat live-panel-element-bonuses"><span>属性增伤</span><strong>{formatElementBonus(elementValue as Record<string, number | null> | null, damageElement)}</strong><small>ELEMENT BONUS</small></div>
           </div>
           <div className="live-panel-secondary-grid">
             {LIVE_PANEL_STATS.filter(({ key }) => !["attack", "crit_rate", "crit_damage"].includes(key)).map(({ key, label, ratio }) => <div className="live-panel-stat" key={key}><span>{label}</span><strong>{readStat(key, ratio)}</strong></div>)}

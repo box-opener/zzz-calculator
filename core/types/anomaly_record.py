@@ -120,6 +120,11 @@ class AnomalyRecord:
     duration: Resolvable[Seconds]
     contributions: tuple[AnomalyContribution, ...] = ()
     anomaly_effect_strength_trace: AnomalyEffectStrengthTrace | None = None
+    # Penetration is captured with the historical effect-strength source for
+    # Luminance settlement.  Legacy/explicit records may omit these values;
+    # consumers must report missing data rather than substitute a live panel.
+    penetration_rate: Resolvable[Ratio] | None = None
+    penetration_flat: Resolvable[float] | None = None
 
     def __post_init__(self) -> None:
         if self.element not in ANOMALY_ELEMENTS:

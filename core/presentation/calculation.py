@@ -168,6 +168,7 @@ class DamageEventView:
     repeat_count: int
     modes: dict[str, DamageEventModeView]
     common_application_trace: EventTraceView | None
+    element: str | None = None
     crit_capability: str = "standard"
     display_modes: tuple[str, ...] = ("non-crit", "expected", "full-crit")
 
@@ -399,6 +400,10 @@ def anomaly_strength_factor_view(
         else None
     )
     label = resolved_label or factor.source_label
+    if factor.factor == "mutation-additive" and label:
+        label = f"{label} · 异化系数加算项"
+    elif factor.factor == "mutation" and label:
+        label = f"{label} · 异化系数乘项"
     owner = (
         str(factor.owner_character_id)
         if factor.owner_character_id is not None

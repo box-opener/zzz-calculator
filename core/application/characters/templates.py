@@ -25,6 +25,7 @@ from core.types import (
     RecordedAnomalyCritRule,
 )
 
+from ..ids import RuleItemId
 from ..moves import DamageEventTemplateRef
 
 
@@ -185,6 +186,31 @@ class DischargeDamageEventTemplate:
 
 
 @dataclass(frozen=True, slots=True)
+class LuminanceFlareDamageEventTemplate:
+    """Reviewed Remielle Flare event whose source is selected per request."""
+
+    ref: DamageEventTemplateRef
+    damage_dealer: CharacterId
+    element: Element
+    luminance_triggerer: CharacterId
+    crit_rule: NoCritRule
+    move_id: MoveId | None = None
+    repeat_count_rule_item_id: RuleItemId | None = None
+
+    def __post_init__(self) -> None:
+        if self.ref.damage_type is not DamageType.ANOMALY:
+            raise ValueError("Luminance Flare template requires anomaly damage type")
+        if self.ref.damage_subtype is not DamageSubtype.LUMINANCE:
+            raise ValueError("Luminance Flare template requires luminance subtype")
+        if self.ref.element is not self.element:
+            raise ValueError("template ref element must match typed template element")
+        if self.damage_dealer != self.luminance_triggerer:
+            raise ValueError("Luminance triggerer must be the damage dealer")
+        if self.ref.skill_group is not None or self.move_id is not None:
+            raise ValueError("synthetic Luminance Flare must not invent a move identity")
+
+
+@dataclass(frozen=True, slots=True)
 class SettledAnomalyDamageEventTemplate:
     """Template for an anomaly child based on a prior final damage result."""
 
@@ -213,6 +239,7 @@ DamageEventTemplate = (
     | CurrentAttributeAnomalyDamageEventTemplate
     | DisorderDamageEventTemplate
     | DischargeDamageEventTemplate
+    | LuminanceFlareDamageEventTemplate
     | SettledAnomalyDamageEventTemplate
 )
 
@@ -225,5 +252,6 @@ __all__ = [
     "PenetrationDamageEventTemplate",
     "DisorderDamageEventTemplate",
     "DischargeDamageEventTemplate",
+    "LuminanceFlareDamageEventTemplate",
     "SettledAnomalyDamageEventTemplate",
 ]

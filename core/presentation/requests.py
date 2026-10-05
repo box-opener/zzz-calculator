@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 import math
 
-from core.types import BuildMode, EquippedDriveDisc
+from core.types import BuildMode, EquippedDriveDisc, LuminanceSourceChoice
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +107,7 @@ class MoveCalculationViewRequest:
     enabled_rule_item_ids: frozenset[str] = frozenset()
     selected_trigger_inputs: tuple[SelectedTriggerInput, ...] = ()
     rule_stack_counts: Mapping[str, int] = field(default_factory=dict)
+    luminance_source_slots: tuple[LuminanceSourceChoice, ...] = ()
 
 
 __all__ = [

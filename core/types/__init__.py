@@ -67,6 +67,7 @@ from .common import (
     EntityRef,
     EventTemplateId,
     HitId,
+    LuminanceSpecialSourceId,
     MoveId,
     Multiplier,
     Ratio,
@@ -105,12 +106,18 @@ from .damage_event import (
     FixedMultiplier,
     IndependentAnomalyCritRule,
     LuminanceDamageEvent,
+    SpecialLuminanceDamageEvent,
     NoCritRule,
     PenetrationDamageEvent,
     RecordedAnomalyCritRule,
     StandardCritRule,
     TurbulenceDamageEvent,
     UnresolvedSharpExplosionDamageEvent,
+)
+from .luminance_source import (
+    LuminanceSourceChoice,
+    LuminanceSourceKind,
+    LuminanceSpecialSourceSnapshot,
 )
 from .effect import (
     AllCondition,

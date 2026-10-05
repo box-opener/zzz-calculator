@@ -6,6 +6,7 @@ import {
   projectMoveOptions,
   reconcileEditorState,
   resolveAuthoritativeConditionContext,
+  refreshConditionDefault,
   selectMoveVariantConditions,
   stackValueForDisplay,
 } from "./editorState";
@@ -135,6 +136,20 @@ describe("reconcileEditorState", () => {
     expect(reduced.disabledRules).toEqual(new Set());
     expect(reduced.triggerActors).toEqual({});
     expect(reduced.stacks).toEqual({});
+  });
+});
+
+describe("role-derived condition defaults", () => {
+  const frostbite = "condition:enemy:frostbite-crit-damage-active:primary:character:1581";
+
+  it("recomputes the default when Flow changes unless the user chose a value", () => {
+    expect(refreshConditionDefault({ [frostbite]: true }, frostbite, {})).toEqual({});
+    expect(refreshConditionDefault({ [frostbite]: true }, frostbite, { [frostbite]: false })).toEqual({
+      [frostbite]: false,
+    });
+    expect(refreshConditionDefault({}, frostbite, { [frostbite]: true })).toEqual({
+      [frostbite]: true,
+    });
   });
 });
 

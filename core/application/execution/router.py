@@ -26,6 +26,7 @@ from core.types import (
     DischargeDamageEvent,
     DisorderDamageEvent,
     LuminanceDamageEvent,
+    SpecialLuminanceDamageEvent,
     PenetrationDamageEvent,
     SettledAnomalyDamageEvent,
     TurbulenceDamageEvent,
@@ -156,7 +157,7 @@ def _calculator_for(event: DamageEvent):
         return DisorderDamageCalculator()
     if isinstance(event, TurbulenceDamageEvent):
         return TurbulenceDamageCalculator()
-    if isinstance(event, LuminanceDamageEvent):
+    if isinstance(event, (LuminanceDamageEvent, SpecialLuminanceDamageEvent)):
         return LuminanceDamageCalculator()
     if isinstance(event, PenetrationDamageEvent):
         return PenetrationDamageCalculator()

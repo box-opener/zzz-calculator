@@ -22,10 +22,12 @@ from core.application import (
     stable_set_id,
 )
 from core.application.characters.dialyn import DIALYN_ID
+from core.application.characters.remielle import REMIELLE_ID
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.templates import (
     AttributeAnomalyDamageEventTemplate,
     DamageEventTemplate,
+    LuminanceFlareDamageEventTemplate,
 )
 from core.application.characters.vivian.reviewed import (
     DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID,
@@ -61,6 +63,7 @@ from core.types import (
     BattleEventKind,
     BattleStateId,
     BASE_ELEMENT_BY_ELEMENT,
+    ANOMALY_ELEMENTS,
     DamageSubtype,
     DamageType,
     BuildMode,
@@ -70,6 +73,8 @@ from core.types import (
     BuildContributionTrace,
     CharacterSnapshot,
     CharacterStats,
+    LuminanceSourceChoice,
+    LuminanceSourceKind,
     CalculationNode,
     NoCritRule,
     FixedMultiplier,
@@ -113,6 +118,7 @@ from core.presentation.serialization import to_jsonable
 from core.presentation.registry import (
     VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
     VIVIAN_PROPHECY_TICK_SELECTION_ENTRY_ID,
+    equipment_capabilities_for_definition,
     registration_for,
     compile_registered_definition,
 )
@@ -121,6 +127,14 @@ from core.presentation.base_stats import (
     character_base_stat_contributions,
     character_base_stats,
 )
+
+
+REMIELLE_FLARE_PARENT_TO_ENTRY = {
+    "move-entry:character:1581:basic-vertical-rainbow": "move-entry:character:1581:flare:basic-vertical-rainbow",
+    "move-entry:character:1581:basic-surprise": "move-entry:character:1581:flare:basic-surprise",
+    "move-entry:character:1581:ultimate-chaotic-finale": "move-entry:character:1581:flare:ultimate",
+    "move-entry:character:1581:special-assist-feather-dance": "move-entry:character:1581:flare:support-flower-dance",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,11 +183,24 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 },
             }
 
-    view_request = _presentation_request(payload)
     definitions = _without_static_vivian_blossom_placeholder(
         _compile_definitions(payload)
     )
     primary = definitions[0]
+    rem_flow_element = primary.base_element
+    if primary.character_id == REMIELLE_ID:
+        rem_elements = tuple(
+            item.main_damage_event.element
+            for item in primary.move_entries
+            if item.main_damage_event.element is not None
+        )
+        if rem_elements and all(item is rem_elements[0] for item in rem_elements):
+            rem_flow_element = rem_elements[0]
+    view_request = _presentation_request(
+        payload,
+        luminance_flow_element=rem_flow_element,
+        normal_source_elements=_normal_source_element_options(definitions),
+    )
     if vivian_discharge_selected and primary.character_id != VIVIAN_ID:
         raise ValueError("Vivian Discharge selection requires Vivian as current operator")
     supplied_operator = payload.get("current_operator")
@@ -271,35 +298,90 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     )
     executions = {}
     requests = {}
+    selected_move = next(
+        (item for item in primary.move_entries if str(item.entry_id) == move_entry_id),
+        None,
+    )
+    template_by_id = {
+        item.ref.template_id: item for item in primary.damage_event_templates
+    }
+    is_remielle_flare = bool(
+        primary.character_id == REMIELLE_ID
+        and selected_move is not None
+        and isinstance(
+            template_by_id.get(selected_move.main_damage_event.template_id),
+            LuminanceFlareDamageEventTemplate,
+        )
+    )
+    remielle_flare_child_entry_id = REMIELLE_FLARE_PARENT_TO_ENTRY.get(move_entry_id)
+    source_choices = (
+        view_request.luminance_source_slots
+        if is_remielle_flare or remielle_flare_child_entry_id is not None
+        else ()
+    )
     for mode in (
         CritDisplayMode.NON_CRIT,
         CritDisplayMode.EXPECTED,
         CritDisplayMode.FULL_CRIT,
     ):
-        request = MoveCalculationRequest(
-            definition=primary,
-            supporting_definitions=definitions[1:],
+        slot_executions = []
+        slot_requests = []
+
+        def make_request(request_entry_id: str, choice):
+            return MoveCalculationRequest(
+                definition=primary,
+                supporting_definitions=definitions[1:],
+                move_entry_id=MoveEntryId(request_entry_id),
+                scenario=scenario,
+                battle_state_id=BattleStateId(
+                    str(payload.get("battle_state_id", "battle:ui"))
+                ),
+                battle_time=float(payload.get("battle_time", 0.0)),
+                base_character_snapshots=base_snapshots,
+                initial_character_snapshots=initial_snapshots,
+                target_snapshot=enemy_snapshot,
+                team_profiles=team_profiles,
+                target_profile=enemy_profile,
+                additional_rule_items=additional_rule_items,
+                additional_damage_event_templates=additional_damage_event_templates,
+                additional_derived_damage_events=additional_derived_damage_events,
+                additional_scenario_conditions=additional_scenario_conditions,
+                base_calculation_modifiers=base_modifiers,
+                history_record_mode=HistoryRecordMode.STATIC_SINGLE_CHARACTER,
+                luminance_source_choice=choice,
+                crit_display_mode=mode,
+            )
+
+        if remielle_flare_child_entry_id is not None and source_choices:
+            parent_request = make_request(move_entry_id, None)
+            parent_execution = calculate_move(parent_request)
+            slot_requests.append(parent_request)
+            slot_executions.append(parent_execution)
+            parent_semantic_id = str(selected_move.main_damage_event.semantic_id)
+            hit_source_present = any(
+                str(event.semantic_id) == parent_semantic_id
+                for event in parent_execution.output.events
+            )
+            if hit_source_present:
+                for choice in source_choices:
+                    child_request = make_request(remielle_flare_child_entry_id, choice)
+                    slot_requests.append(child_request)
+                    slot_executions.append(calculate_move(child_request))
+        else:
+            request_entry_id = move_entry_id
+            choices = source_choices if is_remielle_flare else (None,)
+            if not choices:
+                choices = (None,)
+            for choice in choices:
+                request = make_request(request_entry_id, choice)
+                slot_requests.append(request)
+                slot_executions.append(calculate_move(request))
+        requests[mode] = slot_requests[0]
+        executions[mode] = _merge_source_slot_executions(
+            slot_executions,
             move_entry_id=MoveEntryId(move_entry_id),
-            scenario=scenario,
-            battle_state_id=BattleStateId(
-                str(payload.get("battle_state_id", "battle:ui"))
-            ),
-            battle_time=float(payload.get("battle_time", 0.0)),
-            base_character_snapshots=base_snapshots,
-            initial_character_snapshots=initial_snapshots,
-            target_snapshot=enemy_snapshot,
-            team_profiles=team_profiles,
-            target_profile=enemy_profile,
-            additional_rule_items=additional_rule_items,
-            additional_damage_event_templates=additional_damage_event_templates,
-            additional_derived_damage_events=additional_derived_damage_events,
-            additional_scenario_conditions=additional_scenario_conditions,
-            base_calculation_modifiers=base_modifiers,
-            history_record_mode=HistoryRecordMode.STATIC_SINGLE_CHARACTER,
             crit_display_mode=mode,
         )
-        requests[mode] = request
-        executions[mode] = calculate_move(request)
     source_labels = {
         str(rule.rule_id): rule.display_name
         for definition in definitions
@@ -417,6 +499,53 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             ),
         )
     return to_jsonable(replace(view, panel_source_results=panel_source_results))
+
+
+def _merge_source_slot_executions(executions, *, move_entry_id, crit_display_mode):
+    """Combine independently calculated Remielle source slots for one Flare."""
+
+    if not executions:
+        raise ValueError("source-slot execution list must not be empty")
+    first = executions[0]
+    events = tuple(
+        event
+        for execution in executions
+        for event in execution.output.events
+    )
+    diagnostics = []
+    seen_diagnostics = set()
+    for execution in executions:
+        for diagnostic in execution.output.diagnostics:
+            key = (
+                str(diagnostic.diagnostic_id),
+                diagnostic.message,
+                diagnostic.blocking,
+            )
+            if key not in seen_diagnostics:
+                seen_diagnostics.add(key)
+                diagnostics.append(diagnostic)
+    known_totals = tuple(
+        execution.output.known_total
+        for execution in executions
+        if execution.output.known_total is not None
+    )
+    no_sources = not events and all(item.output.complete for item in executions)
+    known_total = 0.0 if no_sources else sum(known_totals) if known_totals else None
+    output = replace(
+        first.output,
+        move_entry_id=move_entry_id,
+        crit_display_mode=crit_display_mode,
+        events=events,
+        known_total=known_total,
+        complete=all(item.output.complete for item in executions),
+        diagnostics=tuple(diagnostics),
+    )
+    traces = tuple(
+        trace
+        for execution in executions
+        for trace in execution.event_traces
+    )
+    return replace(first, output=output, event_traces=traces)
 
 
 def _without_static_vivian_blossom_placeholder(
@@ -899,7 +1028,7 @@ def _compile_definitions(
         if not isinstance(config, Mapping):
             raise ValueError(f"compile config must be an object: {character_id}")
         compile_values = dict(config)
-        if character_id == str(DIALYN_ID):
+        if character_id in {str(DIALYN_ID), str(REMIELLE_ID)}:
             compile_values["formation_character_ids"] = formation_ids
         definitions.append(
             compile_registered_definition(
@@ -910,9 +1039,20 @@ def _compile_definitions(
             )
         )
     primary_definition = definitions[0]
+    frostbite_element = primary_definition.base_element
+    if primary_definition.character_id == REMIELLE_ID:
+        remielle_elements = tuple(
+            entry.main_damage_event.element
+            for entry in primary_definition.move_entries
+            if entry.main_damage_event.element is not None
+        )
+        if remielle_elements and all(
+            element is remielle_elements[0] for element in remielle_elements
+        ):
+            frostbite_element = remielle_elements[0]
     frostbite_condition, frostbite_rule = frostbite_crit_damage_controls(
         primary_definition.character_id,
-        primary_definition.base_element,
+        frostbite_element,
     )
     definitions[0] = replace(
         primary_definition,
@@ -925,7 +1065,29 @@ def _compile_definitions(
     return tuple(definitions)
 
 
-def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequest:
+def _normal_source_element_options(definitions):
+    result: dict[str, tuple[Element, ...]] = {}
+    for definition in definitions:
+        elements = {
+            item.element
+            for item in definition.damage_event_templates
+            if isinstance(item, AttributeAnomalyDamageEventTemplate)
+            and item.element in ANOMALY_ELEMENTS
+        }
+        if not elements and definition.base_element in ANOMALY_ELEMENTS:
+            elements.add(definition.base_element)
+        result[str(definition.character_id)] = tuple(
+            sorted(elements, key=lambda item: item.value)
+        )
+    return result
+
+
+def _presentation_request(
+    payload: Mapping[str, Any],
+    *,
+    luminance_flow_element: Element | None = None,
+    normal_source_elements: Mapping[str, tuple[Element, ...]] | None = None,
+) -> MoveCalculationViewRequest:
     """Validate the browser-shaped request before domain assembly."""
 
     primary_id = str(payload.get("primary_character_id", ""))
@@ -1080,6 +1242,103 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
     move_entry_id = str(payload.get("move_entry_id", ""))
     if not move_entry_id.strip():
         raise ValueError("move_entry_id is required")
+    raw_luminance_sources = payload.get("luminance_source_slots")
+    luminance_sources: tuple[LuminanceSourceChoice, ...] = ()
+    if primary_id == str(REMIELLE_ID):
+        if luminance_flow_element is None:
+            raise ValueError("Remielle Flow element is required for virtual-void sources")
+        if raw_luminance_sources is None:
+            source_specs = tuple(
+                {
+                    "slot_id": f"ordinary-{character_id}",
+                    "kind": LuminanceSourceKind.ORDINARY_ANOMALY.value,
+                    "source_character_id": character_id,
+                }
+                for character_id in team_ids[1:]
+                if registration_for(character_id).base_element is not Element.LUMINANCE
+            )
+        else:
+            if not isinstance(raw_luminance_sources, (list, tuple)):
+                raise ValueError("luminance_source_slots must be an array")
+            if len(raw_luminance_sources) > 3:
+                raise ValueError("at most three Luminance source slots may be selected")
+            if any(not isinstance(item, Mapping) for item in raw_luminance_sources):
+                raise ValueError("each Luminance source slot must be an object")
+            source_specs = tuple(raw_luminance_sources)
+        compile_configs = payload.get("compile_configs", {})
+        rem_config = (
+            compile_configs.get(primary_id, {})
+            if isinstance(compile_configs, Mapping)
+            else {}
+        )
+        cinema = (
+            int(rem_config.get("cinema_level", 0))
+            if isinstance(rem_config, Mapping)
+            else 0
+        )
+        parsed_sources = []
+        seen_slots = set()
+        for index, item in enumerate(source_specs):
+            try:
+                kind = LuminanceSourceKind(str(item.get("kind", "")))
+            except ValueError as exc:
+                raise ValueError("unknown Remielle Luminance source kind") from exc
+            slot_id = str(item.get("slot_id", f"slot-{index + 1}")).strip()
+            if not slot_id or slot_id in seen_slots or len(slot_id) > 64:
+                raise ValueError("Luminance source slot IDs must be unique and non-empty")
+            seen_slots.add(slot_id)
+            if kind is LuminanceSourceKind.ORDINARY_ANOMALY:
+                source_character_id = str(item.get("source_character_id", ""))
+                if source_character_id not in team_ids or source_character_id == primary_id:
+                    raise ValueError("ordinary source must be an active non-Remielle teammate")
+                source_options = tuple(
+                    (normal_source_elements or {}).get(source_character_id, ())
+                )
+                if not source_options:
+                    fallback_element = registration_for(source_character_id).base_element
+                    source_options = (fallback_element,) if fallback_element in ANOMALY_ELEMENTS else ()
+                if not source_options:
+                    raise ValueError(
+                        f"no ordinary anomaly source element is supported for {source_character_id}"
+                    )
+                default_element = registration_for(source_character_id).base_element
+                if default_element not in source_options:
+                    default_element = source_options[0]
+                raw_element = item.get("element")
+                source_element = (
+                    default_element
+                    if raw_element is None
+                    else _element(str(raw_element))
+                )
+                if source_element not in source_options:
+                    raise ValueError(
+                        f"source element {source_element.value} is not available for {source_character_id}"
+                    )
+                if source_element is Element.LUMINANCE:
+                    raise ValueError("ordinary Luminance source records are not supported")
+            else:
+                source_character_id = primary_id
+                source_element = luminance_flow_element
+                required_cinema = {
+                    LuminanceSourceKind.SPECIAL_ENTRY: 1,
+                    LuminanceSourceKind.SPECIAL_REFILL: 4,
+                    LuminanceSourceKind.SPECIAL_BASIC4: 6,
+                }[kind]
+                if cinema < required_cinema:
+                    raise ValueError(
+                        f"{kind.value} virtual void requires Remielle cinema {required_cinema}"
+                    )
+            parsed_sources.append(
+                LuminanceSourceChoice(
+                    slot_id=slot_id,
+                    source_character_id=CharacterId(source_character_id),
+                    kind=kind,
+                    element=source_element,
+                )
+            )
+        luminance_sources = tuple(parsed_sources)
+    elif raw_luminance_sources not in (None, (), []):
+        raise ValueError("Luminance source slots require Remielle as current operator")
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
         supporting_character_ids=supporting_ids,
@@ -1100,6 +1359,7 @@ def _presentation_request(payload: Mapping[str, Any]) -> MoveCalculationViewRequ
             if isinstance(payload.get("rule_stack_counts", {}), Mapping)
             else {}
         ),
+        luminance_source_slots=luminance_sources,
     )
 
 
@@ -1150,6 +1410,9 @@ def _build_records(
     definitions: tuple[CharacterCalculationDefinition, ...],
 ) -> tuple[_BuiltCharacterRecord, ...]:
     records = []
+    definitions_by_character = {
+        definition.character_id: definition for definition in definitions
+    }
     nekomata_definition = next(
         (item for item in definitions if item.character_id == NEKOMATA_ID),
         None,
@@ -1196,7 +1459,9 @@ def _build_records(
             character_base_stat_contributions(character_id)
         )
         if build.wengine_id is not None:
-            owner_capabilities = registration.equipment_capabilities
+            owner_capabilities = equipment_capabilities_for_definition(
+                definitions_by_character[character_id]
+            )
             if (
                 character_id == NEKOMATA_ID
                 and nekomata_c1_unlocked
@@ -1227,7 +1492,9 @@ def _build_records(
         if build.drive_discs:
             drive = compile_drive_discs(
                 DriveDiscBuildInput(character_id, build.drive_discs),
-                owner_capabilities=registration.equipment_capabilities,
+                owner_capabilities=equipment_capabilities_for_definition(
+                    definitions_by_character[character_id]
+                ),
             )
             if not drive.complete:
                 messages = "; ".join(item.message for item in drive.diagnostics)
@@ -1274,7 +1541,8 @@ def _character_stats(
     bonuses = {
         _element(key): Resolved(float(value)) for key, value in element_bonus.items()
     }
-    bonuses.setdefault(registration_for(character_id).base_element, Resolved(0.0))
+    for element in set(BASE_ELEMENT_BY_ELEMENT.values()):
+        bonuses.setdefault(element, Resolved(0.0))
 
     def stat(name: str):
         if name in values:
@@ -1412,6 +1680,10 @@ def _scenario(
     unknown_conditions = set(condition_values) - {
         str(item) for item in known_condition_ids
     }
+    if REMIELLE_ID in {item.character_id for item in definitions}:
+        # Legacy clients sent this checkbox before source slots became the
+        # authoritative indication that at least one virtual void is selected.
+        unknown_conditions.discard("condition:remielle:virtual-lights-available")
     if unknown_conditions:
         raise ValueError(f"unknown scenario conditions: {sorted(unknown_conditions)}")
     unknown_parameters = set(parameter_values) - {

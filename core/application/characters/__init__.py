@@ -25,6 +25,7 @@ from .zhao import ZhaoCompileConfig, compile_zhao
 from .qingyi import QingyiCompileConfig, compile_qingyi
 from .nekomata import NekomataCompileConfig, compile_nekomata
 from .nicole import NicoleCompileConfig, compile_nicole
+from .remielle import RemielleCompileConfig, compile_remielle
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -63,4 +64,6 @@ __all__ = [
     "compile_nekomata",
     "NicoleCompileConfig",
     "compile_nicole",
+    "RemielleCompileConfig",
+    "compile_remielle",
 ]

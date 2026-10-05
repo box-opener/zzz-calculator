@@ -16,6 +16,7 @@ from .common import (
     DamageEventId,
     EnemyId,
     HitId,
+    LuminanceSpecialSourceId,
     MoveId,
     Multiplier,
     Resolvable,
@@ -333,6 +334,25 @@ class LuminanceDamageEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class SpecialLuminanceDamageEvent:
+    """Luminance settlement using a typed special virtual-void snapshot."""
+
+    metadata: DamageEventMetadata
+    luminance_triggerer: CharacterId
+    source_snapshot: "LuminanceSpecialSourceSnapshot"
+    multiplier: DamageMultiplier
+    crit_rule: NoCritRule | Unresolved
+    damage_type: Literal[DamageType.ANOMALY] = field(default=DamageType.ANOMALY, init=False)
+    damage_subtype: Literal[DamageSubtype.LUMINANCE] = field(
+        default=DamageSubtype.LUMINANCE, init=False
+    )
+
+    def __post_init__(self) -> None:
+        if not str(self.source_snapshot.source_id):
+            raise ValueError("special virtual-void source ID is required")
+
+
+@dataclass(frozen=True, slots=True)
 class DisorderDamageEvent:
     metadata: DamageEventMetadata
     disorder_triggerer: CharacterId
@@ -379,6 +399,7 @@ DamageEvent: TypeAlias = (
     | DischargeDamageEvent
     | TurbulenceDamageEvent
     | LuminanceDamageEvent
+    | SpecialLuminanceDamageEvent
     | DisorderDamageEvent
     | PenetrationDamageEvent
     | UnresolvedSharpExplosionDamageEvent

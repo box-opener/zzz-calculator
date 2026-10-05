@@ -274,18 +274,19 @@ def _strength_factor(modifier):
 def _mutation_coefficient(context, unresolved):
     from core.types import AnomalyStrengthFactor, Resolved
 
-    coefficient = 1.0
+    multiplier = 1.0
+    additive = 0.0
     factors = []
     for modifier in context.modifiers:
         if modifier.modifier_path is not CalculationNode.ANOMALY_MUTATION_COEFFICIENT:
             continue
-        if modifier.operation is not EffectOperation.MULTIPLY:
+        if modifier.operation not in {EffectOperation.MULTIPLY, EffectOperation.ADD}:
             unresolved.append(
                 Unresolved(
                     reason=UnresolvedReason.MISSING_SPEC_RULE,
                     notes=(
                         "CurrentAttributeAnomalyDamageCalculator supports "
-                        "MULTIPLY only for anomaly mutation coefficient"
+                        "MULTIPLY and ADD for anomaly mutation coefficient"
                     ),
                 )
             )
@@ -295,10 +296,17 @@ def _mutation_coefficient(context, unresolved):
             value = None
         else:
             value = modifier.value.value
-            coefficient *= value
+            if modifier.operation is EffectOperation.MULTIPLY:
+                multiplier *= value
+            else:
+                additive += value
         factors.append(
             AnomalyStrengthFactor(
-                factor="mutation",
+                factor=(
+                    "mutation"
+                    if modifier.operation is EffectOperation.MULTIPLY
+                    else "mutation-additive"
+                ),
                 value=value,
                 source_id=str(modifier.effect_id),
                 source_label=str(modifier.effect_id),
@@ -306,7 +314,7 @@ def _mutation_coefficient(context, unresolved):
                 unresolved=(modifier.value.notes if value is None else None),
             )
         )
-    return coefficient, tuple(factors)
+    return multiplier + additive, tuple(factors)
 
 
 __all__ = ["CurrentAttributeAnomalyDamageCalculator"]

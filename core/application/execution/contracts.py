@@ -20,6 +20,9 @@ from core.types import (
     EventTemplateId,
     InitialCharacterSnapshot,
     Modifier,
+    LuminanceSourceChoice,
+    LuminanceSourceKind,
+    Element,
     Resolvable,
     SnapshotRule,
     RuleStackCondition,
@@ -76,6 +79,7 @@ class MoveCalculationRequest:
     history_records: tuple[AnomalyRecord, ...] = ()
     crit_display_mode: CritDisplayMode = CritDisplayMode.EXPECTED
     history_record_mode: HistoryRecordMode = HistoryRecordMode.EXPLICIT
+    luminance_source_choice: LuminanceSourceChoice | None = None
     additional_damage_event_templates: tuple[DamageEventTemplate, ...] = ()
     additional_derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
@@ -153,6 +157,17 @@ class MoveCalculationRequest:
             raise ValueError("team profile IDs must be unique")
         if self.scenario.current_operator not in set(profile_ids):
             raise ValueError("scenario current_operator must be a team member")
+        if self.luminance_source_choice is not None:
+            choice = self.luminance_source_choice
+            if choice.source_character_id not in set(profile_ids):
+                raise ValueError("Luminance source actor must be an active team member")
+            if choice.kind is LuminanceSourceKind.ORDINARY_ANOMALY:
+                if choice.source_character_id == self.definition.character_id:
+                    raise ValueError("Remielle cannot be selected as an ordinary Luminance source")
+                if choice.element is Element.LUMINANCE:
+                    raise ValueError("ordinary Luminance sources are not supported")
+            elif choice.source_character_id != self.definition.character_id:
+                raise ValueError("special virtual-void source must belong to the current Remielle")
 
         rule_items = tuple(
             rule for definition in definitions for rule in definition.rule_items

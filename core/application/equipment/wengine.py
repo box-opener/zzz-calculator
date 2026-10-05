@@ -205,6 +205,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1251"): WENGINE_JADE_TEA_ID,
     # The live detail for 14134 describes the engine as commissioned for Zhao.
     CharacterId("character:1341"): WENGINE_SWEETBUNNY_ID,
+    # The live 3.2 engine detail names both code_name and icon as Weapon_S_1581.
+    CharacterId("character:1581"): WENGINE_RETURNING_FEATHER_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,
@@ -703,7 +705,9 @@ def _wengine_result_diagnostics(
         ),
         WENGINE_RETURNING_FEATHER_ID: (
             "The current post-异化 buff state is explicit. Its owner Attribute Anomaly "
-            "bonus and TEAM damage bonus are separate effects. The source trigger and "
+            "bonus has a separate Luminance Flare lane for Remielle, and its TEAM "
+            "damage bonus is applied once when generating the selected source strength. "
+            "The source trigger and "
             "30-second refresh timing are not replayed. It does not add a Disorder bonus."
         ),
         WENGINE_CAVALRY_PRAISE_ID: (
@@ -7211,6 +7215,41 @@ def _returning_feather_rules(
                     ),
                 ),
             ),
+        ),
+        *(
+            (
+                _rule(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="luminance-attribute-anomaly-damage",
+                    label=f"{raw.name}·异化反应增益期间流明耀变伤害提升",
+                    eligibility=eligibility,
+                    condition_ids=(buff_id,),
+                    effects=(
+                        _owner_event_modifier(
+                            raw=raw,
+                            owner=owner,
+                            source=source,
+                            suffix="luminance-attribute-anomaly-damage",
+                            path=CalculationNode.LUMINANCE_ANOMALY_DAMAGE_BONUS,
+                            value=float(values["anomaly_damage_bonus"]),
+                            filters=(
+                                DamageTypeFilter(DamageType.ANOMALY),
+                                DamageSubtypeFilter(DamageSubtype.LUMINANCE),
+                            ),
+                            condition=AllCondition(
+                                (
+                                    DynamicIdentityCondition(DynamicIdentity.CURRENT_OPERATOR),
+                                    DynamicIdentityCondition(DynamicIdentity.LUMINANCE_TRIGGER),
+                                )
+                            ),
+                        ),
+                    ),
+                ),
+            )
+            if owner == CharacterId("character:1581")
+            else ()
         ),
     ), (buff_condition,)
 

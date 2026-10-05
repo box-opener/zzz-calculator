@@ -15,6 +15,8 @@ from core.application.scenario import CalculationScenario
 from core.types import (
     BattleEventKind,
     CharacterId,
+    Element,
+    ANOMALY_ELEMENTS,
     DRIVE_DISC_MAIN_STATS_BY_SLOT,
     DRIVE_DISC_MAIN_STAT_VALUES,
     DRIVE_DISC_SUBSTAT_VALUES,
@@ -53,6 +55,9 @@ from .character_editor import (
 )
 from .diagnostics import DiagnosticView, diagnostic_view
 from .drive_disc_display import drive_disc_stat_label
+from core.application.characters.templates import (
+    AttributeAnomalyDamageEventTemplate,
+)
 
 
 SCHEMA_VERSION = "presentation-v1"
@@ -255,7 +260,38 @@ def build_character_editor_view(
         scenario_parameters=parameter_views,
         scenario_trigger_inputs=trigger_inputs,
         diagnostics=tuple(diagnostic_view(item) for item in definition.diagnostics),
+        luminance_source_elements=tuple(
+            element.value
+            for element in _source_anomaly_elements(definition)
+        ),
+        effective_damage_element=_effective_damage_element(definition).value,
     )
+
+
+def _source_anomaly_elements(definition):
+    elements = {
+        template.element
+        for template in definition.damage_event_templates
+        if isinstance(
+            template,
+            AttributeAnomalyDamageEventTemplate,
+        )
+    }
+    if not elements and definition.base_element in ANOMALY_ELEMENTS:
+        elements.add(definition.base_element)
+    return tuple(sorted(elements, key=lambda item: item.value))
+
+
+def _effective_damage_element(definition):
+    if str(definition.character_id) == "character:1581":
+        elements = tuple(
+            item.main_damage_event.element
+            for item in definition.move_entries
+            if item.main_damage_event.element is not None
+        )
+        if elements and all(item is elements[0] for item in elements):
+            return elements[0]
+    return definition.base_element
 
 
 def build_move_calculation_view(
@@ -314,6 +350,7 @@ def build_move_calculation_view(
             or item.label != first.label
             or item.damage_type != first.damage_type
             or item.damage_subtype != first.damage_subtype
+            or item.element != first.element
             for item in typed_items[1:]
         ):
             diagnostics.append(
@@ -371,6 +408,7 @@ def build_move_calculation_view(
                     if first.damage_subtype is not None
                     else None
                 ),
+                element=(first.element.value if first.element is not None else None),
                 repeat_count=first.repeat_count,
                 modes=mode_views,
                 common_application_trace=common_trace,

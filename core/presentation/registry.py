@@ -98,6 +98,12 @@ from core.application.characters.yidhari import (
     compile_yidhari,
     load_raw_record as load_yidhari_raw_record,
 )
+from core.application.characters.remielle import (
+    REMIELLE_ID,
+    RemielleCompileConfig,
+    compile_remielle,
+    load_raw_record as load_remielle_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -668,6 +674,31 @@ def _yidhari_fields(
     )
 
 
+def _remielle_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "蕾米埃尔核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "蕾米埃尔影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
 def _nekomata_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -841,6 +872,96 @@ def _compile_yidhari(
     return compile_yidhari(
         config,
         load_yidhari_raw_record(load_character_record(str(YIDHARI_ID))),
+    )
+
+
+def _remielle_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    remielle_camps = _nanoka_camp_ids(REMIELLE_ID)
+    for character_id in team_ids:
+        if character_id == REMIELLE_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.role is CharacterRole.ANOMALY:
+            return True
+        if remielle_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _compile_remielle(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset(
+            {"core_level", "cinema_level", "skill_levels", "formation_character_ids"}
+        ),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    raw_slots = values.get("formation_character_ids")
+    formation_known = raw_slots is not None
+    if raw_slots is not None and not isinstance(raw_slots, (list, tuple)):
+        raise ValueError("formation_character_ids must be an ordered array or null")
+    slots = (
+        tuple(CharacterId(str(item)) for item in raw_slots)
+        if raw_slots is not None
+        else ()
+    )
+    if raw_slots is not None and (
+        len(set(slots)) != len(slots) or set(slots) != set(team_ids)
+    ):
+        raise ValueError(
+            "formation_character_ids must contain each active teammate exactly once"
+        )
+    damage_element = Element.LUMINANCE
+    damage_element_known = len(team_ids) == 1
+    if raw_slots is None and len(team_ids) == 2:
+        next_character_id = next(item for item in team_ids if item != REMIELLE_ID)
+        next_element = _REGISTRATIONS[next_character_id].base_element
+        damage_element = (
+            Element.LUMINANCE
+            if next_element is Element.LUMINANCE
+            else next_element
+        )
+        damage_element_known = True
+    if formation_known:
+        if REMIELLE_ID not in slots:
+            raise ValueError("formation must contain Remielle")
+        if len(slots) == 1:
+            damage_element_known = True
+        else:
+            next_character_id = slots[(slots.index(REMIELLE_ID) + 1) % len(slots)]
+            next_element = _REGISTRATIONS[next_character_id].base_element
+            damage_element = (
+                Element.LUMINANCE
+                if next_element is Element.LUMINANCE
+                else next_element
+            )
+            damage_element_known = True
+    anomaly_count = sum(
+        1
+        for character_id in team_ids
+        if character_id in _REGISTRATIONS
+        and _REGISTRATIONS[character_id].role is CharacterRole.ANOMALY
+    )
+    return compile_remielle(
+        RemielleCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _remielle_additional_ability_eligibility(team_ids)
+            ),
+            anomaly_team_count=max(1, anomaly_count),
+            damage_element=damage_element,
+            damage_element_known=damage_element_known,
+        ),
+        load_remielle_raw_record(load_character_record(str(REMIELLE_ID))),
     )
 
 
@@ -1495,6 +1616,81 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     ),
                     EquipmentDamageScope(
                         Element.ICE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
+                    ),
+                }
+            ),
+        ),
+    ),
+    REMIELLE_ID: CharacterPresentationRegistration(
+        character_id=REMIELLE_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1581",
+            display_name="蕾米埃尔",
+            rarity="S",
+            element="luminance",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.LUMINANCE,
+        compile_definition=_compile_remielle,
+        config_fields=_remielle_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=REMIELLE_ID,
+            role=CharacterRole.ANOMALY,
+            possible_elements=frozenset({Element.LUMINANCE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"remielle-luminance-flare"}),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset(
+                            {DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK}
+                        ),
+                    ),
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.LUMINANCE,
                         SkillGroup.ASSIST,
                         frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
                     ),
@@ -2205,6 +2401,57 @@ def supported_character_registrations() -> (
     return tuple(_REGISTRATIONS.values())
 
 
+def equipment_capabilities_for_definition(
+    definition: CharacterCalculationDefinition,
+) -> EquipmentOwnerCapabilities:
+    """Resolve equipment damage scopes from a compiled character's actual moves."""
+
+    registration = registration_for(definition.character_id)
+    capabilities = registration.equipment_capabilities
+    if definition.character_id != REMIELLE_ID or not capabilities.damage_scopes:
+        return capabilities
+    flow_elements = frozenset(
+        entry.main_damage_event.element
+        for entry in definition.move_entries
+        if entry.main_damage_event.element is not None
+    )
+    if not flow_elements:
+        return capabilities
+    return replace(
+        capabilities,
+        possible_elements=flow_elements,
+        damage_scopes=frozenset(
+            replace(scope, element=element)
+            for scope in capabilities.damage_scopes
+            for element in flow_elements
+        ),
+    )
+
+
+def equipment_capabilities_for_scene(
+    character_id: str | CharacterId,
+    team_character_ids: Sequence[str | CharacterId],
+    formation_character_ids: Sequence[str | CharacterId] | None = None,
+) -> EquipmentOwnerCapabilities:
+    owner = CharacterId(str(character_id))
+    registration = registration_for(owner)
+    if owner != REMIELLE_ID:
+        return registration.equipment_capabilities
+    team_ids = tuple(CharacterId(str(item)) for item in team_character_ids)
+    values: dict[str, Any] = {"core_level": 7, "cinema_level": 0}
+    if formation_character_ids is not None:
+        values["formation_character_ids"] = tuple(
+            str(item) for item in formation_character_ids
+        )
+    definition = compile_registered_definition(
+        owner,
+        values,
+        team_ids,
+        strict=False,
+    )
+    return equipment_capabilities_for_definition(definition)
+
+
 def registration_for(
     character_id: str | CharacterId,
 ) -> CharacterPresentationRegistration:
@@ -2265,9 +2512,20 @@ def build_registered_editor_view(
         strict=False,
     )
     if CharacterId(str(character_id)) == primary:
+        frostbite_element = registration_for(primary).base_element
+        if primary == REMIELLE_ID:
+            remielle_elements = tuple(
+                entry.main_damage_event.element
+                for entry in definition.move_entries
+                if entry.main_damage_event.element is not None
+            )
+            if remielle_elements and all(
+                element is remielle_elements[0] for element in remielle_elements
+            ):
+                frostbite_element = remielle_elements[0]
         frostbite_condition, frostbite_rule = frostbite_crit_damage_controls(
             primary,
-            registration_for(primary).base_element,
+            frostbite_element,
         )
         definition = replace(
             definition,
@@ -2349,6 +2607,7 @@ def build_registered_wengine_editor_view(
     refinement: int = 1,
     condition_context: Mapping[str, bool | None] | None = None,
     condition_values: Mapping[str, bool | None] | None = None,
+    formation_character_ids: Sequence[str | CharacterId] | None = None,
 ):
     """Build an editor view for a concrete W-Engine/owner instance."""
 
@@ -2378,7 +2637,11 @@ def build_registered_wengine_editor_view(
             level=level,
             refinement=refinement,
         ),
-        owner_capabilities=registration.equipment_capabilities,
+        owner_capabilities=equipment_capabilities_for_scene(
+            owner,
+            team_ids,
+            formation_character_ids,
+        ),
     )
     known_conditions = {item.condition_id for item in resolution.scenario_conditions}
     selected_values = {
@@ -2423,6 +2686,7 @@ def build_registered_drive_disc_editor_view(
     *,
     team_character_ids: Sequence[str | CharacterId] = (),
     condition_context: Mapping[str, bool | None] | None = None,
+    formation_character_ids: Sequence[str | CharacterId] | None = None,
 ):
     """Build an owner-qualified editor view for one six-slot configuration."""
 
@@ -2434,7 +2698,11 @@ def build_registered_drive_disc_editor_view(
     parsed = _parse_drive_disc_inputs(discs)
     resolution = compile_drive_discs(
         DriveDiscBuildInput(owner, parsed),
-        owner_capabilities=registration.equipment_capabilities,
+        owner_capabilities=equipment_capabilities_for_scene(
+            owner,
+            team_ids,
+            formation_character_ids,
+        ),
     )
     raw_context = dict(condition_context or {})
     if any(
@@ -2471,6 +2739,8 @@ def build_registered_drive_disc_editor_view(
 def build_registered_build_preview(
     character_id: str | CharacterId,
     *,
+    team_character_ids: Sequence[str | CharacterId] = (),
+    formation_character_ids: Sequence[str | CharacterId] | None = None,
     level: int = 60,
     wengine_id: str | None = None,
     wengine_level: int = 60,
@@ -2488,6 +2758,7 @@ def build_registered_build_preview(
 
     owner = CharacterId(str(character_id))
     registration = registration_for(owner)
+    team_ids = tuple(CharacterId(str(item)) for item in team_character_ids) or (owner,)
     base_stats = character_base_stats(owner, level=level)
     contributions: list[BuildStatContribution] = []
     contributions.extend(character_base_stat_contributions(owner))
@@ -2500,7 +2771,11 @@ def build_registered_build_preview(
                 level=int(wengine_level),
                 refinement=int(wengine_refinement),
             ),
-            owner_capabilities=registration.equipment_capabilities,
+            owner_capabilities=equipment_capabilities_for_scene(
+                owner,
+                team_ids,
+                formation_character_ids,
+            ),
         )
         contributions.extend(wengine.contributions)
         diagnostics.extend(wengine.diagnostics)
@@ -2508,7 +2783,11 @@ def build_registered_build_preview(
     parsed_discs = _parse_drive_disc_inputs(discs)
     drive_resolution = compile_drive_discs(
         DriveDiscBuildInput(owner, parsed_discs),
-        owner_capabilities=registration.equipment_capabilities,
+        owner_capabilities=equipment_capabilities_for_scene(
+            owner,
+            team_ids,
+            formation_character_ids,
+        ),
     )
     contributions.extend(drive_resolution.contributions)
     diagnostics.extend(drive_resolution.diagnostics)
@@ -2607,4 +2886,6 @@ __all__ = [
     "build_registered_wengine_editor_view",
     "registration_for",
     "supported_character_registrations",
+    "equipment_capabilities_for_definition",
+    "equipment_capabilities_for_scene",
 ]

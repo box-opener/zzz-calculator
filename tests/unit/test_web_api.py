@@ -335,6 +335,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1031",
         "character:1041",
         "character:1051",
+        "character:1581",
         "character:1311",
         "character:1431",
         "character:1401",
@@ -365,6 +366,12 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert nicole["specialty"] == "support"
     assert nicole["element"] == "ether"
     assert nicole["image_path"] == "/characters/portrait-placeholder.svg"
+    remielle = next(item for item in payload if item["character_id"] == "character:1581")
+    assert remielle["display_name"] == "蕾米埃尔"
+    assert remielle["rarity"] == "S"
+    assert remielle["specialty"] == "anomaly"
+    assert remielle["element"] == "luminance"
+    assert remielle["image_path"] == "/characters/portrait-placeholder.svg"
     soldier11 = next(item for item in payload if item["character_id"] == "character:1041")
     assert soldier11["rarity"] == "S"
     assert soldier11["specialty"] == "attack"
@@ -733,12 +740,13 @@ def test_alice_attribute_anomaly_exposes_generated_strength_provenance() -> None
         * trace["attack"]
         * trace["mutation"]
     )
-    assert {item["source_label"] for item in trace["factors"]} >= {
+    factor_labels = {item["source_label"] for item in trace["factors"]}
+    assert {
         "角色等级系数",
         "有效异常精通",
         "对应属性增伤",
-        "异化系数（当前实现）",
-    }
+    } <= factor_labels
+    assert any(label.startswith("异化系数（当前实现）") for label in factor_labels)
 
 
 def test_wengine_catalog_exposes_the_reviewed_wengine_validation_set() -> None:

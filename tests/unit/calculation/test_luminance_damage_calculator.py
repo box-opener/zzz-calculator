@@ -146,6 +146,8 @@ def test_luminance_variant_and_common_modifier_routing() -> None:
         element=Element.LINREN,
         effect_strength=1000.0,
         anomaly_bonus_region=99.0,
+        penetration_rate=0.1,
+        penetration_flat=20.0,
     )
     event = _event(history, multiplier=FixedMultiplier(Resolved(1.0)))
     ctx = context(
@@ -154,8 +156,8 @@ def test_luminance_variant_and_common_modifier_routing() -> None:
         snapshots=(
             snapshot(
                 event.metadata.damage_dealer,
-                penetration_rate=0.1,
-                penetration_flat=20.0,
+                penetration_rate=0.9,
+                penetration_flat=900.0,
             ),
         ),
         target_snapshot=target(
@@ -189,6 +191,17 @@ def test_luminance_variant_and_common_modifier_routing() -> None:
     assert result.value == pytest.approx(
         1000.0 * 1.2 * defense_region * 0.95 * 0.8
     )
+
+
+def test_luminance_requires_historical_penetration_snapshot() -> None:
+    history = record(penetration_rate=0.0, penetration_flat=0.0)
+    history = replace(history, penetration_rate=None, penetration_flat=None)
+    event = _event(history)
+    result = LuminanceDamageCalculator().calculate(context(event, records=(history,)))
+
+    assert result.value is None
+    assert any("captured penetration rate" in item.notes for item in result.unresolved)
+    assert any("captured penetration flat" in item.notes for item in result.unresolved)
 
 
 def test_luminance_protocol_and_context_immutability() -> None:

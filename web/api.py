@@ -60,6 +60,7 @@ def preview_drive_discs(payload: dict[str, Any] = Body(default={})) -> JSONRespo
         discs = payload.get("discs", ())
         conditions = payload.get("condition_context", {})
         team_values = payload.get("team_character_ids", [owner])
+        formation_values = payload.get("formation_character_ids")
         if not owner:
             raise ValueError("equipped_character_id is required")
         if not isinstance(discs, (list, tuple)):
@@ -68,11 +69,29 @@ def preview_drive_discs(payload: dict[str, Any] = Body(default={})) -> JSONRespo
             raise ValueError("condition_context must be an object")
         if not isinstance(team_values, (list, tuple)):
             raise ValueError("team_character_ids must be an array")
+        if formation_values is not None and not isinstance(
+            formation_values, (list, tuple)
+        ):
+            raise ValueError("formation_character_ids must be an ordered array or null")
+        team_ids = tuple(str(item) for item in team_values)
+        formation_ids = (
+            None
+            if formation_values is None
+            else tuple(str(item) for item in formation_values)
+        )
+        if formation_ids is not None and (
+            len(set(formation_ids)) != len(formation_ids)
+            or set(formation_ids) != set(team_ids)
+        ):
+            raise ValueError(
+                "formation_character_ids must contain each active teammate exactly once"
+            )
         view = build_registered_drive_disc_editor_view(
             owner,
             tuple(discs),
-            team_character_ids=tuple(str(item) for item in team_values),
+            team_character_ids=team_ids,
             condition_context=conditions,
+            formation_character_ids=formation_ids,
         )
         return JSONResponse(to_jsonable(view))
     except (TypeError, ValueError, KeyError) as exc:
@@ -110,11 +129,32 @@ def preview_build(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
         raw_discs = payload.get("drive_discs", payload.get("discs", ()))
         if not isinstance(raw_discs, (list, tuple)):
             raise ValueError("drive_discs must be an array")
+        raw_team = payload.get("team_character_ids", [character_id])
+        raw_formation = payload.get("formation_character_ids")
+        if not isinstance(raw_team, (list, tuple)):
+            raise ValueError("team_character_ids must be an array")
+        if raw_formation is not None and not isinstance(raw_formation, (list, tuple)):
+            raise ValueError("formation_character_ids must be an ordered array or null")
+        team_ids = tuple(str(item) for item in raw_team)
+        formation_ids = (
+            None
+            if raw_formation is None
+            else tuple(str(item) for item in raw_formation)
+        )
+        if formation_ids is not None and (
+            len(set(formation_ids)) != len(formation_ids)
+            or set(formation_ids) != set(team_ids)
+        ):
+            raise ValueError(
+                "formation_character_ids must contain each active teammate exactly once"
+            )
         wengine_id = payload.get("wengine_id")
         if wengine_id is not None and not str(wengine_id).strip():
             wengine_id = None
         view = build_registered_build_preview(
             character_id,
+            team_character_ids=team_ids,
+            formation_character_ids=formation_ids,
             level=int(payload.get("level", 60)),
             wengine_id=str(wengine_id) if wengine_id is not None else None,
             wengine_level=int(payload.get("wengine_level", 60)),
@@ -155,8 +195,26 @@ def preview_wengine(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
         if not wengine_id or not equipped_character_id:
             raise ValueError("wengine_id and equipped_character_id are required")
         team_values = payload.get("team_character_ids", [equipped_character_id])
+        formation_values = payload.get("formation_character_ids")
         if not isinstance(team_values, (list, tuple)):
             raise ValueError("team_character_ids must be an array")
+        if formation_values is not None and not isinstance(
+            formation_values, (list, tuple)
+        ):
+            raise ValueError("formation_character_ids must be an ordered array or null")
+        team_ids = tuple(str(item) for item in team_values)
+        formation_ids = (
+            None
+            if formation_values is None
+            else tuple(str(item) for item in formation_values)
+        )
+        if formation_ids is not None and (
+            len(set(formation_ids)) != len(formation_ids)
+            or set(formation_ids) != set(team_ids)
+        ):
+            raise ValueError(
+                "formation_character_ids must contain each active teammate exactly once"
+            )
         if (
             "condition_context" in payload
             and "condition_values" in payload
@@ -172,10 +230,11 @@ def preview_wengine(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
         view = build_registered_wengine_editor_view(
             wengine_id,
             equipped_character_id,
-            tuple(CharacterId(str(item)) for item in team_values),
+            tuple(CharacterId(item) for item in team_ids),
             level=int(payload.get("level", 60)),
             refinement=int(payload.get("refinement", 1)),
             condition_context=condition_context,
+            formation_character_ids=formation_ids,
         )
         return JSONResponse(to_jsonable(view))
     except (TypeError, ValueError, KeyError) as exc:

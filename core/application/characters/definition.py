@@ -106,6 +106,10 @@ class CharacterCalculationDefinition:
                 (*rule.condition_ids, *rule.condition_not_ids),
                 condition_ids,
             )
+        for template in self.damage_event_templates:
+            repeat_rule_id = getattr(template, "repeat_count_rule_item_id", None)
+            if repeat_rule_id is not None and repeat_rule_id not in rule_map:
+                raise ValueError("Luminance repeat template references an unknown rule")
 
         event_creation_template_ids: set[EventTemplateId] = set()
         for rule in self.rule_items:

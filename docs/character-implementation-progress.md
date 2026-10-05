@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. The catalog order for this queue is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 17 are now present in the calculator registry, leaving 43 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 18 are now present in the calculator registry, leaving 42 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -11,7 +11,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1031` | Nicole | 妮可 | 3 | 4 | 部分实现（live raw + normal/enhanced direct curves, static Ether Corrosion/Disorder, confirmed Core/Cinema and R5 signature build; unknown Energy Field/charge branches and resource/Daze outputs remain local source/result limits） |
 | `1041` | Soldier 11 | 「11号」 | 4 | 1 | 部分实现（live 3.2 raw + level-60 panel + 17 baseline/20 potential Direct entries + static Burn/Disorder + reviewed Core/Cinema/Potential rules; resource and Daze outputs remain outside the current result contract） |
 | `1051` | Yidhari | 伊德海莉 | 4 | 6 | 部分实现（live 3.2 raw + level-60 panel + Ice Penetration damage entries + Ice Anomaly/Disorder + Core/Cinema; low-HP intermediate damage curve and Ice-tentacle child identity remain local diagnostics） |
-| `1061` | Corin | 可琳 | 3 | 1 | 待实现 |
+| `1061` | Corin | 可琳 | 3 | 1 | raw-only暂存（按用户指示暂停实现） |
 | `1071` | Caesar | 凯撒 | 4 | 5 | 待实现 |
 | `1081` | Billy | 比利 | 3 | 1 | 待实现 |
 | `1091` | Miyabi | 雅 | 4 | 3 | 已实现（已有registry/compiler） |
@@ -62,14 +62,26 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1551` | Pyrois | 佩洛伊斯 | 4 | 1 | 待实现 |
 | `1561` | Velina | 维琳娜 | 4 | 3 | 待实现 |
 | `1571` | Norma | 诺姆 | 4 | 2 | 待实现 |
-| `1581` | Remielle | 蕾米埃尔 | 4 | 3 | 待实现 |
+| `1581` | Remielle | 蕾米埃尔 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + 17 Luminance Direct entries + stable formation Flow + selectable ordinary/special virtual-void source slots + typed Flare/penetration snapshots + switchable AP/C4/C6 rules; Daze/resource results remain outside the current calculation output） |
 | `1591` | Sigrid | 希格莉德 | 4 | 1 | 待实现 |
 | `1611` | Claret | 克拉蕾 | 4 | 7 | 待实现 |
 | `1621` | Roxy | 洛克茜 | 4 | 2 | 待实现 |
 
 ## Current queue
 
-Next unsupported ID: `1061`（可琳 / Corin). The queue proceeds by ascending numeric ID, skipping the 17 entries already marked supported above. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each new character.
+Current user-directed order: finish `1581` Remielle, then `1561` Velina. The earlier ascending-ID queue is not active for this request; Corin `1061` remains raw-only and must not be implemented unless the user reauthorizes it. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each requested character.
+
+## Remielle (`character:1581`): confirmed Flow, mutation, and Flare model
+
+The complete live-3.2 raw record is retained at `core/data/characters/remielle.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1581.json`. This section records implementation decisions confirmed directly by the user; it does not amend game source text or authoritative calculation documentation.
+
+Remielle's nominal Luminance identity stays unchanged. The active damage element follows the stable formation's next character (1→2→3→1; two members point to each other; solo remains Luminance). Flow affects her Direct event element bonus and special Flare element/resistance calculation, but does not create ordinary Luminance Anomaly or Disorder records.
+
+The Core's mutation coefficient is captured once into team anomaly-effect-strength records as `1 + current Rem AP × 0.0002 + 0.10` when three Anomaly agents are active `+ 0.20` when Cinema 2 is enabled. Existing explicit history is not recalculated. Ordinary virtual-void source choices use the active teammate's reviewed Attribute Anomaly template elements (for example Miyabi's LIESHUANG and Yixuan's XUANMO), falling back to one base-element static source only where that character has no reviewed Attribute Anomaly entry. Each source snapshot retains the selected element and that source actor's penetration. A special virtual-void source has its own typed snapshot based on Remielle's current anomaly effect strength, Flow element and penetration; it is not represented as an ordinary AnomalyRecord. Up to three user-selected source slots may mix and repeat these source kinds, and an empty slot adds no event or blocking diagnostic.
+
+Flare multipliers use the raw `AvatarSkillLevel` formulas directly (skill level 12 is not shifted by one), then add the active Core AP contribution. Cinema 4 multiplies that sum by 1.12 through a separately switchable rule. Cinema 6's extra second trigger is a separately switchable rule for Vertical Rainbow and Surprise. A C6 Basic 4 special source uses 25% of the entry special source factor; entry/refill special sources use the normal special factor `2.5 × Rem level/60`. Ordinary source Flare has no special factor. The source actor's anomaly damage bonus is not inherited; current Remielle Luminance Flare bonus, current target defense reduction, and current event defense-ignore apply at settlement.
+
+Flare remains a Luminance anomaly-damage event with no invented MoveId, skill group or damage tag. Its parent Direct entry is calculated once and each selected source slot contributes its own NoCrit child event. The old virtual-light availability checkbox is ignored as a legacy input: configured source slots alone express source availability for the static model. Resource creation/consumption, source ordering, durations, cooldowns, and combat timing are not simulated.
 
 ## Anby (`character:1011`)
 
