@@ -51,6 +51,7 @@ class NanokaDamageParameterSpec:
     condition_ids: tuple[object, ...] = ()
     source_skill_id: str | None = None
     source_skill_components: tuple[tuple[str, float], ...] = ()
+    repeat_count: int | None = None
 
     def __post_init__(self) -> None:
         if self.source_skill_id is not None and self.source_skill_components:
@@ -58,6 +59,15 @@ class NanokaDamageParameterSpec:
         for source_id, coefficient in self.source_skill_components:
             if not source_id.strip() or not math.isfinite(coefficient):
                 raise ValueError("source skill components require finite coefficients and IDs")
+        if (
+            self.repeat_count is not None
+            and (
+                isinstance(self.repeat_count, bool)
+                or not isinstance(self.repeat_count, int)
+                or self.repeat_count < 1
+            )
+        ):
+            raise ValueError("reviewed source repeat_count must be a positive integer")
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +232,7 @@ def compile_direct_moves(
                         if isinstance(multiplier, Unresolved)
                         else FixedMultiplier(Resolved(multiplier))
                     ),
+                    repeat_count=parameter.repeat_count,
                     condition_ids=tuple(parameter.condition_ids),
                 )
             )

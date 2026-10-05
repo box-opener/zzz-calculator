@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from math import floor
 
 from core.types import (
     AnomalyRecordId,
     AnomalyRecordValueSource,
+    AnomalyRecord,
     AttributeAnomalyDamageEvent,
     BattleEventKind,
     CalculationContext,
@@ -16,6 +18,7 @@ from core.types import (
     DamageEvent,
     DamageEventId,
     DamageEventMetadata,
+    DischargeDamageEvent,
     DamageSubtype,
     DamageMultiplier,
     DamageType,
@@ -42,6 +45,7 @@ from core.types import (
     RecordedAnomalyCritRule,
     Resolved,
     StandardCritRule,
+    TurbulenceDamageEvent,
     Unresolved,
     UnresolvedReason,
 )
@@ -60,6 +64,7 @@ from ..characters.templates import (
     DirectDamageEventTemplate,
     LuminanceFlareDamageEventTemplate,
     DisorderDamageEventTemplate,
+    TurbulenceDamageEventTemplate,
 )
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DamageEventSemanticId, DiagnosticId, MoveEntryId
@@ -110,6 +115,35 @@ def _anomaly_tick_multiplier(
     """
 
     return instantiated.event.multiplier
+
+
+def _turbulence_multiplier_for_history(record: AnomalyRecord) -> float | None:
+    """Use the selected static record's full remaining duration for Turbulence.
+
+    Static single-character records carry the maximum current duration. The
+    service does not replay duration or anomaly timing; explicit callers may
+    provide a record whose duration represents the duration available at the
+    trigger.
+    """
+
+    duration = record.duration
+    if not isinstance(duration, Resolved):
+        return None
+    seconds = max(float(duration.value), 0.0)
+    element = record.element
+    if element in {Element.PHYSICAL, Element.LINREN}:
+        return 8.0 + floor(seconds + 1e-9) * 0.075
+    if element is Element.ICE:
+        return 13.0 + floor(seconds + 1e-9) * 0.075
+    if element is Element.LIESHUANG:
+        return floor(seconds + 1e-9) * 0.75
+    if element is Element.FIRE:
+        return 9.0 + floor(seconds / 0.5 + 1e-9) * 0.50
+    if element is Element.ELECTRIC:
+        return 6.5 + floor(seconds + 1e-9) * 1.25
+    if element in {Element.ETHER, Element.XUANMO}:
+        return 6.5 + floor(seconds / 0.5 + 1e-9) * 0.625
+    return None
 
 
 class DirectMoveApplicationService:
@@ -223,6 +257,8 @@ class DirectMoveApplicationService:
             main_event.event,
             global_panel_application.character_snapshots,
             (),
+            matcher=self._matcher,
+            rule_items=rule_items,
         )
         identity_diagnostics = (*source_diagnostics, *identity_diagnostics)
         identity_request = replace(request, history_records=identity_history)
@@ -273,6 +309,8 @@ class DirectMoveApplicationService:
             main_event.event,
             panel_application.character_snapshots,
             panel_application.event_modifiers,
+            matcher=self._matcher,
+            rule_items=rule_items,
         )
         request = replace(request, history_records=final_history)
         if identity_diagnostics or final_diagnostics:
@@ -307,6 +345,8 @@ class DirectMoveApplicationService:
         ] = [(main_event, (main_event.template_id,), main_matches, panel_application)]
         seen_semantics = {main_event.semantic_id}
         settled_damage_values = {}
+        replace_disorder_with_turbulence = False
+        turbulence_lineage: dict[DamageEventSemanticId, DamageEventSemanticId] = {}
         while queue:
             instantiated, ancestry, matches, application = queue.pop(0)
             event_diagnostics = list(application.diagnostics)
@@ -376,6 +416,26 @@ class DirectMoveApplicationService:
                     continue
                 if not isinstance(effect_application.effect, EventCreationEffect):
                     continue
+                child_template = (
+                    _find_template(
+                        request,
+                        effect_application.effect.result.event_template_id,
+                    )
+                    if effect_application.effect.result.event_template_id is not None
+                    else None
+                )
+                if (
+                    isinstance(instantiated.event, DisorderDamageEvent)
+                    and isinstance(child_template, TurbulenceDamageEventTemplate)
+                ):
+                    # Winded targets receive the legal Wind-triggered
+                    # Turbulence settlement in place of ordinary Disorder.
+                    replace_disorder_with_turbulence = True
+                turbulence_parent = (
+                    instantiated.semantic_id
+                    if isinstance(instantiated.event, TurbulenceDamageEvent)
+                    else turbulence_lineage.get(instantiated.semantic_id)
+                )
                 created = self._create_derived_event(
                     request,
                     effect_application.effect,
@@ -385,7 +445,10 @@ class DirectMoveApplicationService:
                     source_event_id=instantiated.event.metadata.event_id,
                     source_history_record_id=(
                         instantiated.event.history_record_source
-                        if isinstance(instantiated.event, AttributeAnomalyDamageEvent)
+                        if isinstance(
+                            instantiated.event,
+                            (AttributeAnomalyDamageEvent, DisorderDamageEvent),
+                        )
                         else None
                     ),
                     source_anomaly_multiplier=(
@@ -400,6 +463,18 @@ class DirectMoveApplicationService:
                 if created is None:
                     continue
                 child, child_ancestry = created
+                if turbulence_parent is not None:
+                    turbulence_lineage[child.semantic_id] = turbulence_parent
+                child_history, child_history_diagnostics = _history_records_for_event(
+                    request,
+                    child.event,
+                    application.character_snapshots,
+                    (),
+                    matcher=self._matcher,
+                    rule_items=rule_items,
+                )
+                request = replace(request, history_records=child_history)
+                move_diagnostics.extend(child_history_diagnostics)
                 seen_semantics.add(child.semantic_id)
                 child_context = _match_context(
                     request,
@@ -438,6 +513,67 @@ class DirectMoveApplicationService:
                         ),
                     )
                 queue.append((child, child_ancestry, child_matches, child_application))
+
+        if replace_disorder_with_turbulence:
+            turbulence_outputs = [
+                item
+                for item in event_outputs
+                if item.damage_subtype is DamageSubtype.TURBULENCE
+            ]
+            non_turbulence_outputs = [
+                item
+                for item in event_outputs
+                if item.damage_subtype is not DamageSubtype.TURBULENCE
+                and item.damage_type is not DamageType.DISORDER
+                and item.semantic_id not in turbulence_lineage
+            ]
+            selected_turbulence = None
+            if turbulence_outputs:
+                calculated_turbulence = [
+                    item
+                    for item in turbulence_outputs
+                    if item.status is EventCalculationStatus.CALCULATED
+                    and item.known_value is not None
+                ]
+                if calculated_turbulence:
+                    selected_turbulence = max(
+                        calculated_turbulence,
+                        key=lambda item: (item.known_value, str(item.semantic_id)),
+                    )
+                if len(calculated_turbulence) != len(turbulence_outputs):
+                    move_diagnostics.append(
+                        _diagnostic(
+                            str(entry.entry_id),
+                            "turbulence-candidate-maximum",
+                            DiagnosticKind.MISSING_DATA,
+                            "One or more legal Wind Turbulence candidates are unresolved, "
+                            "so the maximum candidate cannot be confirmed.",
+                        )
+                    )
+            if selected_turbulence is None:
+                event_outputs = non_turbulence_outputs
+            else:
+                selected_candidate_id = selected_turbulence.semantic_id
+                event_outputs = [
+                    *non_turbulence_outputs,
+                    *(
+                        item
+                        for item in turbulence_outputs
+                        if item.semantic_id == selected_candidate_id
+                    ),
+                    *(
+                        item
+                        for item in event_outputs
+                        if turbulence_lineage.get(item.semantic_id)
+                        == selected_candidate_id
+                    ),
+                ]
+            visible_semantics = {item.semantic_id for item in event_outputs}
+            traces = [
+                trace
+                for trace in traces
+                if trace.semantic_id in visible_semantics
+            ]
 
         known_values = [
             item.known_value
@@ -694,9 +830,83 @@ class DirectMoveApplicationService:
             if instance_semantic_id != template.ref.semantic_id
             else template
         )
+        instance_multiplier = derived_ref.multiplier
+        turbulence_crit_rule = None
+        turbulence_element = None
+        if isinstance(instance_template, TurbulenceDamageEventTemplate):
+            record_id = (
+                instance_template.history_record_source
+                or source_history_record_id
+            )
+            if record_id is None:
+                return _diagnostic(
+                    str(effect.rule.effect_id),
+                    "turbulence-source-record",
+                    DiagnosticKind.MISSING_DATA,
+                    "Turbulence requires a typed non-Wind AnomalyRecord source.",
+                )
+            source_records = tuple(
+                item for item in request.history_records if item.record_id == record_id
+            )
+            if len(source_records) != 1:
+                return _diagnostic(
+                    str(record_id),
+                    "turbulence-source-record",
+                    DiagnosticKind.MISSING_DATA,
+                    "Turbulence requires exactly one matching non-Wind AnomalyRecord.",
+                )
+            source_record = source_records[0]
+            turbulence_element = source_record.element
+            if source_record.element is Element.WIND:
+                return _diagnostic(
+                    str(record_id),
+                    "turbulence-wind-source",
+                    DiagnosticKind.MISSING_DATA,
+                    "Turbulence cannot use a Wind Weathering record as its source.",
+                )
+            turbulence_multiplier = _turbulence_multiplier_for_history(source_record)
+            if turbulence_multiplier is None:
+                return _diagnostic(
+                    str(record_id),
+                    "turbulence-source-duration",
+                    DiagnosticKind.MISSING_DATA,
+                    "The source AnomalyRecord duration is unresolved, so the "
+                    "Turbulence remaining-time multiplier cannot be calculated.",
+                )
+            stack_parameter_id = instance_template.wind_erosion_stack_parameter_id
+            if stack_parameter_id is not None:
+                stack_parameter = next(
+                    (
+                        item
+                        for item in request.scenario.parameters
+                        if item.parameter_id == stack_parameter_id
+                    ),
+                    None,
+                )
+                if stack_parameter is None or stack_parameter.value is None:
+                    return _diagnostic(
+                        str(stack_parameter_id),
+                        "turbulence-wind-erosion-stacks",
+                        DiagnosticKind.MISSING_DATA,
+                        "Current Wind Erosion stacks are required for Velina's "
+                        "conditional Turbulence multiplier.",
+                    )
+                if stack_parameter.value >= instance_template.enhanced_at_stack_count:
+                    turbulence_multiplier += instance_template.core_turbulence_bonus
+            instance_multiplier = FixedMultiplier(Resolved(turbulence_multiplier))
+            capability = source_record.crit_capability
+            if isinstance(capability, IndependentAnomalyCrit) and (
+                DamageSubtype.TURBULENCE in capability.inherited_by
+            ):
+                turbulence_crit_rule = RecordedAnomalyCritRule(
+                    record_id=source_record.record_id,
+                    capability=capability,
+                )
+            else:
+                turbulence_crit_rule = NoCritRule()
         child = instantiate_damage_event(
             instance_template,
-            derived_ref.multiplier,
+            instance_multiplier,
             battle_state_id=request.battle_state_id,
             target_enemy=request.target_snapshot.enemy_id,
             created_at=request.battle_time,
@@ -706,6 +916,8 @@ class DirectMoveApplicationService:
             source_event_id=source_event_id,
             source_history_record_id=source_history_record_id,
             source_anomaly_multiplier=source_anomaly_multiplier,
+            turbulence_crit_rule=turbulence_crit_rule,
+            turbulence_element=turbulence_element,
         )
         return child, (*ancestry, template_id)
 
@@ -1051,6 +1263,9 @@ def _history_records_for_event(
     event: DamageEvent,
     snapshots: tuple[CharacterSnapshot, ...],
     modifiers,
+    *,
+    matcher: EffectMatcher | None = None,
+    rule_items: tuple[CalculationRuleItem, ...] = (),
 ):
     """Resolve explicit history first, then the opt-in static adapter.
 
@@ -1075,6 +1290,11 @@ def _history_records_for_event(
         for record in request.history_records
     ):
         return request.history_records, ()
+    if isinstance(event, DischargeDamageEvent) and any(
+        record.record_id == event.history_record_source
+        for record in request.history_records
+    ):
+        return request.history_records, ()
     if isinstance(event, DisorderDamageEvent) and not _declared_static_disorder_source(
         request,
         event,
@@ -1084,6 +1304,81 @@ def _history_records_for_event(
         # This keeps the adapter from guessing an owner or numeric record from
         # an arbitrary history-record ID.
         return request.history_records, ()
+    if isinstance(event, DischargeDamageEvent):
+        source_template = next(
+            (
+                template
+                for definition in _all_definitions(request)
+                for template in definition.damage_event_templates
+                if isinstance(template, AttributeAnomalyDamageEventTemplate)
+                and template.history_record_source == event.history_record_source
+                and template.damage_dealer == event.discharge_triggerer
+                and template.element is event.metadata.element
+            ),
+            None,
+        )
+        if source_template is not None and matcher is not None:
+            generation_event = AttributeAnomalyDamageEvent(
+                metadata=DamageEventMetadata(
+                    event_id=DamageEventId(
+                        f"event:{request.battle_state_id}:static-record:{source_template.history_record_source}"
+                    ),
+                    battle_state_id=request.battle_state_id,
+                    damage_dealer=source_template.damage_dealer,
+                    target_enemy=event.metadata.target_enemy,
+                    element=source_template.element,
+                    created_at=request.battle_time,
+                    skill_group=None,
+                    move_id=source_template.move_id,
+                    damage_tags=frozenset(),
+                ),
+                anomaly_triggerer=source_template.anomaly_triggerer,
+                base_settlement_data_source=AnomalyRecordValueSource(
+                    source_template.history_record_source
+                ),
+                history_record_source=source_template.history_record_source,
+                multiplier=FixedMultiplier(Resolved(1.0)),
+                crit_rule=source_template.crit_rule,
+            )
+            generation_context = _match_context(
+                request,
+                generation_event,
+                snapshots,
+                request.base_calculation_modifiers,
+                current_template_id=source_template.ref.template_id,
+            )
+            generation_matches = matcher.match_rule_items(rule_items, generation_context)
+            generation_application = apply_matched_modifiers(
+                snapshots,
+                request.base_calculation_modifiers,
+                _matched_effects(
+                    generation_matches,
+                    rule_items,
+                    request.scenario,
+                ),
+                request.scenario.current_operator,
+                initial_character_snapshots=request.initial_character_snapshots,
+                scenario=request.scenario,
+                event=generation_event,
+                apply_panel=False,
+            )
+            assembly = static_attribute_anomaly_record(
+                generation_event,
+                generation_application.character_snapshots,
+                generation_application.event_modifiers,
+                modifier_sources=_modifier_sources(request),
+            )
+            if assembly is not None and assembly.record is not None:
+                return (
+                    (*request.history_records, assembly.record),
+                    (
+                        *_match_diagnostics(generation_matches),
+                        *generation_application.diagnostics,
+                        *assembly.diagnostics,
+                    ),
+                )
+            if assembly is not None:
+                return request.history_records, assembly.diagnostics
     assembly = static_attribute_anomaly_record(
         event,
         snapshots,

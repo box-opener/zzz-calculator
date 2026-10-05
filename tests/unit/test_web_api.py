@@ -6,12 +6,76 @@ from copy import deepcopy
 import pytest
 from fastapi.testclient import TestClient
 
-from core.application.equipment import SIGNATURE_WENGINE_BY_CHARACTER
-from core.presentation.registry import supported_character_registrations
+from core.application.equipment import (
+    SIGNATURE_WENGINE_BY_CHARACTER,
+    compile_wengine,
+)
+from core.data.loader import load_character_record
+from core.presentation.base_stats import character_base_stats
+from core.presentation.registry import registration_for, supported_character_registrations
+from core.types import CharacterId, DamageTag, Element, SkillGroup, WEngineBuildInput, WEngineId
 from web.api import app
 
 
 client = TestClient(app)
+
+
+def _velina_payload(move_entry_id: str) -> dict:
+    payload = _valid_calculation_payload()
+    payload.update(
+        {
+            "primary_character_id": "character:1561",
+            "supporting_character_ids": [],
+            "team_character_ids": ["character:1561"],
+            "formation_character_ids": ["character:1561"],
+            "move_entry_id": move_entry_id,
+            "compile_configs": {
+                "character:1561": {"core_level": 7, "cinema_level": 0}
+            },
+            "character_builds": {
+                "character:1561": {
+                    "level": 60,
+                    "out_of_combat_stats": {
+                        "hp": 7788.6961,
+                        "attack": 872.574,
+                        "defense": 612.6038,
+                        "impact": 86.0,
+                        "crit_rate": 0.05,
+                        "crit_damage": 0.5,
+                        "anomaly_mastery": 112.0,
+                        "anomaly_proficiency": 165.0,
+                        "energy_regen": 1.2,
+                        "penetration_rate": 0.0,
+                        "penetration_flat": 0.0,
+                        "element_damage_bonus": {"wind": 0.0},
+                    },
+                }
+            },
+            "condition_values": {},
+            "parameter_values": {},
+            "enabled_rule_item_ids": [],
+        }
+    )
+    payload["enemy"].update(
+        {
+            "enemy_id": "enemy:velina-test",
+            "level": 70,
+            "initial_defense": 857.0,
+            "damage_resistance": {
+                "physical": 0.0,
+                "fire": 0.0,
+                "ice": 0.0,
+                "electric": 0.0,
+                "ether": 0.0,
+                "wind": 0.0,
+                "luminance": 0.0,
+            },
+            "damage_reduction": 0.0,
+            "stun_vulnerability_bonus": 0.0,
+            "is_stunned": False,
+        }
+    )
+    return payload
 
 
 def _valid_calculation_payload() -> dict:
@@ -334,9 +398,10 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1021",
         "character:1031",
         "character:1041",
-        "character:1051",
-        "character:1581",
-        "character:1311",
+            "character:1051",
+            "character:1581",
+            "character:1561",
+            "character:1311",
         "character:1431",
         "character:1401",
         "character:1411",
@@ -4960,3 +5025,438 @@ def test_unspecified_trigger_is_omitted_not_encoded_as_empty_actor() -> None:
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 400
     assert "unspecified trigger" in response.json()["diagnostics"][0]["message"]
+
+
+def test_velina_raw_panel_signature_and_wind_or_infused_cyclone_mapping() -> None:
+    raw = load_character_record("character:1561")
+    assert raw["source_version"] == "3.2"
+    assert raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1561.json"
+    assert raw["code_name"] == "Velina"
+    assert raw["potential_detail"] == {}
+    panel = character_base_stats("character:1561")
+    assert panel.hp.value == pytest.approx(7788.6961)
+    assert panel.attack.value == pytest.approx(872.574)
+    assert panel.defense.value == pytest.approx(612.6038)
+    assert panel.anomaly_mastery.value == pytest.approx(112.0)
+    assert panel.anomaly_proficiency.value == pytest.approx(165.0)
+    assert panel.energy_regen.value == pytest.approx(1.2)
+    assert str(SIGNATURE_WENGINE_BY_CHARACTER[CharacterId("character:1561")]) == "wengine:14156"
+
+    registration = registration_for("character:1561")
+    assert registration.equipment_capabilities.can_produce_damage_scope(
+        element=Element.WIND,
+        skill_groups=(SkillGroup.SPECIAL_ATTACK,),
+        tags=(DamageTag.EX_SPECIAL_ATTACK,),
+    )
+    assert not registration.equipment_capabilities.can_produce_damage_scope(
+        element=Element.WIND,
+        skill_groups=(SkillGroup.SPECIAL_ATTACK,),
+        tags=(DamageTag.SPECIAL_ATTACK, DamageTag.EX_SPECIAL_ATTACK),
+    )
+    wind = registration.compile_definition(
+        {"core_level": 7, "cinema_level": 0},
+        (CharacterId("character:1561"),),
+        True,
+    )
+    entries = {str(item.entry_id): item for item in wind.move_entries}
+    broad_wind = entries["move-entry:character:1561:broad-cyclone-wind"]
+    assert broad_wind.multiplier_variants[0].multiplier.value.value == pytest.approx(0.786)
+    assert broad_wind.multiplier_variants[0].repeat_count == 10
+    assert entries["move-entry:character:1561:micro-cyclone"].multiplier_variants[0].multiplier.value.value == pytest.approx(0.655)
+    weathering = entries["move-entry:character:1561:wind-weathering"]
+    assert weathering.multiplier_variants[0].multiplier.value.value == pytest.approx(17.5)
+
+    coloured = registration.compile_definition(
+        {"core_level": 7, "cinema_level": 0, "current_coloured_element": 5},
+        (CharacterId("character:1561"),),
+        True,
+    )
+    coloured_entry = next(
+        item
+        for item in coloured.move_entries
+        if str(item.entry_id) == "move-entry:character:1561:broad-cyclone-coloured-ether"
+    )
+    assert coloured_entry.multiplier_variants[0].multiplier.value.value == pytest.approx(0.3908)
+    assert coloured_entry.multiplier_variants[0].repeat_count == 10
+    assert coloured_entry.main_damage_event.element.value == "ether"
+
+
+def test_velina_wind_weathering_bonus_is_special_independent_and_not_normal_bonus() -> None:
+    payload = _velina_payload("move-entry:character:1561:micro-cyclone")
+    payload["condition_values"] = {"condition:velina:enemy-wind-weathered": True}
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1561:wind-weathered:direct-and-penetration-damage"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    event = response.json()["events"][0]
+    assert event["modes"]["expected"]["value"] == pytest.approx(309.90854276374927)
+    breakdown = {
+        item["node"]: item["value"]
+        for item in event["modes"]["expected"]["calculation_breakdown"]
+    }
+    assert breakdown["damage.normal-bonus-region"] == pytest.approx(1.0)
+    assert breakdown["damage.special-independent-region"] == pytest.approx(1.1)
+
+    # An existing 50% Wind bonus remains in the normal region and multiplies
+    # independently by the Winded state's special 1.1 factor.
+    payload["character_builds"]["character:1561"]["out_of_combat_stats"]["element_damage_bonus"] = {"wind": 0.5}
+    boosted = client.post("/api/v1/moves/calculate", json=payload).json()["events"][0]
+    boosted_breakdown = {
+        item["node"]: item["value"]
+        for item in boosted["modes"]["expected"]["calculation_breakdown"]
+    }
+    assert boosted_breakdown["damage.normal-bonus-region"] == pytest.approx(1.5)
+    assert boosted_breakdown["damage.special-independent-region"] == pytest.approx(1.1)
+
+
+def test_velina_micro_cyclone_dissipation_is_a_separate_discharge_child() -> None:
+    payload = _velina_payload("move-entry:character:1561:micro-cyclone")
+    payload["condition_values"] = {
+        "condition:velina:enemy-wind-weathered": True,
+        "condition:velina:micro-cyclone-dissipating": True,
+    }
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1561:wind-weathered:direct-and-penetration-damage",
+        "rule:character:1561:core:micro-cyclone-dissipation",
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert result["totals"]["expected"]["value"] == pytest.approx(
+        2317.8804824730164
+    )
+    assert [item["damage_subtype"] for item in result["events"]] == [None, "discharge"]
+    assert result["events"][0]["modes"]["expected"]["value"] == pytest.approx(
+        309.90854276374927
+    )
+    assert result["events"][1]["modes"]["expected"]["value"] == pytest.approx(
+        2007.9719397092672
+    )
+
+
+def test_velina_14156_initial_energy_threshold_uses_initial_equipment_panel() -> None:
+    payload = _single_wengine_payload(
+        "character:1561",
+        "move-entry:character:1561:micro-cyclone",
+        "wengine:14156",
+        1,
+        element="wind",
+    )
+    payload["compile_configs"]["character:1561"] = {
+        "core_level": 7,
+        "cinema_level": 0,
+    }
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1561:core:initial-energy-regeneration-passive"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    result = response.json()
+    stats = result["resolved_character_snapshots"][0]["stats"]
+    assert stats["energy_regen"] == pytest.approx(1.92)
+    assert stats["anomaly_mastery"] == pytest.approx(136.0)
+    breakdown = {
+        item["node"]: item["value"]
+        for item in result["events"][0]["modes"]["expected"]["calculation_breakdown"]
+    }
+    assert breakdown["damage.normal-bonus"] == pytest.approx(0.1512)
+    capabilities = registration_for("character:1561").equipment_capabilities
+    weapon = compile_wengine(
+        WEngineBuildInput(
+            WEngineId("wengine:14156"),
+            CharacterId("character:1561"),
+            level=60,
+            refinement=1,
+        ),
+        owner_capabilities=capabilities,
+    )
+    stack_rule = next(
+        item
+        for item in weapon.rule_items
+        if str(item.rule_id).endswith("turbulence-weathering-damage-per-stack")
+    )
+    assert stack_rule.stack_count == 2
+    assert stack_rule.stack_max == 2
+
+
+def test_velina_cinema4_attack_buff_is_owner_panel_state_independent_of_operator() -> None:
+    payload = _velina_payload("move-entry:ye:1431:basic-fast-1")
+    payload["primary_character_id"] = "character:1431"
+    payload["supporting_character_ids"] = ["character:1561"]
+    payload["team_character_ids"] = ["character:1431", "character:1561"]
+    payload["formation_character_ids"] = ["character:1431", "character:1561"]
+    payload["compile_configs"]["character:1431"] = {
+        "core_level": 1,
+        "cinema_level": 0,
+        "mingxin_active": False,
+        "entry_move_uses_linren": False,
+    }
+    payload["character_builds"]["character:1431"] = {
+        "level": 60,
+        "out_of_combat_stats": {
+            "hp": 10000.0,
+            "attack": 1200.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.65,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "energy_regen": 1.2,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "element_damage_bonus": {"physical": 0.0},
+        },
+    }
+    payload["compile_configs"]["character:1561"]["cinema_level"] = 4
+    payload["condition_values"] = {"condition:velina:cinema4-attack-active": True}
+    payload["enabled_rule_item_ids"] = ["rule:character:1561:cinema4:attack-buff"]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    snapshot = next(
+        item
+        for item in response.json()["resolved_character_snapshots"]
+        if item["character_id"] == "character:1561"
+    )
+    assert snapshot["character_id"] == "character:1561"
+    assert snapshot["stats"]["attack"] == pytest.approx(872.574 * 1.15)
+
+
+def test_velina_extra_ability_and_cinema6_damage_bonus_keep_separate_conditions() -> None:
+    payload = _velina_payload("move-entry:character:1561:wind-weathering")
+    payload["supporting_character_ids"] = ["character:1091"]
+    payload["team_character_ids"] = ["character:1561", "character:1091"]
+    payload["formation_character_ids"] = ["character:1561", "character:1091"]
+    payload["compile_configs"]["character:1561"]["cinema_level"] = 6
+    payload["compile_configs"]["character:1091"] = {"core_level": 7, "cinema_level": 0}
+    payload["character_builds"]["character:1091"] = {
+        "level": 60,
+        "out_of_combat_stats": {
+            "hp": 10000.0,
+            "attack": 1000.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.05,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "energy_regen": 1.2,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "element_damage_bonus": {"ice": 0.0},
+        },
+    }
+    payload["condition_values"] = {"condition:velina:enemy-wind-weathered": True}
+    payload["parameter_values"] = {"parameter:velina:wind-weathering-remaining-seconds": 8}
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1561:extra-ability:wind-weathering-and-turbulence-damage",
+        "rule:character:1561:cinema2:extra-ability-damage-increase",
+        "rule:character:1561:cinema6:weathering-remaining-time-damage",
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    event = response.json()["events"][0]
+    assert event["damage_type"] == "anomaly"
+    assert event["damage_subtype"] == "attribute-anomaly"
+    assert event["modes"]["non-crit"]["status"] == "calculated"
+    breakdown = {
+        item["node"]: item["value"]
+        for item in event["modes"]["non-crit"]["calculation_breakdown"]
+    }
+    assert breakdown["anomaly.attribute.damage-bonus-region"] == pytest.approx(1.45)
+
+    payload["parameter_values"]["parameter:velina:wind-weathering-remaining-seconds"] = 0
+    zero_time = client.post("/api/v1/moves/calculate", json=payload).json()["events"][0]
+    zero_breakdown = {
+        item["node"]: item["value"]
+        for item in zero_time["modes"]["non-crit"]["calculation_breakdown"]
+    }
+    assert zero_breakdown["anomaly.attribute.damage-bonus-region"] == pytest.approx(1.25)
+
+
+def test_velina_turbulence_replaces_disorder_and_uses_the_nonwind_source_element() -> None:
+    payload = _anby_calculation_payload(
+        "move-entry:character:1011:electric-disorder",
+        cinema_level=0,
+        core_level=7,
+        enabled_rule_item_ids=[
+            "rule:character:1561:core:wind-triggered-turbulence-candidate"
+        ],
+    )
+    payload["supporting_character_ids"] = ["character:1561"]
+    payload["team_character_ids"] = ["character:1011", "character:1561"]
+    payload["compile_configs"]["character:1561"] = {
+        "core_level": 7,
+        "cinema_level": 0,
+    }
+    payload["character_builds"]["character:1561"] = {
+        "level": 60,
+        "out_of_combat_stats": {
+            "hp": 7788.6961,
+            "attack": 872.574,
+            "defense": 612.6038,
+            "impact": 86.0,
+            "crit_rate": 0.05,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 112.0,
+            "anomaly_proficiency": 165.0,
+            "energy_regen": 1.2,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "element_damage_bonus": {"wind": 0.0},
+        },
+    }
+    payload["condition_values"]["condition:velina:enemy-wind-weathered"] = True
+    payload["enemy"]["damage_resistance"] = {"electric": 0.2, "wind": 0.0}
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 2
+    event = next(item for item in result["events"] if item["damage_subtype"] == "turbulence")
+    assert event["damage_subtype"] == "turbulence"
+    assert event["element"] == "electric"
+    assert event["modes"]["expected"]["value"] == pytest.approx(
+        16200.786622073581
+    )
+    cyclone = next(item for item in result["events"] if item["damage_type"] == "direct")
+    assert cyclone["element"] == "wind"
+    assert cyclone["repeat_count"] == 10
+    assert cyclone["modes"]["expected"]["known_value"] == pytest.approx(
+        3111.3347771538456
+    )
+
+    payload["parameter_values"]["parameter:velina:wind-erosion-stacks"] = 1
+    micro_result = client.post("/api/v1/moves/calculate", json=payload).json()
+    micro_cyclone = next(
+        item for item in micro_result["events"] if item["damage_type"] == "direct"
+    )
+    assert micro_cyclone["repeat_count"] == 1
+    assert micro_cyclone["modes"]["expected"]["known_value"] == pytest.approx(
+        micro_cyclone["modes"]["expected"]["value"]
+    )
+
+    # Without a current Winded state, the same non-Wind event remains ordinary Disorder.
+    payload["condition_values"]["condition:velina:enemy-wind-weathered"] = False
+    payload["parameter_values"].pop("parameter:velina:wind-erosion-stacks", None)
+    without_weathering = client.post("/api/v1/moves/calculate", json=payload).json()
+    assert len(without_weathering["events"]) == 1
+    assert without_weathering["events"][0]["damage_type"] == "disorder"
+
+
+def test_velina_ultimate_wind_discharge_is_one_no_move_child_event() -> None:
+    payload = _velina_payload("move-entry:character:1561:ultimate-hear-the-wind")
+    payload["supporting_character_ids"] = ["character:1091"]
+    payload["team_character_ids"] = ["character:1561", "character:1091"]
+    payload["formation_character_ids"] = ["character:1561", "character:1091"]
+    payload["compile_configs"]["character:1091"] = {"core_level": 7, "cinema_level": 0}
+    payload["character_builds"]["character:1091"] = {
+        "level": 60,
+        "out_of_combat_stats": {
+            "hp": 10000.0,
+            "attack": 1000.0,
+            "defense": 500.0,
+            "impact": 100.0,
+            "crit_rate": 0.05,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "energy_regen": 1.2,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "element_damage_bonus": {"ice": 0.0},
+        },
+    }
+    payload["condition_values"] = {"condition:velina:enemy-wind-weathered": True}
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1561:extra-ability:ultimate-wind-discharge"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    result = response.json()
+    assert len(result["events"]) == 2
+    direct, discharge = result["events"]
+    assert direct["damage_type"] == "direct"
+    assert discharge["damage_type"] == "anomaly"
+    assert discharge["damage_subtype"] == "discharge"
+    assert discharge["repeat_count"] == 1
+    multiplier = next(
+        item["value"]
+        for item in discharge["modes"]["expected"]["calculation_breakdown"]
+        if item["node"] == "anomaly.discharge.original-anomaly-multiplier"
+    )
+    assert multiplier == pytest.approx(6.8)
+    assert result["totals"]["expected"]["complete"] is True
+
+
+@pytest.mark.parametrize(
+    ("coloured_element", "broad_element", "broad_unit_multiplier"),
+    ((0, "wind", 0.786), (5, "ether", 0.3908)),
+)
+def test_velina_storm_eye_summons_exactly_one_broad_cyclone_variant(
+    coloured_element: int,
+    broad_element: str,
+    broad_unit_multiplier: float,
+) -> None:
+    payload = _velina_payload("move-entry:character:1561:ex-storm-eye")
+    payload["compile_configs"]["character:1561"]["current_coloured_element"] = coloured_element
+    payload["condition_values"] = {"condition:velina:enemy-wind-weathered": False}
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1561:special:storm-eye-broad-cyclone"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    result = response.json()
+    assert len(result["events"]) == 2
+    body = next(item for item in result["events"] if "风暴眼" in item["label"])
+    broad = next(item for item in result["events"] if "广域气旋" in item["label"])
+    assert body["element"] == "wind"
+    assert body["modes"]["expected"]["calculation_breakdown"][1]["value"] == pytest.approx(4.334)
+    assert broad["element"] == broad_element
+    assert broad["repeat_count"] == 10
+    assert broad["modes"]["expected"]["calculation_breakdown"][1]["value"] == pytest.approx(broad_unit_multiplier)
+
+
+@pytest.mark.parametrize(
+    ("coloured_element", "broad_element"), ((0, "wind"), (5, "ether"))
+)
+def test_velina_storm_eye_broad_cyclone_can_dissipate_once(
+    coloured_element: int,
+    broad_element: str,
+) -> None:
+    payload = _velina_payload("move-entry:character:1561:ex-storm-eye")
+    payload["compile_configs"]["character:1561"]["current_coloured_element"] = coloured_element
+    payload["condition_values"] = {
+        "condition:velina:enemy-wind-weathered": True,
+        "condition:velina:broad-cyclone-dissipating": True,
+    }
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1561:special:storm-eye-broad-cyclone",
+        "rule:character:1561:core:broad-cyclone-dissipation",
+    ]
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 3
+    broad = next(item for item in result["events"] if "广域气旋" in item["label"])
+    discharge = next(item for item in result["events"] if item["damage_subtype"] == "discharge")
+    assert broad["element"] == broad_element
+    assert broad["repeat_count"] == 10
+    assert broad["modes"]["expected"]["known_value"] == pytest.approx(
+        broad["modes"]["expected"]["value"] * 10
+    )
+    assert discharge["repeat_count"] == 1
+    assert discharge["damage_subtype"] == "discharge"
+    discharge_multiplier = next(
+        item["value"]
+        for item in discharge["modes"]["expected"]["calculation_breakdown"]
+        if item["node"] == "anomaly.discharge.original-anomaly-multiplier"
+    )
+    assert discharge_multiplier == pytest.approx(2.55)
+    assert result["totals"]["expected"]["value"] == pytest.approx(
+        sum(item["modes"]["expected"]["known_value"] for item in result["events"])
+    )

@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; 18 are now present in the calculator registry, leaving 42 to implement. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; Velina has now joined the calculator registry, leaving 41 not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -60,7 +60,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1531` | Starlight - Billy | 星徽·比利 | 4 | 6 | 待实现 |
 | `1541` | Promeia | 普罗米娅 | 4 | 3 | 待实现 |
 | `1551` | Pyrois | 佩洛伊斯 | 4 | 1 | 待实现 |
-| `1561` | Velina | 维琳娜 | 4 | 3 | 待实现 |
+| `1561` | Velina | 维琳娜 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct/cyclone curves + static Weathering + Wind-triggered Turbulence/Discharge; Daze, buildup, resource and timing outputs remain outside the result contract） |
 | `1571` | Norma | 诺姆 | 4 | 2 | 待实现 |
 | `1581` | Remielle | 蕾米埃尔 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + 17 Luminance Direct entries + stable formation Flow + selectable ordinary/special virtual-void source slots + typed Flare/penetration snapshots + switchable AP/C4/C6 rules; Daze/resource results remain outside the current calculation output） |
 | `1591` | Sigrid | 希格莉德 | 4 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current user-directed order: finish `1581` Remielle, then `1561` Velina. The earlier ascending-ID queue is not active for this request; Corin `1061` remains raw-only and must not be implemented unless the user reauthorizes it. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each requested character.
+Current user-directed order: finish `1581` Remielle, then `1561` Velina and stop. The earlier ascending-ID queue is not active for this request; Corin `1061` remains raw-only and must not be implemented unless the user reauthorizes it. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each requested character.
 
 ## Remielle (`character:1581`): confirmed Flow, mutation, and Flare model
 
@@ -118,3 +118,13 @@ The reviewed baseline maps four Physical Warmup Basic stages, four Fire Fire-Sup
 The complete live-3.2 source is retained at `core/data/characters/yidhari.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1051.json`. Yidhari is registered as an S-rank Rupture agent with Ice as her base element. Her reviewed Ice skill curves use the Penetration calculator, so their base uses current Force and their breakdown does not include enemy Defense. Core adds 0.1 current-Max-HP Force on top of the generic 0.25 current ATK + 0.1 current Max HP formula. The R1 Kraken's Cradle (`14105`, `Weapon_S_1051`) is the reviewed signature and its level-60 build path is covered.
 
 The source review maps the three Shattered Strike stages and derived first-stage curve, four selectable Frost-Covering charge curves, Dash/Counter, Special/EX/Pursuit/Polar Crush, Chain with/without Veil, Ultimate, Quick Assist, and Support Follow-up. Static Ice Anomaly and Disorder use NoCrit. Cinema 1 Ice resistance ignore, Cinema 2 Crit Damage, Cinema 4 Veil max-HP, Cinema 6 Insight Penetration bonus, and the additional-ability eligibility/current low-HP conditions retain separate rules.
+
+## Velina (`character:1561`)
+
+The complete Nanoka live-3.2 detail is retained at `core/data/characters/velina.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1561.json`; the source declares no Potential details. Nanoka rarity value 4 is represented as S rank in the project catalog. Level-60 base stats include the source +75 base ATK and +54 anomaly proficiency ascension value. Her reviewed signature is W-Engine `14156` (`Weapon_S_1561`, 无懈之礼).
+
+The reviewed Direct list uses each basic, dodge, special, chain, ultimate, and assist source skill curve. The Broad Cyclone's source-defined Wind or infused tick is represented by one selected element and 10 repeated source ticks; Wind and the infused value are alternatives, not additive. The micro/broad EX body damage and their separate Discharge-on-dissipation effects are kept as different typed events. A non-Wind Disorder on a currently Weathered target can generate Velina's Wind-triggered Turbulence using the actual non-Wind history record; that result replaces the ordinary Disorder result, and competing Turbulence candidates are not summed.
+
+The Core's initial Energy Regeneration effect uses whole 0.01 steps above 1.2, capped independently at +35% damage and +84 Anomaly Mastery. It reads the initial panel, including equipment advanced stats; 2.16 yields 96 steps. Core Turbulence bonus and micro/broad Discharge rates use the compiled Core level. Extra Ability/Cinema damage scopes, C1 resistance ignore, C4 attack buff state, and C6 current Weathering remaining-time bonus have separate rules and owner/event filters. Winded-state +10% Wind Direct/Penetration damage uses the special-independent region; it does not enter the normal damage bonus region.
+
+The calculator retains Daze, buildup, resource gains, cooldowns, and durations as source data without replaying them. The source says an infused Cyclone deals the corresponding infused attribute, but does not enumerate whether Luminance or attribute variants can be infused; the current choice field exposes the five ordinary non-Wind attributes only. No ordinary Wind Disorder entry is created because the calculation specification says Wind Weathering does not enter ordinary Disorder.

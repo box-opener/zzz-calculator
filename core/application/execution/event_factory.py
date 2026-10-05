@@ -23,6 +23,7 @@ from core.types import (
     DirectDamageEvent,
     DisorderDamageEvent,
     DischargeDamageEvent,
+    RecordedAnomalyCritRule,
     DamageSubtype,
     CurrentAttributeAnomalyDamageEvent,
     PenetrationDamageEvent,
@@ -30,6 +31,7 @@ from core.types import (
     SettledDamageValueSource,
     EffectId,
     EnemyId,
+    TurbulenceDamageEvent,
 )
 
 from ..characters.templates import (
@@ -42,6 +44,7 @@ from ..characters.templates import (
     DischargeDamageEventTemplate,
     LuminanceFlareDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
+    TurbulenceDamageEventTemplate,
 )
 from ..ids import DamageEventSemanticId, RuleItemId
 from .contracts import InstantiatedDamageEvent
@@ -102,6 +105,8 @@ def instantiate_damage_event(
     source_anomaly_multiplier: DamageMultiplier | None = None,
     luminance_source_choice: LuminanceSourceChoice | None = None,
     luminance_special_source: LuminanceSpecialSourceSnapshot | None = None,
+    turbulence_crit_rule=None,
+    turbulence_element=None,
 ) -> InstantiatedDamageEvent:
     """Instantiate any typed template without collapsing anomaly identity."""
 
@@ -247,6 +252,26 @@ def instantiate_damage_event(
                 else multiplier
             ),
             crit_rule=template.crit_rule,
+        )
+    elif isinstance(template, TurbulenceDamageEventTemplate):
+        record_id = template.history_record_source or source_history_record_id
+        if record_id is None:
+            raise ValueError("turbulence event requires a typed source anomaly record")
+        event = TurbulenceDamageEvent(
+            metadata=(
+                replace(metadata, element=turbulence_element)
+                if turbulence_element is not None
+                else metadata
+            ),
+            wind_anomaly_triggerer=template.wind_anomaly_triggerer,
+            base_settlement_data_source=AnomalyRecordValueSource(record_id),
+            history_record_source=record_id,
+            multiplier=multiplier,
+            crit_rule=(
+                turbulence_crit_rule
+                if turbulence_crit_rule is not None
+                else template.crit_rule
+            ),
         )
     elif isinstance(template, SettledAnomalyDamageEventTemplate):
         source = template.base_source

@@ -104,6 +104,12 @@ from core.application.characters.remielle import (
     compile_remielle,
     load_raw_record as load_remielle_raw_record,
 )
+from core.application.characters.velina import (
+    VELINA_ID,
+    VelinaCompileConfig,
+    compile_velina,
+    load_raw_record as load_velina_raw_record,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.ye_shunguang import (
     YeShunguangCompileConfig,
@@ -699,6 +705,39 @@ def _remielle_fields(
     )
 
 
+def _velina_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "维琳娜核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前核心等级；初始能量回复被动读取初始面板。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "维琳娜影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        _slider_field(
+            "current_coloured_element",
+            "当前广域气旋属性：0风、1物理、2火、3电、4冰、5以太",
+            int(values.get("current_coloured_element", 0)),
+            0,
+            5,
+            "染色气旋只结算选中属性，不与风属性单跳相加。",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
 def _nekomata_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -901,6 +940,8 @@ def _compile_remielle(
             {"core_level", "cinema_level", "skill_levels", "formation_character_ids"}
         ),
     )
+
+
     if strict:
         _required(values, frozenset({"core_level", "cinema_level"}))
     raw_slots = values.get("formation_character_ids")
@@ -964,6 +1005,65 @@ def _compile_remielle(
         load_remielle_raw_record(load_character_record(str(REMIELLE_ID))),
     )
 
+
+def _velina_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    for character_id in team_ids:
+        if character_id == VELINA_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if (
+            registration.role is CharacterRole.ANOMALY
+            or registration.base_element is Element.WIND
+        ):
+            return True
+    return False
+
+
+def _compile_velina(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset(
+            {
+                "core_level",
+                "cinema_level",
+                "skill_levels",
+                "current_coloured_element",
+            }
+        ),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    color_key = _integer_with_default(values, "current_coloured_element", 0, False)
+    color_elements = {
+        0: None,
+        1: Element.PHYSICAL,
+        2: Element.FIRE,
+        3: Element.ELECTRIC,
+        4: Element.ICE,
+        5: Element.ETHER,
+    }
+    if color_key not in color_elements:
+        raise ValueError("current_coloured_element must be between 0 and 5")
+    return compile_velina(
+        VelinaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _velina_additional_ability_eligibility(team_ids)
+            ),
+            current_coloured_element=color_elements[color_key],
+        ),
+        load_velina_raw_record(load_character_record(str(VELINA_ID))),
+    )
 
 def _anby_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
@@ -1693,6 +1793,75 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                         Element.LUMINANCE,
                         SkillGroup.ASSIST,
                         frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
+                    ),
+                }
+            ),
+        ),
+    ),
+    VELINA_ID: CharacterPresentationRegistration(
+        character_id=VELINA_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1561",
+            display_name="维琳娜",
+            rarity="S",
+            element="wind",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+            code_name="Velina",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.WIND,
+        compile_definition=_compile_velina,
+        config_fields=_velina_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=VELINA_ID,
+            role=CharacterRole.ANOMALY,
+            possible_elements=frozenset({Element.WIND}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(DamageTag),
+            mechanisms=frozenset({"velina-wind-weathering", "velina-turbulence"}),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.WIND,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.WIND,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.WIND,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.WIND,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.WIND,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.WIND,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.WIND,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.WIND,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
                     ),
                 }
             ),

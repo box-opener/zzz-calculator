@@ -100,6 +100,35 @@ class RuleStackCondition:
 
 
 @dataclass(frozen=True, slots=True)
+class ScenarioParameterRangeCondition:
+    """Match a user-selected integer scenario parameter by inclusive bounds."""
+
+    parameter_id: str
+    minimum: int | None = None
+    maximum: int | None = None
+    kind: Literal["scenario-parameter-range"] = field(
+        default="scenario-parameter-range",
+        init=False,
+    )
+
+    def __post_init__(self) -> None:
+        if not self.parameter_id.strip():
+            raise ValueError("scenario parameter range requires a parameter ID")
+        if self.minimum is None and self.maximum is None:
+            raise ValueError("scenario parameter range requires at least one bound")
+        if self.minimum is not None and self.minimum < 0:
+            raise ValueError("scenario parameter range minimum must be non-negative")
+        if self.maximum is not None and self.maximum < 0:
+            raise ValueError("scenario parameter range maximum must be non-negative")
+        if (
+            self.minimum is not None
+            and self.maximum is not None
+            and self.minimum > self.maximum
+        ):
+            raise ValueError("scenario parameter range bounds must be ordered")
+
+
+@dataclass(frozen=True, slots=True)
 class PanelStatThresholdCondition:
     """Compare one explicit initial/current panel node with a threshold."""
 
@@ -134,6 +163,7 @@ Condition: TypeAlias = (
     | StatePresentCondition
     | DynamicIdentityCondition
     | RuleStackCondition
+    | ScenarioParameterRangeCondition
     | PanelStatThresholdCondition
     | Unresolved
 )
@@ -281,7 +311,7 @@ class PanelStatDerivedValue:
     """A deliberately small value source for build-time panel-derived Effects.
 
     Reviewed character effects can read a character's immutable initial
-    attack, maximum HP, or crit rate, the final settlement maximum HP, impact,
+    attack, maximum HP, crit rate, or energy regeneration, the final settlement maximum HP, impact,
     anomaly mastery, proficiency, or crit rate. ``threshold`` (and its
     compatibility alias ``minimum``)
     expresses ``max(source - threshold, 0)`` before applying the coefficient.
@@ -295,6 +325,7 @@ class PanelStatDerivedValue:
     base: Resolvable[float] = Resolved(0.0)
     cap_max: Resolvable[float] | None = None
     threshold: Resolvable[float] | None = None
+    step_size: Resolvable[float] | None = None
     # ``minimum`` is retained as a named alias for callers that describe this
     # contract in threshold/minimum terms.  Compilers should set both fields
     # to the same value when exposing a thresholded current-panel effect.
@@ -311,6 +342,7 @@ class PanelStatDerivedValue:
             CalculationNode.CHARACTER_INITIAL_ATTACK,
             CalculationNode.CHARACTER_INITIAL_HP,
             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
+            CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
             CalculationNode.CHARACTER_CURRENT_MAX_HP,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
             CalculationNode.CHARACTER_CURRENT_IMPACT,
@@ -318,7 +350,7 @@ class PanelStatDerivedValue:
             CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
         }:
             raise ValueError(
-                "panel derived values only support initial attack/HP/crit rate, "
+                "panel derived values only support initial attack/HP/crit rate/energy regen, "
                 "current maximum HP/crit rate/impact, anomaly mastery, or "
                 "anomaly proficiency"
             )
@@ -330,6 +362,15 @@ class PanelStatDerivedValue:
             raise ValueError("derived panel value cap must be non-negative")
         if isinstance(self.threshold, Resolved) and self.threshold.value < 0:
             raise ValueError("derived panel value threshold must be non-negative")
+        if isinstance(self.step_size, Resolved) and self.step_size.value <= 0:
+            raise ValueError("derived panel value step_size must be positive")
+        if self.step_size is not None and (
+            self.source_node is not CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN
+            or (self.threshold is None and self.minimum is None)
+        ):
+            raise ValueError(
+                "stepped panel values require an initial energy-regeneration threshold"
+            )
         if isinstance(self.minimum, Resolved) and self.minimum.value < 0:
             raise ValueError("derived panel value minimum must be non-negative")
         if (

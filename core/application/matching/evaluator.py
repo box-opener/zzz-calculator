@@ -29,6 +29,7 @@ from core.types import (
     NotFilter,
     OperationStateFilter,
     PanelStatThresholdCondition,
+    ScenarioParameterRangeCondition,
     Resolved,
     StatePresentCondition,
     RuleStackCondition,
@@ -264,6 +265,36 @@ def match_condition(
                 if selected == condition.required_value
                 else EffectMatchStatus.NOT_MATCHED
             ),
+            (),
+        )
+    if isinstance(condition, ScenarioParameterRangeCondition):
+        parameter = next(
+            (
+                item
+                for item in context.scenario.parameters
+                if str(item.parameter_id) == condition.parameter_id
+            ),
+            None,
+        )
+        if parameter is None or parameter.value is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    diagnostic(
+                        effect_id,
+                        "missing-scenario-parameter",
+                        DiagnosticKind.MISSING_DATA,
+                        f"missing resolved scenario parameter: {condition.parameter_id}",
+                        blocking=True,
+                    ),
+                ),
+            )
+        matches_minimum = condition.minimum is None or parameter.value >= condition.minimum
+        matches_maximum = condition.maximum is None or parameter.value <= condition.maximum
+        return (
+            EffectMatchStatus.MATCHED
+            if matches_minimum and matches_maximum
+            else EffectMatchStatus.NOT_MATCHED,
             (),
         )
     if isinstance(condition, PanelStatThresholdCondition):

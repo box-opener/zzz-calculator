@@ -155,6 +155,7 @@ from .effect import (
     OperationStateFilter,
     PanelStatDerivedValue,
     ScenarioParameterDerivedValue,
+    ScenarioParameterRangeCondition,
     PanelStatThresholdCondition,
     RuleStackCondition,
     SkillGroupFilter,

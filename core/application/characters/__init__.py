@@ -10,6 +10,7 @@ from .templates import (
     PenetrationDamageEventTemplate,
     DisorderDamageEventTemplate,
     DischargeDamageEventTemplate,
+    TurbulenceDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
 )
 from .astra import AstraCompileConfig, compile_astra
@@ -26,6 +27,7 @@ from .qingyi import QingyiCompileConfig, compile_qingyi
 from .nekomata import NekomataCompileConfig, compile_nekomata
 from .nicole import NicoleCompileConfig, compile_nicole
 from .remielle import RemielleCompileConfig, compile_remielle
+from .velina import VelinaCompileConfig, compile_velina
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -37,6 +39,7 @@ __all__ = [
     "CurrentAttributeAnomalyDamageEventTemplate",
     "DisorderDamageEventTemplate",
     "DischargeDamageEventTemplate",
+    "TurbulenceDamageEventTemplate",
     "SettledAnomalyDamageEventTemplate",
     "AstraCompileConfig",
     "compile_astra",
@@ -66,4 +69,6 @@ __all__ = [
     "compile_nicole",
     "RemielleCompileConfig",
     "compile_remielle",
+    "VelinaCompileConfig",
+    "compile_velina",
 ]

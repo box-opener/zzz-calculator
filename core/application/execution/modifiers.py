@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from math import prod
+from math import floor, prod
 
 from core.types import (
     AllCondition,
@@ -31,6 +31,7 @@ from core.types import (
     PanelStatThresholdCondition,
     Resolved,
     RuleStackCondition,
+    ScenarioParameterRangeCondition,
     NotCondition,
     StandardCritRule,
     StandardVulnerabilityPolicy,
@@ -1259,6 +1260,35 @@ def _resolve_panel_condition(
             ),
             (),
         )
+    if isinstance(condition, ScenarioParameterRangeCondition):
+        parameter = next(
+            (
+                item
+                for item in scenario.parameters
+                if str(item.parameter_id) == condition.parameter_id
+            ),
+            None,
+        )
+        if parameter is None or parameter.value is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    _diagnostic(
+                        str(effect_id),
+                        "missing-scenario-parameter",
+                        DiagnosticKind.MISSING_DATA,
+                        f"missing resolved scenario parameter: {condition.parameter_id}",
+                    ),
+                ),
+            )
+        matches_minimum = condition.minimum is None or parameter.value >= condition.minimum
+        matches_maximum = condition.maximum is None or parameter.value <= condition.maximum
+        return (
+            EffectMatchStatus.MATCHED
+            if matches_minimum and matches_maximum
+            else EffectMatchStatus.NOT_MATCHED,
+            (),
+        )
     if isinstance(condition, DynamicIdentityCondition):
         if condition.identity is DynamicIdentity.CURRENT_OPERATOR and owner is not None:
             return (
@@ -1621,6 +1651,9 @@ def _resolve_effect_value(
         elif value.source_node is CalculationNode.CHARACTER_INITIAL_CRIT_RATE:
             source_panel_value = source.initial_stats.crit_rate
             source_stat_label = "initial crit rate"
+        elif value.source_node is CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN:
+            source_panel_value = source.initial_stats.energy_regen
+            source_stat_label = "initial energy regeneration"
         else:
             source_panel_value = source.initial_stats.attack
             source_stat_label = "initial attack"
@@ -1637,6 +1670,7 @@ def _resolve_effect_value(
         if value.source_node in {
             CalculationNode.CHARACTER_INITIAL_HP,
             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
+            CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
         }:
             threshold = value.threshold if value.threshold is not None else value.minimum
             if threshold is None:
@@ -1651,11 +1685,26 @@ def _resolve_effect_value(
                     )
                 )
                 return None
-            result = (
-                base.value
-                + max(source_panel_value.value - threshold.value, 0.0)
-                * coefficient.value
-            )
+            excess = max(source_panel_value.value - threshold.value, 0.0)
+            if value.step_size is not None:
+                step_size = value.step_size
+                if not isinstance(step_size, Resolved):
+                    diagnostics.append(
+                        _diagnostic(
+                            str(effect.rule.effect_id),
+                            "derived-value-step-size",
+                            DiagnosticKind.MISSING_DATA,
+                            step_size.notes,
+                        )
+                    )
+                    return None
+                # Initial energy regeneration is recorded as decimal panel
+                # data. A tiny tolerance preserves exact hundredth thresholds
+                # after normal floating-point build arithmetic (e.g. 2.16).
+                steps = floor(excess / step_size.value + 1e-9)
+                result = base.value + steps * coefficient.value
+            else:
+                result = base.value + excess * coefficient.value
         else:
             result = base.value + source_panel_value.value * coefficient.value
     if cap_max is not None:
@@ -1726,7 +1775,12 @@ def _has_current_panel_threshold(condition) -> bool:
 def _is_event_independent_condition(condition) -> bool:
     if condition is None or isinstance(
         condition,
-        (AlwaysCondition, RuleStackCondition, PanelStatThresholdCondition),
+        (
+            AlwaysCondition,
+            RuleStackCondition,
+            ScenarioParameterRangeCondition,
+            PanelStatThresholdCondition,
+        ),
     ):
         return True
     if isinstance(condition, (AllCondition, AnyCondition)):

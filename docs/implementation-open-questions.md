@@ -903,3 +903,15 @@ The raw skill data contains the separate `霜凝千钧` damage curve `1051026`, 
 ### Source-only result fields and portrait
 
 The Core's Flash restore, Cinema 1/2 Flash changes, and Daze curves remain source-linked because the current request has no Flash or Daze result. Cinema 4's Decibel gain and damage reduction, and Cinema 6's lethal protection/healing, likewise have no result field here. Nanoka references `IconRole52`, which is not packaged locally; the catalog uses the neutral portrait placeholder.
+
+## Velina Broad Cyclone infusion element scope
+
+Noun entry `1000017` says: `广域气旋首次命中处于[浸染]状态下的敌人，会触发[赋彩]效果，转化为相应属性的[广域气旋]，并会造成相应属性的伤害`.
+The calculator spec at line 87 describes浸染 as triggering when a Winded target
+is first hit by a non-Wind attack. Neither source enumerates whether Luminance
+or element variants are valid choices for the "corresponding element". The
+current selector supports the five ordinary non-Wind elements whose source
+multipliers are known. This leaves only the unenumerated Luminance/variant
+choices unresolved; it does not block Wind or those five known infusion paths,
+and the source is not being interpreted as an explicit five-element
+restriction.

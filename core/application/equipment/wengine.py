@@ -207,6 +207,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1341"): WENGINE_SWEETBUNNY_ID,
     # The live 3.2 engine detail names both code_name and icon as Weapon_S_1581.
     CharacterId("character:1581"): WENGINE_RETURNING_FEATHER_ID,
+    # The live 3.2 weapon catalog record uses `Weapon_S_1561` for Velina.
+    CharacterId("character:1561"): WENGINE_LUXURY_CORE_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,
@@ -6997,7 +6999,7 @@ def _luxury_core_rules(
                     ),
                 ),
             ),
-            stack_count=0,
+            stack_count=int(values["max_stacks"]),
             stack_min=0,
             stack_max=int(values["max_stacks"]),
             diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
