@@ -596,7 +596,7 @@ def test_dialyn_static_physical_assault_and_disorder_absorb_cinema2_normal_bonus
 def test_previous_teammate_extra_damage_uses_fixed_three_slot_predecessor() -> None:
     rule_id = "rule:character:1481:extra-ability:previous-teammate-extra-hit"
     cases = (
-        ((DIALYN, YE, YIXUAN), YIXUAN, CharacterRole.RUPTURE, 5_800.0),
+        ((DIALYN, YE, YIXUAN), YIXUAN, CharacterRole.RUPTURE, 6_000.0),
         ((YE, DIALYN, YIXUAN), YE, CharacterRole.ATTACK, 2_560.0),
         ((YIXUAN, YE, DIALYN), YE, CharacterRole.ATTACK, 2_560.0),
     )
@@ -741,8 +741,8 @@ def test_previous_rupture_source_uses_current_force_including_team_force_effects
     assert result["totals"]["expected"]["complete"] is True
     assert len(result["events"]) == 2
     child = _event(result, "event:character:1481:previous-teammate-extra-hit:ex-stone")
-    assert _node(child, "penetration.force")["value"] == pytest.approx(2350.0)
-    assert _node(child, "damage.base-value")["value"] == pytest.approx(9400.0)
+    assert _node(child, "penetration.force")["value"] == pytest.approx(2400.0)
+    assert _node(child, "damage.base-value")["value"] == pytest.approx(9600.0)
     trace = child["common_application_trace"]
     assert trace["base_source_character_id"] == YIXUAN
     assert trace["base_source_effect_ids"] == [

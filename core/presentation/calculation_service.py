@@ -121,8 +121,15 @@ from core.presentation.registry import (
     equipment_capabilities_for_definition,
     registration_for,
     compile_registered_definition,
+    effective_character_damage_element,
+    element_enables_frostbite_crit_damage,
+    supported_character_registrations,
 )
-from core.presentation.frostbite import frostbite_crit_damage_controls
+from core.presentation.frostbite import (
+    FROSTBITE_CONDITION_PREFIX,
+    FROSTBITE_RULE_PREFIX,
+    frostbite_crit_damage_controls,
+)
 from core.presentation.base_stats import (
     character_base_stat_contributions,
     character_base_stats,
@@ -1039,29 +1046,25 @@ def _compile_definitions(
             )
         )
     primary_definition = definitions[0]
-    frostbite_element = primary_definition.base_element
-    if primary_definition.character_id == REMIELLE_ID:
-        remielle_elements = tuple(
-            entry.main_damage_event.element
-            for entry in primary_definition.move_entries
-            if entry.main_damage_event.element is not None
+    frostbite_element = effective_character_damage_element(primary_definition)
+    if any(
+        element_enables_frostbite_crit_damage(
+            effective_character_damage_element(definition)
         )
-        if remielle_elements and all(
-            element is remielle_elements[0] for element in remielle_elements
-        ):
-            frostbite_element = remielle_elements[0]
-    frostbite_condition, frostbite_rule = frostbite_crit_damage_controls(
-        primary_definition.character_id,
-        frostbite_element,
-    )
-    definitions[0] = replace(
-        primary_definition,
-        rule_items=(*primary_definition.rule_items, frostbite_rule),
-        scenario_conditions=(
-            *primary_definition.scenario_conditions,
-            frostbite_condition,
-        ),
-    )
+        for definition in definitions
+    ):
+        frostbite_condition, frostbite_rule = frostbite_crit_damage_controls(
+            primary_definition.character_id,
+            frostbite_element,
+        )
+        definitions[0] = replace(
+            primary_definition,
+            rule_items=(*primary_definition.rule_items, frostbite_rule),
+            scenario_conditions=(
+                *primary_definition.scenario_conditions,
+                frostbite_condition,
+            ),
+        )
     return tuple(definitions)
 
 
@@ -1664,6 +1667,7 @@ def _scenario(
         parameter_values, Mapping
     ):
         raise ValueError("condition_values and parameter_values must be objects")
+    condition_values = dict(condition_values)
     known_condition_ids = {
         condition.condition_id
         for definition in definitions
@@ -1677,6 +1681,19 @@ def _scenario(
         for definition in definitions
         for parameter in definition.scenario_parameters
     }
+    registered_character_ids = {
+        str(item.character_id) for item in supported_character_registrations()
+    }
+    for condition_id in tuple(condition_values):
+        condition_id = str(condition_id)
+        if (
+            condition_id.startswith(FROSTBITE_CONDITION_PREFIX)
+            and condition_id.removeprefix(FROSTBITE_CONDITION_PREFIX)
+            in registered_character_ids
+            and condition_id
+            not in {str(item) for item in known_condition_ids}
+        ):
+            condition_values.pop(condition_id, None)
     unknown_conditions = set(condition_values) - {
         str(item) for item in known_condition_ids
     }
@@ -1830,6 +1847,16 @@ def _scenario(
         if not isinstance(enabled, (list, tuple, set, frozenset)):
             raise ValueError("enabled_rule_item_ids must be an array")
         enabled_ids = frozenset(RuleItemId(str(item)) for item in enabled)
+        enabled_ids = frozenset(
+            item
+            for item in enabled_ids
+            if not (
+                str(item).startswith(FROSTBITE_RULE_PREFIX)
+                and str(item).removeprefix(FROSTBITE_RULE_PREFIX)
+                in registered_character_ids
+                and item not in known_rule_ids
+            )
+        )
         unknown_enabled = enabled_ids - known_rule_ids
         if unknown_enabled:
             raise ValueError(

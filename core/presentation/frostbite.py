@@ -27,6 +27,8 @@ from core.types import (
 FROSTBITE_CRIT_DAMAGE_TEXT = (
     "霜寒状态下，全角色攻击处于霜寒状态的敌人时造成的暴击伤害提高10%。"
 )
+FROSTBITE_CONDITION_PREFIX = "condition:enemy:frostbite-crit-damage-active:primary:"
+FROSTBITE_RULE_PREFIX = "rule:enemy:frostbite-crit-damage:primary:"
 
 
 def frostbite_crit_damage_controls(

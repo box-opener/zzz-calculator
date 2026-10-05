@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from core.calculation import PenetrationForceInput, calculate_penetration_force
+from core.types import CharacterSnapshot, Resolved
+
 from .calculation import BuildContributionView
 from .diagnostics import DiagnosticView
 
@@ -49,8 +53,28 @@ class BuildPreviewView:
     complete: bool
 
 
+def out_of_combat_penetration_force(snapshot: CharacterSnapshot) -> float | None:
+    """Return Force from resolved out-of-combat ATK/HP, preserving missing data."""
+
+    stats = snapshot.settlement_stats
+    if not isinstance(stats.attack, Resolved) or not isinstance(stats.hp, Resolved):
+        return None
+    result = calculate_penetration_force(
+        PenetrationForceInput(
+            current_attack=stats.attack.value,
+            current_max_hp=stats.hp.value,
+        )
+    )
+    return (
+        float(result.value)
+        if isinstance(result.value, (int, float)) and not isinstance(result.value, bool)
+        else None
+    )
+
+
 __all__ = [
     "BuildPreviewView",
     "DriveDiscPreviewView",
     "DriveDiscStatPreviewView",
+    "out_of_combat_penetration_force",
 ]

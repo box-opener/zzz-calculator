@@ -3747,7 +3747,7 @@ def test_radio_wave_walk_current_stacks_add_penetration_force_only() -> None:
     assert response.status_code == 200, response.text
     event = response.json()["events"][0]
     assert _breakdown_value(event, "penetration.force-bonus") == pytest.approx(384.0)
-    assert _breakdown_value(event, "penetration.force") == pytest.approx(2032.5)
+    assert _breakdown_value(event, "penetration.force") == pytest.approx(2112.2)
 
 
 def test_strong_enough_attack_buffs_are_two_independent_current_states() -> None:
@@ -5459,4 +5459,28 @@ def test_velina_storm_eye_broad_cyclone_can_dissipate_once(
     assert discharge_multiplier == pytest.approx(2.55)
     assert result["totals"]["expected"]["value"] == pytest.approx(
         sum(item["modes"]["expected"]["known_value"] for item in result["events"])
+    )
+
+
+def test_stale_frostbite_state_is_ignored_when_active_team_has_no_ice_element() -> None:
+    baseline = _valid_calculation_payload()
+    baseline_response = client.post("/api/v1/moves/calculate", json=baseline)
+    assert baseline_response.status_code == 200, baseline_response.text
+
+    stale = deepcopy(baseline)
+    stale["condition_values"] = {
+        "condition:enemy:frostbite-crit-damage-active:primary:character:1431": True
+    }
+    stale["enabled_rule_item_ids"] = [
+        "rule:enemy:frostbite-crit-damage:primary:character:1431"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=stale)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    baseline_result = baseline_response.json()
+    assert result["totals"] == baseline_result["totals"]
+    assert result["totals"]["expected"]["complete"] is True
+    assert not any(
+        item["effect_id"] == "effect:enemy:frostbite-crit-damage:primary:character:1431"
+        for item in result["events"][0]["common_application_trace"]["event_stat_modifiers"]
     )

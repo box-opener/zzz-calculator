@@ -243,11 +243,11 @@ def test_penetration_damage_golden_keeps_three_identities_separate() -> None:
     assert isinstance(event.crit_rule, StandardCritRule)
     assert event.crit_rule.stat_owner == crit_owner
     assert modifier.effect_id == EffectId("character:external-effect")
-    assert result.value == pytest.approx(9123.84)
+    assert result.value == pytest.approx(9732.096)
     assert values[CalculationNode.CHARACTER_CURRENT_ATTACK] == 2000.0
     assert values[CalculationNode.CHARACTER_CURRENT_MAX_HP] == 10000.0
-    assert values[CalculationNode.PENETRATION_FORCE] == 1500.0
-    assert values[CalculationNode.DAMAGE_BASE_VALUE] == 3000.0
+    assert values[CalculationNode.PENETRATION_FORCE] == 1600.0
+    assert values[CalculationNode.DAMAGE_BASE_VALUE] == 3200.0
     assert values[CalculationNode.DAMAGE_NORMAL_BONUS_REGION] == 1.6
     assert values[CalculationNode.DAMAGE_STANDARD_CRIT_REGION] == 1.5
     assert values[CalculationNode.PENETRATION_DAMAGE_BONUS_REGION] == 1.2
@@ -277,8 +277,8 @@ def test_penetration_force_is_recomputed_from_each_settlement_snapshot() -> None
     first_result = calculator.calculate(first)
     second_result = calculator.calculate(second)
 
-    assert _breakdown(first_result)[CalculationNode.PENETRATION_FORCE] == 1250.0
-    assert _breakdown(second_result)[CalculationNode.PENETRATION_FORCE] == 2500.0
+    assert _breakdown(first_result)[CalculationNode.PENETRATION_FORCE] == 1300.0
+    assert _breakdown(second_result)[CalculationNode.PENETRATION_FORCE] == 2600.0
     assert first_result.value is not None
     assert second_result.value is not None
     assert second_result.value == first_result.value * 2.0
@@ -299,7 +299,7 @@ def test_penetration_force_flat_bonus_is_added_to_the_live_force_formula() -> No
     )
 
     assert _breakdown(result)[CalculationNode.PENETRATION_FORCE_BONUS] == 900.0
-    assert _breakdown(result)[CalculationNode.PENETRATION_FORCE] == 2350.0
+    assert _breakdown(result)[CalculationNode.PENETRATION_FORCE] == 2400.0
 
 
 def test_guaranteed_penetration_crit_ignores_an_unresolved_panel_crit_rate() -> None:
@@ -328,7 +328,7 @@ def test_guaranteed_penetration_crit_ignores_an_unresolved_panel_crit_rate() -> 
         )
     )
 
-    assert result.value == pytest.approx(1250.0 * 1.5)
+    assert result.value == pytest.approx(1300.0 * 1.5)
     assert _breakdown(result)[CalculationNode.DAMAGE_STANDARD_CRIT_REGION] == pytest.approx(1.5)
     assert _breakdown(result)[CalculationNode.CHARACTER_CURRENT_CRIT_RATE] == 1.0
     assert result.unresolved == ()
@@ -374,7 +374,7 @@ def test_penetration_damage_does_not_read_any_defense_or_penetration_stat() -> N
     values = _breakdown(result)
 
     assert result == calculator.calculate(base)
-    assert result.value == 1250.0
+    assert result.value == 1300.0
     defense_nodes = {
         CalculationNode.DEFENSE_LEVEL_COEFFICIENT,
         CalculationNode.ENEMY_INITIAL_DEFENSE,

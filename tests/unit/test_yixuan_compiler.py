@@ -232,10 +232,10 @@ def test_real_calculate_payload_uses_current_yixuan_penetration_force_and_no_def
     event = _event(low_defense)
     high_event = _event(high_defense)
     assert event["damage_type"] == DamageType.PENETRATION.value
-    assert event["modes"]["non-crit"]["value"] == pytest.approx(1494.08)
-    assert event["modes"]["expected"]["value"] == pytest.approx(2644.5216)
-    assert event["modes"]["full-crit"]["value"] == pytest.approx(3137.568)
-    assert _node(event, "penetration.force")["value"] == pytest.approx(1450.0)
+    assert event["modes"]["non-crit"]["value"] == pytest.approx(1545.6)
+    assert event["modes"]["expected"]["value"] == pytest.approx(2735.712)
+    assert event["modes"]["full-crit"]["value"] == pytest.approx(3245.76)
+    assert _node(event, "penetration.force")["value"] == pytest.approx(1500.0)
     assert _node(event, "damage.skill-multiplier")["value"] == pytest.approx(0.92)
     assert _node(event, "resistance.region")["value"] == pytest.approx(0.80)
     assert event["modes"]["expected"]["value"] == pytest.approx(
@@ -257,7 +257,7 @@ def test_core_and_additional_ability_effects_apply_only_to_listed_yixuan_moves()
     core7_event = _event(core7)
     assert _node(core1_event, "damage.normal-bonus")["value"] == pytest.approx(0.30)
     assert _node(core7_event, "damage.normal-bonus")["value"] == pytest.approx(0.60)
-    assert _node(core7_event, "damage.base-value")["value"] == pytest.approx(1450.0 * 13.439)
+    assert _node(core7_event, "damage.base-value")["value"] == pytest.approx(1500.0 * 13.439)
     assert not any("defense" in item["node"] for item in _breakdown(core7_event))
 
     # Ordinary basic and normal-special moves are deliberately outside the
@@ -502,8 +502,8 @@ def test_c1_lightning_is_typed_xuanmo_penetration_and_uses_yixuan_force() -> Non
         if item["semantic_id"].startswith("event:character:1371:cinema1-lightning:source:")
     )
     assert lightning["damage_type"] == "penetration"
-    assert _node(lightning, "penetration.force")["value"] == pytest.approx(1450.0)
-    assert _node(lightning, "damage.base-value")["value"] == pytest.approx(725.0)
+    assert _node(lightning, "penetration.force")["value"] == pytest.approx(1500.0)
+    assert _node(lightning, "damage.base-value")["value"] == pytest.approx(750.0)
     definition = compile_yixuan(YixuanCompileConfig(cinema_level=1), _yixuan_raw())
     lightning_template = next(
         item for item in definition.damage_event_templates
@@ -533,7 +533,7 @@ def test_c1_lightning_is_typed_xuanmo_penetration_and_uses_yixuan_force() -> Non
         if item["semantic_id"].startswith("event:character:1371:cinema1-lightning:source:")
     )
     assert teammate_lightning["damage_type"] == "penetration"
-    assert _node(teammate_lightning, "damage.base-value")["value"] == pytest.approx(725.0)
+    assert _node(teammate_lightning, "damage.base-value")["value"] == pytest.approx(750.0)
 
     extra_rule = "rule:character:1371:extra-ability:lightning"
     support_switch = _payload(
@@ -555,7 +555,7 @@ def test_c1_lightning_is_typed_xuanmo_penetration_and_uses_yixuan_force() -> Non
     assert len(support_result["events"]) == 2
     extra_lightning = _event(support_result, "event:character:1371:extra-ability-lightning")
     assert extra_lightning["damage_type"] == "penetration"
-    assert _node(extra_lightning, "damage.base-value")["value"] == pytest.approx(3262.5)
+    assert _node(extra_lightning, "damage.base-value")["value"] == pytest.approx(3375.0)
 
 
 def test_c1_lightning_uses_one_unique_instance_per_source_hit_without_recursion() -> None:
@@ -576,7 +576,7 @@ def test_c1_lightning_uses_one_unique_instance_per_source_hit_without_recursion(
     ]
     assert len(lightning) == 2
     assert lightning[0]["semantic_id"] != lightning[1]["semantic_id"]
-    assert all(_node(item, "damage.base-value")["value"] == pytest.approx(725.0) for item in lightning)
+    assert all(_node(item, "damage.base-value")["value"] == pytest.approx(750.0) for item in lightning)
     for event in result["events"][:2]:
         trace = event["common_application_trace"]
         matching = [item for item in trace["rule_matches"] if item["rule_id"] == c1_rule]
@@ -598,7 +598,7 @@ def test_lightning_damage_components_are_selectable_without_invented_move_identi
     assert len(extra["events"]) == 1
     extra_event = _event(extra)
     assert extra_event["damage_type"] == "penetration"
-    assert _node(extra_event, "damage.base-value")["value"] == pytest.approx(3262.5)
+    assert _node(extra_event, "damage.base-value")["value"] == pytest.approx(3375.0)
     extra_definition = compile_registered_definition(
         YIXUAN,
         {"core_level": 1, "cinema_level": 0},
@@ -624,7 +624,7 @@ def test_lightning_damage_components_are_selectable_without_invented_move_identi
     assert len(c1["events"]) == 1
     c1_event = _event(c1)
     assert c1_event["damage_type"] == "penetration"
-    assert _node(c1_event, "damage.base-value")["value"] == pytest.approx(725.0)
+    assert _node(c1_event, "damage.base-value")["value"] == pytest.approx(750.0)
     c1_definition = compile_registered_definition(
         YIXUAN,
         {"core_level": 1, "cinema_level": 1},

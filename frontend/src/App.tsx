@@ -1650,6 +1650,7 @@ const LIVE_PANEL_STATS: { key: string; label: string; ratio?: boolean }[] = [
   { key: "anomaly_mastery", label: "异常掌控" },
   { key: "penetration_flat", label: "穿透值" },
   { key: "penetration_rate", label: "穿透率", ratio: true },
+  { key: "penetration_force", label: "贯穿力" },
   { key: "energy_regen", label: "能量自动回复" },
 ];
 
@@ -1691,7 +1692,9 @@ function LivePanel({ teamIds, characters, editorViews, previews, loading }: Live
             <div className="live-panel-stat live-panel-featured-stat live-panel-element-bonuses"><span>属性增伤</span><strong>{formatElementBonus(elementValue as Record<string, number | null> | null, damageElement)}</strong><small>ELEMENT BONUS</small></div>
           </div>
           <div className="live-panel-secondary-grid">
-            {LIVE_PANEL_STATS.filter(({ key }) => !["attack", "crit_rate", "crit_damage"].includes(key)).map(({ key, label, ratio }) => <div className="live-panel-stat" key={key}><span>{label}</span><strong>{readStat(key, ratio)}</strong></div>)}
+            {LIVE_PANEL_STATS.filter(({ key }) => !["attack", "crit_rate", "crit_damage"].includes(key)
+              && (key !== "penetration_force" || character?.specialty === "rupture"))
+              .map(({ key, label, ratio }) => <div className="live-panel-stat" key={key}><span>{label}</span><strong>{readStat(key, ratio)}</strong></div>)}
           </div>
           <details className="live-panel-provenance">
             <summary><span>来源明细</span><small>{preview ? `${preview.provenance.length} 项装备/基础贡献` : "等待装备构筑解析"}</small></summary>

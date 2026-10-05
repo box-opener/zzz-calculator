@@ -98,11 +98,12 @@ panel even when the selected core level is lower. Manual-panel mode remains
 available for user-supplied values.
 
 Yixuan's source says each point of her maximum HP adds 0.1 penetration force.
-The shared calculation specification already defines the general formula as
-`0.25 × current attack + 0.10 × current max HP`; the compiler uses the existing
-typed `PenetrationDamageEvent` and this shared formula without adding a second
-HP term. The independent Xuanmo anomaly is calculated through the static
-`AnomalyRecord` path, not through penetration force.
+The user confirmed the shared Force formula uses `0.30 × current attack +
+0.10 × current max HP`; the raw source and authoritative specification remain
+unchanged. The compiler uses the existing typed `PenetrationDamageEvent` and
+this shared formula without adding a second HP term. The independent Xuanmo
+anomaly is calculated through the static `AnomalyRecord` path, not through
+penetration force.
 
 ### Lightning event identity
 

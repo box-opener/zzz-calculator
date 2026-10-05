@@ -247,9 +247,9 @@ def test_yidhari_force_reads_current_max_hp_and_damage_uses_penetration_not_defe
     assert lower_hp["totals"]["expected"]["complete"] is True
     assert higher_hp["totals"]["expected"]["complete"] is True
     assert _breakdown(lower_event, "penetration.force-bonus") == pytest.approx(1200.0)
-    assert _breakdown(lower_event, "penetration.force") == pytest.approx(2650.0)
-    assert _breakdown(lower_event, "damage.base-value") == pytest.approx(2650.0 * 1.223)
-    assert _breakdown(higher_event, "penetration.force") == pytest.approx(3250.0)
+    assert _breakdown(lower_event, "penetration.force") == pytest.approx(2700.0)
+    assert _breakdown(lower_event, "damage.base-value") == pytest.approx(2700.0 * 1.223)
+    assert _breakdown(higher_event, "penetration.force") == pytest.approx(3300.0)
     assert not any(
         row["node"] == "defense.enemy-current-effective"
         for row in lower_event["modes"]["expected"]["calculation_breakdown"]
@@ -316,7 +316,7 @@ def test_yidhari_cinema_and_veil_effects_use_their_own_typed_lanes() -> None:
         )
     )
     assert _owner(curtain)["stats"]["hp"] == pytest.approx(12600.0)
-    assert _breakdown(curtain["events"][0], "penetration.force") == pytest.approx(2770.0)
+    assert _breakdown(curtain["events"][0], "penetration.force") == pytest.approx(2820.0)
 
     max_hp_state = _calculate(
         _payload(
@@ -553,7 +553,6 @@ def test_frostbite_control_is_shown_once_and_uses_current_primary_default() -> N
     )
     assert fire_control["value"] is False
     assert frost_condition != fire_condition
-
     explicit_off_preview = client.post(
         "/api/v1/definitions/preview",
         json={
@@ -570,3 +569,51 @@ def test_frostbite_control_is_shown_once_and_uses_current_primary_default() -> N
         for item in explicit_off_preview.json()["scenario_conditions"]
         if item["condition_id"] == frost_condition
     )["value"] is False
+
+
+def test_frostbite_control_is_hidden_without_ice_and_uses_remielle_flow_element() -> None:
+    stale_condition = "condition:enemy:frostbite-crit-damage-active:primary:character:1431"
+    no_ice_preview = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1431",
+            "primary_character_id": "character:1431",
+            "team_character_ids": ["character:1431", "character:1011"],
+            "condition_values": {stale_condition: True},
+            "compile_config": {"core_level": 7, "cinema_level": 0},
+        },
+    )
+    assert no_ice_preview.status_code == 200, no_ice_preview.text
+    assert all(
+        not item["condition_id"].startswith(
+            "condition:enemy:frostbite-crit-damage-active:"
+        )
+        for item in no_ice_preview.json()["scenario_conditions"]
+    )
+    assert all(
+        not item["rule_id"].startswith("rule:enemy:frostbite-crit-damage:")
+        for item in no_ice_preview.json()["rule_items"]
+    )
+
+    remielle_id = "character:1581"
+    remielle_flow_ice = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": remielle_id,
+            "primary_character_id": remielle_id,
+            "team_character_ids": [remielle_id, str(YIDHARI_ID)],
+            "compile_config": {
+                "core_level": 7,
+                "cinema_level": 0,
+                "formation_character_ids": [remielle_id, str(YIDHARI_ID)],
+            },
+        },
+    )
+    assert remielle_flow_ice.status_code == 200, remielle_flow_ice.text
+    remielle_frostbite = next(
+        item
+        for item in remielle_flow_ice.json()["scenario_conditions"]
+        if item["condition_id"]
+        == "condition:enemy:frostbite-crit-damage-active:primary:character:1581"
+    )
+    assert remielle_frostbite["value"] is True

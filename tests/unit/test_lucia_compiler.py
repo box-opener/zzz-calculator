@@ -262,7 +262,7 @@ def test_dream_song_is_a_team_damage_modifier_and_curtain_changes_current_hp() -
     event = _event(result)
     assert _node(event, "damage.normal-bonus")["value"] == pytest.approx(0.20)
     assert _node(event, "character.current.max-hp")["value"] == pytest.approx(12600.0)
-    assert _node(event, "penetration.force")["value"] == pytest.approx(1510.0)
+    assert _node(event, "penetration.force")["value"] == pytest.approx(1560.0)
     assert _modifier(event, "effect:character:1451:core:dream-song-team-damage")["value"] == pytest.approx(0.20)
 
 
@@ -314,7 +314,7 @@ def test_break_dark_penetration_uses_lucia_initial_hp_not_curtain_current_hp(
     event = _event(result)
     assert _node(event, "character.current.max-hp")["value"] == pytest.approx(12600.0)
     assert _node(event, "penetration.force-bonus")["value"] == pytest.approx(expected_force_bonus)
-    assert _node(event, "penetration.force")["value"] == pytest.approx(1510.0 + expected_force_bonus)
+    assert _node(event, "penetration.force")["value"] == pytest.approx(1560.0 + expected_force_bonus)
     assert sum(
         item["value"]
         for item in event["common_application_trace"]["applied_modifiers"]

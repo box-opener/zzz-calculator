@@ -266,12 +266,16 @@ def test_penetration_force_reads_live_attack_and_maximum_hp() -> None:
         )
     )
 
-    assert result.value == 1500.0
+    assert result.value == 1600.0
     assert _breakdown(result) == {
         CalculationNode.CHARACTER_CURRENT_ATTACK: 2000.0,
         CalculationNode.CHARACTER_CURRENT_MAX_HP: 10000.0,
-        CalculationNode.PENETRATION_FORCE: 1500.0,
+        CalculationNode.PENETRATION_FORCE: 1600.0,
     }
+    screenshot_values = calculate_penetration_force(
+        PenetrationForceInput(current_attack=2125.44, current_max_hp=18418.08)
+    )
+    assert screenshot_values.value == pytest.approx(2479.44)
 
 
 def test_penetration_damage_bonus_region_is_independent() -> None:

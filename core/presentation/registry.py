@@ -160,6 +160,7 @@ from .build_preview import (
     BuildPreviewView,
     DriveDiscPreviewView,
     DriveDiscStatPreviewView,
+    out_of_combat_penetration_force,
 )
 from .calculation import BuildContributionView, panel_snapshot_view
 from .calculation import build_contribution_view
@@ -173,6 +174,7 @@ VIVIAN_DISCHARGE_SELECTION_ENTRY_ID = "move-entry:character:1331:discharge-curre
 VIVIAN_PROPHECY_TICK_SELECTION_ENTRY_ID = (
     "move-entry:character:1331:core-prophecy-tick"
 )
+FROSTBITE_ELIGIBLE_ELEMENTS = frozenset({Element.ICE, Element.LIESHUANG})
 
 
 @dataclass(frozen=True, slots=True)
@@ -2644,6 +2646,26 @@ def compile_registered_definition(
     return registration.compile_definition(values, team_ids, strict)
 
 
+def effective_character_damage_element(
+    definition: CharacterCalculationDefinition,
+) -> Element:
+    """Return a character's current element without inferring it from one move."""
+
+    if definition.character_id == REMIELLE_ID:
+        elements = tuple(
+            entry.main_damage_event.element
+            for entry in definition.move_entries
+            if entry.main_damage_event.element is not None
+        )
+        if elements and all(item is elements[0] for item in elements):
+            return elements[0]
+    return definition.base_element
+
+
+def element_enables_frostbite_crit_damage(element: Element) -> bool:
+    return element in FROSTBITE_ELIGIBLE_ELEMENTS
+
+
 def config_fields_for(
     character_id: str | CharacterId,
     values: Mapping[str, Any],
@@ -2681,29 +2703,31 @@ def build_registered_editor_view(
         strict=False,
     )
     if CharacterId(str(character_id)) == primary:
-        frostbite_element = registration_for(primary).base_element
-        if primary == REMIELLE_ID:
-            remielle_elements = tuple(
-                entry.main_damage_event.element
-                for entry in definition.move_entries
-                if entry.main_damage_event.element is not None
+        primary_element = effective_character_damage_element(definition)
+        team_elements = [
+            registration_for(member).base_element
+            for member in team_ids
+            if member != primary
+        ]
+        if (
+            any(
+                element_enables_frostbite_crit_damage(element)
+                for element in team_elements
             )
-            if remielle_elements and all(
-                element is remielle_elements[0] for element in remielle_elements
-            ):
-                frostbite_element = remielle_elements[0]
-        frostbite_condition, frostbite_rule = frostbite_crit_damage_controls(
-            primary,
-            frostbite_element,
-        )
-        definition = replace(
-            definition,
-            rule_items=(*definition.rule_items, frostbite_rule),
-            scenario_conditions=(
-                *definition.scenario_conditions,
-                frostbite_condition,
-            ),
-        )
+            or element_enables_frostbite_crit_damage(primary_element)
+        ):
+            frostbite_condition, frostbite_rule = frostbite_crit_damage_controls(
+                primary,
+                primary_element,
+            )
+            definition = replace(
+                definition,
+                rule_items=(*definition.rule_items, frostbite_rule),
+                scenario_conditions=(
+                    *definition.scenario_conditions,
+                    frostbite_condition,
+                ),
+            )
     if condition_values is not None and not isinstance(condition_values, Mapping):
         raise ValueError("condition_values must be an object")
     selected = condition_values or {}
@@ -2977,6 +3001,11 @@ def build_registered_build_preview(
     display_name = registration.catalog.display_name
     base_snapshot = panel_snapshot_view(CharacterSnapshot(owner, level, base_stats))
     current_snapshot = panel_snapshot_view(assembled.character_snapshot)
+    out_of_combat_stats = dict(current_snapshot.stats)
+    if registration.role is CharacterRole.RUPTURE:
+        out_of_combat_stats["penetration_force"] = out_of_combat_penetration_force(
+            assembled.character_snapshot
+        )
     provenance = (
         *_base_provenance(owner, display_name, base_stats),
         *(build_contribution_view(item) for item in assembled.provenance),
@@ -2993,7 +3022,7 @@ def build_registered_build_preview(
         level=level,
         build_mode=BuildMode.EQUIPMENT_BUILD.value,
         base_stats=base_snapshot.stats,
-        out_of_combat_stats=current_snapshot.stats,
+        out_of_combat_stats=out_of_combat_stats,
         provenance=provenance,
         drive_discs=_drive_disc_preview_views(drive_resolution),
         set_counts=tuple(

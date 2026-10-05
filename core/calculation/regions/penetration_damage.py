@@ -32,7 +32,7 @@ def calculate_penetration_force(
     input: PenetrationForceInput,
 ) -> CalculationResult:
     force = (
-        input.current_attack * 0.25
+        input.current_attack * 0.30
         + input.current_max_hp * 0.10
         + input.additional_force
     )

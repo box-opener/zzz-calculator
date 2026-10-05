@@ -86,7 +86,7 @@ class SettledDamageValueSource:
 
 @dataclass(frozen=True, slots=True)
 class CurrentPenetrationForceValueSource:
-    """Current 0.25 ATK + 0.10 max-HP Force, optionally with resolved additions."""
+    """Current 0.30 ATK + 0.10 max-HP Force, optionally with resolved additions."""
 
     character_id: CharacterId
     additional_force: Resolvable[float] | None = None
