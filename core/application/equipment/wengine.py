@@ -211,6 +211,9 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1581"): WENGINE_RETURNING_FEATHER_ID,
     # The live 3.2 weapon catalog record uses `Weapon_S_1561` for Velina.
     CharacterId("character:1561"): WENGINE_LUXURY_CORE_ID,
+    # Nanoka 3.2 `Weapon_A_1061` and the 13106 description identify Corin's
+    # modified chainsaw as 家政员.
+    CharacterId("character:1061"): WEngineId("wengine:13106"),
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,
@@ -2667,7 +2670,7 @@ def _housekeeper_rules(
                     filters=(element_scope_filter(Element.PHYSICAL),),
                 ),
             ),
-            stack_count=0,
+            stack_count=int(values["max_stacks"]),
             stack_min=0,
             stack_max=int(values["max_stacks"]),
         ),

@@ -7,7 +7,7 @@ values.  Ye's values were normalized from the fixed Nanoka 3.2.4 detail
 record:
 
 * ``level[6]``: HP 2117 / ATK 241 / DEF 167
-* ``extra_level[6]``: base ATK +75 / CRIT +1440 (1/10000 units)
+* ``extra_level[6]``: base ATK, CRIT, and other extra properties (1/10000 units)
 * raw growth fields are applied for levels 1 through 60
 
 The resulting white values are kept in the same normalized shape as Astra's
@@ -142,7 +142,10 @@ def character_base_stats(
             "defense": source_number("defence") + level_number("defence") + growth["defense"] * 59.0,
             "impact": source_number("break_stun") + extra_number("12201"),
             "crit_rate": source_number("crit") / 10000.0 + extra_number("20101") / 10000.0,
-            "crit_damage": source_number("crit_damage") / 10000.0,
+            "crit_damage": (
+                source_number("crit_damage") / 10000.0
+                + extra_number("21101") / 10000.0
+            ),
             # Nanoka's names are the inverse of the domain's normalized
             # fields: element_mystery is 异常精通, while
             # element_abnormal_power is 异常掌控.  The extra-level 31401

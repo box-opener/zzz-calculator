@@ -414,6 +414,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1331",
         "character:1341",
         "character:1251",
+        "character:1061",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
@@ -427,6 +428,13 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert nekomata["specialty"] == "attack"
     assert nekomata["element"] == "physical"
     assert nekomata["image_path"] == "/characters/portrait-placeholder.svg"
+    corin = next(item for item in payload if item["character_id"] == "character:1061")
+    assert corin["display_name"] == "可琳"
+    assert corin["code_name"] == "Corin"
+    assert corin["rarity"] == "A"
+    assert corin["specialty"] == "attack"
+    assert corin["element"] == "physical"
+    assert corin["image_path"] == "/characters/IconRole09.webp"
     nicole = next(item for item in payload if item["character_id"] == "character:1031")
     assert nicole["rarity"] == "A"
     assert nicole["specialty"] == "support"
@@ -3976,12 +3984,15 @@ def test_housekeeper_current_backline_energy_and_physical_stack_inputs() -> None
     )
     stack_rule = "rule:wengine:13106:owner:1431:physical-damage-per-stack"
     physical["enabled_rule_item_ids"] = [stack_rule]
-    physical["rule_stack_counts"] = {stack_rule: 15}
-    stack_result = client.post("/api/v1/moves/calculate", json=physical)
-    assert stack_result.status_code == 200, stack_result.text
-    assert _breakdown_value(stack_result.json()["events"][0], "damage.normal-bonus") == pytest.approx(
-        0.72
-    )
+    for selected_stacks, expected_bonus in ((None, 0.72), (0, 0.0), (5, 0.24), (15, 0.72)):
+        physical["rule_stack_counts"] = (
+            {} if selected_stacks is None else {stack_rule: selected_stacks}
+        )
+        stack_result = client.post("/api/v1/moves/calculate", json=physical)
+        assert stack_result.status_code == 200, stack_result.text
+        assert _breakdown_value(
+            stack_result.json()["events"][0], "damage.normal-bonus"
+        ) == pytest.approx(expected_bonus)
 
 
 def test_starlight_replica_trigger_state_applies_to_later_physical_moves() -> None:

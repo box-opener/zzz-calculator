@@ -25,6 +25,7 @@ from .vivian import VivianCompileConfig, compile_vivian
 from .zhao import ZhaoCompileConfig, compile_zhao
 from .qingyi import QingyiCompileConfig, compile_qingyi
 from .nekomata import NekomataCompileConfig, compile_nekomata
+from .corin import CorinCompileConfig, compile_corin
 from .nicole import NicoleCompileConfig, compile_nicole
 from .remielle import RemielleCompileConfig, compile_remielle
 from .velina import VelinaCompileConfig, compile_velina
@@ -66,6 +67,8 @@ __all__ = [
     "compile_qingyi",
     "NekomataCompileConfig",
     "compile_nekomata",
+    "CorinCompileConfig",
+    "compile_corin",
     "NicoleCompileConfig",
     "compile_nicole",
     "RemielleCompileConfig",
