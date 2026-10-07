@@ -421,6 +421,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1111",
         "character:1121",
         "character:1131",
+        "character:1141",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
@@ -483,6 +484,13 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert soukaku["specialty"] == "support"
     assert soukaku["element"] == "ice"
     assert soukaku["image_path"] == "/characters/portrait-placeholder.svg"
+    lycaon = next(item for item in payload if item["character_id"] == "character:1141")
+    assert lycaon["display_name"] == "莱卡恩"
+    assert lycaon["code_name"] == "Lycaon"
+    assert lycaon["rarity"] == "S"
+    assert lycaon["specialty"] == "stun"
+    assert lycaon["element"] == "ice"
+    assert lycaon["image_path"] == "/characters/portrait-placeholder.svg"
     nicole = next(item for item in payload if item["character_id"] == "character:1031")
     assert nicole["rarity"] == "A"
     assert nicole["specialty"] == "support"

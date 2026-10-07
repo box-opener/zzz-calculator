@@ -123,6 +123,12 @@ from core.application.characters.soukaku import (
     compile_soukaku,
     load_raw_record as load_soukaku_raw_record,
 )
+from core.application.characters.lycaon import (
+    LYCAON_ID,
+    LycaonCompileConfig,
+    compile_lycaon,
+    load_raw_record as load_lycaon_raw_record,
+)
 from core.application.characters.koleda.reviewed import BEN_ID
 from core.application.characters.caesar import (
     CAESAR_ID,
@@ -1006,6 +1012,39 @@ def _soukaku_fields(
     )
 
 
+def _lycaon_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "莱卡恩核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "莱卡恩影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        _slider_field(
+            "potential_level",
+            "莱卡恩潜能",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "0为基础形态；潜能1解锁源中列出的围猎机制与冰舞支援，潜能2–6提升后台围猎冲击力",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
 def _caesar_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1515,6 +1554,61 @@ def _compile_soukaku(
     return compile_soukaku(
         config,
         load_soukaku_raw_record(load_character_record(str(SOUKAKU_ID))),
+    )
+
+
+def _lycaon_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+    potential_level: int,
+) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(LYCAON_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == LYCAON_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None:
+            if registration.base_element is Element.ICE:
+                return True
+            if potential_level >= 1 and registration.role is CharacterRole.ANOMALY:
+                return True
+        camps = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camps, Mapping) and own_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
+def _compile_lycaon(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = LycaonCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=_integer_with_default(values, "potential_level", 0, strict),
+        additional_ability_eligible=_lycaon_additional_ability_eligibility(
+            team_ids,
+            _integer_with_default(values, "potential_level", 0, strict),
+        ),
+    )
+    return compile_lycaon(
+        config,
+        load_lycaon_raw_record(
+            load_character_record(str(LYCAON_ID)),
+            potential_level=config.potential_level,
+        ),
     )
 
 
@@ -3127,6 +3221,89 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     ),
                     EquipmentDamageScope(
                         Element.ICE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                }
+            ),
+        ),
+    ),
+    LYCAON_ID: CharacterPresentationRegistration(
+        character_id=LYCAON_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1141",
+            display_name="莱卡恩",
+            rarity="S",
+            element="ice",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.ICE,
+        compile_definition=_compile_lycaon,
+        config_fields=_lycaon_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=LYCAON_ID,
+            role=CharacterRole.STUN,
+            possible_elements=frozenset({Element.PHYSICAL, Element.ICE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
                         SkillGroup.DODGE,
                         frozenset({DamageTag.DASH_ATTACK}),
                     ),

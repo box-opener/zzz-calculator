@@ -226,6 +226,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1121"): WENGINE_BIG_CYLINDER_ID,
     # The local 13113 record is Weapon_A_1131 and identifies Soukaku's 含羞恶面.
     CharacterId("character:1131"): WEngineId("wengine:13113"),
+    # The local 14114 raw Nanoka detail code_name `Weapon_S_1141` identifies Lycaon's 拘缚者.
+    CharacterId("character:1141"): WENGINE_RESTRAINED_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,
