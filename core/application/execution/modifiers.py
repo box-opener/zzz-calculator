@@ -592,6 +592,7 @@ def apply_matched_modifiers(
         panel_effects,
         diagnostics,
         initial_character_snapshots=initial_character_snapshots,
+        current_operator=current_operator,
         rule_item_id_by_effect={
             application.effect.rule.effect_id: application.rule_item_id
             for application in matched_effects
@@ -716,6 +717,7 @@ def apply_global_panel_effects(
                 diagnostics,
                 initial_character_snapshots=initial_character_snapshots,
                 team_character_ids=team_character_ids,
+                current_operator=scenario.current_operator,
                 recipient_overrides=(
                     {effect.rule.effect_id: recipient_override}
                     if recipient_override is not None
@@ -755,6 +757,7 @@ def apply_global_panel_effects(
             diagnostics,
             initial_character_snapshots=initial_character_snapshots,
             team_character_ids=team_character_ids,
+            current_operator=scenario.current_operator,
             recipient_overrides=(
                 {effect.rule.effect_id: recipient_override}
                 if recipient_override is not None
@@ -844,6 +847,7 @@ def apply_global_panel_effects(
                     diagnostics,
                     initial_character_snapshots=initial_character_snapshots,
                     team_character_ids=team_character_ids,
+                    current_operator=scenario.current_operator,
                     recipient_overrides={effect.rule.effect_id: recipient_override},
                     rule_item_id_by_effect={resolved_effect.rule.effect_id: rule.rule_id},
                 )
@@ -930,7 +934,12 @@ def _select_non_stacking_panel_effects(
             )
             continue
         for effect in panel_effects:
-            recipients = _panel_recipients(effect, snapshots, team_character_ids)
+            recipients = _panel_recipients(
+                effect,
+                snapshots,
+                team_character_ids,
+                scenario.current_operator,
+            )
             if not recipients:
                 # Keep the existing valid no-op behavior for TEAM_OTHER on a
                 # roster that has no other active recipient.
@@ -994,6 +1003,7 @@ def _select_non_stacking_panel_effects(
                     preview_diagnostics,
                     initial_character_snapshots=initial_character_snapshots,
                     team_character_ids=team_character_ids,
+                    current_operator=scenario.current_operator,
                     rule_item_id_by_effect={effect.rule.effect_id: rule.rule_id},
                 )
                 trace = next(
@@ -1450,10 +1460,21 @@ def _panel_recipients(
     effect: ModifierEffect,
     snapshots: tuple[CharacterSnapshot, ...],
     team_character_ids: frozenset[CharacterId] | None = None,
+    current_operator: CharacterId | None = None,
 ) -> tuple[CharacterId, ...]:
     rule = effect.rule
     if rule.target is EffectTarget.SELF:
         return (rule.owner,) if rule.owner is not None else ()
+    if rule.target is EffectTarget.CURRENT_OPERATOR:
+        if current_operator is None:
+            return ()
+        if team_character_ids is not None and current_operator not in team_character_ids:
+            return ()
+        return (
+            (current_operator,)
+            if any(item.character_id == current_operator for item in snapshots)
+            else ()
+        )
     if rule.target is EffectTarget.TEAM:
         return tuple(
             item.character_id
@@ -1728,7 +1749,13 @@ def _resolve_effect_value(
 def _is_recipient_panel_effect(effect: ModifierEffect) -> bool:
     rule = effect.rule
     return (
-        rule.target in {EffectTarget.SELF, EffectTarget.TEAM, EffectTarget.TEAM_OTHER}
+        rule.target
+        in {
+            EffectTarget.SELF,
+            EffectTarget.CURRENT_OPERATOR,
+            EffectTarget.TEAM,
+            EffectTarget.TEAM_OTHER,
+        }
         and not rule.filters
         and _is_event_independent_condition(rule.condition)
     )
@@ -1945,6 +1972,7 @@ def _apply_panel_effects_to_recipients(
     *,
     initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = (),
     team_character_ids: frozenset[CharacterId] | None = None,
+    current_operator: CharacterId | None = None,
     recipient_overrides: dict[EffectId, frozenset[CharacterId]] | None = None,
     rule_item_id_by_effect: dict[EffectId, RuleItemId | None] | None = None,
 ) -> tuple[
@@ -1968,6 +1996,7 @@ def _apply_panel_effects_to_recipients(
                 effect,
                 updated_snapshots,
                 team_character_ids,
+                current_operator,
             )
         )
         if not recipients:

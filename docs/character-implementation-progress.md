@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Corin registered, 39 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Caesar registered, 38 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -12,7 +12,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1041` | Soldier 11 | 「11号」 | 4 | 1 | 部分实现（live 3.2 raw + level-60 panel + 17 baseline/20 potential Direct entries + static Burn/Disorder + reviewed Core/Cinema/Potential rules; resource and Daze outputs remain outside the current result contract） |
 | `1051` | Yidhari | 伊德海莉 | 4 | 6 | 部分实现（live 3.2 raw + level-60 panel + Ice Penetration damage entries + Ice Anomaly/Disorder + Core/Cinema; low-HP intermediate damage curve and Ice-tentacle child identity remain local diagnostics） |
 | `1061` | Corin | 可琳 | 3 | 1 | 部分实现（live 3.2 raw + level-60 panel + A-rank skill defaults + reviewed Physical Direct entries including complete maximum continuous-saw totals + Physical Assault/Disorder + Core/Cinema current-state rules; Daze and Energy resource results remain outside the current result contract） |
-| `1071` | Caesar | 凯撒 | 4 | 5 | 待实现 |
+| `1071` | Caesar | 凯撒 | 4 | 5 | 部分实现（live 3.2 raw + level-60 Defense panel + reviewed Physical Direct entries + static Physical Assault/Disorder + current-operator shield ATK, enemy debuff and Cinema rules; shield capacity, Daze, Energy/Support Point, and incoming-damage results remain outside the current contract） |
 | `1081` | Billy | 比利 | 3 | 1 | 待实现 |
 | `1091` | Miyabi | 雅 | 4 | 3 | 已实现（已有registry/compiler） |
 | `1101` | Koleda | 珂蕾妲 | 4 | 2 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current user-directed item: Corin `1061`. Continue the ascending-ID character queue only after this role is reviewed and pushed. This section does not authorize implementing later roles before that review.
+Current user-directed item: Caesar `1071`, after the completed Corin `1061` role. Continue the ascending-ID character queue only after this role is reviewed and pushed. This section does not authorize implementing later roles before that review.
 
 ## Corin (`character:1061`)
 
@@ -78,6 +78,14 @@ The preserved live Nanoka 3.2 source is `core/data/characters/corin.json` with s
 Direct entries use their own source curve IDs. Dodge Counter and Quick Assist sum the two raw components. Special and EX each expose the start, explosion, continuous-saw maximum segment, and a complete maximum total that adds the source components once. The “continuous-saw maximum damage” source value is treated as a complete segment total once; no hit count or duration is inferred. A-rank skill defaults are level 16, Core 7 and Cinema 0; C3/C5 skill-level increases are capped at 16.
 
 The Physical Assault and Disorder choices use the calculator's static full-gauge and NoCrit model. Disorder uses `450% + floor(t) × 7.5%` with an explicit 0–10-second current remaining-time input. Core chainsaw damage, Cinema 1 target damage, Cinema 2 Physical resistance stacks, and the Additional Ability's actual enemy-stunned requirement keep separate scopes. Cinema 6's 0–40 current charge input is a resource state, not a time or stack-history simulation; each selected qualifying explosion adds one `3% × current charges` attack ratio to that event. Support Parry Daze and Cinema 4 Energy restoration remain source-only because the current result contract has no Daze or Energy output.
+
+## Caesar (`character:1071`)
+
+The preserved live Nanoka 3.2 record is `core/data/characters/caesar.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1071.json`. Caesar is an S-rank Defense agent with a Physical base element; this role is not Vanguard. The level-60 panel uses the source's +75 base ATK and +18 Impact extra-level value. Her signature is `wengine:14107` 奔袭獠牙 (`Weapon_S_1071`), verified by the local raw description rather than by list position.
+
+The reviewed Direct curves retain Nanoka's parameter-curve IDs separately from the `skill_list` action IDs. Basic Attack stages, shield throw, Dash/Counter, Special/EX sequences, Chain, Ultimate, Quick Assist, and Support Strike are independently selectable. The third Basic-stage derived coefficient remains a separate entry pending clarification; no third-stage combined total is inferred. Static Physical Assault and Disorder use NoCrit. Core shield-holder attack is a current-operator panel effect; its current buff state can remain active for the source's post-shield interval without simulating a timer. Cinema 2 adds its 50% increase to the Core attack value only while the shield is active. Cinema 1 and the Additional Ability are current enemy debuff states. The Additional Ability's team eligibility is derived from another active Parry Support-capable agent or the same source faction. Cinema 6 applies its guaranteed Crit and damage bonuses only to its named Super Strong Shield Bash and Support Strike entries; its self Crit Rate/Crit Damage increase is a separate current-state panel effect.
+
+Shield capacity and absorption, damage taken, interrupt resistance, Daze, Energy and Support Point changes, and cooldown/duration replay remain outside the current result contract. The source-only inputs are not converted to fabricated damage or resource totals.
 
 ## Remielle (`character:1581`): confirmed Flow, mutation, and Flare model
 

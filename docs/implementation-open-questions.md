@@ -928,3 +928,7 @@ An EX Polarity multiplier starts at 15%. With its Cinema 2/6 rule enabled it is 
 ## Ultimate Cinema 3/5 skill levels
 
 The user confirmed `是，终结技能也提升`. Cinema 3 and Cinema 5 therefore each add two levels to Ultimate as well as the other skill groups, capped at level 16. The shared Nanoka skill-level helper now applies this rule across registered characters. Astra and Ye Shunguang use specialized compilers, so their manually resolved move curves and Astra's skill-scaled follow-ups were aligned with the same helper. Explicit level-16 selections remain capped and are not raised further.
+
+## Caesar Basic Attack stage 3 derived curve
+
+Caesar's live raw description says `向前方进行至多六段的斩击，造成物理伤害`, while its Basic parameter table separately lists `三段伤害倍率` (source curve `1071003`) and `三段（派生）伤害倍率` (source curve `1071008`). At skill level 12 the two values are 296.8% and 237.2%. The source does not state whether the derived curve is an additional hit or an alternative stage result. The implementation exposes both source-linked values separately and does not infer a combined third-stage total until the user clarifies their relationship.

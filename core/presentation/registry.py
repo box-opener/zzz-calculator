@@ -92,6 +92,12 @@ from core.application.characters.corin import (
     compile_corin,
     load_raw_record as load_corin_raw_record,
 )
+from core.application.characters.caesar import (
+    CAESAR_ID,
+    CaesarCompileConfig,
+    compile_caesar,
+    load_raw_record as load_caesar_raw_record,
+)
 from core.application.characters.nicole import (
     NICOLE_ID,
     NicoleCompileConfig,
@@ -636,6 +642,31 @@ def _corin_fields(
     )
 
 
+def _caesar_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "凯撒核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "凯撒影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
 def _nicole_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -890,6 +921,49 @@ def _compile_corin(
     return compile_corin(
         config,
         load_corin_raw_record(load_character_record(str(CORIN_ID))),
+    )
+
+
+def _caesar_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(CAESAR_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == CAESAR_ID:
+            continue
+        raw = load_character_record(str(character_id))
+        raw_stats = raw.get("stats", {})
+        tags = raw_stats.get("tags", ()) if isinstance(raw_stats, Mapping) else ()
+        if isinstance(tags, (list, tuple)) and "AidTypeParry" in tags:
+            return True
+        camps = raw.get("camp", {})
+        if isinstance(camps, Mapping) and own_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
+def _compile_caesar(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = CaesarCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_caesar_additional_ability_eligibility(team_ids),
+    )
+    return compile_caesar(
+        config,
+        load_caesar_raw_record(load_character_record(str(CAESAR_ID))),
     )
 
 
@@ -2184,6 +2258,93 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
         equipment_capabilities=EquipmentOwnerCapabilities(
             character_id=CORIN_ID,
             role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(
+                {
+                    SkillGroup.BASIC_ATTACK,
+                    SkillGroup.DODGE,
+                    SkillGroup.SPECIAL_ATTACK,
+                    SkillGroup.CHAIN_ATTACK,
+                    SkillGroup.ULTIMATE,
+                    SkillGroup.ASSIST,
+                }
+            ),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                }
+            ),
+        ),
+    ),
+    CAESAR_ID: CharacterPresentationRegistration(
+        character_id=CAESAR_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1071",
+            display_name="凯撒",
+            rarity="S",
+            element="physical",
+            specialty="defense",
+            image_path="/characters/IconRole25.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.DEFENSE,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_caesar,
+        config_fields=_caesar_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CAESAR_ID,
+            role=CharacterRole.DEFENSE,
             possible_elements=frozenset({Element.PHYSICAL}),
             skill_groups=frozenset(
                 {

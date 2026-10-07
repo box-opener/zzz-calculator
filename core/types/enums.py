@@ -113,9 +113,10 @@ class DynamicIdentity(StrEnum):
 
 
 class EffectTarget(StrEnum):
-    """Dynamic identities intentionally do not belong to this enum."""
+    """Panel/event recipients; the current-operator target uses scenario identity."""
 
     SELF = "self"
+    CURRENT_OPERATOR = "current-operator"
     TEAM = "team"
     TEAM_OTHER = "team-other"
     ENEMY = "enemy"

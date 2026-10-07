@@ -214,6 +214,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     # Nanoka 3.2 `Weapon_A_1061` and the 13106 description identify Corin's
     # modified chainsaw as 家政员.
     CharacterId("character:1061"): WEngineId("wengine:13106"),
+    # Nanoka 3.2 engine 14107 is `Weapon_S_1071`; its description identifies Caesar.
+    CharacterId("character:1071"): WENGINE_TUSKS_OF_FURY_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

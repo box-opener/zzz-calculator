@@ -415,6 +415,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1341",
         "character:1251",
         "character:1061",
+        "character:1071",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
@@ -435,6 +436,13 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert corin["specialty"] == "attack"
     assert corin["element"] == "physical"
     assert corin["image_path"] == "/characters/IconRole09.webp"
+    caesar = next(item for item in payload if item["character_id"] == "character:1071")
+    assert caesar["display_name"] == "凯撒"
+    assert caesar["code_name"] == "Caesar"
+    assert caesar["rarity"] == "S"
+    assert caesar["specialty"] == "defense"
+    assert caesar["element"] == "physical"
+    assert caesar["image_path"] == "/characters/IconRole25.webp"
     nicole = next(item for item in payload if item["character_id"] == "character:1031")
     assert nicole["rarity"] == "A"
     assert nicole["specialty"] == "support"
