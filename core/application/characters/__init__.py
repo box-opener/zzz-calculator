@@ -33,6 +33,7 @@ from .nicole import NicoleCompileConfig, compile_nicole
 from .remielle import RemielleCompileConfig, compile_remielle
 from .velina import VelinaCompileConfig, compile_velina
 from .yanagi import YanagiCompileConfig, compile_yanagi
+from .anton import AntonCompileConfig, compile_anton
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -86,4 +87,6 @@ __all__ = [
     "compile_velina",
     "YanagiCompileConfig",
     "compile_yanagi",
+    "AntonCompileConfig",
+    "compile_anton",
 ]

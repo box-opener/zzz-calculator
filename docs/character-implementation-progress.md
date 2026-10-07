@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Koleda registered, 36 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Anton registered, 35 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -16,7 +16,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1081` | Billy | 比利 | 3 | 1 | 部分实现（live 3.2 raw + level-60 panel + reviewed Physical Direct entries + static Physical Assault/Disorder + Core/Cinema current-state rules; Daze and Energy resource results remain outside the current result contract） |
 | `1091` | Miyabi | 雅 | 4 | 3 | 已实现（已有registry/compiler） |
 | `1101` | Koleda | 珂蕾妲 | 4 | 2 | 部分实现（live 3.2 raw + level-60 panel + potential 0–6 + Physical/Fire Direct entries + Fire Burn/Disorder + Ben team-coordination curves + Core/Cinema current states; Vanguard 锐暴, Daze and Energy results remain outside the registered calculation contract） |
-| `1111` | Anton | 安东 | 3 | 1 | 待实现 |
+| 1111 | Anton | 安东 | 3 | 1 | 部分实现（live 3.2 raw + level-60 panel + Physical/Electric Direct entries + Electric Shock/Disorder + source-scoped Core and current Cinema states; the mixed Drill/Pile Assist Strike bonus allocation and triggered extra-Shock source attribution remain local limits; Energy, shield/incoming and Daze results remain outside the current contract） |
 | `1121` | Ben | 本 | 3 | 5 | 待实现 |
 | `1131` | Soukaku | 苍角 | 3 | 4 | 待实现 |
 | `1141` | Lycaon | 莱卡恩 | 4 | 2 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current user-directed item: Koleda `1101`, after Billy `1081` was reviewed and pushed. Continue the ascending-ID character queue only after this role is reviewed and pushed.
+Current item: Anton 1111 follows the reviewed and pushed Koleda 1101. After Anton is reviewed and pushed, continue with Ben 1121.
 
 ## Corin (`character:1061`)
 
@@ -160,3 +160,11 @@ The reviewed Direct list uses each basic, dodge, special, chain, ultimate, and a
 The Core's initial Energy Regeneration effect uses whole 0.01 steps above 1.2, capped independently at +35% damage and +84 Anomaly Mastery. It reads the initial panel, including equipment advanced stats; 2.16 yields 96 steps. Core Turbulence bonus and micro/broad Discharge rates use the compiled Core level. Extra Ability/Cinema damage scopes, C1 resistance ignore, C4 attack buff state, and C6 current Weathering remaining-time bonus have separate rules and owner/event filters. Winded-state +10% Wind Direct/Penetration damage uses the special-independent region; it does not enter the normal damage bonus region.
 
 The calculator retains Daze, buildup, resource gains, cooldowns, and durations as source data without replaying them. The source says an infused Cyclone deals the corresponding infused attribute, but does not enumerate whether Luminance or attribute variants can be infused; the current choice field exposes the five ordinary non-Wind attributes only. No ordinary Wind Disorder entry is created because the calculation specification says Wind Weathering does not enter ordinary Disorder.
+
+## Anton (character:1111)
+
+The preserved live Nanoka 3.2 record is core/data/characters/anton.json with source URL https://static.nanoka.cc/zzz/3.2/zh/character/1111.json. Anton is an A-rank Attack agent with Electric as his base element and Belobog Heavy Industries as his source faction. The level-60 panel is normalized from the source, including +75 base ATK and +14.4% Crit Rate. The local 13111 record is Weapon_A_1111 旋钻机-赤轴; its description identifies Anton's modification. At level 60 it contributes 624 base ATK and 50% Energy Regeneration; its R5 80% Electric Basic/Dash bonus is a selectable current state and does not replay its cooldown. IconRole15 has no local portrait asset, so the catalog uses the neutral placeholder.
+
+Direct entries retain source curve IDs separately from action IDs and preserve the Physical normal Basic/Dash/counter and Electric burst/skill/assist variants. The Core bonus is applied only to source-identified Pile Driver and Drill entries. The Assist Strike has one total curve for a Drill component followed by a Pile Driver finisher, without per-component ratios, so the two Core bonuses are not guessed for that aggregate. Cinema 4 Crit Rate and Cinema 6 burst Basic/burst Dodge Counter stacks are explicit current states; the 0–6 damage stacks default to their maximum when the rule is enabled. Electric Shock is modeled as a 125% per-second, 10-second static anomaly; Disorder uses 450% + floor(t) × 125% with a current 0–10-second remaining-time input.
+
+The Additional Ability's known extra Shock coefficient is 45% of one 125% Shock tick. Its triggering state is selected explicitly without replaying the four-Crit history or 0.5-second interval. Source-record attribution and subsequent settlement ownership are still unresolved and block only that optional child event. Cinema 1 Energy recovery, Cinema 2 shield/incoming behavior, and Daze remain outside the current result contract.
