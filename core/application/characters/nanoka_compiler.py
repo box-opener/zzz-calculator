@@ -113,13 +113,11 @@ def effective_skill_level(config: object, group: SkillGroup) -> int:
 
     selected = getattr(config, "skill_level_for")(group) or 12
     cinema = int(getattr(config, "cinema_level", 0))
-    # All three new S-rank records use the standard C3/C5 wording: basic,
-    # dodge, assist, special and chain receive +2, while ultimate does not.
-    if group is not SkillGroup.ULTIMATE:
-        if cinema >= 3:
-            selected += 2
-        if cinema >= 5:
-            selected += 2
+    # C3 and C5 increase the level of every skill group, including Ultimate.
+    if cinema >= 3:
+        selected += 2
+    if cinema >= 5:
+        selected += 2
     return min(16, selected)
 
 

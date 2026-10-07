@@ -7,6 +7,8 @@ from dataclasses import replace
 from core.types import (
     AnomalyRecordValueSource,
     AnomalyRecordId,
+    AnomalySourceChoice,
+    anomaly_source_record_id,
     AttributeAnomalyDamageEvent,
     BattleStateId,
     BattleTime,
@@ -22,7 +24,9 @@ from core.types import (
     SpecialLuminanceDamageEvent,
     DirectDamageEvent,
     DisorderDamageEvent,
+    PolarDisorderDamageEvent,
     DischargeDamageEvent,
+    NoCritRule,
     RecordedAnomalyCritRule,
     DamageSubtype,
     CurrentAttributeAnomalyDamageEvent,
@@ -41,6 +45,7 @@ from ..characters.templates import (
     DirectDamageEventTemplate,
     PenetrationDamageEventTemplate,
     DisorderDamageEventTemplate,
+    PolarDisorderDamageEventTemplate,
     DischargeDamageEventTemplate,
     LuminanceFlareDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
@@ -107,6 +112,7 @@ def instantiate_damage_event(
     luminance_special_source: LuminanceSpecialSourceSnapshot | None = None,
     turbulence_crit_rule=None,
     turbulence_element=None,
+    polarity_anomaly_source_choice: AnomalySourceChoice | None = None,
 ) -> InstantiatedDamageEvent:
     """Instantiate any typed template without collapsing anomaly identity."""
 
@@ -224,6 +230,20 @@ def instantiate_damage_event(
             base_settlement_data_source=template.base_source,
             multiplier=multiplier,
             crit_rule=template.crit_rule,
+        )
+    elif isinstance(template, PolarDisorderDamageEventTemplate):
+        if polarity_anomaly_source_choice is None:
+            raise ValueError("Polar Disorder requires one selected anomaly source")
+        record_id = anomaly_source_record_id(polarity_anomaly_source_choice)
+        event = PolarDisorderDamageEvent(
+            metadata=replace(metadata, element=polarity_anomaly_source_choice.element),
+            disorder_triggerer=template.disorder_triggerer,
+            source_anomaly_character_id=polarity_anomaly_source_choice.source_character_id,
+            base_settlement_data_source=AnomalyRecordValueSource(record_id),
+            history_record_source=record_id,
+            polarity_multiplier=template.base_polarity_multiplier,
+            anomaly_proficiency_coefficient=template.anomaly_proficiency_coefficient,
+            crit_rule=NoCritRule(),
         )
     elif isinstance(template, DisorderDamageEventTemplate):
         event = DisorderDamageEvent(

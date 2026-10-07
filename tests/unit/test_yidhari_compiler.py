@@ -233,7 +233,7 @@ def test_yidhari_all_reviewed_moves_compile_from_source_ids_and_skill_levels() -
         raw_basic.value_for_level(16, "1051001") / 100.0
     )
     assert entries["move-entry:character:1051:ultimate-final-act"].multiplier_variants[0].multiplier.value.value == pytest.approx(
-        raw_ultimate.value_for_level(12, "1051016") / 100.0
+        raw_ultimate.value_for_level(16, "1051016") / 100.0
     )
 
 

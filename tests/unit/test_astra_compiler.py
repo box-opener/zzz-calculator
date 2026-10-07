@@ -810,7 +810,7 @@ def test_cinema_six_event_lanes_and_precise_support_identity() -> None:
         for item in event.result.breakdown  # type: ignore[union-attr]
         if item.node is CalculationNode.DAMAGE_SKILL_MULTIPLIER
     )
-    assert multiplier == pytest.approx(2.20)
+    assert multiplier == pytest.approx(2.60)
 
 
 def test_astra_supporting_definition_changes_ye_settlement() -> None:

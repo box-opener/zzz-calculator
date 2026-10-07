@@ -370,6 +370,35 @@ class DisorderDamageEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class PolarDisorderDamageEvent:
+    """Polar disorder: scaled settled base plus Yanagi's AP-derived addition."""
+
+    metadata: DamageEventMetadata
+    disorder_triggerer: CharacterId
+    source_anomaly_character_id: CharacterId
+    base_settlement_data_source: AnomalyRecordValueSource
+    history_record_source: AnomalyRecordId
+    polarity_multiplier: float
+    anomaly_proficiency_coefficient: float
+    crit_rule: NoCritRule | Unresolved
+    damage_type: Literal[DamageType.DISORDER] = field(default=DamageType.DISORDER, init=False)
+    damage_subtype: Literal[DamageSubtype.POLAR_DISORDER] = field(
+        default=DamageSubtype.POLAR_DISORDER, init=False
+    )
+
+    def __post_init__(self) -> None:
+        _validate_damage_record_source(
+            self.base_settlement_data_source, self.history_record_source
+        )
+        if self.polarity_multiplier < 0:
+            raise ValueError("polarity multiplier must be non-negative")
+        if not str(self.source_anomaly_character_id):
+            raise ValueError("Polar Disorder requires a selected anomaly source actor")
+        if self.anomaly_proficiency_coefficient < 0:
+            raise ValueError("anomaly-proficiency coefficient must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
 class PenetrationDamageEvent:
     metadata: DamageEventMetadata
     base_settlement_data_source: CurrentPenetrationForceValueSource
@@ -401,6 +430,7 @@ DamageEvent: TypeAlias = (
     | LuminanceDamageEvent
     | SpecialLuminanceDamageEvent
     | DisorderDamageEvent
+    | PolarDisorderDamageEvent
     | PenetrationDamageEvent
     | UnresolvedSharpExplosionDamageEvent
 )

@@ -163,8 +163,7 @@ def test_remielle_reviewed_direct_curve_map_keeps_each_source_entry() -> None:
         if entry.main_damage_event.damage_type.value == "direct"
     }
     assert level16_ratios["move-entry:character:1581:basic-flutter-4"] == pytest.approx(5.928)
-    # C3/C5 do not increase the ultimate level.
-    assert level16_ratios["move-entry:character:1581:ultimate-chaotic-finale"] == pytest.approx(40.194)
+    assert level16_ratios["move-entry:character:1581:ultimate-chaotic-finale"] == pytest.approx(47.502)
 
     indexed = raw_move_index(raw)
     assert "特殊技：薄明" in indexed

@@ -916,3 +916,15 @@ multipliers are known. This leaves only the unenumerated Luminance/variant
 choices unresolved; it does not block Wind or those five known infusion paths,
 and the source is not being interpreted as an explicit five-element
 restriction.
+
+## Yanagi Polarity Disorder calculation decision
+
+The user clarified the final model: `紊乱伤害抛去防御、抗性、紊乱增伤、加减易伤之后存在一个数值，极性紊乱读取这个数值的*15%+3200%*柳的异常精通成为此极性紊乱的数值进入后续防御、抗性、紊乱增伤、加减易伤等等乘区` and confirmed `新的解释才是柳极性紊乱真正的作用方式。`
+
+The implementation forms the inherited component before settlement regions as `B = selected record strength × (450% + that record's time compensation + active Core extra multiplier)`. Polar base damage is `B × polarity multiplier + CAL coefficient × Yanagi's current Anomaly Proficiency`. The complete sum then passes through the normal Disorder damage, defense, resistance, vulnerability, and reduction regions once. The AP term does not use either anomaly strength or an Attack denominator. At skill level 12, `CAL = 5 + 12 × 2.25 = 32`; EX and Ultimate read their respective effective skill levels. Wind sources use the 450% base with no remaining-time compensation.
+
+An EX Polarity multiplier starts at 15%. With its Cinema 2/6 rule enabled it is `20% + 15% × min(extra thrusts, 2 or 4)`. This count controls the Polarity bonus only; it does not cap the selected number of extra attacks or repeat the downfall/Polarity event. The source-selection control identifies one active actor by character ID and one of that actor's reviewed ordinary-anomaly elements, defaults to Yanagi's Shock record, and never sums or maximizes multiple source records. Luminance does not create an ordinary anomaly record. If the chosen record strength or duration is unavailable, the inherited component remains unresolved while a known AP component can still be shown as partial; the calculator does not substitute zero or another actor's record.
+
+## Ultimate Cinema 3/5 skill levels
+
+The user confirmed `是，终结技能也提升`. Cinema 3 and Cinema 5 therefore each add two levels to Ultimate as well as the other skill groups, capped at level 16. The shared Nanoka skill-level helper now applies this rule across registered characters. Astra and Ye Shunguang use specialized compilers, so their manually resolved move curves and Astra's skill-scaled follow-ups were aligned with the same helper. Explicit level-16 selections remain capped and are not raised further.

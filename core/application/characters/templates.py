@@ -163,6 +163,33 @@ class DisorderDamageEventTemplate:
 
 
 @dataclass(frozen=True, slots=True)
+class PolarDisorderDamageEventTemplate:
+    """Typed Polar Disorder event with a request-selected anomaly record."""
+
+    ref: DamageEventTemplateRef
+    damage_dealer: CharacterId
+    disorder_triggerer: CharacterId
+    element: Element | None
+    base_polarity_multiplier: float
+    anomaly_proficiency_coefficient: float
+    move_id: MoveId | None = None
+
+    def __post_init__(self) -> None:
+        if self.ref.damage_type is not DamageType.DISORDER:
+            raise ValueError("PolarDisorderDamageEventTemplate requires disorder damage type")
+        if self.ref.damage_subtype is not None:
+            raise ValueError("Polar Disorder template must not have a subtype")
+        if self.ref.element is not self.element:
+            raise ValueError("template ref element must match typed template element")
+        if self.ref.skill_group is not None or self.ref.damage_tags:
+            raise ValueError("synthetic Polar Disorder must not invent move tags")
+        if self.base_polarity_multiplier < 0:
+            raise ValueError("base polarity multiplier must be non-negative")
+        if self.anomaly_proficiency_coefficient < 0:
+            raise ValueError("AP coefficient must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
 class DischargeDamageEventTemplate:
     """Typed discharge child that can inherit the source anomaly record/multiplier."""
 
@@ -271,6 +298,7 @@ DamageEventTemplate = (
     | AttributeAnomalyDamageEventTemplate
     | CurrentAttributeAnomalyDamageEventTemplate
     | DisorderDamageEventTemplate
+    | PolarDisorderDamageEventTemplate
     | DischargeDamageEventTemplate
     | TurbulenceDamageEventTemplate
     | LuminanceFlareDamageEventTemplate
@@ -285,6 +313,7 @@ __all__ = [
     "DirectDamageEventTemplate",
     "PenetrationDamageEventTemplate",
     "DisorderDamageEventTemplate",
+    "PolarDisorderDamageEventTemplate",
     "DischargeDamageEventTemplate",
     "TurbulenceDamageEventTemplate",
     "LuminanceFlareDamageEventTemplate",

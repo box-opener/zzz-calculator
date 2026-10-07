@@ -9,6 +9,7 @@ from .anomaly_record import (
     IndependentAnomalyCrit,
     NoAnomalyCrit,
 )
+from .anomaly_source import AnomalySourceChoice, anomaly_source_record_id
 from .anomaly_gauge import (
     AnomalyBuildupApplicationContext,
     AnomalyGauge,
@@ -103,6 +104,7 @@ from .damage_event import (
     SettledDamageValueSource,
     DischargeDamageEvent,
     DisorderDamageEvent,
+    PolarDisorderDamageEvent,
     FixedMultiplier,
     IndependentAnomalyCritRule,
     LuminanceDamageEvent,

@@ -128,6 +128,7 @@ class CalculationNode(StrEnum):
     POLAR_DISORDER_ADDITIONAL_EQUIVALENT_MULTIPLIER = (
         "disorder.polar.additional-equivalent-multiplier"
     )
+    POLAR_DISORDER_AP_COEFFICIENT = "disorder.polar.ap-coefficient"
 
     # Penetration damage.
     PENETRATION_FORCE = "penetration.force"

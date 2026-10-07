@@ -68,12 +68,13 @@ class DamageType(StrEnum):
 
 
 class DamageSubtype(StrEnum):
-    """Only anomaly damage has settlement subtypes in spec-v1."""
+    """Typed mechanisms that need to be distinguished from their parent damage type."""
 
     ATTRIBUTE_ANOMALY = "attribute-anomaly"
     DISCHARGE = "discharge"
     TURBULENCE = "turbulence"
     LUMINANCE = "luminance"
+    POLAR_DISORDER = "polar-disorder"
 
 
 class SkillGroup(StrEnum):

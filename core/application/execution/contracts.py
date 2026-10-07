@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from core.types import (
     AnomalyRecord,
+    AnomalySourceChoice,
     BattleStateId,
     BattleTime,
     CharacterId,
@@ -23,13 +24,17 @@ from core.types import (
     LuminanceSourceChoice,
     LuminanceSourceKind,
     Element,
+    ANOMALY_ELEMENTS,
     Resolvable,
     SnapshotRule,
     RuleStackCondition,
 )
 
 from ..characters.definition import CharacterCalculationDefinition
-from ..characters.templates import DamageEventTemplate
+from ..characters.templates import (
+    AttributeAnomalyDamageEventTemplate,
+    DamageEventTemplate,
+)
 from ..diagnostics import CalculationDiagnostic
 from ..ids import DamageEventSemanticId, MoveEntryId, RuleItemId
 from ..matching import (
@@ -80,6 +85,7 @@ class MoveCalculationRequest:
     crit_display_mode: CritDisplayMode = CritDisplayMode.EXPECTED
     history_record_mode: HistoryRecordMode = HistoryRecordMode.EXPLICIT
     luminance_source_choice: LuminanceSourceChoice | None = None
+    polarity_anomaly_source_choice: AnomalySourceChoice | None = None
     additional_damage_event_templates: tuple[DamageEventTemplate, ...] = ()
     additional_derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
@@ -168,6 +174,30 @@ class MoveCalculationRequest:
                     raise ValueError("ordinary Luminance sources are not supported")
             elif choice.source_character_id != self.definition.character_id:
                 raise ValueError("special virtual-void source must belong to the current Remielle")
+        if self.polarity_anomaly_source_choice is not None:
+            choice = self.polarity_anomaly_source_choice
+            if choice.source_character_id not in set(profile_ids):
+                raise ValueError("Polar source actor must be an active team member")
+            if choice.element not in ANOMALY_ELEMENTS:
+                raise ValueError("Polar source must use an ordinary anomaly element")
+            source_definition = next(
+                item
+                for item in definitions
+                if item.character_id == choice.source_character_id
+            )
+            source_elements = {
+                template.element
+                for template in source_definition.damage_event_templates
+                if isinstance(template, AttributeAnomalyDamageEventTemplate)
+                and template.element in ANOMALY_ELEMENTS
+            }
+            if not source_elements and source_definition.base_element in ANOMALY_ELEMENTS:
+                source_elements.add(source_definition.base_element)
+            if choice.element not in source_elements:
+                raise ValueError(
+                    "Polar source element is not an ordinary anomaly available to "
+                    f"{choice.source_character_id}"
+                )
 
         rule_items = tuple(
             rule for definition in definitions for rule in definition.rule_items

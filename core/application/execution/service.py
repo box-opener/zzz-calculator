@@ -10,11 +10,11 @@ from core.types import (
     AnomalyRecordValueSource,
     AnomalyRecord,
     AttributeAnomalyDamageEvent,
+    anomaly_source_record_id,
     BattleEventKind,
     CalculationContext,
     CalculationNode,
     CharacterSnapshot,
-    AttributeAnomalyDamageEvent,
     DamageEvent,
     DamageEventId,
     DamageEventMetadata,
@@ -25,6 +25,7 @@ from core.types import (
     CurrentPenetrationForceValueSource,
     DirectDamageEvent,
     DisorderDamageEvent,
+    PolarDisorderDamageEvent,
     PenetrationDamageEvent,
     EffectId,
     EffectOperation,
@@ -65,6 +66,7 @@ from ..characters.templates import (
     LuminanceFlareDamageEventTemplate,
     DisorderDamageEventTemplate,
     TurbulenceDamageEventTemplate,
+    PolarDisorderDamageEventTemplate,
 )
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DamageEventSemanticId, DiagnosticId, MoveEntryId
@@ -465,6 +467,14 @@ class DirectMoveApplicationService:
                 child, child_ancestry = created
                 if turbulence_parent is not None:
                     turbulence_lineage[child.semantic_id] = turbulence_parent
+                if isinstance(child.event, PolarDisorderDamageEvent):
+                    request, polar_source_diagnostics = _prepare_polar_anomaly_source(
+                        request,
+                        application.character_snapshots,
+                        rule_items,
+                        self._matcher,
+                    )
+                    move_diagnostics.extend(polar_source_diagnostics)
                 child_history, child_history_diagnostics = _history_records_for_event(
                     request,
                     child.event,
@@ -774,6 +784,16 @@ class DirectMoveApplicationService:
                 "EventCreation template is not registered",
             )
         if (
+            isinstance(template, PolarDisorderDamageEventTemplate)
+            and request.polarity_anomaly_source_choice is None
+        ):
+            return _diagnostic(
+                str(effect.rule.effect_id),
+                "polar-source-choice",
+                DiagnosticKind.MISSING_DATA,
+                "Select one active ordinary anomaly source for Polar Disorder.",
+            )
+        if (
             isinstance(template, DirectDamageEventTemplate)
             and template.allow_external_base_source
             and isinstance(template.base_source, CurrentPenetrationForceValueSource)
@@ -918,6 +938,7 @@ class DirectMoveApplicationService:
             source_anomaly_multiplier=source_anomaly_multiplier,
             turbulence_crit_rule=turbulence_crit_rule,
             turbulence_element=turbulence_element,
+            polarity_anomaly_source_choice=request.polarity_anomaly_source_choice,
         )
         return child, (*ancestry, template_id)
 
@@ -1529,6 +1550,174 @@ def _prepare_remielle_flare_source(
         anomaly_effect_strength_trace=strength.trace,
     )
     return request, special_source, (*source_diagnostics, *strength.diagnostics)
+
+
+def _prepare_polar_anomaly_source(
+    request: MoveCalculationRequest,
+    snapshots: tuple[CharacterSnapshot, ...],
+    rule_items: tuple[CalculationRuleItem, ...],
+    matcher: EffectMatcher,
+):
+    """Resolve exactly one selected current anomaly source for Polar Disorder."""
+
+    choice = request.polarity_anomaly_source_choice
+    if choice is None:
+        return request, (
+            _diagnostic(
+                "character:1221:polar-source",
+                "polar-source-choice",
+                DiagnosticKind.MISSING_DATA,
+                "Select one active ordinary anomaly source for Polar Disorder.",
+            ),
+        )
+    record_id = anomaly_source_record_id(choice)
+    existing = next(
+        (item for item in request.history_records if item.record_id == record_id),
+        None,
+    )
+    if existing is not None:
+        if (
+            existing.target_enemy != request.target_snapshot.enemy_id
+            or existing.element is not choice.element
+            or existing.anomaly_triggerer != choice.source_character_id
+            or choice.source_character_id not in existing.contributors
+        ):
+            return request, (
+                _diagnostic(
+                    str(record_id),
+                    "polar-source-record-mismatch",
+                    DiagnosticKind.MISSING_DATA,
+                    "The selected Polar anomaly record does not match its target or element.",
+                ),
+            )
+        return request, ()
+    if request.history_record_mode is not HistoryRecordMode.STATIC_SINGLE_CHARACTER:
+        return request, (
+            _diagnostic(
+                str(record_id),
+                "polar-source-record-missing",
+                DiagnosticKind.MISSING_DATA,
+                "The selected Polar anomaly source record must be supplied by explicit history.",
+            ),
+        )
+
+    source_definition = next(
+        (
+            item for item in _all_definitions(request)
+            if item.character_id == choice.source_character_id
+        ),
+        None,
+    )
+    if source_definition is None:
+        return request, (
+            _diagnostic(
+                str(choice.source_character_id),
+                "polar-source-definition-missing",
+                DiagnosticKind.MISSING_DATA,
+                "The selected Polar source actor has no active compiled definition.",
+            ),
+        )
+
+    source_template_id = next(
+        (
+            template.ref.template_id
+            for template in source_definition.damage_event_templates
+            if isinstance(template, AttributeAnomalyDamageEventTemplate)
+            and template.element is choice.element
+        ),
+        EventTemplateId(
+            "template:static-anomaly-source:"
+            f"{choice.source_character_id}:"
+            f"{choice.element.value.replace(':', '-')}"
+        ),
+    )
+
+    source_event = AttributeAnomalyDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId(
+                f"event:{request.battle_state_id}:polar-source:{choice.source_character_id}:{choice.element.value.replace(':', '-')}"
+            ),
+            battle_state_id=request.battle_state_id,
+            damage_dealer=choice.source_character_id,
+            target_enemy=request.target_snapshot.enemy_id,
+            element=choice.element,
+            created_at=request.battle_time,
+        ),
+        anomaly_triggerer=choice.source_character_id,
+        base_settlement_data_source=AnomalyRecordValueSource(record_id),
+        history_record_source=record_id,
+        multiplier=FixedMultiplier(Resolved(1.0)),
+        crit_rule=NoCritRule(),
+    )
+    identity_assembly = static_attribute_anomaly_record(source_event, snapshots, ())
+    if identity_assembly is None or identity_assembly.record is None:
+        return request, (
+            *(
+                identity_assembly.diagnostics
+                if identity_assembly is not None
+                else ()
+            ),
+            _diagnostic(
+                str(record_id),
+                "polar-source-identity",
+                DiagnosticKind.MISSING_DATA,
+                "The selected Polar source cannot produce an ordinary anomaly record.",
+            ),
+        )
+
+    source_scenario = replace(
+        request.scenario,
+        current_operator=choice.source_character_id,
+    )
+    match_request = replace(
+        request,
+        scenario=source_scenario,
+        history_records=(*request.history_records, identity_assembly.record),
+    )
+    source_context = _match_context(
+        match_request,
+        source_event,
+        snapshots,
+        request.base_calculation_modifiers,
+        current_template_id=source_template_id,
+    )
+    matches = matcher.match_rule_items(rule_items, source_context)
+    source_application = apply_matched_modifiers(
+        snapshots,
+        request.base_calculation_modifiers,
+        _matched_effects(matches, rule_items, source_scenario),
+        source_scenario.current_operator,
+        initial_character_snapshots=request.initial_character_snapshots,
+        scenario=source_scenario,
+        event=source_event,
+        apply_panel=False,
+    )
+    assembly = static_attribute_anomaly_record(
+        source_event,
+        source_application.character_snapshots,
+        source_application.event_modifiers,
+        modifier_sources=_modifier_sources(request),
+    )
+    if assembly is None or assembly.record is None:
+        return request, (
+            *_match_diagnostics(matches),
+            *source_application.diagnostics,
+            *(assembly.diagnostics if assembly is not None else ()),
+            _diagnostic(
+                str(record_id),
+                "polar-source-record-unresolved",
+                DiagnosticKind.MISSING_DATA,
+                "The selected Polar anomaly source record could not be assembled.",
+            ),
+        )
+    return (
+        replace(request, history_records=(*request.history_records, assembly.record)),
+        (
+            *_match_diagnostics(matches),
+            *source_application.diagnostics,
+            *assembly.diagnostics,
+        ),
+    )
 
 
 def _modifier_sources(request: MoveCalculationRequest):

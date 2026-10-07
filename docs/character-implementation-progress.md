@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; Velina has now joined the calculator registry, leaving 41 not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; Yanagi has now joined the calculator registry, leaving 40 not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -27,7 +27,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1191` | Ellen | 艾莲 | 4 | 1 | 待实现 |
 | `1201` | Harumasa | 悠真 | 4 | 1 | 待实现 |
 | `1211` | Rina | 丽娜 | 4 | 4 | 待实现 |
-| `1221` | Yanagi | 柳 | 4 | 3 | 待实现 |
+| `1221` | Yanagi | 柳 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct moves + static Shock/Disorder + selected-record Polar Disorder with current-AP additive component; Daze, buildup, energy and timing outputs remain outside the current result contract） |
 | `1241` | Zhu Yuan | 朱鸢 | 4 | 1 | 待实现 |
 | `1251` | QingYi | 青衣 | 4 | 2 | 已实现（已有registry/compiler） |
 | `1261` | Jane | 简 | 4 | 3 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current user-directed order: finish `1581` Remielle, then `1561` Velina and stop. The earlier ascending-ID queue is not active for this request; Corin `1061` remains raw-only and must not be implemented unless the user reauthorizes it. Source acquisition, raw preservation, reviewed mapping, compiler integration, validation, and a per-character commit remain the required closure for each requested character.
+Current user-directed item: finish `1221` Yanagi only, then stop and wait for further direction. The older role queue is inactive for this request; Corin `1061` remains raw-only and must not be staged with Yanagi.
 
 ## Remielle (`character:1581`): confirmed Flow, mutation, and Flare model
 

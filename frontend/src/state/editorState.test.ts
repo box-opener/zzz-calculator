@@ -75,6 +75,27 @@ describe("reconcileEditorState", () => {
     expect(next.disabledRules).toEqual(new Set());
   });
 
+  it("drops Yanagi extra-thrust input when lower cinema removes that control", () => {
+    const parameter = "parameter:yanagi:ex-special-extra-thrusts";
+    const withCinemaTwo = reconcileEditorState(
+      { ...previous, parameterValues: { [parameter]: 3 } },
+      {
+        conditions: [],
+        parameters: [{ parameter_id: parameter, value: 0, minimum: 0, maximum: null }],
+        rules: [],
+        triggers: [],
+      },
+      ["character:1221"],
+    );
+    const afterDowngrade = reconcileEditorState(
+      withCinemaTwo,
+      { conditions: [], parameters: [], rules: [], triggers: [] },
+      ["character:1221"],
+    );
+    expect(withCinemaTwo.parameterValues[parameter]).toBe(3);
+    expect(afterDowngrade.parameterValues).toEqual({});
+  });
+
   it("does not synthesize a trigger actor when the server leaves it unresolved", () => {
     const next = reconcileEditorState({ ...previous, triggerActors: {} }, {
       conditions: [],

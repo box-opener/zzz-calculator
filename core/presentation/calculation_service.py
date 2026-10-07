@@ -59,6 +59,7 @@ from core.application.rules import CalculationRuleItem, RuleEligibility
 from core.application.scenario import ScenarioCondition
 from core.application.execution.modifiers import is_panel_modifier_path
 from core.types import (
+    AnomalySourceChoice,
     AnomalyRecordId,
     BattleEventKind,
     BattleStateId,
@@ -356,6 +357,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 base_calculation_modifiers=base_modifiers,
                 history_record_mode=HistoryRecordMode.STATIC_SINGLE_CHARACTER,
                 luminance_source_choice=choice,
+                polarity_anomaly_source_choice=(
+                    view_request.polarity_anomaly_source_choice
+                ),
                 crit_display_mode=mode,
             )
 
@@ -1342,6 +1346,43 @@ def _presentation_request(
         luminance_sources = tuple(parsed_sources)
     elif raw_luminance_sources not in (None, (), []):
         raise ValueError("Luminance source slots require Remielle as current operator")
+    raw_polar_source = payload.get("polarity_anomaly_source")
+    polarity_source_choice: AnomalySourceChoice | None = None
+    if primary_id == "character:1221":
+        source_spec = raw_polar_source
+        if source_spec is None:
+            source_spec = {"source_character_id": primary_id}
+        if not isinstance(source_spec, Mapping):
+            raise ValueError("polarity_anomaly_source must be an object")
+        source_character_id = str(source_spec.get("source_character_id", ""))
+        if source_character_id not in team_ids:
+            raise ValueError("Polar anomaly source must be an active teammate")
+        source_options = tuple(
+            (normal_source_elements or {}).get(source_character_id, ())
+        )
+        if not source_options:
+            raise ValueError(
+                f"no ordinary anomaly source is supported for {source_character_id}"
+            )
+        native_element = registration_for(source_character_id).base_element
+        default_element = native_element if native_element in source_options else source_options[0]
+        raw_source_element = source_spec.get("element")
+        source_element = (
+            default_element
+            if raw_source_element is None
+            else _element(str(raw_source_element))
+        )
+        if source_element not in source_options:
+            raise ValueError(
+                f"anomaly element {source_element.value} is not available for "
+                f"{source_character_id}"
+            )
+        polarity_source_choice = AnomalySourceChoice(
+            source_character_id=CharacterId(source_character_id),
+            element=source_element,
+        )
+    elif raw_polar_source not in (None, {}, ()):
+        raise ValueError("polarity_anomaly_source requires Yanagi as current operator")
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
         supporting_character_ids=supporting_ids,
@@ -1363,6 +1404,7 @@ def _presentation_request(
             else {}
         ),
         luminance_source_slots=luminance_sources,
+        polarity_anomaly_source_choice=polarity_source_choice,
     )
 
 

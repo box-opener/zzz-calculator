@@ -9,6 +9,7 @@ from core.types import (
     CharacterId,
     DamageEvent,
     DisorderDamageEvent,
+    PolarDisorderDamageEvent,
     DischargeDamageEvent,
     DynamicIdentity,
     BattleEventKind,
@@ -48,7 +49,7 @@ class DynamicIdentityResolver:
             return IdentityResolution(frozenset({event.metadata.damage_dealer}))
 
         if identity is DynamicIdentity.DISORDER_TRIGGER:
-            if isinstance(event, DisorderDamageEvent):
+            if isinstance(event, (DisorderDamageEvent, PolarDisorderDamageEvent)):
                 return IdentityResolution(frozenset({event.disorder_triggerer}))
             return IdentityResolution(frozenset())
         if identity is DynamicIdentity.WIND_ANOMALY_TRIGGER:
@@ -163,7 +164,7 @@ class DynamicIdentityResolver:
             record_id = event.history_record_source
         elif isinstance(event, LuminanceDamageEvent):
             record_id = event.history_record_source
-        elif isinstance(event, DisorderDamageEvent):
+        elif isinstance(event, (DisorderDamageEvent, PolarDisorderDamageEvent)):
             record_id = event.history_record_source
         else:
             return HistoryRecordResolution(None)
@@ -206,6 +207,18 @@ class DynamicIdentityResolver:
                 DynamicIdentityResolver._history_diagnostic(
                     event,
                     "AnomalyRecord element differs from event element",
+                    DiagnosticKind.DATA_QUALITY,
+                ),
+            )
+        if isinstance(event, PolarDisorderDamageEvent) and (
+            record.anomaly_triggerer != event.source_anomaly_character_id
+            or event.source_anomaly_character_id not in record.contributors
+        ):
+            return HistoryRecordResolution(
+                None,
+                DynamicIdentityResolver._history_diagnostic(
+                    event,
+                    "Polar source actor differs from the selected AnomalyRecord identity",
                     DiagnosticKind.DATA_QUALITY,
                 ),
             )

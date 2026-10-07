@@ -113,6 +113,7 @@ class CharacterEditorView:
     scenario_trigger_inputs: tuple[ScenarioTriggerInputView, ...]
     diagnostics: tuple[DiagnosticView, ...]
     luminance_source_elements: tuple[str, ...] = ()
+    anomaly_source_elements: tuple[str, ...] = ()
     effective_damage_element: str | None = None
 
 

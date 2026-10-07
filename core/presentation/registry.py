@@ -44,6 +44,12 @@ from core.application.characters.yixuan import (
     compile_yixuan,
     load_raw_record as load_yixuan_raw_record,
 )
+from core.application.characters.yanagi import (
+    YANAGI_ID,
+    YanagiCompileConfig,
+    compile_yanagi,
+    load_raw_record as load_yanagi_raw_record,
+)
 from core.application.characters.lucia import (
     LUCIA_ID,
     LuciaCompileConfig,
@@ -682,6 +688,31 @@ def _yidhari_fields(
     )
 
 
+def _yanagi_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "月城柳核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "月城柳影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁影画等级",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
 def _remielle_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -916,6 +947,44 @@ def _compile_yidhari(
     )
 
 
+def _yanagi_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    for character_id in team_ids:
+        if character_id == YANAGI_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if (
+            registration.role is CharacterRole.ANOMALY
+            or registration.base_element is Element.ELECTRIC
+        ):
+            return True
+    return False
+
+
+def _compile_yanagi(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_yanagi(
+        YanagiCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _yanagi_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_yanagi_raw_record(load_character_record(str(YANAGI_ID))),
+    )
+
+
 def _remielle_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -1132,13 +1201,13 @@ def _skill_level_fields(
     return tuple(
         CompileConfigFieldView(
             field_id=f"skill_level:{group.value}",
-            label=f"{_SKILL_GROUP_LABELS[group]}等级",
+            label=f"{_SKILL_GROUP_LABELS[group]}基础等级（不含3/5影）",
             field_type="select",
             value=int(selected.get(group.value, default_level)),
             minimum=1,
             maximum=16,
             options=("12", "14", "16"),
-            help_text="当前生产源数据提供的技能倍率等级",
+            help_text="基础等级；3影、5影各提升2级后用于计算，实际等级最高16。",
         )
         for group in (
             SkillGroup.BASIC_ATTACK,
@@ -2249,6 +2318,98 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"miyabi-icefire", "miyabi-frostburn-break"}),
+        ),
+    ),
+    YANAGI_ID: CharacterPresentationRegistration(
+        character_id=YANAGI_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1221",
+            display_name="月城柳",
+            rarity="S",
+            element="electric",
+            specialty="anomaly",
+            image_path="/characters/IconRole31.webp",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_yanagi,
+        config_fields=_yanagi_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=YANAGI_ID,
+            role=CharacterRole.ANOMALY,
+            possible_elements=frozenset({Element.ELECTRIC, Element.PHYSICAL}),
+            skill_groups=frozenset(
+                {
+                    SkillGroup.BASIC_ATTACK,
+                    SkillGroup.DODGE,
+                    SkillGroup.SPECIAL_ATTACK,
+                    SkillGroup.CHAIN_ATTACK,
+                    SkillGroup.ULTIMATE,
+                    SkillGroup.ASSIST,
+                }
+            ),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ELECTRIC,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                }
+            ),
         ),
     ),
     CharacterId("character:1371"): CharacterPresentationRegistration(

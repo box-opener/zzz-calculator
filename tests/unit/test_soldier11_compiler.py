@@ -273,9 +273,9 @@ def test_soldier11_potential_views_retain_selected_curves_and_unlock_entries() -
     )
     assert (
         entries["move-entry:character:1041:ultimate-roaring-flames"]
-        .multiplier_variants[0]
-        .multiplier.value.value
-        == pytest.approx(ultimate_curve.value_for_level(12, "1041017") / 100.0)
+            .multiplier_variants[0]
+            .multiplier.value.value
+            == pytest.approx(ultimate_curve.value_for_level(16, "1041017") / 100.0)
     )
 
     fields = {

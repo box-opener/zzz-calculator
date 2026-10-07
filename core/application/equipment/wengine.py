@@ -199,6 +199,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1091"): WENGINE_HAILSTORM_SHRINE_ID,
     CharacterId("character:1331"): WENGINE_BIRD_DREAM_ID,
     CharacterId("character:1371"): WENGINE_CYAN_CAGE_ID,
+    # The live 3.2 weapon detail uses `Weapon_S_1221` for Yanagi.
+    CharacterId("character:1221"): WEngineId("wengine:14122"),
     # Nanoka 3.2 detail 14145 explicitly identifies Lucia in its description.
     CharacterId("character:1451"): WENGINE_DREAM_FORGE_ID,
     CharacterId("character:1481"): WENGINE_LAST_NIGHT_ID,

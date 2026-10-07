@@ -28,6 +28,7 @@ from .nekomata import NekomataCompileConfig, compile_nekomata
 from .nicole import NicoleCompileConfig, compile_nicole
 from .remielle import RemielleCompileConfig, compile_remielle
 from .velina import VelinaCompileConfig, compile_velina
+from .yanagi import YanagiCompileConfig, compile_yanagi
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -71,4 +72,6 @@ __all__ = [
     "compile_remielle",
     "VelinaCompileConfig",
     "compile_velina",
+    "YanagiCompileConfig",
+    "compile_yanagi",
 ]

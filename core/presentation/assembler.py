@@ -264,6 +264,10 @@ def build_character_editor_view(
             element.value
             for element in _source_anomaly_elements(definition)
         ),
+        anomaly_source_elements=tuple(
+            element.value
+            for element in _source_anomaly_elements(definition)
+        ),
         effective_damage_element=_effective_damage_element(definition).value,
     )
 

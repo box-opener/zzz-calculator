@@ -49,12 +49,16 @@ import {
 } from "./state/equipmentConfig";
 import { filterCharacterCatalog, isCharacterSelectable } from "./state/characterLibrary";
 import { aggregateEditorViews } from "./state/editorAggregation";
-import { formatMultiplierPercent } from "./state/calculationDisplay";
+import { calculationNodeLabel, formatMultiplierPercent } from "./state/calculationDisplay";
 import {
   defaultRemielleSourceSlots as remielleDefaultSourceSlots,
   remielleOrdinarySourceOptions as buildRemielleOrdinarySourceOptions,
   serializeRemielleSourceSlots,
 } from "./state/remielleSourceSlots";
+import {
+  selectedYanagiAnomalySource,
+  yanagiAnomalySourceOptions,
+} from "./state/yanagiAnomalySource";
 
 type Character = {
   character_id: string;
@@ -146,6 +150,7 @@ type EditorView = {
   display_name: string;
   effective_damage_element?: string | null;
   luminance_source_elements?: string[];
+  anomaly_source_elements?: string[];
   moves: Move[];
   rule_items: Rule[];
   scenario_conditions: Condition[];
@@ -372,6 +377,7 @@ function App() {
   const [moveEntryId, setMoveEntryId] = useState("");
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [remielleSourceSlotOverrides, setRemielleSourceSlotOverrides] = useState<string[] | null>(null);
+  const [yanagiPolarSourceKey, setYanagiPolarSourceKey] = useState<string | null>(null);
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
   const [parameterValues, setParameterValues] = useState<Record<string, number | null>>({});
   const conditionValuesRef = useRef<Record<string, boolean | null>>({});
@@ -435,6 +441,19 @@ function App() {
   const effectiveRemielleSourceSlots = (
     remielleSourceSlotOverrides ?? defaultRemielleSourceSlots
   ).slice(0, 3).map((value) => validRemielleSourceOptions.has(value) ? value : "");
+  const yanagiAnomalySources = yanagiAnomalySourceOptions(teamIds, editorViews);
+  const effectiveYanagiAnomalySource = selectedYanagiAnomalySource(
+    yanagiAnomalySources,
+    yanagiPolarSourceKey,
+  );
+  const yanagiPolarMoveEntries = new Set([
+    "move-entry:character:1221:ex-special-moonlit-flow-thrust",
+    "move-entry:character:1221:ex-special-moonlit-flow-downfall",
+    "move-entry:character:1221:ultimate-thunder-shadow",
+  ]);
+  const showYanagiPolarSource = currentOperatorId === "character:1221"
+    && yanagiPolarMoveEntries.has(moveEntryId)
+    && yanagiAnomalySources.length > 0;
   const requestTeam = useMemo(() => calculationTeamOrder(teamIds, currentOperatorId), [teamIds, currentOperatorId]);
   const supportingIds = requestTeam.supportingCharacterIds;
   const aggregatedEditors = useMemo(
@@ -1144,6 +1163,12 @@ function App() {
           ...(currentOperatorId === remielleId
             ? { luminance_source_slots: luminanceSourceSlots }
             : {}),
+          ...(showYanagiPolarSource && effectiveYanagiAnomalySource ? {
+            polarity_anomaly_source: {
+              source_character_id: effectiveYanagiAnomalySource.characterId,
+              element: effectiveYanagiAnomalySource.element,
+            },
+          } : {}),
           compile_configs: Object.fromEntries(teamIds.map((id) => [id, {
             core_level: 7,
             cinema_level: 0,
@@ -1437,6 +1462,14 @@ function App() {
               </select>
             </label>)}
           </div>}
+          {showYanagiPolarSource && <div className="control-list yanagi-polar-source">
+            <div className="section-heading compact"><div><p className="eyebrow">POLAR DISORDER SOURCE</p><h2>本次极性紊乱来源</h2><p className="control-section-hint">选择一条当前属性异常记录；默认使用柳的感电记录。</p></div></div>
+            <label className="select-field"><span>异常来源</span><select value={effectiveYanagiAnomalySource?.key ?? ""} onChange={(event) => setYanagiPolarSourceKey(event.target.value || null)}>
+              {yanagiAnomalySources.map((option) => <option key={option.key} value={option.key}>
+                {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
+              </option>)}
+            </select></label>
+          </div>}
           {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={parameter.maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} />; })}</div></div>}
           <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.eligibility === "ineligible" ? "适用条件未满足" : rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stackValueForDisplay(stacks[rule.rule_id], rule.stack.default, rule.stack.minimum)} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>
           {allTriggers.length > 0 && <><div className="section-heading compact"><div><p className="eyebrow">TRIGGER FACTS</p><h2>场景触发</h2><p className="control-section-hint">需要明确入场角色的 Effect 会在这里显示；留空时计算 trace 会标记为 blocked。</p></div></div><div className="trigger-field-grid">{allTriggers.map((trigger) => { const selectedActor = triggerActors[trigger.input_id]; return <label className={`trigger-field ${selectedActor ? "trigger-field-selected" : "trigger-field-missing"}`} key={trigger.input_id}><span>{trigger.label}</span><select value={selectedActor ?? ""} onChange={(event) => setTriggerActors((current) => { const next = { ...current }; if (event.target.value) next[trigger.input_id] = event.target.value; else delete next[trigger.input_id]; return next; })}><option value="">未指定</option>{trigger.actor_options.map((actor) => <option key={actor} value={actor}>{characters.find((item) => item.character_id === actor)?.display_name ?? actor}</option>)}</select><small>{selectedActor ? `已指定：${characters.find((item) => item.character_id === selectedActor)?.display_name ?? selectedActor}` : "⚠ 需要指定入场角色"}</small></label>; })}</div></>}
@@ -1486,7 +1519,7 @@ function App() {
                       <summary>查看 breakdown</summary>
                       <div className="breakdown-list">
                         {(event.modes.expected?.calculation_breakdown ?? []).map((node) => (
-                          <div key={node.node}><span>{node.node}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>
+                          <div key={node.node}><span>{calculationNodeLabel(node.node)}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>
                         ))}
                       </div>
                       <AnomalyStrengthDetails event={event} />

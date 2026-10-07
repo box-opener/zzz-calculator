@@ -59,6 +59,7 @@ from ...scenario import (
     ScenarioIntegerParameter,
 )
 from ..definition import CharacterCalculationDefinition
+from ..nanoka_compiler import effective_skill_level
 from ..templates import DirectDamageEventTemplate
 from .reviewed import (
     HAS_QINGMING_CONDITION_KEY,
@@ -312,7 +313,7 @@ def _build_move(
     config: YeShunguangCompileConfig,
     raw_moves: dict[str, YeRawMoveRecord],
 ) -> tuple[MoveCalculationEntry, DirectDamageEventTemplate, tuple[CalculationDiagnostic, ...]]:
-    level = config.skill_level_for(spec.skill_group) or 12
+    level = effective_skill_level(config, spec.skill_group)
     raw_move = raw_moves.get(spec.source_name)
     variants, diagnostics = _parameter_value_for_level(spec, level, raw_move)
     if raw_move is None:

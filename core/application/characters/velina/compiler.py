@@ -976,6 +976,7 @@ def compile_velina(
             filters=(
                 DamageTypeFilter(DamageType.DISORDER),
                 NotFilter(ElementFilter(Element.WIND)),
+                NotFilter(DamageSubtypeFilter(DamageSubtype.POLAR_DISORDER)),
             ),
         ),
         result=EventCreationResult(

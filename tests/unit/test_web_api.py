@@ -410,6 +410,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1371",
         "character:1451",
         "character:1481",
+        "character:1221",
         "character:1331",
         "character:1341",
         "character:1251",

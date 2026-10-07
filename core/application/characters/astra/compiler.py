@@ -70,6 +70,7 @@ from ...scenario import (
     ScenarioIntegerParameter,
 )
 from ..definition import CharacterCalculationDefinition
+from ..nanoka_compiler import effective_skill_level
 from ..templates import DirectDamageEventTemplate
 from .config import AstraCompileConfig
 from .reviewed import (
@@ -316,7 +317,7 @@ def _build_move(
 ) -> tuple[
     MoveCalculationEntry, DirectDamageEventTemplate, tuple[CalculationDiagnostic, ...]
 ]:
-    skill_level = config.skill_level_for(spec.skill_group) or 12
+    skill_level = effective_skill_level(config, spec.skill_group)
     raw_move = raw_moves.get(spec.source_name)
     variants, diagnostics = _multiplier_variants(spec, raw_move, skill_level)
     template_id, semantic_id = _template_ids(spec.entry_key)
@@ -542,8 +543,8 @@ def compile_astra(
         level.name,
         level.description,
     )
-    basic_skill_level = config.skill_level_for(SkillGroup.BASIC_ATTACK) or 12
-    special_skill_level = config.skill_level_for(SkillGroup.SPECIAL_ATTACK) or 12
+    basic_skill_level = effective_skill_level(config, SkillGroup.BASIC_ATTACK)
+    special_skill_level = effective_skill_level(config, SkillGroup.SPECIAL_ATTACK)
     chord_tremolo_multiplier = _raw_multiplier(
         raw_moves,
         "和弦",

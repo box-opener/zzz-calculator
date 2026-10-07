@@ -274,7 +274,7 @@ def test_qingyi_level60_panel_and_impact_drive_disc_preview() -> None:
     )
 
 
-def test_cinema3_and5_apply_to_nonultimate_source_curves_only() -> None:
+def test_cinema3_and5_apply_to_ultimate_and_other_skill_curves() -> None:
     base = compile_registered_definition(
         QINGYI,
         {
@@ -311,8 +311,8 @@ def test_cinema3_and5_apply_to_nonultimate_source_curves_only() -> None:
     assert multiplier(cinema3, "special-day-brocade-hall") == pytest.approx(1.365)
     assert multiplier(cinema5, "special-day-brocade-hall") == pytest.approx(1.479)
     assert multiplier(base, "ultimate-eight-sounds-ganzhou") == pytest.approx(33.416)
-    assert multiplier(cinema3, "ultimate-eight-sounds-ganzhou") == pytest.approx(33.416)
-    assert multiplier(cinema5, "ultimate-eight-sounds-ganzhou") == pytest.approx(33.416)
+    assert multiplier(cinema3, "ultimate-eight-sounds-ganzhou") == pytest.approx(36.454)
+    assert multiplier(cinema5, "ultimate-eight-sounds-ganzhou") == pytest.approx(39.492)
 
 
 def test_additional_ability_reads_current_impact_after_real_engine_panel_buff() -> None:

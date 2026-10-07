@@ -58,6 +58,7 @@ from core.types import (
     DamageTypeFilter,
     DirectDamageEvent,
     DisorderDamageEvent,
+    PolarDisorderDamageEvent,
     DischargeDamageEvent,
     DynamicIdentity,
     DynamicIdentityCondition,
@@ -934,6 +935,48 @@ def test_all_typed_trigger_identities_resolve_from_their_events() -> None:
         )
         resolution = DynamicIdentityResolver().resolve(identity, context)
         assert resolution.identities == frozenset({actor})
+
+
+def test_polar_disorder_resolves_triggerer_and_selected_record_identities() -> None:
+    yanagi = CharacterId("character:1221")
+    source = CharacterId("character:source")
+    record_id = AnomalyRecordId("anomaly:polar-source")
+    record = _record(record_id, source)
+    event = PolarDisorderDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId("damage:polar-identity"),
+            battle_state_id=BattleStateId("battle:matcher"),
+            damage_dealer=yanagi,
+            target_enemy=record.target_enemy,
+            element=record.element,
+            created_at=2.0,
+        ),
+        disorder_triggerer=yanagi,
+        source_anomaly_character_id=source,
+        base_settlement_data_source=AnomalyRecordValueSource(record_id),
+        history_record_source=record_id,
+        polarity_multiplier=0.15,
+        anomaly_proficiency_coefficient=32.0,
+        crit_rule=NoCritRule(),
+    )
+    scenario = _scenario()
+    context = _context(
+        event,
+        scenario,
+        owner=yanagi,
+        owner_role=CharacterRole.ANOMALY,
+        history_records=(record,),
+    )
+
+    assert DynamicIdentityResolver().resolve(
+        DynamicIdentity.DISORDER_TRIGGER, context
+    ).identities == frozenset({yanagi})
+    assert DynamicIdentityResolver().resolve(
+        DynamicIdentity.ANOMALY_TRIGGER, context
+    ).identities == frozenset({source})
+    assert DynamicIdentityResolver().resolve(
+        DynamicIdentity.ANOMALY_CONTRIBUTORS, context
+    ).identities == frozenset({source})
 
 
 def test_anomaly_contributors_and_subtype_filter_positive_paths() -> None:

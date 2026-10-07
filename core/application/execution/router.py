@@ -11,6 +11,7 @@ from core.calculation.calculators import (
     DirectDamageCalculator,
     DischargeDamageCalculator,
     DisorderDamageCalculator,
+    PolarDisorderDamageCalculator,
     LuminanceDamageCalculator,
     PenetrationDamageCalculator,
     SettledAnomalyDamageCalculator,
@@ -25,6 +26,7 @@ from core.types import (
     DirectDamageEvent,
     DischargeDamageEvent,
     DisorderDamageEvent,
+    PolarDisorderDamageEvent,
     LuminanceDamageEvent,
     SpecialLuminanceDamageEvent,
     PenetrationDamageEvent,
@@ -134,9 +136,28 @@ class CalculationRouter:
                 result=None,
                 diagnostics=diagnostics,
             )
+        diagnostics = ()
+        if isinstance(event, PolarDisorderDamageEvent) and result.unresolved:
+            diagnostics = tuple(
+                CalculationDiagnostic(
+                    diagnostic_id=DiagnosticId(
+                        f"application:polar-disorder-partial:{index}"
+                    ),
+                    kind=(
+                        DiagnosticKind.MISSING_DATA
+                        if item.reason is UnresolvedReason.MISSING_DATA
+                        else DiagnosticKind.UNSUPPORTED_CALCULATOR
+                    ),
+                    message=item.notes,
+                    blocking=True,
+                    original_text=item.original_text,
+                )
+                for index, item in enumerate(result.unresolved)
+            )
         return CalculatorExecutionResult(
             status=EventCalculationStatus.CALCULATED,
             result=result,
+            diagnostics=diagnostics,
         )
 
 
@@ -155,6 +176,8 @@ def _calculator_for(event: DamageEvent):
         return DischargeDamageCalculator()
     if isinstance(event, DisorderDamageEvent):
         return DisorderDamageCalculator()
+    if isinstance(event, PolarDisorderDamageEvent):
+        return PolarDisorderDamageCalculator()
     if isinstance(event, TurbulenceDamageEvent):
         return TurbulenceDamageCalculator()
     if isinstance(event, (LuminanceDamageEvent, SpecialLuminanceDamageEvent)):

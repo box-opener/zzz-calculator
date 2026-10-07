@@ -1,7 +1,7 @@
 from .attribute_anomaly import AttributeAnomalyDamageCalculator
 from .discharge import DischargeDamageCalculator
 from .direct import DirectDamageCalculator
-from .disorder import DisorderDamageCalculator
+from .disorder import DisorderDamageCalculator, PolarDisorderDamageCalculator
 from .current_anomaly import CurrentAttributeAnomalyDamageCalculator
 from .errors import InvalidCalculationContextError
 from .luminance import LuminanceDamageCalculator
@@ -14,6 +14,7 @@ __all__ = [
     "DirectDamageCalculator",
     "DischargeDamageCalculator",
     "DisorderDamageCalculator",
+    "PolarDisorderDamageCalculator",
     "CurrentAttributeAnomalyDamageCalculator",
     "InvalidCalculationContextError",
     "LuminanceDamageCalculator",

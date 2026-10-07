@@ -9,7 +9,10 @@ from core.calculation import (
     DamageCalculator,
     DisorderDamageCalculator,
     InvalidCalculationContextError,
+    PolarDisorderDamageCalculator,
 )
+from core.application.execution.router import CalculationRouter
+from core.application.output import EventCalculationStatus
 from core.types import (
     ANOMALY_DAMAGE_KIND_BY_ELEMENT,
     ANOMALY_STATE_KIND_BY_ELEMENT,
@@ -29,6 +32,7 @@ from core.types import (
     DamageEventMetadata,
     DirectDamageEvent,
     DisorderDamageEvent,
+    PolarDisorderDamageEvent,
     EffectId,
     EffectOperation,
     Element,
@@ -581,3 +585,154 @@ def test_calculator_satisfies_protocol_and_does_not_mutate_context() -> None:
     assert isinstance(calculator, DamageCalculator)
     calculator.calculate(context)
     assert context == original
+
+
+def test_polar_disorder_uses_record_base_then_adds_current_ap_once() -> None:
+    source = _record(
+        record_id="anomaly:polar-source",
+        element=Element.ELECTRIC,
+        anomaly_triggerer=CharacterId("character:source"),
+        contributors=(CharacterId("character:source"),),
+        effect_strength=1600.0,
+    )
+    yanagi = CharacterId("character:yanagi")
+    event = PolarDisorderDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId("damage:polar"),
+            battle_state_id=BattleStateId("battle:1"),
+            damage_dealer=yanagi,
+            target_enemy=source.target_enemy,
+            element=Element.ELECTRIC,
+            created_at=2.0,
+        ),
+        disorder_triggerer=yanagi,
+        source_anomaly_character_id=CharacterId("character:source"),
+        base_settlement_data_source=AnomalyRecordValueSource(source.record_id),
+        history_record_source=source.record_id,
+        polarity_multiplier=0.15,
+        anomaly_proficiency_coefficient=32.0,
+        crit_rule=NoCritRule(),
+    )
+    stats = replace(_stats(), anomaly_proficiency=Resolved(200.0))
+    snapshot = CharacterSnapshot(
+        character_id=yanagi,
+        level=60,
+        settlement_stats=stats,
+    )
+    context = _context(
+        event,  # type: ignore[arg-type]
+        snapshots=(snapshot,),
+        records=(source,),
+        target=_target(element=Element.ELECTRIC, resistance=0.0),
+        modifiers=(_modifier(CalculationNode.DISORDER_EXTRA_MULTIPLIER, 2.5),),
+    )
+
+    result = PolarDisorderDamageCalculator().calculate(context)
+    breakdown = _breakdown(result)
+
+    assert breakdown[CalculationNode.DISORDER_TOTAL_MULTIPLIER] == pytest.approx(19.5)
+    assert breakdown[CalculationNode.POLAR_DISORDER_MULTIPLIER] == pytest.approx(0.15)
+    assert breakdown[CalculationNode.POLAR_DISORDER_AP_COEFFICIENT] == pytest.approx(32.0)
+    assert breakdown[CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY] == pytest.approx(200.0)
+    assert breakdown[CalculationNode.DAMAGE_BASE_VALUE] == pytest.approx(1600 * 19.5 * 0.15 + 32 * 200)
+
+
+def test_polar_disorder_keeps_known_ap_component_when_selected_record_is_missing() -> None:
+    yanagi = CharacterId("character:yanagi")
+    missing_record_id = AnomalyRecordId("anomaly:polar-missing")
+    event = PolarDisorderDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId("damage:polar-missing"),
+            battle_state_id=BattleStateId("battle:1"),
+            damage_dealer=yanagi,
+            target_enemy=EnemyId("enemy:target"),
+            element=Element.ELECTRIC,
+            created_at=2.0,
+        ),
+        disorder_triggerer=yanagi,
+        source_anomaly_character_id=CharacterId("character:missing-source"),
+        base_settlement_data_source=AnomalyRecordValueSource(missing_record_id),
+        history_record_source=missing_record_id,
+        polarity_multiplier=0.15,
+        anomaly_proficiency_coefficient=32.0,
+        crit_rule=NoCritRule(),
+    )
+    snapshot = CharacterSnapshot(
+        character_id=yanagi,
+        level=60,
+        settlement_stats=replace(_stats(), anomaly_proficiency=Resolved(200.0)),
+    )
+    unrelated = _record(record_id="anomaly:unrelated")
+    context = _context(
+        event,  # type: ignore[arg-type]
+        snapshots=(snapshot,),
+        records=(unrelated,),
+        target=_target(element=Element.ELECTRIC, resistance=0.0),
+    )
+
+    result = PolarDisorderDamageCalculator().calculate(context)
+
+    assert result.value == pytest.approx(3200.0)
+    assert any("selected anomaly source record is missing" in item.notes for item in result.unresolved)
+    breakdown = {
+        item.node: item.value.value
+        for item in result.breakdown
+        if isinstance(item.value, Resolved)
+    }
+    assert breakdown[CalculationNode.DAMAGE_BASE_VALUE] == pytest.approx(6400.0)
+    routed = CalculationRouter().calculate(event, context)
+    assert routed.status is EventCalculationStatus.CALCULATED
+    assert routed.result is not None
+    assert routed.result.value == pytest.approx(3200.0)
+    assert routed.diagnostics and routed.diagnostics[0].blocking is True
+
+
+def test_wind_polar_disorder_uses_base_multiplier_without_a_duration() -> None:
+    source = replace(
+        _record(
+            record_id="anomaly:wind-polar-source",
+            element=Element.WIND,
+            anomaly_triggerer=CharacterId("character:wind-source"),
+            contributors=(CharacterId("character:wind-source"),),
+            effect_strength=1600.0,
+        ),
+        duration=Unresolved(
+            reason=UnresolvedReason.MISSING_DATA,
+            notes="Wind duration is not required by Polar Disorder.",
+        ),
+    )
+    yanagi = CharacterId("character:yanagi")
+    event = PolarDisorderDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId("damage:wind-polar"),
+            battle_state_id=BattleStateId("battle:1"),
+            damage_dealer=yanagi,
+            target_enemy=source.target_enemy,
+            element=Element.WIND,
+            created_at=2.0,
+        ),
+        disorder_triggerer=yanagi,
+        source_anomaly_character_id=CharacterId("character:wind-source"),
+        base_settlement_data_source=AnomalyRecordValueSource(source.record_id),
+        history_record_source=source.record_id,
+        polarity_multiplier=0.15,
+        anomaly_proficiency_coefficient=32.0,
+        crit_rule=NoCritRule(),
+    )
+    snapshot = CharacterSnapshot(
+        character_id=yanagi,
+        level=60,
+        settlement_stats=replace(_stats(), anomaly_proficiency=Resolved(200.0)),
+    )
+    context = _context(
+        event,  # type: ignore[arg-type]
+        snapshots=(snapshot,),
+        records=(source,),
+        target=_target(element=Element.WIND, resistance=0.0),
+    )
+
+    result = PolarDisorderDamageCalculator().calculate(context)
+    breakdown = _breakdown(result)
+    assert breakdown[CalculationNode.DISORDER_TIME_COMPENSATION_MULTIPLIER] == pytest.approx(0.0)
+    assert breakdown[CalculationNode.DAMAGE_BASE_VALUE] == pytest.approx(1600 * 4.5 * 0.15 + 32 * 200)
+    assert result.unresolved == ()

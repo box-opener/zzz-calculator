@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import math
+from dataclasses import replace
+
 from core.types import (
+    ANOMALY_DAMAGE_KIND_BY_ELEMENT,
+    ANOMALY_STATE_KIND_BY_ELEMENT,
     BASE_ELEMENT_BY_ELEMENT,
     AnomalyRecord,
     AnomalyRecordId,
@@ -12,11 +17,14 @@ from core.types import (
     CharacterId,
     CharacterSnapshot,
     DisorderDamageEvent,
+    PolarDisorderDamageEvent,
+    Element,
     EffectId,
     EffectOperation,
     FixedMultiplier,
     Modifier,
     NoCritRule,
+    NoAnomalyCrit,
     Resolvable,
     Resolved,
     SnapshotRule,
@@ -44,6 +52,7 @@ _SUPPORTED_MODIFIER_PATHS = frozenset(
         CalculationNode.DISORDER_TRIGGER_DAMAGE_BONUS,
         CalculationNode.DISORDER_SETTLED_CONTRIBUTOR_DAMAGE_BONUS,
         CalculationNode.DISORDER_EXTRA_MULTIPLIER,
+        CalculationNode.POLAR_DISORDER_MULTIPLIER,
         CalculationNode.ENEMY_DEFENSE_INCREASE,
         CalculationNode.ENEMY_DEFENSE_REDUCTION,
         CalculationNode.DAMAGE_DEFENSE_IGNORE,
@@ -391,3 +400,301 @@ class DisorderDamageCalculator:
             anomaly_effect_strength_trace=record.anomaly_effect_strength_trace,
             anomaly_record_id=str(record.record_id),
         )
+
+
+def _polar_time_compensation(element, duration, unresolved: list[Unresolved]) -> float | None:
+    if element is Element.WIND:
+        return 0.0
+    seconds = _resolved_number(duration, unresolved)
+    if seconds is None:
+        return None
+    seconds = max(float(seconds), 0.0)
+    ticks = math.floor(seconds + 1e-9)
+    if element in {Element.PHYSICAL, Element.LINREN, Element.ICE}:
+        return ticks * 0.075
+    if element is Element.LIESHUANG:
+        return ticks * 0.75
+    if element is Element.FIRE:
+        return math.floor(seconds / 0.5 + 1e-9) * 0.50
+    if element is Element.ELECTRIC:
+        return ticks * 1.25
+    if element in {Element.ETHER, Element.XUANMO}:
+        return math.floor(seconds / 0.5 + 1e-9) * 0.625
+    unresolved.append(
+        Unresolved(
+            reason=UnresolvedReason.MISSING_SPEC_RULE,
+            notes=f"No Polar Disorder time rule is defined for {element.value}.",
+        )
+    )
+    return None
+
+
+class PolarDisorderDamageCalculator:
+    """Calculate Yanagi's confirmed additive Polar Disorder base."""
+
+    def calculate(self, context: CalculationContext) -> CalculationResult:
+        event = context.event
+        if not isinstance(event, PolarDisorderDamageEvent):
+            raise InvalidCalculationContextError(
+                "PolarDisorderDamageCalculator only accepts PolarDisorderDamageEvent"
+            )
+        if context.battle_state_id != event.metadata.battle_state_id:
+            raise InvalidCalculationContextError(
+                "CalculationContext battle_state_id does not match DamageEvent"
+            )
+        if context.target_snapshot.enemy_id != event.metadata.target_enemy:
+            raise InvalidCalculationContextError(
+                "target snapshot does not match DamageEvent target"
+            )
+
+        records = _record_index(context.history_records)
+        record = records.get(event.history_record_source)
+        unresolved: list[Unresolved] = []
+        if record is None:
+            unresolved.append(
+                Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes=(
+                        "The selected anomaly source record is missing; the inherited "
+                        "Polar Disorder base cannot be resolved."
+                    ),
+                )
+            )
+            record = AnomalyRecord(
+                record_id=event.history_record_source,
+                target_enemy=event.metadata.target_enemy,
+                element=event.metadata.element,
+                damage_kind=ANOMALY_DAMAGE_KIND_BY_ELEMENT[event.metadata.element],
+                state_kind=ANOMALY_STATE_KIND_BY_ELEMENT[event.metadata.element],
+                weighted_anomaly_effect_strength=Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes="selected anomaly record strength is missing",
+                ),
+                weighted_impact_strength=Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes="selected anomaly record impact is missing",
+                ),
+                anomaly_damage_bonus_region=Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes="selected anomaly record provenance is missing",
+                ),
+                contributors=(event.source_anomaly_character_id,),
+                anomaly_triggerer=event.source_anomaly_character_id,
+                crit_capability=NoAnomalyCrit(),
+                triggered_at=event.metadata.created_at,
+                duration=Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes="selected anomaly record duration is missing",
+                ),
+            )
+        else:
+            if record.target_enemy != event.metadata.target_enemy:
+                raise InvalidCalculationContextError(
+                    "anomaly record target does not match Polar Disorder target"
+                )
+            if record.element != event.metadata.element:
+                raise InvalidCalculationContextError(
+                    "anomaly record element does not match Polar Disorder element"
+                )
+            if (
+                record.anomaly_triggerer != event.source_anomaly_character_id
+                or event.source_anomaly_character_id not in record.contributors
+            ):
+                raise InvalidCalculationContextError(
+                    "selected Polar anomaly record actor does not match its source identity"
+                )
+
+        snapshots = _snapshot_index(context.character_snapshots)
+        damage_dealer = _required_snapshot(snapshots, event.metadata.damage_dealer)
+        if isinstance(event.crit_rule, Unresolved):
+            unresolved.append(event.crit_rule)
+        elif not isinstance(event.crit_rule, NoCritRule):
+            raise InvalidCalculationContextError(
+                "Polar Disorder damage must use NoCritRule"
+            )
+
+        source_strength = _resolved_number(
+            record.weighted_anomaly_effect_strength,
+            unresolved,
+        )
+        time_compensation = _polar_time_compensation(
+            event.metadata.element,
+            record.duration,
+            unresolved,
+        )
+        anomaly_proficiency = _resolved_number(
+            damage_dealer.settlement_stats.anomaly_proficiency,
+            unresolved,
+        )
+        modifiers = _modifier_totals(context, unresolved)
+        if isinstance(event.polarity_multiplier, bool) or not math.isfinite(
+            float(event.polarity_multiplier)
+        ):
+            unresolved.append(
+                Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes="Polar Disorder multiplier is not a finite number.",
+                )
+            )
+        base_multiplier = 4.5
+        core_extra = modifiers[CalculationNode.DISORDER_EXTRA_MULTIPLIER]
+        polarity_multiplier = event.polarity_multiplier + modifiers[
+            CalculationNode.POLAR_DISORDER_MULTIPLIER
+        ]
+
+        inherited_base: float | None = None
+        unresolved_pre_modifier = any(
+            modifier.modifier_path
+            in {
+                CalculationNode.DISORDER_EXTRA_MULTIPLIER,
+                CalculationNode.POLAR_DISORDER_MULTIPLIER,
+            }
+            and not isinstance(modifier.value, Resolved)
+            for modifier in context.modifiers
+        )
+        if (
+            source_strength is not None
+            and time_compensation is not None
+            and not unresolved_pre_modifier
+        ):
+            inherited_base = source_strength * (
+                base_multiplier + time_compensation + core_extra
+            ) * polarity_multiplier
+        else:
+            unresolved.append(
+                Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes=(
+                        "The inherited Polar Disorder component is unresolved because "
+                        "the selected record strength or duration is unavailable."
+                    ),
+                )
+            )
+        ap_addition = (
+            event.anomaly_proficiency_coefficient * anomaly_proficiency
+            if anomaly_proficiency is not None
+            else None
+        )
+        if ap_addition is None:
+            unresolved.append(
+                Unresolved(
+                    reason=UnresolvedReason.MISSING_DATA,
+                    notes="Yanagi's current Anomaly Proficiency is unavailable.",
+                )
+            )
+
+        known_base = (inherited_base or 0.0) + (ap_addition or 0.0)
+        if inherited_base is None and ap_addition is None:
+            return CalculationResult(
+                value=None,
+                breakdown=(
+                    _node(CalculationNode.DISORDER_BASE_MULTIPLIER, base_multiplier),
+                    _node(
+                        CalculationNode.POLAR_DISORDER_MULTIPLIER,
+                        polarity_multiplier,
+                    ),
+                ),
+                unresolved=tuple(unresolved),
+                anomaly_effect_strength_trace=record.anomaly_effect_strength_trace,
+                anomaly_record_id=str(record.record_id),
+            )
+
+        # Feed the already-combined pre-defense base through the ordinary
+        # Disorder regions once. The core Disorder multiplier has already been
+        # applied to the inherited component and must not multiply the AP term.
+        post_record = replace(
+            record,
+            weighted_anomaly_effect_strength=Resolved(known_base),
+        )
+        post_event = DisorderDamageEvent(
+            metadata=event.metadata,
+            disorder_triggerer=event.disorder_triggerer,
+            base_settlement_data_source=event.base_settlement_data_source,
+            history_record_source=event.history_record_source,
+            multiplier=FixedMultiplier(Resolved(1.0)),
+            crit_rule=NoCritRule(),
+        )
+        post_modifiers = tuple(
+            modifier
+            for modifier in context.modifiers
+            if modifier.modifier_path
+            not in {
+                CalculationNode.DISORDER_EXTRA_MULTIPLIER,
+                CalculationNode.POLAR_DISORDER_MULTIPLIER,
+                CalculationNode.POLAR_DISORDER_AP_COEFFICIENT,
+            }
+        )
+        post_history = [
+            post_record if item.record_id == post_record.record_id else item
+            for item in context.history_records
+        ]
+        if not any(item.record_id == post_record.record_id for item in post_history):
+            post_history.append(post_record)
+        post_result = DisorderDamageCalculator().calculate(
+            replace(
+                context,
+                event=post_event,
+                history_records=tuple(post_history),
+                modifiers=post_modifiers,
+            )
+        )
+        breakdown = (
+            _node(CalculationNode.ANOMALY_EFFECT_STRENGTH, source_strength)
+            if source_strength is not None
+            else _node_unresolved(
+                CalculationNode.ANOMALY_EFFECT_STRENGTH,
+                record.weighted_anomaly_effect_strength,
+            ),
+            _node(CalculationNode.DISORDER_BASE_MULTIPLIER, base_multiplier),
+            _node(CalculationNode.DISORDER_TIME_COMPENSATION_MULTIPLIER, time_compensation)
+            if time_compensation is not None
+            else _node_unresolved(
+                CalculationNode.DISORDER_TIME_COMPENSATION_MULTIPLIER,
+                record.duration,
+            ),
+            _node(CalculationNode.DISORDER_EXTRA_MULTIPLIER, core_extra),
+            _node(
+                CalculationNode.DISORDER_TOTAL_MULTIPLIER,
+                base_multiplier + (time_compensation or 0.0) + core_extra,
+            ),
+            _node(CalculationNode.POLAR_DISORDER_MULTIPLIER, polarity_multiplier),
+            _node(
+                CalculationNode.POLAR_DISORDER_AP_COEFFICIENT,
+                event.anomaly_proficiency_coefficient,
+            ),
+            _node(CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY, anomaly_proficiency)
+            if anomaly_proficiency is not None
+            else _node_unresolved(
+                CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
+                damage_dealer.settlement_stats.anomaly_proficiency,
+            ),
+            _node(CalculationNode.DAMAGE_BASE_VALUE, known_base),
+        )
+        unresolved.extend(post_result.unresolved)
+        return replace(
+            post_result,
+            breakdown=(
+                *breakdown,
+                *(
+                    item
+                    for item in post_result.breakdown
+                    if item.node
+                    not in {
+                        CalculationNode.ANOMALY_EFFECT_STRENGTH,
+                        CalculationNode.DISORDER_TOTAL_MULTIPLIER,
+                        CalculationNode.DAMAGE_BASE_VALUE,
+                    }
+                ),
+            ),
+            unresolved=tuple(unresolved),
+            anomaly_effect_strength_trace=record.anomaly_effect_strength_trace,
+            anomaly_record_id=str(record.record_id),
+        )
+
+
+def _node_unresolved(node: CalculationNode, value) -> CalculationNodeValue:
+    return CalculationNodeValue(
+        node=node,
+        value=value,
+        read_rule=SnapshotRule.SETTLEMENT,
+    )
