@@ -218,6 +218,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1071"): WENGINE_TUSKS_OF_FURY_ID,
     # The local 13108 raw record is `Weapon_A_1081` and describes Billy's modified engine.
     CharacterId("character:1081"): WENGINE_STARLIGHT_ENGINE_REPLICA_ID,
+    # The local 14110 raw record is `Weapon_S_1101`; its detail identifies Koleda.
+    CharacterId("character:1101"): WENGINE_HELLFIRE_GEARS_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

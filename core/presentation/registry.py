@@ -98,6 +98,13 @@ from core.application.characters.billy import (
     compile_billy,
     load_raw_record as load_billy_raw_record,
 )
+from core.application.characters.koleda import (
+    KOLEDA_ID,
+    KoledaCompileConfig,
+    compile_koleda,
+    load_raw_record as load_koleda_raw_record,
+)
+from core.application.characters.koleda.reviewed import BEN_ID
 from core.application.characters.caesar import (
     CAESAR_ID,
     CaesarCompileConfig,
@@ -308,6 +315,86 @@ def _physical_attack_equipment_capabilities(
                 ),
             }
         ),
+    )
+
+
+def _koleda_equipment_capabilities(
+    character_id: CharacterId,
+) -> EquipmentOwnerCapabilities:
+    scopes = {
+        EquipmentDamageScope(
+            Element.PHYSICAL,
+            SkillGroup.BASIC_ATTACK,
+            frozenset({DamageTag.BASIC_ATTACK}),
+        ),
+        EquipmentDamageScope(
+            Element.FIRE,
+            SkillGroup.BASIC_ATTACK,
+            frozenset({DamageTag.BASIC_ATTACK}),
+        ),
+        EquipmentDamageScope(
+            Element.PHYSICAL,
+            SkillGroup.DODGE,
+            frozenset({DamageTag.DASH_ATTACK}),
+        ),
+        EquipmentDamageScope(
+            Element.FIRE,
+            SkillGroup.DODGE,
+            frozenset({DamageTag.DODGE_COUNTER}),
+        ),
+        EquipmentDamageScope(
+            Element.FIRE,
+            SkillGroup.SPECIAL_ATTACK,
+            frozenset({DamageTag.SPECIAL_ATTACK}),
+        ),
+        EquipmentDamageScope(
+            Element.FIRE,
+            SkillGroup.SPECIAL_ATTACK,
+            frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+        ),
+        EquipmentDamageScope(
+            Element.FIRE,
+            SkillGroup.CHAIN_ATTACK,
+            frozenset({DamageTag.CHAIN_ATTACK}),
+        ),
+        EquipmentDamageScope(
+            Element.FIRE,
+            SkillGroup.ULTIMATE,
+            frozenset({DamageTag.ULTIMATE}),
+        ),
+        EquipmentDamageScope(
+            Element.FIRE,
+            SkillGroup.ASSIST,
+            frozenset({DamageTag.ASSIST}),
+        ),
+    }
+    return EquipmentOwnerCapabilities(
+        character_id=character_id,
+        role=CharacterRole.STUN,
+        possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
+        skill_groups=frozenset(
+            {
+                SkillGroup.BASIC_ATTACK,
+                SkillGroup.DODGE,
+                SkillGroup.SPECIAL_ATTACK,
+                SkillGroup.CHAIN_ATTACK,
+                SkillGroup.ULTIMATE,
+                SkillGroup.ASSIST,
+            }
+        ),
+        damage_tags=frozenset(
+            {
+                DamageTag.BASIC_ATTACK,
+                DamageTag.DASH_ATTACK,
+                DamageTag.DODGE_COUNTER,
+                DamageTag.SPECIAL_ATTACK,
+                DamageTag.EX_SPECIAL_ATTACK,
+                DamageTag.CHAIN_ATTACK,
+                DamageTag.ULTIMATE,
+                DamageTag.ASSIST,
+            }
+        ),
+        damage_scopes=frozenset(scopes),
     )
 
 
@@ -749,6 +836,39 @@ def _billy_fields(
     )
 
 
+def _koleda_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "珂蕾妲核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "珂蕾妲影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        _slider_field(
+            "potential_level",
+            "珂蕾妲潜能",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "0为基础配置；1解锁源中潜能招式和状态；2–6读取对应潜能的队伍暴击伤害文本。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
 def _caesar_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1069,6 +1189,70 @@ def _compile_billy(
     return compile_billy(
         config,
         load_billy_raw_record(load_character_record(str(BILLY_ID))),
+    )
+
+
+def _koleda_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+    potential_level: int,
+) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(KOLEDA_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == KOLEDA_ID:
+            continue
+        # Koleda's source explicitly names Ben as a cooperating teammate.  Ben
+        # is next in the requested implementation queue, so preserve his actual
+        # stable character ID without fabricating a temporary role registration.
+        if character_id == BEN_ID:
+            return True
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.base_element is Element.FIRE:
+            return True
+        if registration.role is CharacterRole.RUPTURE:
+            return True
+        if potential_level >= 1 and registration.role is CharacterRole.VANGUARD:
+            return True
+        camps = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camps, Mapping) and own_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
+def _compile_koleda(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = KoledaCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=_integer_with_default(values, "potential_level", 0, strict),
+        additional_ability_eligible=_koleda_additional_ability_eligibility(
+            team_ids,
+            _integer_with_default(values, "potential_level", 0, strict),
+        ),
+        ben_in_team=BEN_ID in team_ids,
+    )
+    return compile_koleda(
+        config,
+        load_koleda_raw_record(
+            load_character_record(str(KOLEDA_ID)),
+            potential_level=config.potential_level,
+        ),
     )
 
 
@@ -2578,6 +2762,23 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
         compile_definition=_compile_billy,
         config_fields=_billy_fields,
         equipment_capabilities=_physical_attack_equipment_capabilities(BILLY_ID),
+    ),
+    KOLEDA_ID: CharacterPresentationRegistration(
+        character_id=KOLEDA_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1101",
+            display_name="珂蕾妲",
+            rarity="S",
+            element="fire",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.FIRE,
+        compile_definition=_compile_koleda,
+        config_fields=_koleda_fields,
+        equipment_capabilities=_koleda_equipment_capabilities(KOLEDA_ID),
     ),
     CharacterId("character:1011"): CharacterPresentationRegistration(
         character_id=ANBY_ID,

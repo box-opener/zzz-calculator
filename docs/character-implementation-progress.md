@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Billy registered, 37 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Koleda registered, 36 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -15,7 +15,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1071` | Caesar | 凯撒 | 4 | 5 | 部分实现（live 3.2 raw + level-60 Defense panel + reviewed Physical Direct entries + static Physical Assault/Disorder + current-operator shield ATK, enemy debuff and Cinema rules; shield capacity, Daze, Energy/Support Point, and incoming-damage results remain outside the current contract） |
 | `1081` | Billy | 比利 | 3 | 1 | 部分实现（live 3.2 raw + level-60 panel + reviewed Physical Direct entries + static Physical Assault/Disorder + Core/Cinema current-state rules; Daze and Energy resource results remain outside the current result contract） |
 | `1091` | Miyabi | 雅 | 4 | 3 | 已实现（已有registry/compiler） |
-| `1101` | Koleda | 珂蕾妲 | 4 | 2 | 待实现 |
+| `1101` | Koleda | 珂蕾妲 | 4 | 2 | 部分实现（live 3.2 raw + level-60 panel + potential 0–6 + Physical/Fire Direct entries + Fire Burn/Disorder + Ben team-coordination curves + Core/Cinema current states; Vanguard 锐暴, Daze and Energy results remain outside the registered calculation contract） |
 | `1111` | Anton | 安东 | 3 | 1 | 待实现 |
 | `1121` | Ben | 本 | 3 | 5 | 待实现 |
 | `1131` | Soukaku | 苍角 | 3 | 4 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current user-directed item: Billy `1081`, after Caesar `1071` was reviewed and pushed. Continue the ascending-ID character queue only after this role is reviewed and pushed.
+Current user-directed item: Koleda `1101`, after Billy `1081` was reviewed and pushed. Continue the ascending-ID character queue only after this role is reviewed and pushed.
 
 ## Corin (`character:1061`)
 
@@ -92,6 +92,16 @@ Shield capacity and absorption, damage taken, interrupt resistance, Daze, Energy
 The preserved live Nanoka 3.2 record is `core/data/characters/billy.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1081.json`. Billy is an A-rank Attack agent with a Physical base element. The source icon `IconRole10` is not present in the local portrait assets, so the catalog uses the neutral placeholder. The local 13108 engine raw record is `Weapon_A_1081` and describes Billy's modified engine; it remains a selectable signature rather than being auto-equipped.
 
 The reviewed move list keeps standing/crouching Basic fire and single-bullet ratios separate, along with the distinct roll/finisher, spread/focused Dash, three Special stages, EX, Chain, Ultimate, Quick Assist, and Assist Strike. The raw curve IDs are kept separate from skill-list action IDs. Crouch damage, post-Chain Ultimate stacks, and Cinema 6 damage stacks are current user-selected states; shot cadence, hit history, Energy, and Daze are not simulated. The Cinema 4 EX Crit Rate input defaults to the source maximum of 32% for the close-range maximum scenario; it can be lowered to 0–32% and is scoped only to that EX event. No distance-to-Crit curve is inferred. Billy's additional ability requires another same-element or same-faction agent; `AidTypeEvade` does not count as Parry Support.
+
+## Koleda (`character:1101`)
+
+The preserved live Nanoka 3.2 record is `core/data/characters/koleda.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1101.json`. Koleda is an S-rank Stun agent with a Fire base element; her level-60 panel adds +75 base ATK and +18 Impact from the source's level-6 extra properties. The local engine `wengine:14110` is `Weapon_S_1101`; its raw detail identifies Koleda. The source portrait icon `IconRole14` is not present in the local portrait assets, so the catalog uses the neutral placeholder.
+
+The reviewed list keeps Physical Basic stages and Dash separate from her Fire Enhanced Basic stages, Counter, Special/EX hit and explosion parts, Chain, Ultimate, and both Assist damage actions. Ben cooperation uses source curve 1101007 for the Enhanced Basic second stage at Potential 0 when Ben is in the actual team; from Potential 1 onward it is a separate selected second-stage entry gated by the current “did not switch during the first Enhanced Basic stage” state. Special/EX cooperation uses its own source explosion curve and the current quick-follow-up state. Ultimate uses the coordinated curve when Ben is in the team. None of these checks uses the current operator as a substitute for team membership.
+
+Potential 0–6 is user-selectable. Potential 1 exposes the source-described team +35% damage state and the 0–2 consumed Furnace layers for the Enhanced Basic second-stage +10%-per-layer effect. Potential 2–6 applies the source's non-Vanguard team Crit Damage values (11/17/23/29/35%). The separate `[锋御]` 锐暴 branch is retained in source-only diagnostics because that role is not registered. Potential 1's `ability_list` ID 11101401 has an empty description, and its stronger first-stage chase effect has no separate numeric curve; neither is given invented damage.
+
+Cinema 4 uses a 0–2 current Furnace charge input to increase Chain/Ultimate damage by 18% per layer. Cinema 6 creates one 360%-current-ATK child event on the EX explosion, Chain, or Ultimate explosion, inheriting the parent's Fire element, StandardCrit, and matching skill group/tags; the child does not match its own creation filter. Daze and Energy/resource results remain outside the current result contract where no result value is defined.
 
 ## Remielle (`character:1581`): confirmed Flow, mutation, and Flare model
 
