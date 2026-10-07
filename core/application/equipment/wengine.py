@@ -222,6 +222,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1101"): WENGINE_HELLFIRE_GEARS_ID,
     # The local 13111 record is Weapon_A_1111 and explicitly identifies Anton's modification.
     CharacterId("character:1111"): WENGINE_DRILL_RIG_RED_AXIS_ID,
+    # The local 13112 record is Weapon_A_1121; its description identifies Ben's modified shield-column engine.
+    CharacterId("character:1121"): WENGINE_BIG_CYLINDER_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

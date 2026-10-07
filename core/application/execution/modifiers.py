@@ -1669,6 +1669,9 @@ def _resolve_effect_value(
         if value.source_node is CalculationNode.CHARACTER_INITIAL_HP:
             source_panel_value = source.initial_stats.hp
             source_stat_label = "initial maximum HP"
+        elif value.source_node is CalculationNode.CHARACTER_INITIAL_DEFENSE:
+            source_panel_value = source.initial_stats.defense
+            source_stat_label = "initial defense"
         elif value.source_node is CalculationNode.CHARACTER_INITIAL_CRIT_RATE:
             source_panel_value = source.initial_stats.crit_rate
             source_stat_label = "initial crit rate"

@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Anton registered, 35 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Ben registered, 34 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -17,7 +17,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1091` | Miyabi | 雅 | 4 | 3 | 已实现（已有registry/compiler） |
 | `1101` | Koleda | 珂蕾妲 | 4 | 2 | 部分实现（live 3.2 raw + level-60 panel + potential 0–6 + Physical/Fire Direct entries + Fire Burn/Disorder + Ben team-coordination curves + Core/Cinema current states; Vanguard 锐暴, Daze and Energy results remain outside the registered calculation contract） |
 | 1111 | Anton | 安东 | 3 | 1 | 部分实现（live 3.2 raw + level-60 panel + Physical/Electric Direct entries + Electric Shock/Disorder + source-scoped Core and current Cinema states; the mixed Drill/Pile Assist Strike bonus allocation and triggered extra-Shock source attribution remain local limits; Energy, shield/incoming and Daze results remain outside the current contract） |
-| `1121` | Ben | 本 | 3 | 5 | 待实现 |
+| `1121` | Ben | 本 | 3 | 5 | 部分实现（live 3.2 raw + level-60 Defense panel + Physical/Fire Direct entries + static Burn/Disorder + shield-state team Crit and Cinema counter state; Core Initial DEF-to-ATK layer and Cinema 2 counter-child identity remain localized pending clarification; shield, incoming damage, Energy, Support Points, and Daze are outside the result contract） |
 | `1131` | Soukaku | 苍角 | 3 | 4 | 待实现 |
 | `1141` | Lycaon | 莱卡恩 | 4 | 2 | 待实现 |
 | `1151` | Lucy | 露西 | 3 | 4 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Anton 1111 follows the reviewed and pushed Koleda 1101. After Anton is reviewed and pushed, continue with Ben 1121.
+Current item: Ben 1121 follows the reviewed and pushed Anton 1111. After Ben is reviewed and pushed, continue with Soukaku 1131.
 
 ## Corin (`character:1061`)
 
@@ -168,3 +168,23 @@ The preserved live Nanoka 3.2 record is core/data/characters/anton.json with sou
 Direct entries retain source curve IDs separately from action IDs and preserve the Physical normal Basic/Dash/counter and Electric burst/skill/assist variants. The Core bonus is applied only to source-identified Pile Driver and Drill entries. The Assist Strike has one total curve for a Drill component followed by a Pile Driver finisher, without per-component ratios, so the two Core bonuses are not guessed for that aggregate. Cinema 4 Crit Rate and Cinema 6 burst Basic/burst Dodge Counter stacks are explicit current states; the 0–6 damage stacks default to their maximum when the rule is enabled. Electric Shock is modeled as a 125% per-second, 10-second static anomaly; Disorder uses 450% + floor(t) × 125% with a current 0–10-second remaining-time input.
 
 The Additional Ability's known extra Shock coefficient is 45% of one 125% Shock tick. Its triggering state is selected explicitly without replaying the four-Crit history or 0.5-second interval. Source-record attribution and subsequent settlement ownership are still unresolved and block only that optional child event. Cinema 1 Energy recovery, Cinema 2 shield/incoming behavior, and Daze remain outside the current result contract.
+
+## Ben (character:1121)
+
+The preserved live Nanoka 3.2 record is core/data/characters/ben.json with source URL https://static.nanoka.cc/zzz/3.2/zh/character/1121.json. Ben is an A-rank Defense agent with Fire as his base element and Belobog Heavy Industries as his faction. His level-60 panel is normalized from the source: ATK 653.0866, DEF 724.0351, HP 8577.5504, Impact 95, and Energy Regeneration 1.56. The local 13112 record is Weapon_A_1121 比格气缸, whose description identifies Ben; its R5 advanced DEF and proc remain bound to real defense-role capabilities. IconRole16 is absent from local portrait assets, so the catalog uses the neutral placeholder.
+
+The reviewed Direct set separates Basic stages, physical Dash, Fire Dodge Counter, Special active/counter, the four EX components, Chain, Ultimate, Quick Assist, and Assist Strike. Complete Special and EX source sequences add only the explicitly named component curves once. Static Fire Burn uses 50% of anomaly effect strength per 0.5-second tick for 20 ticks; Fire Disorder uses 450% + floor(t/0.5)×50% with current remaining time as an input. No shield value, incoming damage, Energy, Support Point, or Daze result is fabricated. Cinema 4 counter bonus and the Additional Ability's shield-conditioned team Crit are explicit current states.
+
+Koleda cooperation is selected from actual team membership: at Potential 0 Koleda's Enhanced Basic stage 2 uses the coordinated curve, while Potential 1 separates the standard stage 2 from the Ben-coordinated branch that requires the first-stage no-switch state. Her Special/EX quick-cooperation state remains separate, and her Ultimate uses its team-coordinated source curve when Ben is in the team.
+
+Two local calculation limits remain pending user clarification. Ben's Core states that Initial ATK gains 80% of Initial DEF, but the user is deciding whether the conversion belongs in the out-of-combat panel or a combat layer. Cinema 2 states a known 300% current-DEF counter extra hit, but its child element/Crit/tag inheritance and EX follow-up occurrence are not explicit; the affected child stays unresolved while parent counter damage remains available. Core shield capacity and incoming effects, Cinema 1 Energy, and Cinema 6 Daze remain outside the current output contract.
+
+## Ben (character:1121)
+
+The preserved live Nanoka 3.2 record is core/data/characters/ben.json with source URL https://static.nanoka.cc/zzz/3.2/zh/character/1121.json. Ben is an A-rank Defense agent with Fire as his base element and Belobog Heavy Industries as his faction. His level-60 panel is normalized from the source: ATK 653.0866, DEF 724.0351, HP 8577.5504, Impact 95, and Energy Regeneration 1.56. The local 13112 record is Weapon_A_1121 比格气缸, whose description identifies Ben; its R5 advanced DEF and proc remain bound to real defense-role capabilities. IconRole16 is absent from local portrait assets, so the catalog uses the neutral placeholder.
+
+The reviewed Direct set separates Basic stages, physical Dash, Fire Dodge Counter, Special active/counter, the four EX components, Chain, Ultimate, Quick Assist, and Assist Strike. Complete Special and EX source sequences add only the explicitly named component curves once. Static Fire Burn uses 50% of anomaly effect strength per 0.5-second tick for 20 ticks; Fire Disorder uses 450% + floor(t/0.5)×50% with current remaining time as an input. No shield value, incoming damage, Energy, Support Point, or Daze result is fabricated. Cinema 4 counter bonus and the Additional Ability's shield-conditioned team Crit are explicit current states.
+
+Koleda cooperation is selected from actual team membership: at Potential 0 Koleda's Enhanced Basic stage 2 uses the coordinated curve, while Potential 1 separates the standard stage 2 from the Ben-coordinated branch that requires the first-stage no-switch state. Her Special/EX quick-cooperation state remains separate, and her Ultimate uses its team-coordinated source curve when Ben is in the team.
+
+Two local calculation limits remain pending user clarification. Ben's Core states that Initial ATK gains 80% of Initial DEF, but the user is deciding whether the conversion belongs in the out-of-combat panel or a combat layer. Cinema 2 states a known 300% current-DEF counter extra hit, but its child element/Crit/tag inheritance and EX follow-up occurrence are not explicit; the affected child stays unresolved while parent counter damage remains available. Core shield capacity and incoming effects, Cinema 1 Energy, and Cinema 6 Daze remain outside the current output contract.

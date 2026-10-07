@@ -311,7 +311,7 @@ class PanelStatDerivedValue:
     """A deliberately small value source for build-time panel-derived Effects.
 
     Reviewed character effects can read a character's immutable initial
-    attack, maximum HP, crit rate, or energy regeneration, the final settlement maximum HP, impact,
+    attack, defense, HP, crit rate, or energy regeneration, the final settlement maximum HP, impact,
     anomaly mastery, proficiency, or crit rate. ``threshold`` (and its
     compatibility alias ``minimum``)
     expresses ``max(source - threshold, 0)`` before applying the coefficient.
@@ -340,6 +340,7 @@ class PanelStatDerivedValue:
             raise ValueError("derived panel value source character is required")
         if self.source_node not in {
             CalculationNode.CHARACTER_INITIAL_ATTACK,
+            CalculationNode.CHARACTER_INITIAL_DEFENSE,
             CalculationNode.CHARACTER_INITIAL_HP,
             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
             CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
@@ -350,7 +351,7 @@ class PanelStatDerivedValue:
             CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
         }:
             raise ValueError(
-                "panel derived values only support initial attack/HP/crit rate/energy regen, "
+                "panel derived values only support initial attack/defense/HP/crit rate/energy regen, "
                 "current maximum HP/crit rate/impact, anomaly mastery, or "
                 "anomaly proficiency"
             )

@@ -111,6 +111,12 @@ from core.application.characters.anton import (
     compile_anton,
     load_raw_record as load_anton_raw_record,
 )
+from core.application.characters.ben import (
+    BEN_REVIEWED_MAPPING,
+    BenCompileConfig,
+    compile_ben,
+    load_raw_record as load_ben_raw_record,
+)
 from core.application.characters.koleda.reviewed import BEN_ID
 from core.application.characters.caesar import (
     CAESAR_ID,
@@ -343,6 +349,28 @@ def _anton_equipment_capabilities() -> EquipmentOwnerCapabilities:
             tag for spec in ANTON_REVIEWED_MAPPING.moves for tag in spec.damage_tags
         ),
         damage_scopes=scopes,
+    )
+
+
+def _ben_equipment_capabilities() -> EquipmentOwnerCapabilities:
+    scopes = frozenset(
+        EquipmentDamageScope(
+            spec.element,
+            spec.skill_group,
+            spec.damage_tags,
+        )
+        for spec in BEN_REVIEWED_MAPPING.moves
+    )
+    return EquipmentOwnerCapabilities(
+        character_id=BEN_ID,
+        role=CharacterRole.DEFENSE,
+        possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
+        skill_groups=frozenset(spec.skill_group for spec in BEN_REVIEWED_MAPPING.moves),
+        damage_tags=frozenset(
+            tag for spec in BEN_REVIEWED_MAPPING.moves for tag in spec.damage_tags
+        ),
+        damage_scopes=scopes,
+        native_element=Element.FIRE,
     )
 
 
@@ -922,6 +950,31 @@ def _anton_fields(
     )
 
 
+def _ben_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "本核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "本影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
 def _caesar_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1330,6 +1383,27 @@ def _anton_additional_ability_eligibility(
     return False
 
 
+def _ben_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_record = load_character_record(str(BEN_ID))
+    own_camps = {
+        str(value) for value in own_record.get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == BEN_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.base_element is Element.FIRE:
+            return True
+        camps = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camps, Mapping) and own_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
 def _compile_anton(
     values: Mapping[str, Any],
     team_ids: Sequence[CharacterId],
@@ -1347,6 +1421,26 @@ def _compile_anton(
     return compile_anton(
         config,
         load_anton_raw_record(load_character_record(str(ANTON_ID))),
+    )
+
+
+def _compile_ben(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = BenCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_ben_additional_ability_eligibility(team_ids),
+    )
+    return compile_ben(
+        config,
+        load_ben_raw_record(load_character_record(str(BEN_ID))),
     )
 
 
@@ -2890,6 +2984,23 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
         compile_definition=_compile_anton,
         config_fields=_anton_fields,
         equipment_capabilities=_anton_equipment_capabilities(),
+    ),
+    BEN_ID: CharacterPresentationRegistration(
+        character_id=BEN_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1121",
+            display_name="本",
+            rarity="A",
+            element="fire",
+            specialty="defense",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.DEFENSE,
+        base_element=Element.FIRE,
+        compile_definition=_compile_ben,
+        config_fields=_ben_fields,
+        equipment_capabilities=_ben_equipment_capabilities(),
     ),
     CharacterId("character:1011"): CharacterPresentationRegistration(
         character_id=ANBY_ID,

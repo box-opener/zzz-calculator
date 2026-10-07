@@ -932,3 +932,13 @@ The user confirmed `是，终结技能也提升`. Cinema 3 and Cinema 5 therefor
 ## Caesar Basic Attack stage 3 derived curve
 
 Caesar's live raw description says `向前方进行至多六段的斩击，造成物理伤害`, while its Basic parameter table separately lists `三段伤害倍率` (source curve `1071003`) and `三段（派生）伤害倍率` (source curve `1071008`). At skill level 12 the two values are 296.8% and 237.2%. The source does not state whether the derived curve is an additional hit or an alternative stage result. The implementation exposes both source-linked values separately and does not infer a combined third-stage total until the user clarifies their relationship.
+
+## Ben (`character:1121`) source-limited branches
+
+### Core Initial DEF-to-ATK layer
+
+The live Nanoka 3.2 Core text says: `本的初始攻击力随初始防御力提升，提升效果等同于自身初始防御力的80%` (the coefficient varies by Core level; Core 7 is 80%). The source value and Initial DEF input are known, but the user is being asked whether the conversion belongs in the out-of-combat Initial ATK panel or only in a combat attack layer. Until clarified, the role preserves the raw coefficient and a local rule diagnostic, and does not invent an attack value or block otherwise known direct entries. `PanelStatDerivedValue` and its resolver now accept a typed Initial DEF source for this future path.
+
+### Cinema 2 DEF-scaled counter child
+
+The live Cinema 2 text says: `在[特殊技]或[强化特殊技]中，成功格挡敌人的攻击时，额外造成本300%防御力的伤害`. The 300% current-DEF coefficient and successful-counter inputs are known. The user is being asked whether the extra child inherits the selected counter parent's element, Standard Crit capability, and Special/EX tag, and whether an EX guard follow-up shares the same single proc. Until clarified, only the selected Special/EX counter branch receives a localized unresolved-child diagnostic; its known parent counter stays calculated and no typed Direct child is fabricated.
