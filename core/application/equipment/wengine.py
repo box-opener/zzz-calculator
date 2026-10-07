@@ -216,6 +216,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1061"): WEngineId("wengine:13106"),
     # Nanoka 3.2 engine 14107 is `Weapon_S_1071`; its description identifies Caesar.
     CharacterId("character:1071"): WENGINE_TUSKS_OF_FURY_ID,
+    # The local 13108 raw record is `Weapon_A_1081` and describes Billy's modified engine.
+    CharacterId("character:1081"): WENGINE_STARLIGHT_ENGINE_REPLICA_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

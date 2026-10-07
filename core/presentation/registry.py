@@ -92,6 +92,12 @@ from core.application.characters.corin import (
     compile_corin,
     load_raw_record as load_corin_raw_record,
 )
+from core.application.characters.billy import (
+    BILLY_ID,
+    BillyCompileConfig,
+    compile_billy,
+    load_raw_record as load_billy_raw_record,
+)
 from core.application.characters.caesar import (
     CAESAR_ID,
     CaesarCompileConfig,
@@ -226,6 +232,82 @@ def _slider_field(
         minimum=minimum,
         maximum=maximum,
         help_text=help_text,
+    )
+
+
+def _physical_attack_equipment_capabilities(
+    character_id: CharacterId,
+) -> EquipmentOwnerCapabilities:
+    return EquipmentOwnerCapabilities(
+        character_id=character_id,
+        role=CharacterRole.ATTACK,
+        possible_elements=frozenset({Element.PHYSICAL}),
+        skill_groups=frozenset(
+            {
+                SkillGroup.BASIC_ATTACK,
+                SkillGroup.DODGE,
+                SkillGroup.SPECIAL_ATTACK,
+                SkillGroup.CHAIN_ATTACK,
+                SkillGroup.ULTIMATE,
+                SkillGroup.ASSIST,
+            }
+        ),
+        damage_tags=frozenset(
+            {
+                DamageTag.BASIC_ATTACK,
+                DamageTag.DASH_ATTACK,
+                DamageTag.DODGE_COUNTER,
+                DamageTag.SPECIAL_ATTACK,
+                DamageTag.EX_SPECIAL_ATTACK,
+                DamageTag.CHAIN_ATTACK,
+                DamageTag.ULTIMATE,
+                DamageTag.ASSIST,
+            }
+        ),
+        damage_scopes=frozenset(
+            {
+                EquipmentDamageScope(
+                    Element.PHYSICAL,
+                    SkillGroup.BASIC_ATTACK,
+                    frozenset({DamageTag.BASIC_ATTACK}),
+                ),
+                EquipmentDamageScope(
+                    Element.PHYSICAL,
+                    SkillGroup.DODGE,
+                    frozenset({DamageTag.DASH_ATTACK}),
+                ),
+                EquipmentDamageScope(
+                    Element.PHYSICAL,
+                    SkillGroup.DODGE,
+                    frozenset({DamageTag.DODGE_COUNTER}),
+                ),
+                EquipmentDamageScope(
+                    Element.PHYSICAL,
+                    SkillGroup.SPECIAL_ATTACK,
+                    frozenset({DamageTag.SPECIAL_ATTACK}),
+                ),
+                EquipmentDamageScope(
+                    Element.PHYSICAL,
+                    SkillGroup.SPECIAL_ATTACK,
+                    frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+                ),
+                EquipmentDamageScope(
+                    Element.PHYSICAL,
+                    SkillGroup.CHAIN_ATTACK,
+                    frozenset({DamageTag.CHAIN_ATTACK}),
+                ),
+                EquipmentDamageScope(
+                    Element.PHYSICAL,
+                    SkillGroup.ULTIMATE,
+                    frozenset({DamageTag.ULTIMATE}),
+                ),
+                EquipmentDamageScope(
+                    Element.PHYSICAL,
+                    SkillGroup.ASSIST,
+                    frozenset({DamageTag.ASSIST}),
+                ),
+            }
+        ),
     )
 
 
@@ -642,6 +724,31 @@ def _corin_fields(
     )
 
 
+def _billy_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "比利核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "比利影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
 def _caesar_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -921,6 +1028,47 @@ def _compile_corin(
     return compile_corin(
         config,
         load_corin_raw_record(load_character_record(str(CORIN_ID))),
+    )
+
+
+def _billy_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(BILLY_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == BILLY_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.base_element is Element.PHYSICAL:
+            return True
+        camps = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camps, Mapping) and own_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
+def _compile_billy(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = BillyCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_billy_additional_ability_eligibility(team_ids),
+    )
+    return compile_billy(
+        config,
+        load_billy_raw_record(load_character_record(str(BILLY_ID))),
     )
 
 
@@ -2413,6 +2561,23 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 }
             ),
         ),
+    ),
+    BILLY_ID: CharacterPresentationRegistration(
+        character_id=BILLY_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1081",
+            display_name="比利",
+            rarity="A",
+            element="physical",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_billy,
+        config_fields=_billy_fields,
+        equipment_capabilities=_physical_attack_equipment_capabilities(BILLY_ID),
     ),
     CharacterId("character:1011"): CharacterPresentationRegistration(
         character_id=ANBY_ID,
