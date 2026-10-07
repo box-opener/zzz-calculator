@@ -20,7 +20,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1121` | Ben | 本 | 3 | 5 | 部分实现（live 3.2 raw + level-60 Defense panel + Physical/Fire Direct entries + static Burn/Disorder + shield-state team Crit and Cinema counter state; Core Initial DEF-to-ATK layer and Cinema 2 counter-child identity remain localized pending clarification; shield, incoming damage, Energy, Support Points, and Daze are outside the result contract） |
 | `1131` | Soukaku | 苍角 | 3 | 4 | 部分实现（live 3.2 raw + level-60 Support panel + reviewed Physical/Ice Direct entries + static Physical Assault/Ice Shatter/Disorder + Core self-buff, Ice Additional Ability, Cinema 4/6 states; transferred Core buff recipient and EX multi-click total remain source-limited; Daze/Energy/time/resource outputs remain outside current contract） |
 | `1141` | Lycaon | 莱卡恩 | 4 | 2 | 部分实现（live 3.2 raw + level-60 Stun panel + Potential 0–6 selector + Physical/Ice Direct entries, Potential Ice Dance and selectable Hunt sequences + static Ice Anomaly/Disorder; Physical source hits have no anomaly buildup and do not create a Physical record; Core/Additional Ability/Cinema current states; Daze, shield, Energy and timing results remain outside the current contract） |
-| `1151` | Lucy | 露西 | 3 | 4 | 待实现 |
+| `1151` | Lucy | 露西 | 3 | 4 | 部分实现（live 3.2 raw + level-60 Support panel + reviewed Physical/Fire Direct entries + static Fire Burn/Disorder + current Cheer On team attack and Cinema 4 Crit Damage; the Basic 3 derived element and pig-actor stats are local diagnostics, Basic 4/Cinema 6 pig follow-ups are partial only when their source trigger state is selected; Daze, Energy, random pig attack cadence and buff-duration replay remain outside the current result contract） |
 | `1161` | Lighter | 莱特 | 4 | 2 | 待实现 |
 | `1171` | Burnice | 柏妮思 | 4 | 3 | 待实现 |
 | `1181` | Grace | 格莉丝 | 4 | 3 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Lycaon 1141 follows the reviewed and pushed Soukaku 1131. After Lycaon is reviewed and pushed, continue with Lucy 1151.
+Current item: Lucy 1151 follows the reviewed and pushed Lycaon 1141. After Lucy is reviewed and pushed, continue with Lighter 1161.
 
 ## Corin (`character:1061`)
 
@@ -194,3 +194,13 @@ The live Nanoka 3.2 record is retained at `core/data/characters/lycaon.json` wit
 Normal Basic stages and Dash use the source Physical curves; all mapped Physical hits have zero attribute-infliction, so no Physical anomaly record is generated. Charged Basic tiers, Dodge Counter, Special/EX, Chain, Ultimate, and Assist entries use their source Ice curves. Special and EX source descriptions explicitly sum their components. Potential 1 exposes Ice Dance and selectable Hunt Basic/Counter follow-up sequences; the static calculator does not generate them from another teammate's move history. Potential 2–6 applies the source 5/7.5/10/12.5/15% Impact bonus only when the user selects the current Hunt off-field state.
 
 Core Ice RES reduction is represented as a current target state and applies to all Ice/Lieshuang damage once active. The Potential Core's +30% other-element enemy vulnerability excludes Ice/Lieshuang. The Additional Ability uses the actual stunned-enemy state and adds 35% Stun vulnerability when its team eligibility is met. Cinema 6 exposes a current 0–5 damage-bonus stack; the calculator does not replay stack-building, timers, Energy, shield, incoming damage, or Daze.
+
+## Lucy (`character:1151`)
+
+The live Nanoka 3.2 record is retained in `core/data/characters/lucy.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1151.json`. Lucy is an A-rank Fire Support agent of the Sons of Calydon. The local engine `13115` is `Weapon_A_1151` 好斗的阿炮, and its source description names Lucy. `IconRole27` is not packaged locally, so the catalog uses the neutral portrait placeholder. Core 7 and Cinema 0 are the initial settings; A-rank skill inputs default to 16, including Ultimate, and the signature engine remains an explicit unequipped selection.
+
+Reviewed Direct entries retain the raw parameter-curve IDs: Basic stages 1–2 use Physical curves, the named third-stage and fourth-stage Fire curves remain separate from the third-stage derived branch, and the Dash, Dodge Counter, Special straight/high-fly, EX straight/high-fly, Chain, Ultimate, Quick Assist, and Assist Strike are individually selectable. The Chain and Ultimate descriptions spell their curve as `/3*3`; each is represented by its single full source curve, not three repeats. The source's third-stage-derived relation is kept as its own selectable entry because the text does not define an aggregate with the named third-stage curve. Its element is not mapped from the colliding `skill_list` action ID, so only that derived branch remains locally unresolved without emitting a damage event.
+
+The current Cheer On state applies Lucy's source formula to the team: effective Special level `L` yields `(13+0.8L)%` of Lucy's Initial ATK plus `40+4L` flat ATK, capped at 600. Cinema 4 adds 10% Crit Damage while Cheer On is active. The current-state input does not replay the straight-ball/high-fly durations, refreshes, or Cinema 1 energy cooldown.
+
+The raw source says the pigs inherit Lucy's ATK/Impact/Anomaly Proficiency and that Extra Ability eligibility lets them inherit Crit stats. The three random attack outcomes and the 592% Revolving Swing appear as source-linked choices with their known curves, but remain locally unresolved until the pig ATK/Crit actor snapshot is confirmed; random cadence and expected-value weighting are not simulated. Basic 4 has a current “pigs on the field” state; when selected, its known pig Revolving Swing child is marked locally unresolved without creating a fake Direct event. Cinema 6 exposes the known 300% pig-ATK Fire explosion and its subsequent one Revolving Swing as unresolved selectable children; on an actual non-Lucy teammate EX hit while Cheer On is active, only those children become partial and the parent EX remains calculated. The calculator does not invent a pig actor/stat snapshot. Daze, Energy, and time/history behavior remain outside the current output.

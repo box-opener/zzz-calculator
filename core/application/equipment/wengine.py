@@ -228,6 +228,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1131"): WEngineId("wengine:13113"),
     # The local 14114 raw Nanoka detail code_name `Weapon_S_1141` identifies Lycaon's 拘缚者.
     CharacterId("character:1141"): WENGINE_RESTRAINED_ID,
+    # Local 13115 is Weapon_A_1151 and identifies Lucy's 好斗的阿炮.
+    CharacterId("character:1151"): WEngineId("wengine:13115"),
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,
