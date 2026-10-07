@@ -35,6 +35,7 @@ from .velina import VelinaCompileConfig, compile_velina
 from .yanagi import YanagiCompileConfig, compile_yanagi
 from .anton import AntonCompileConfig, compile_anton
 from .ben import BenCompileConfig, compile_ben
+from .soukaku import SoukakuCompileConfig, compile_soukaku
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -92,4 +93,6 @@ __all__ = [
     "compile_anton",
     "BenCompileConfig",
     "compile_ben",
+    "SoukakuCompileConfig",
+    "compile_soukaku",
 ]

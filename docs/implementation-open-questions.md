@@ -942,3 +942,9 @@ The live Nanoka 3.2 Core text says: `本的初始攻击力随初始防御力提�
 ### Cinema 2 DEF-scaled counter child
 
 The live Cinema 2 text says: `在[特殊技]或[强化特殊技]中，成功触发格挡反击时，额外造成本300%防御力的伤害`. The 300% current-DEF coefficient and successful-counter inputs are known. The user is being asked whether the extra child inherits the selected counter parent's element, Standard Crit capability, and Special/EX tag, and whether an EX guard follow-up shares the same single proc. Until clarified, only the selected Special/EX counter branch receives a localized unresolved-child diagnostic; its known parent counter stays calculated and no typed Direct child is fabricated.
+
+## Soukaku (`character:1131`) source-limited branches
+
+The live Nanoka 3.2 Core text says `队伍中其他角色通过[展旗]所触发的[快速支援]或[连携技]入场时，该增益效果将传递给对应的角色，并刷新其持续时间。` The self Core ATK formula is implemented from Soukaku's Initial ATK, including consumed-Vortex doubling and the source cap. The text does not state whether Soukaku keeps a copy after transfer or whether multiple teammates may hold it simultaneously. Until clarified, the compiler does not assign the transferred buff to a current operator or all teammates.
+
+The EX source text says `多次点按可以连续发动招式，每次发动时将消耗一定能量，能量不足或停止点按时会自动释放终结一击`. Its raw parameters give the continuous-attack component as `{{Skill:1131011, Prop:1001}/2}` and the windfield as `{Skill:1131010, Prop:1001}`. The calculator exposes the source-defined half-curve continuous segment and windfield separately; it does not infer a full multi-click total or replay Energy/click counts. The exact relationship between those two components in a complete EX action remains under review.

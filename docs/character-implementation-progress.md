@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Ben registered, 34 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Soukaku registered, 33 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -18,7 +18,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1101` | Koleda | 珂蕾妲 | 4 | 2 | 部分实现（live 3.2 raw + level-60 panel + potential 0–6 + Physical/Fire Direct entries + Fire Burn/Disorder + Ben team-coordination curves + Core/Cinema current states; Vanguard 锐暴, Daze and Energy results remain outside the registered calculation contract） |
 | 1111 | Anton | 安东 | 3 | 1 | 部分实现（live 3.2 raw + level-60 panel + Physical/Electric Direct entries + Electric Shock/Disorder + source-scoped Core and current Cinema states; the mixed Drill/Pile Assist Strike bonus allocation and triggered extra-Shock source attribution remain local limits; Energy, shield/incoming and Daze results remain outside the current contract） |
 | `1121` | Ben | 本 | 3 | 5 | 部分实现（live 3.2 raw + level-60 Defense panel + Physical/Fire Direct entries + static Burn/Disorder + shield-state team Crit and Cinema counter state; Core Initial DEF-to-ATK layer and Cinema 2 counter-child identity remain localized pending clarification; shield, incoming damage, Energy, Support Points, and Daze are outside the result contract） |
-| `1131` | Soukaku | 苍角 | 3 | 4 | 待实现 |
+| `1131` | Soukaku | 苍角 | 3 | 4 | 部分实现（live 3.2 raw + level-60 Support panel + reviewed Physical/Ice Direct entries + static Physical Assault/Ice Shatter/Disorder + Core self-buff, Ice Additional Ability, Cinema 4/6 states; transferred Core buff recipient and EX multi-click total remain source-limited; Daze/Energy/time/resource outputs remain outside current contract） |
 | `1141` | Lycaon | 莱卡恩 | 4 | 2 | 待实现 |
 | `1151` | Lucy | 露西 | 3 | 4 | 待实现 |
 | `1161` | Lighter | 莱特 | 4 | 2 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Ben 1121 follows the reviewed and pushed Anton 1111. After Ben is reviewed and pushed, continue with Soukaku 1131.
+Current item: Soukaku 1131 follows the reviewed and pushed Ben 1121. After Soukaku is reviewed and pushed, continue with Lycaon 1141.
 
 ## Corin (`character:1061`)
 
@@ -178,3 +178,11 @@ The reviewed Direct set separates Basic stages, physical Dash, Fire Dodge Counte
 Koleda cooperation is selected from actual team membership: at Potential 0 Koleda's Enhanced Basic stage 2 uses the coordinated curve, while Potential 1 separates the standard stage 2 from the Ben-coordinated branch that requires the first-stage no-switch state. Her Special/EX quick-cooperation state remains separate, and her Ultimate uses its team-coordinated source curve when Ben is in the team.
 
 Two local calculation limits remain pending user clarification. Ben's Core states that Initial ATK gains 80% of Initial DEF, but the user is deciding whether the conversion belongs in the out-of-combat panel or a combat layer. Cinema 2 states a known 300% current-DEF counter extra hit, but its child element/Crit/tag inheritance and EX follow-up occurrence are not explicit; the affected child stays unresolved while parent counter damage remains available. Core shield capacity and incoming effects, Cinema 1 Energy, and Cinema 6 Daze remain outside the current output contract.
+
+## Soukaku (`character:1131`)
+
+The live Nanoka 3.2 record is retained at `core/data/characters/soukaku.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1131.json`. Soukaku is an A-rank Support agent with Ice as her base element and no Potential variants. The catalog uses the neutral portrait placeholder because `IconRole17` is not packaged locally. The local A-rank engine `13113` (`Weapon_A_1131`, 含羞恶面) is mapped as her signature and remains unequipped by default.
+
+The reviewed damage entries retain Physical normal Basic/Dash separately from Ice Frost Banner Basic/Dash, then map Counter, Special/flag components, EX windfield/continuous source components, Chain, Ultimate, Quick Assist, and the explicit Assist Strike curve sum. The normal Special's windfield and finisher each appear once in its complete entry. The EX continuous parameter is divided by 2 as the raw description requires; its multi-click total is not inferred. Static Physical Assault, Ice Shatter, and Ice Disorder use the shared static-anomaly source model.
+
+The Core's self attack buff uses Initial ATK × the level-specific coefficient, capped at 500; consuming Vortex adds one matching capped increment to model the source's doubling to 1000. The text also transfers this buff to the corresponding entrant through Flag-triggered Quick Assist/Chain, but does not define persistence or simultaneous holders. Cinema 4 is an Ice/Lieshuang target resistance-reduction state, while Cinema 6's +45% applies only to the Frost Banner enhanced Basic/Dash templates. Cinema 1 duration, Cinema 2 random Vortex/Energy behavior, and Defense Assist Daze are source-only; none is converted to a damage or time simulation.

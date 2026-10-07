@@ -117,6 +117,12 @@ from core.application.characters.ben import (
     compile_ben,
     load_raw_record as load_ben_raw_record,
 )
+from core.application.characters.soukaku import (
+    SOUKAKU_ID,
+    SoukakuCompileConfig,
+    compile_soukaku,
+    load_raw_record as load_soukaku_raw_record,
+)
 from core.application.characters.koleda.reviewed import BEN_ID
 from core.application.characters.caesar import (
     CAESAR_ID,
@@ -975,6 +981,31 @@ def _ben_fields(
     )
 
 
+def _soukaku_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "苍角核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "苍角影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
 def _caesar_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1441,6 +1472,49 @@ def _compile_ben(
     return compile_ben(
         config,
         load_ben_raw_record(load_character_record(str(BEN_ID))),
+    )
+
+
+def _soukaku_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(SOUKAKU_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == SOUKAKU_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.base_element is Element.ICE:
+            return True
+        camps = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(camps, Mapping) and own_camps.intersection(
+            str(value) for value in camps.values()
+        ):
+            return True
+    return False
+
+
+def _compile_soukaku(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = SoukakuCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_soukaku_additional_ability_eligibility(
+            team_ids
+        ),
+    )
+    return compile_soukaku(
+        config,
+        load_soukaku_raw_record(load_character_record(str(SOUKAKU_ID))),
     )
 
 
@@ -3001,6 +3075,94 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
         compile_definition=_compile_ben,
         config_fields=_ben_fields,
         equipment_capabilities=_ben_equipment_capabilities(),
+    ),
+    SOUKAKU_ID: CharacterPresentationRegistration(
+        character_id=SOUKAKU_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1131",
+            display_name="苍角",
+            rarity="A",
+            element="ice",
+            specialty="support",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.SUPPORT,
+        base_element=Element.ICE,
+        compile_definition=_compile_soukaku,
+        config_fields=_soukaku_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SOUKAKU_ID,
+            role=CharacterRole.SUPPORT,
+            possible_elements=frozenset({Element.PHYSICAL, Element.ICE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.ICE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                }
+            ),
+        ),
     ),
     CharacterId("character:1011"): CharacterPresentationRegistration(
         character_id=ANBY_ID,
