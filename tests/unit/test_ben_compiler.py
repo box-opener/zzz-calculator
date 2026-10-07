@@ -56,6 +56,8 @@ _CORE_RULE = "rule:character:1121:core:initial-defense-to-attack"
 _C4_CONDITION = "condition:ben:cinema4-counter-bonus-current"
 _GUARD_CONDITION = "condition:ben:special-guard-counter-current"
 _SHIELD_CONDITION = "condition:ben:core-shield-current"
+_BIG_CYLINDER_RULE = "rule:wengine:13112:owner:1121:defense-counter-extra-damage"
+_BIG_CYLINDER_READY = "condition:wengine:13112:owner:1121:defense-counter-damage-ready"
 
 
 def _stats_for(character_id: CharacterId) -> dict:
@@ -181,6 +183,24 @@ def _koleda_ben_payload(
     }
 
 
+def _ben_r5_big_cylinder_payload(move_entry_id: str) -> dict:
+    payload = _ben_payload(
+        move_entry_id,
+        condition_values={_BIG_CYLINDER_READY: True},
+        enabled_rule_item_ids=[_CORE_RULE, _BIG_CYLINDER_RULE],
+    )
+    payload["character_builds"][str(BEN_ID)] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": "wengine:13112",
+        "wengine_level": 60,
+        "wengine_refinement": 5,
+        "base_stats": _stats_for(BEN_ID),
+        "drive_discs": [],
+    }
+    return payload
+
+
 def _event(payload: dict) -> dict:
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200, response.text
@@ -247,7 +267,7 @@ def test_ben_direct_curves_and_complete_source_actions_keep_exact_units() -> Non
     raw = load_raw_record(load_character_record(str(BEN_ID)))
     definition = compile_ben(BenCompileConfig(), raw)
     entries = {str(entry.entry_id): entry for entry in definition.move_entries}
-    assert len(definition.move_entries) == 20
+    assert len(definition.move_entries) == 19
     expected = {
         "basic-1": 1.559,
         "special-active": 0.987,
@@ -261,6 +281,7 @@ def test_ben_direct_curves_and_complete_source_actions_keep_exact_units() -> Non
     }
     for key, value in expected.items():
         assert entries[f"move-entry:character:1121:{key}"].multiplier_variants[0].multiplier.value.value == pytest.approx(value)
+    assert "move-entry:character:1121:special-complete-successful-counter" not in entries
     assert entries["move-entry:character:1121:basic-1"].main_damage_event.element.value == "physical"
     assert entries["move-entry:character:1121:dodge-counter"].main_damage_event.element.value == "fire"
     assert entries["move-entry:character:1121:ex-special-main"].damage_tags == frozenset(
@@ -403,9 +424,75 @@ def test_ben_core_defense_to_attack_layer_is_visible_but_not_guessed() -> None:
     assert result["events"][0]["modes"]["non-crit"]["value"] == pytest.approx(
         base["modes"]["non-crit"]["value"]
     )
-    diagnostic = next(item for item in result["diagnostics"] if item["diagnostic_id"].endswith("initial-defense-to-attack-layer"))
-    assert diagnostic["blocking"] is False
+    diagnostic = next(
+        item
+        for item in result["diagnostics"]
+        if "Initial DEF-to-Initial ATK" in item["message"]
+    )
+    assert diagnostic["blocking"] is True
     assert "初始攻击力随初始防御力提升" in diagnostic["original_text"]
+    assert result["totals"]["expected"]["complete"] is False
+
+
+def test_ben_core_layer_diagnostic_does_not_create_or_block_defense_engine_proc() -> None:
+    move = "move-entry:character:1121:basic-1"
+    without_core_rule = _ben_r5_big_cylinder_payload(move)
+    without_core_rule["enabled_rule_item_ids"].remove(_CORE_RULE)
+    base = client.post("/api/v1/moves/calculate", json=without_core_rule)
+    assert base.status_code == 200, base.text
+    assert len(base.json()["events"]) == 2
+    base_parent, base_weapon_proc = base.json()["events"]
+    assert base_parent["modes"]["expected"]["status"] == "calculated"
+    assert base_weapon_proc["modes"]["expected"]["status"] == "calculated"
+    assert not base.json()["diagnostics"]
+
+    with_core_rule = client.post(
+        "/api/v1/moves/calculate",
+        json=_ben_r5_big_cylinder_payload(move),
+    )
+    assert with_core_rule.status_code == 200, with_core_rule.text
+    assert len(with_core_rule.json()["events"]) == 2
+    parent, weapon_proc = with_core_rule.json()["events"]
+    assert parent["modes"]["expected"]["status"] == "calculated"
+    assert weapon_proc["modes"]["expected"]["status"] == "calculated"
+    assert weapon_proc["modes"]["expected"]["value"] == pytest.approx(
+        base_weapon_proc["modes"]["expected"]["value"]
+    )
+    assert any("Initial DEF-to-Initial ATK" in item["message"] for item in with_core_rule.json()["diagnostics"])
+
+
+@pytest.mark.parametrize(
+    "move_entry_id",
+    (
+        "move-entry:character:1121:fire-anomaly",
+        "move-entry:character:1121:fire-disorder",
+    ),
+)
+def test_ben_core_layer_diagnostic_covers_his_anomaly_and_disorder_sources(
+    move_entry_id: str,
+) -> None:
+    base_response = client.post(
+        "/api/v1/moves/calculate",
+        json=_ben_payload(move_entry_id),
+    )
+    assert base_response.status_code == 200, base_response.text
+    base = base_response.json()
+    assert base["totals"]["expected"]["complete"] is True
+
+    core_response = client.post(
+        "/api/v1/moves/calculate",
+        json=_ben_payload(move_entry_id, enabled_rule_item_ids=[_CORE_RULE]),
+    )
+    assert core_response.status_code == 200, core_response.text
+    partial = core_response.json()
+    assert partial["totals"]["expected"]["complete"] is False
+    assert partial["events"][0]["modes"]["expected"]["known_value"] == pytest.approx(
+        base["events"][0]["modes"]["expected"]["known_value"]
+    )
+    assert any(
+        "Initial DEF-to-Initial ATK" in item["message"]
+        for item in partial["diagnostics"]
+    )
 
 
 def test_koleda_ben_synergy_selects_the_actual_teammate_curves_and_states() -> None:
@@ -492,7 +579,10 @@ def test_koleda_team_compiles_and_uses_ben_cooperation_from_real_team_membership
     # Exercise the registered team path, not only the standalone Koleda compiler.
     p0_response = client.post(
         "/api/v1/moves/calculate",
-        json=_koleda_ben_payload("move-entry:character:1101:enhanced-basic-stage2"),
+        json=_koleda_ben_payload(
+            "move-entry:character:1101:enhanced-basic-stage2",
+            enabled_rule_item_ids=[_CORE_RULE],
+        ),
     )
     assert p0_response.status_code == 200, p0_response.text
     p0_event = p0_response.json()["events"][0]
@@ -503,6 +593,7 @@ def test_koleda_team_compiles_and_uses_ben_cooperation_from_real_team_membership
         if item["node"] == "damage.skill-multiplier"
     )
     assert p0_multiplier == pytest.approx(expected_p0_multiplier)
+    assert p0_response.json()["totals"]["expected"]["complete"] is True
 
     p1_coop_response = client.post(
         "/api/v1/moves/calculate",

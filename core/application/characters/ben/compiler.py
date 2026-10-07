@@ -14,6 +14,7 @@ from core.types import (
     CharacterRole,
     DamageDealerFilter,
     DamageSubtype,
+    DamageSubtypeFilter,
     DamageType,
     DamageTypeFilter,
     DynamicIdentity,
@@ -41,7 +42,6 @@ from core.types import (
     UnresolvedReason,
 )
 
-from ...diagnostics import CalculationDiagnostic, DiagnosticKind
 from ...ids import (
     DamageEventSemanticId,
     DiagnosticId,
@@ -74,7 +74,6 @@ from ..templates import AttributeAnomalyDamageEventTemplate, DisorderDamageEvent
 from .config import BenCompileConfig
 from .reviewed import (
     BEN_C4_COUNTER_BONUS_ACTIVE,
-    BEN_CORE_ATTACK_PANEL_UNRESOLVED,
     BEN_EX_FOLLOWUP_ACTIVE,
     BEN_FIRE_ANOMALY_MOVE_ID,
     BEN_FIRE_DISORDER_MOVE_ID,
@@ -344,16 +343,6 @@ def compile_ben(
 
     entry_index = {str(item.entry_id).rsplit(":", 1)[-1]: item for item in entries}
     _complete_entry(
-        first=entry_index["special-active"],
-        second=entry_index["special-counter"],
-        templates=templates,
-        entries=entries,
-        key="special-complete-successful-counter",
-        label="特殊技：拳债统计（成功格挡完整动作）",
-        move_id=MoveId("move:ben:special-complete-successful-counter"),
-        condition_ids=(BEN_GUARD_COUNTER_SUCCESSFUL,),
-    )
-    _complete_entry(
         first=entry_index["ex-special-main"],
         second=entry_index["ex-special-followup"],
         templates=templates,
@@ -403,15 +392,93 @@ def compile_ben(
         r"提升效果等同于自身初始防御力的(?P<value>[\d.]+)%",
         "Ben Core initial ATK per initial DEF",
     ) / 100.0
-    core_attack_diagnostic = CalculationDiagnostic(
-        diagnostic_id=DiagnosticId(BEN_CORE_ATTACK_PANEL_UNRESOLVED),
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        message=(
-            f"Core gives a known {core_attack_ratio:.0%} Initial DEF contribution to Initial ATK, "
-            "but its out-of-combat versus in-combat layer is awaiting the user's clarification."
+    core_attack_unresolved = Unresolved(
+        reason=UnresolvedReason.AMBIGUOUS_TEXT,
+        notes=(
+            f"Ben Core supplies a known {core_attack_ratio:.0%} Initial DEF-to-Initial ATK conversion, "
+            "but its out-of-combat versus combat-layer placement is awaiting the user's clarification. "
+            "Keep the selected Ben event's base value, mark the Ben-ATK-dependent result incomplete, "
+            "and do not create a synthetic damage hit."
         ),
-        blocking=False,
         original_text=core.description,
+    )
+    ben_direct_template_filters = AnyFilter(
+        tuple(
+            EventTemplateIdFilter(
+                EventTemplateId(f"template:character:1121:{spec.entry_key}:main")
+            )
+            for spec in BEN_REVIEWED_MAPPING.moves
+        )
+        + tuple(
+            EventTemplateIdFilter(
+                EventTemplateId(f"template:character:1121:{key}:main")
+            )
+            for key in (
+                "special-complete-successful-counter",
+                "ex-special-complete-followup",
+                "ex-special-complete-successful-counter",
+            )
+        )
+    )
+    core_attack_effects = (
+        EventCreationEffect(
+            rule=EffectRule(
+                effect_id=EffectId("effect:character:1121:core:initial-defense-to-attack-direct"),
+                source=core_source,
+                owner=BEN_ID,
+                target=EffectTarget.TEAM,
+                snapshot_rule=SnapshotRule.SETTLEMENT,
+                condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
+                filters=(
+                    DamageTypeFilter(DamageType.DIRECT),
+                    DamageDealerFilter(BEN_ID),
+                    ben_direct_template_filters,
+                ),
+            ),
+            result=EventCreationResult(
+                event_kind=BattleEventKind.DAMAGE,
+                unresolved_template=core_attack_unresolved,
+            ),
+        ),
+        EventCreationEffect(
+            rule=EffectRule(
+                effect_id=EffectId("effect:character:1121:core:initial-defense-to-attack-fire-anomaly"),
+                source=core_source,
+                owner=BEN_ID,
+                target=EffectTarget.TEAM,
+                snapshot_rule=SnapshotRule.SETTLEMENT,
+                condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
+                filters=(
+                    DamageTypeFilter(DamageType.ANOMALY),
+                    DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
+                    DamageDealerFilter(BEN_ID),
+                    EventTemplateIdFilter(EventTemplateId("template:character:1121:fire-anomaly")),
+                ),
+            ),
+            result=EventCreationResult(
+                event_kind=BattleEventKind.DAMAGE,
+                unresolved_template=core_attack_unresolved,
+            ),
+        ),
+        EventCreationEffect(
+            rule=EffectRule(
+                effect_id=EffectId("effect:character:1121:core:initial-defense-to-attack-fire-disorder"),
+                source=core_source,
+                owner=BEN_ID,
+                target=EffectTarget.TEAM,
+                snapshot_rule=SnapshotRule.SETTLEMENT,
+                condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
+                filters=(
+                    DamageTypeFilter(DamageType.DISORDER),
+                    DamageDealerFilter(BEN_ID),
+                    EventTemplateIdFilter(EventTemplateId("template:character:1121:fire-disorder")),
+                ),
+            ),
+            result=EventCreationResult(
+                event_kind=BattleEventKind.DAMAGE,
+                unresolved_template=core_attack_unresolved,
+            ),
+        ),
     )
     rules.append(
         _rule(
@@ -420,7 +487,7 @@ def compile_ben(
             f"核心被动：初始防御力×{core_attack_ratio:.0%}转攻击力",
             core.description,
             RuleEligibility.ELIGIBLE,
-            diagnostics=(core_attack_diagnostic,),
+            effects=core_attack_effects,
         )
     )
 
@@ -472,7 +539,6 @@ def compile_ben(
     )
     c2_counter_keys = (
         "special-counter",
-        "special-complete-successful-counter",
         "ex-special-counter",
         "ex-special-complete-successful-counter",
     )
@@ -529,7 +595,6 @@ def compile_ben(
         "special-counter",
         "ex-special-counter",
         "ex-special-counter-followup",
-        "special-complete-successful-counter",
         "ex-special-complete-successful-counter",
     )
     rules.append(

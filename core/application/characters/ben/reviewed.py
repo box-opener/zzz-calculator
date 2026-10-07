@@ -18,7 +18,6 @@ BEN_SHIELD_ACTIVE = ScenarioConditionId("condition:ben:core-shield-current")
 BEN_C4_COUNTER_BONUS_ACTIVE = ScenarioConditionId(
     "condition:ben:cinema4-counter-bonus-current"
 )
-BEN_CORE_ATTACK_PANEL_UNRESOLVED = "unsupported:character:1121:core:initial-defense-to-attack-layer"
 BEN_FIRE_ANOMALY_RECORD_ID = "anomaly:character:1121:fire-burn"
 BEN_FIRE_ANOMALY_MOVE_ID = MoveId("move:ben:fire-burn")
 BEN_FIRE_DISORDER_MOVE_ID = MoveId("move:ben:fire-disorder")
@@ -264,7 +263,6 @@ __all__ = [
     "BEN_EX_FOLLOWUP_ACTIVE",
     "BEN_SHIELD_ACTIVE",
     "BEN_C4_COUNTER_BONUS_ACTIVE",
-    "BEN_CORE_ATTACK_PANEL_UNRESOLVED",
     "BEN_FIRE_ANOMALY_RECORD_ID",
     "BEN_FIRE_ANOMALY_MOVE_ID",
     "BEN_FIRE_DISORDER_MOVE_ID",
