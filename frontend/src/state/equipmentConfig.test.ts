@@ -534,6 +534,7 @@ describe("complete character config v2", () => {
       "character:1171",
       "character:1181",
       "character:1191",
+      "character:1201",
     ];
     for (const characterId of characterIds) {
       const character = createCharacterConfig(
@@ -564,6 +565,7 @@ describe("complete character config v2", () => {
       "character:1171",
       "character:1181",
       "character:1191",
+      "character:1201",
     ];
     for (const characterId of characterIds) {
       const character = createCharacterConfig(

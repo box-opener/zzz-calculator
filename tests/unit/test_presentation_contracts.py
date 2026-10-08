@@ -161,6 +161,7 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1171",
         "character:1181",
         "character:1191",
+        "character:1201",
     )
     assert load_character_record("character:1011")["name"] == "安比"
     assert load_character_record("character:1011")["source_version"] == "3.2"
@@ -188,6 +189,14 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
     assert load_character_record("character:1191")["code_name"] == "Ellen"
     assert load_character_record("character:1191")["source_version"] == "3.2"
     assert load_character_record("character:1191")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1191.json"
+    assert load_character_record("character:1201")["name"] == "悠真"
+    assert load_character_record("character:1201")["code_name"] == "Harumasa"
+    assert load_character_record("character:1201")["source_version"] == "3.2"
+    assert load_character_record("character:1201")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1201.json"
+    assert load_character_record("character:1201")["name"] == "悠真"
+    assert load_character_record("character:1201")["code_name"] == "Harumasa"
+    assert load_character_record("character:1201")["source_version"] == "3.2"
+    assert load_character_record("character:1201")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1201.json"
     assert load_character_record("character:1311")["name"] == "耀嘉音"
     assert load_character_record("character:1431")["name"] == "叶瞬光"
     assert load_character_record("character:1401")["name"] == "爱丽丝"

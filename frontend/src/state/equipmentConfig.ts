@@ -37,6 +37,7 @@ const POTENTIAL_CONFIG_CHARACTER_IDS = new Set([
   "character:1171", // Burnice
   "character:1181", // Grace
   "character:1191", // Ellen
+  "character:1201", // Harumasa
 ]);
 
 export function characterConfigFilename(

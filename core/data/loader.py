@@ -46,6 +46,7 @@ _CHARACTER_FILES = {
     "character:1171": "burnice.json",
     "character:1181": "grace.json",
     "character:1191": "ellen.json",
+    "character:1201": "harumasa.json",
 }
 
 

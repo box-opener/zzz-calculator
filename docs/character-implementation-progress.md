@@ -25,7 +25,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1171` | Burnice | 柏妮思 | 4 | 3 | 部分实现（live 3.2 raw + S-rank level-60 Anomaly panel + Physical/Fire Direct and full Blender/EX entries + static Fire Burn/Disorder + Core/Cinema/Potential 0–6 + selected-source Potential 1 Discharge; fuel, duration, cooldown, buildup and Daze are not replayed） |
 | `1181` | Grace | 格莉丝 | 4 | 3 | 部分实现（live 3.2 raw/provenance + level-60 panel + all user-confirmed Direct/Anomaly/Potential/Cinema mappings; final validation and commit pending） |
 | `1191` | Ellen | 艾莲 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 panel + Physical/Ice Direct entries + static Ice Shatter/Disorder + Core/Cinema/Potential 0–6 + R1 signature mapping; resource/time behavior remains outside the current result contract） |
-| `1201` | Harumasa | 悠真 | 4 | 1 | 待实现 |
+| `1201` | Harumasa | 悠真 | 4 | 1 | 部分实现（live 3.2 raw + level-60 Electric Attack panel + reviewed Direct entries/Potential 1 Ultimate follow-up + Electric Shock/Disorder + Core/Cinema/Potential current-state rules + R1 signature mapping; Basic stage element split and a few event identities remain localized pending clarification） |
 | `1211` | Rina | 丽娜 | 4 | 4 | 待实现 |
 | `1221` | Yanagi | 柳 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct moves + static Shock/Disorder + selected-record Polar Disorder with current-AP additive component; Daze, buildup, energy and timing outputs remain outside the current result contract） |
 | `1241` | Zhu Yuan | 朱鸢 | 4 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Ellen 1191 follows the reviewed and pushed Grace 1181. After Ellen is reviewed and pushed, continue with Harumasa 1201.
+Current item: Harumasa 1201 follows the reviewed and pushed Ellen 1191. After Harumasa is reviewed and pushed, continue with Rina 1211.
 
 ## Burnice (`character:1171`)
 
@@ -90,6 +90,14 @@ The reviewed move list separates Physical and Ice Basic stages, source component
 Core/Cinema/Potential effects use the source scopes: Core Crit Damage applies to charged Dash and charge-consuming Ice Basic, and at Potential 1 also applies to the named Chain/Ultimate/Frost Edge/Ice Blade Wave events; Cinema 1 uses current charge layers, Cinema 2 only modifies current EX Crit Damage, and Cinema 6 uses separate current Penetration and Feast states. The Additional Ability is enabled only when its team requirement is met and applies the selected current Ice damage stacks to Ellen's own Ice events. Potential 2–6 adds the source Crit Damage per layer and full-stack Ice resistance ignore. Resource counts and timed state histories are selected inputs, not replayed.
 
 The complete charged Dash contains a spin hit before the charged shear. The user clarified that both the Core Crit Damage increase and Cinema 6 +250% damage increase apply to the entire charged Dash, so the component entries remain independently selectable and the complete action receives both effects across its total multiplier.
+
+## Harumasa (`character:1201`)
+
+The complete live Nanoka 3.2 record is retained at `core/data/characters/harumasa.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1201.json`. Harumasa is an S-rank Attack agent with Electric as his base element and the Sixth Hollow Special Operations Division as his faction. The local `14120` record uses `Weapon_S_1201` and is mapped to Harumasa's Heart of Sword signature; it remains unequipped by default. `IconRole35` is not packaged locally, so the catalog uses the neutral portrait placeholder.
+
+Reviewed Direct entries include the Physical shift Basic, Fallen Feather and Jia-Yi Arrow, Physical Dash, Electric Counter, Special/EX/Chain/Ultimate, Assist actions, Potential 1 Dash Slash stages, Julei's single source coefficient, and the Potential 1 patrol EX. Potential 1 Ultimate automatically creates one Electric scatter follow-up. Static Electric Shock and Disorder use the shared static 100%-buildup/NoCrit model. Core applies its source Crit Rate and Fengmang Crit Damage only to the named Dash Slash/Julei/Ultimate events. Cinema 2 uses current Electric Blade stacks for its Dash Slash bonus; Potential 2–6 expose current ATK and resistance-ignore states; Cinema 6 exposes current Electric resistance ignore and a local unresolved extra child when its 12-hit trigger is selected.
+
+Three source boundaries remain localized: the Basic source says Physical and Electric across five stages but does not map the split per stage; Potential 1 does not state whether Julei triggers once per Dash Slash stage or once per complete action; and Cinema 6 gives its 1500% ATK Electro explosion without defining the child event's Crit/tag/group inheritance. These do not block the independently reviewed entries; no extra Direct event is fabricated for either unresolved child.
 
 Known Direct entries include Basic stages 1–3 Physical and stage 4 Electric, Physical Dash and Basic step-shot, Electric Dodge Counter, Special, EX (the source `*2` counts both grenades), Chain, Ultimate, Quick Assist, and Assist Strike. Potential 1 exposes one cycle grenade at the source curve divided by 29, one Vortex grenade, and one Pulse grenade. A cycle query represents one ordinary grenade; if the current Pulse-Grenade-Ready state is selected, it adds one Pulse grenade and a Discharge only from that Pulse grenade. The Discharge source selector uses one reviewed active teammate anomaly record while preserving the current operator and formation.
 

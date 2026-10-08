@@ -50,6 +50,7 @@ from core.types import (
     EventCreationEffect,
     EventCreationResult,
     EffectRule,
+    EventTemplateIdFilter,
     EffectSourceType,
     EffectTarget,
     EventTemplateId,
@@ -147,6 +148,7 @@ from .wengine_ids import (
     WENGINE_FLAMEMAKER_SHAKER_ID,
     WENGINE_FUSION_COMPILER_ID,
     WENGINE_DEEP_SEA_VISITOR_ID,
+    WENGINE_HEART_OF_SWORD_ID,
     WENGINE_TIMEWEAVER_ID,
     WENGINE_JADE_TEA_ID,
     WENGINE_STINGING_RAZOR_ID,
@@ -239,6 +241,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1181"): WENGINE_FUSION_COMPILER_ID,
     # Local Nanoka 3.2 record 14119 is `Weapon_S_1191`, the reviewed Deep Sea Visitor signature.
     CharacterId("character:1191"): WENGINE_DEEP_SEA_VISITOR_ID,
+    # Local 14120 raw catalog icon is `Weapon_S_1201`, the reviewed Harumasa signature.
+    CharacterId("character:1201"): WENGINE_HEART_OF_SWORD_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,
@@ -4729,6 +4733,55 @@ def _heart_of_sword_rules(
         DamageTagFilter(DamageTag.DASH_ATTACK),
         ElementFilter(Element.ELECTRIC),
     )
+    electric_dash_effects = (
+        _wearer_modifier(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="electric-dash-damage",
+            path=CalculationNode.DAMAGE_NORMAL_BONUS,
+            value=float(values["electric_dash_damage_bonus"]),
+            filters=electric_dash,
+        ),
+    )
+    if "harumasa-julei-tag-scope-unresolved" in capabilities.mechanisms:
+        electric_dash_effects = (
+            *electric_dash_effects,
+            EventCreationEffect(
+                rule=EffectRule(
+                    effect_id=_instance_effect_id(
+                        raw.wengine_id,
+                        owner,
+                        "harumasa-julei-tag-scope-unresolved",
+                    ),
+                    source=source,
+                    owner=owner,
+                    target=EffectTarget.TEAM,
+                    snapshot_rule=SnapshotRule.SETTLEMENT,
+                    filters=(
+                        DamageTypeFilter(DamageType.DIRECT),
+                        DamageDealerFilter(owner),
+                        EventTemplateIdFilter(
+                            EventTemplateId(
+                                "template:character:1201:potential1-julei:main"
+                            )
+                        ),
+                    ),
+                ),
+                result=EventCreationResult(
+                    event_kind=BattleEventKind.DAMAGE,
+                    unresolved_template=Unresolved(
+                        reason=UnresolvedReason.AMBIGUOUS_TEXT,
+                        notes=(
+                            "Heart of Sword's +Electric Dash damage is active, but the source does not identify whether the Julei follow-up carries the Dash Attack tag. "
+                            "Its known Direct base remains available; the possible weapon bonus is left unresolved without creating a synthetic hit."
+                        ),
+                        original_text=talent.text,
+                    ),
+                    unique_per_source_event=True,
+                ),
+            ),
+        )
     return (
         _rule(
             raw=raw,
@@ -4761,17 +4814,7 @@ def _heart_of_sword_rules(
                 skill_group=SkillGroup.DODGE,
                 tags=(DamageTag.DASH_ATTACK,),
             ),
-            effects=(
-                _wearer_modifier(
-                    raw=raw,
-                    owner=owner,
-                    source=source,
-                    suffix="electric-dash-damage",
-                    path=CalculationNode.DAMAGE_NORMAL_BONUS,
-                    value=float(values["electric_dash_damage_bonus"]),
-                    filters=electric_dash,
-                ),
-            ),
+            effects=electric_dash_effects,
         ),
         _rule(
             raw=raw,

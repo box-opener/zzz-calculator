@@ -982,3 +982,17 @@ Raw text: `格莉丝<color=#FFFFFF>[强化特殊技]</color>命中敌人时，�
 ### N23: Cinema 6 with Potential 1 grenades — resolved
 
 Raw text: `消耗所有<color=#FFFFFF>[电能]</color>发动<color=#FFFFFF>[特殊技]</color>或<color=#FFFFFF>[强化特殊技]</color>时，能够强化招式效果，额外投掷一颗手雷，并使每颗手雷造成的伤害提升至原本的200%。` User answer: `只有主手雷翻倍。` Each selected main grenade packet is doubled and one extra main grenade is added. The single main grenade in Potential 1's Special Cycle follows the same rule when the current consume-all-Energy state is selected; the Vortex and Pulse grenades are not C6 targets. Resource or throw history is not simulated.
+
+## Harumasa (`character:1201`) localized source questions
+
+### Basic stage element split
+
+The Basic prose says `向前方进行至多五段的穿透攻击，造成物理伤害和电属性伤害` but does not assign an element to each stage. The raw infliction values for source curves 1201001–1201005 are `0, 0, 0, 4917, 6584`; those values do not by themselves establish the element mapping. The five stage entries remain local until the user confirms their Physical/Electric split.
+
+### Potential 1 Julei follow-up count and tag
+
+The Potential 1 Dash Slash text says `斩击命中处于失衡状态的敌人时会触发[逐雷]，造成1次额外的电属性伤害`. The curve for `逐雷` is 1201025 and the known L12 ratio is 83%. It is exposed as its single source coefficient, but it is unresolved whether it triggers once per Dash Slash stage or once for the complete action. The raw source is listed in the Dodge section without a clear DamageTag, so the compiler does not assign a Dash or Follow-up tag while that remains open.
+
+### Cinema 6 electromagnetic explosion identity
+
+Cinema 6 says `[甲乙矢]每命中同一名敌人12次，将额外触发1次电磁爆炸，对目标造成悠真1500%攻击力的电属性伤害`. The 1500% ATK coefficient and Electric element are known. The event's Crit capability and SkillGroup/DamageTag inheritance are pending clarification. When the current 12-hit trigger is selected, only the Jia-Yi Arrow branch becomes locally partial; the implementation does not create a synthetic Direct event.

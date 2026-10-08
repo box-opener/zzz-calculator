@@ -41,6 +41,7 @@ from .lucy import LucyCompileConfig, compile_lucy
 from .lighter import LighterCompileConfig, compile_lighter
 from .burnice import BurniceCompileConfig, compile_burnice
 from .ellen import EllenCompileConfig, compile_ellen
+from .harumasa import HarumasaCompileConfig, compile_harumasa
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -110,4 +111,6 @@ __all__ = [
     "compile_burnice",
     "EllenCompileConfig",
     "compile_ellen",
+    "HarumasaCompileConfig",
+    "compile_harumasa",
 ]
