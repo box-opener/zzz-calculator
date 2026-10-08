@@ -115,6 +115,7 @@ class MoveCalculationViewRequest:
     luminance_source_slots: tuple[LuminanceSourceChoice, ...] = ()
     polarity_anomaly_source_choice: AnomalySourceChoice | None = None
     burnice_anomaly_source_choice: AnomalySourceChoice | None = None
+    grace_anomaly_source_choice: AnomalySourceChoice | None = None
 
 
 __all__ = [

@@ -37,4 +37,13 @@ describe("Burnice Discharge source selection", () => {
     expect(selectedBurniceAnomalySource(options, options[1].key)).toEqual(options[1]);
     expect(selectedBurniceAnomalySource(options.slice(0, 1), options[1].key)).toEqual(options[0]);
   });
+
+  it("can default a reviewed-source picker to Grace without changing Burnice defaults", () => {
+    const options = [
+      { key: "character:1011|electric", characterId: "character:1011", element: "electric" },
+      { key: "character:1181|electric", characterId: "character:1181", element: "electric" },
+    ];
+    expect(selectedBurniceAnomalySource(options, null, "character:1181")).toEqual(options[1]);
+    expect(selectedBurniceAnomalySource(options, null)).toEqual(options[0]);
+  });
 });

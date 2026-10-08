@@ -35,6 +35,7 @@ const POTENTIAL_CONFIG_CHARACTER_IDS = new Set([
   "character:1101", // Koleda
   "character:1141", // Lycaon
   "character:1171", // Burnice
+  "character:1181", // Grace
 ]);
 
 export function characterConfigFilename(

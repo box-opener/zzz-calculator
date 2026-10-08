@@ -966,3 +966,19 @@ The user revised the prior per-interval interpretation: “做修复吧，不考
 ## Burnice (`character:1171`) decisions confirmed
 
 The user's answers close Burnice N15–N20. The newest panel rule supersedes the earlier Potential floor interpretation: Potential 2–6 still read `max(INITIAL_ER − 1.8, 0)` with their per-0.1 coefficients and caps, but apply the excess continuously. Core Ember damage bonus is `min(CURRENT_AP × 0.001, 0.30)`. Cinema 6's extra Burn damage is one tick: `1800% × 0.5 = 9.0 × selected source strength`, not the full Burn duration. The user's N18 answer says normal/special Ember are separate one-hit DIRECT Support Attack packets with Standard Crit and no EX tag; Cinema 6 special Ember is 60% ATK, receives Cinema 1's additive 100 percentage points and the Core AP damage increase. N19 assigns Basic 1–2 Physical and the remaining Basic stages, Counter, Quick Assist, and Special Throw Fire. Potential 1 Blender's relevant damage carries BASIC and ASSIST tags and one extra Ember. Potential 1 Special Throw uses its listed Discharge multiplier with one selected active ordinary-anomaly record, and the Discharge calculation carries that element's per-tick multiplier. The source picker retains the actual operator and formation.
+
+## Grace (`character:1181`) source decisions
+
+The following decisions were answered by the user for the live Nanoka 3.2 branches. They change only Grace's listed mappings and scopes.
+
+### N21: Basic stage element split — resolved
+
+Raw text: `向前方进行至多四段的攻击，造成<color=#F0D12B>物理伤害</color>和<color=#2EB6FF>电属性伤害</color>`. User answer: `1-3物理，4电`. Basic stages 1–3 use Physical, stage 4 Electric. The per-stage `attribute_infliction` data does not override this source decision. The separately named `垫步射击` remains Physical.
+
+### N22: Additional Ability Shock-damage scope — resolved
+
+Raw text: `格莉丝<color=#FFFFFF>[强化特殊技]</color>命中敌人时，目标下次被施加<color=#2EB6FF>[感电]</color>效果时，受到的<color=#2EB6FF>[感电]</color>伤害提升18%，最多叠加2层，同一招式内每个敌人最多触发一次效果，<color=#2EB6FF>[感电]</color>状态结束时效果重置。` User clarification: `n22 应该是属于异常增伤区。因此紊乱不吃，但是异放可以享受`. The current target stack is 0–2 (default 2), with +18% per layer captured in the selected Electric attribute-anomaly record's anomaly-damage-bonus field. The record's Shock and Discharge inherit it once. Direct damage, Disorder, and Polar Disorder do not receive it, and it is not added again in later settlement regions. The source actor is unrestricted for this target effect; no triggering history or duration is simulated.
+
+### N23: Cinema 6 with Potential 1 grenades — resolved
+
+Raw text: `消耗所有<color=#FFFFFF>[电能]</color>发动<color=#FFFFFF>[特殊技]</color>或<color=#FFFFFF>[强化特殊技]</color>时，能够强化招式效果，额外投掷一颗手雷，并使每颗手雷造成的伤害提升至原本的200%。` User answer: `只有主手雷翻倍。` Each selected main grenade packet is doubled and one extra main grenade is added. The single main grenade in Potential 1's Special Cycle follows the same rule when the current consume-all-Energy state is selected; the Vortex and Pulse grenades are not C6 targets. Resource or throw history is not simulated.

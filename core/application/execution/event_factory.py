@@ -117,6 +117,7 @@ def instantiate_damage_event(
     turbulence_element=None,
     polarity_anomaly_source_choice: AnomalySourceChoice | None = None,
     burnice_anomaly_source_choice: AnomalySourceChoice | None = None,
+    grace_anomaly_source_choice: AnomalySourceChoice | None = None,
 ) -> InstantiatedDamageEvent:
     """Instantiate any typed template without collapsing anomaly identity."""
 
@@ -261,22 +262,24 @@ def instantiate_damage_event(
             crit_rule=template.crit_rule,
         )
     elif isinstance(template, DischargeDamageEventTemplate):
-        selected_burnice_source = (
-            burnice_anomaly_source_choice
-            if template.source_multiplier_by_element
-            else None
-        )
+        selected_dynamic_source = None
+        if template.source_multiplier_by_element:
+            owner_id = str(template.damage_dealer)
+            if owner_id == "character:1171":
+                selected_dynamic_source = burnice_anomaly_source_choice
+            elif owner_id == "character:1181":
+                selected_dynamic_source = grace_anomaly_source_choice
         record_id = (
-            anomaly_source_record_id(selected_burnice_source)
-            if selected_burnice_source is not None
+            anomaly_source_record_id(selected_dynamic_source)
+            if selected_dynamic_source is not None
             else template.history_record_source or source_history_record_id
         )
         if record_id is None:
             raise ValueError("discharge event requires a typed source anomaly record")
         discharge_metadata = metadata
         discharge_multiplier = multiplier
-        if selected_burnice_source is not None:
-            choice = selected_burnice_source
+        if selected_dynamic_source is not None:
+            choice = selected_dynamic_source
             discharge_metadata = replace(metadata, element=choice.element)
             if not isinstance(multiplier, FixedMultiplier) or not isinstance(
                 multiplier.value, Resolved
@@ -292,7 +295,7 @@ def instantiate_damage_event(
             )
             if source_ratio is None:
                 raise ValueError(
-                    "Burnice Discharge source element has no reviewed multiplier"
+                    "Selected Discharge source element has no reviewed multiplier"
                 )
             discharge_multiplier = FixedMultiplier(
                 Resolved(
@@ -309,7 +312,7 @@ def instantiate_damage_event(
             multiplier=(
                 source_anomaly_multiplier
                 if template.multiplier_from_source_event
-                and selected_burnice_source is None
+                and selected_dynamic_source is None
                 and source_anomaly_multiplier is not None
                 else discharge_multiplier
             ),

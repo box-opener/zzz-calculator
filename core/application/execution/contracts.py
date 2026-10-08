@@ -87,6 +87,7 @@ class MoveCalculationRequest:
     luminance_source_choice: LuminanceSourceChoice | None = None
     polarity_anomaly_source_choice: AnomalySourceChoice | None = None
     burnice_anomaly_source_choice: AnomalySourceChoice | None = None
+    grace_anomaly_source_choice: AnomalySourceChoice | None = None
     additional_damage_event_templates: tuple[DamageEventTemplate, ...] = ()
     additional_derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
@@ -221,6 +222,30 @@ class MoveCalculationRequest:
             if choice.element not in source_elements:
                 raise ValueError(
                     "Burnice Discharge source element is not backed by an active "
+                    f"ordinary anomaly template for {choice.source_character_id}"
+                )
+        if self.grace_anomaly_source_choice is not None:
+            choice = self.grace_anomaly_source_choice
+            if self.definition.character_id != CharacterId("character:1181"):
+                raise ValueError("Grace anomaly source selection requires Grace as primary")
+            if choice.source_character_id not in set(profile_ids):
+                raise ValueError("Grace anomaly source must be an active teammate")
+            if choice.element not in ANOMALY_ELEMENTS:
+                raise ValueError("Grace Discharge source must use an ordinary anomaly element")
+            source_definition = next(
+                item
+                for item in definitions
+                if item.character_id == choice.source_character_id
+            )
+            source_elements = {
+                template.element
+                for template in source_definition.damage_event_templates
+                if isinstance(template, AttributeAnomalyDamageEventTemplate)
+                and template.element in ANOMALY_ELEMENTS
+            }
+            if choice.element not in source_elements:
+                raise ValueError(
+                    "Grace Discharge source element is not backed by an active "
                     f"ordinary anomaly template for {choice.source_character_id}"
                 )
 

@@ -123,6 +123,12 @@ from core.application.characters.burnice import (
     compile_burnice,
     load_raw_record as load_burnice_raw_record,
 )
+from core.application.characters.grace import (
+    GRACE_ID,
+    GraceCompileConfig,
+    compile_grace,
+    load_raw_record as load_grace_raw_record,
+)
 from core.application.characters.soukaku import (
     SOUKAKU_ID,
     SoukakuCompileConfig,
@@ -2769,6 +2775,86 @@ def _compile_burnice(
     )
 
 
+def _grace_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+    potential_level: int,
+) -> bool:
+    own_camps = _nanoka_camp_ids(GRACE_ID)
+    for character_id in team_ids:
+        if character_id == GRACE_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.base_element is Element.ELECTRIC:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+        if potential_level >= 1 and registration.role is CharacterRole.ANOMALY:
+            return True
+    return False
+
+
+def _grace_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "格莉丝核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前核心等级；核心资源和异常积蓄细节只按当前静态条件表示。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "格莉丝影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁影画等级；3/5影技能提升按实际技能等级生效。",
+        ),
+        _slider_field(
+            "potential_level",
+            "格莉丝潜能等级",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "潜能1解锁循环特殊技与额外手雷；潜能2–6为电能强化状态。",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _compile_grace(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = GraceCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=_integer_with_default(values, "potential_level", 0, False),
+        additional_ability_eligible=_grace_additional_ability_eligibility(
+            team_ids,
+            _integer_with_default(values, "potential_level", 0, False),
+        ),
+    )
+    return compile_grace(
+        config,
+        load_grace_raw_record(
+            load_character_record(str(GRACE_ID)),
+            potential_level=config.potential_level,
+        ),
+    )
+
+
 _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
     YIDHARI_ID: CharacterPresentationRegistration(
         character_id=YIDHARI_ID,
@@ -4326,6 +4412,55 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 }
             ),
             mechanisms=frozenset({"burnice-ember", "burnice-fuel-state"}),
+        ),
+    ),
+    GRACE_ID: CharacterPresentationRegistration(
+        character_id=GRACE_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1181",
+            display_name="格莉丝",
+            rarity="S",
+            element="electric",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_grace,
+        config_fields=_grace_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=GRACE_ID,
+            role=CharacterRole.ANOMALY,
+            native_element=Element.ELECTRIC,
+            possible_elements=frozenset({Element.PHYSICAL, Element.ELECTRIC}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.DODGE, frozenset({DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.DODGE, frozenset({DamageTag.DODGE_COUNTER})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.EX_SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.CHAIN_ATTACK, frozenset({DamageTag.CHAIN_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.ULTIMATE, frozenset({DamageTag.ULTIMATE})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
+                }
+            ),
+            mechanisms=frozenset({"grace-electric-energy", "grace-potential-pulse"}),
         ),
     ),
 

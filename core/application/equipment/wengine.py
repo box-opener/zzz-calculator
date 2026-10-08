@@ -234,6 +234,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1161"): WEngineId("wengine:14116"),
     # The local 14117 record is Weapon_S_1171 and identifies Burnice's 燃油特调.
     CharacterId("character:1171"): WENGINE_FLAMEMAKER_SHAKER_ID,
+    # The local 14118 record uses Weapon_S_1181 and identifies Grace in desc3.
+    CharacterId("character:1181"): WENGINE_FUSION_COMPILER_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

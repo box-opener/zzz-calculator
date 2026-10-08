@@ -384,6 +384,7 @@ function App() {
   const [remielleSourceSlotOverrides, setRemielleSourceSlotOverrides] = useState<string[] | null>(null);
   const [yanagiPolarSourceKey, setYanagiPolarSourceKey] = useState<string | null>(null);
   const [burniceAnomalySourceKey, setBurniceAnomalySourceKey] = useState<string | null>(null);
+  const [graceAnomalySourceKey, setGraceAnomalySourceKey] = useState<string | null>(null);
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
   const [parameterValues, setParameterValues] = useState<Record<string, number | null>>({});
   const conditionValuesRef = useRef<Record<string, boolean | null>>({});
@@ -468,6 +469,17 @@ function App() {
   const showBurniceDischargeSource = currentOperatorId === "character:1171"
     && moveEntryId === "move-entry:character:1171:special-throw"
     && burniceAnomalySources.length > 0;
+  const graceAnomalySources = burniceAnomalySourceOptions(teamIds, editorViews);
+  const effectiveGraceAnomalySource = selectedBurniceAnomalySource(
+    graceAnomalySources,
+    graceAnomalySourceKey,
+    "character:1181",
+  );
+  const showGraceDischargeSource = currentOperatorId === "character:1181"
+    && conditionValuesRef.current["condition:grace:pulse-grenade-ready"] === true
+    && (moveEntryId === "move-entry:character:1181:potential1-pulse-grenade"
+      || moveEntryId === "move-entry:character:1181:potential1-cycle-single-throw")
+    && graceAnomalySources.length > 0;
   const requestTeam = useMemo(() => calculationTeamOrder(teamIds, currentOperatorId), [teamIds, currentOperatorId]);
   const supportingIds = requestTeam.supportingCharacterIds;
   const aggregatedEditors = useMemo(
@@ -1189,6 +1201,12 @@ function App() {
               element: effectiveBurniceAnomalySource.element,
             },
           } : {}),
+          ...(showGraceDischargeSource && effectiveGraceAnomalySource ? {
+            grace_anomaly_source: {
+              source_character_id: effectiveGraceAnomalySource.characterId,
+              element: effectiveGraceAnomalySource.element,
+            },
+          } : {}),
           compile_configs: Object.fromEntries(teamIds.map((id) => [id, {
             core_level: 7,
             cinema_level: 0,
@@ -1494,6 +1512,14 @@ function App() {
             <div className="section-heading compact"><div><p className="eyebrow">BURNICE DISCHARGE SOURCE</p><h2>灼热抛接异放来源</h2><p className="control-section-hint">选择当前队伍中的一条异常记录；默认使用柏妮思自身灼烧。来源按当前面板结算，不切换操作角色。</p></div></div>
             <label className="select-field"><span>异常来源</span><select value={effectiveBurniceAnomalySource?.key ?? ""} onChange={(event) => setBurniceAnomalySourceKey(event.target.value || null)}>
               {burniceAnomalySources.map((option) => <option key={option.key} value={option.key}>
+                {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
+              </option>)}
+            </select></label>
+          </div>}
+          {showGraceDischargeSource && <div className="control-list yanagi-polar-source">
+            <div className="section-heading compact"><div><p className="eyebrow">GRACE DISCHARGE SOURCE</p><h2>脉冲手雷异放来源</h2><p className="control-section-hint">选择当前队伍的一条异常记录；默认使用格莉丝自身感电。来源按当前面板结算，不切换操作角色。</p></div></div>
+            <label className="select-field"><span>异常来源</span><select value={effectiveGraceAnomalySource?.key ?? ""} onChange={(event) => setGraceAnomalySourceKey(event.target.value || null)}>
+              {graceAnomalySources.map((option) => <option key={option.key} value={option.key}>
                 {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
               </option>)}
             </select></label>

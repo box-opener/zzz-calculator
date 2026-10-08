@@ -68,7 +68,7 @@ const roundTripWengines = [
   { id: "wengine:14114", characterId: "character:1361", specialty: "stun" },
   { id: "wengine:14116", characterId: "character:1361", specialty: "stun" },
   { id: "wengine:14117", characterId: "character:1171", specialty: "anomaly" },
-  { id: "wengine:14118", characterId: "character:1401", specialty: "anomaly" },
+  { id: "wengine:14118", characterId: "character:1181", specialty: "anomaly" },
   { id: "wengine:14122", characterId: "character:1401", specialty: "anomaly" },
   { id: "wengine:14125", characterId: "character:1361", specialty: "stun" },
   { id: "wengine:14126", characterId: "character:1401", specialty: "anomaly" },
@@ -532,6 +532,7 @@ describe("complete character config v2", () => {
       "character:1101",
       "character:1141",
       "character:1171",
+      "character:1181",
     ];
     for (const characterId of characterIds) {
       const character = createCharacterConfig(
@@ -560,6 +561,7 @@ describe("complete character config v2", () => {
       "character:1101",
       "character:1141",
       "character:1171",
+      "character:1181",
     ];
     for (const characterId of characterIds) {
       const character = createCharacterConfig(

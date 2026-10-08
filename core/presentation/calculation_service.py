@@ -369,6 +369,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 burnice_anomaly_source_choice=(
                     view_request.burnice_anomaly_source_choice
                 ),
+                grace_anomaly_source_choice=(
+                    view_request.grace_anomaly_source_choice
+                ),
                 crit_display_mode=mode,
             )
 
@@ -1441,6 +1444,48 @@ def _presentation_request(
         raise ValueError(
             "burnice_anomaly_source is only valid for Burnice's Potential 1 Special Throw entry"
         )
+    raw_grace_source = payload.get("grace_anomaly_source")
+    grace_source_choice: AnomalySourceChoice | None = None
+    grace_discharge_entries: set[str] = set()
+    if selected_conditions.get("condition:grace:pulse-grenade-ready") is True:
+        grace_discharge_entries.add(
+            "move-entry:character:1181:potential1-pulse-grenade"
+        )
+        grace_discharge_entries.add(
+            "move-entry:character:1181:potential1-cycle-single-throw"
+        )
+    if primary_id == "character:1181" and move_entry_id in grace_discharge_entries:
+        source_spec = raw_grace_source
+        if source_spec is None:
+            source_spec = {"source_character_id": primary_id}
+        if not isinstance(source_spec, Mapping):
+            raise ValueError("grace_anomaly_source must be an object")
+        source_character_id = str(source_spec.get("source_character_id", ""))
+        if source_character_id not in team_ids:
+            raise ValueError("Grace Discharge source must be an active teammate")
+        source_options = tuple(
+            (reviewed_anomaly_source_elements or {}).get(source_character_id, ())
+        )
+        if not source_options:
+            raise ValueError(
+                f"no reviewed ordinary anomaly source is available for {source_character_id}"
+            )
+        native_element = registration_for(source_character_id).base_element
+        default_element = native_element if native_element in source_options else source_options[0]
+        raw_source_element = source_spec.get("element")
+        source_element = default_element if raw_source_element is None else _element(str(raw_source_element))
+        if source_element not in source_options:
+            raise ValueError(
+                f"Grace Discharge source element {source_element.value} is not available for {source_character_id}"
+            )
+        grace_source_choice = AnomalySourceChoice(
+            source_character_id=CharacterId(source_character_id),
+            element=source_element,
+        )
+    elif raw_grace_source not in (None, {}, ()):
+        raise ValueError(
+            "grace_anomaly_source is only valid for Grace's Potential 1 grenade entries"
+        )
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
         supporting_character_ids=supporting_ids,
@@ -1464,6 +1509,7 @@ def _presentation_request(
         luminance_source_slots=luminance_sources,
         polarity_anomaly_source_choice=polarity_source_choice,
         burnice_anomaly_source_choice=burnice_source_choice,
+        grace_anomaly_source_choice=grace_source_choice,
     )
 
 

@@ -16,6 +16,7 @@ from core.types import (
     BattleEventKind,
     CalculationContext,
     CalculationNode,
+    CharacterId,
     CharacterSnapshot,
     DamageEvent,
     DamageEventId,
@@ -267,6 +268,31 @@ class DirectMoveApplicationService:
                 self._matcher,
             )
             source_diagnostics = (*source_diagnostics, *burnice_source_diagnostics)
+        if request.grace_anomaly_source_choice is not None:
+            has_grace_source_discharge = any(
+                isinstance(template, DischargeDamageEventTemplate)
+                and template.source_multiplier_by_element
+                for definition in _all_definitions(request)
+                if definition.character_id == CharacterId("character:1181")
+                for template in definition.damage_event_templates
+            )
+            if request.definition.character_id != CharacterId("character:1181") or not has_grace_source_discharge:
+                return _execution_without_events(
+                    request,
+                    _diagnostic(
+                        str(request.move_entry_id),
+                        "grace-source-on-non-discharge",
+                        DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                        "A selected Grace anomaly source is valid only for the Potential 1 Pulse Grenade Discharge entry.",
+                    ),
+                )
+            request, grace_source_diagnostics = _prepare_grace_anomaly_source(
+                request,
+                global_panel_application.character_snapshots,
+                rule_items,
+                self._matcher,
+            )
+            source_diagnostics = (*source_diagnostics, *grace_source_diagnostics)
         main_event = instantiate_damage_event(
             main_template,
             multiplier.multiplier,
@@ -277,6 +303,7 @@ class DirectMoveApplicationService:
             luminance_source_choice=request.luminance_source_choice,
             luminance_special_source=special_source,
             burnice_anomaly_source_choice=request.burnice_anomaly_source_choice,
+            grace_anomaly_source_choice=request.grace_anomaly_source_choice,
         )
         # Static browser requests need an identity-only record before matching
         # (ANOMALY_CONTRIBUTORS can be a filter).  This is deliberately gated
@@ -968,6 +995,7 @@ class DirectMoveApplicationService:
             turbulence_element=turbulence_element,
             polarity_anomaly_source_choice=request.polarity_anomaly_source_choice,
             burnice_anomaly_source_choice=request.burnice_anomaly_source_choice,
+            grace_anomaly_source_choice=request.grace_anomaly_source_choice,
         )
         return child, (*ancestry, template_id)
 
@@ -1913,6 +1941,148 @@ def _prepare_burnice_anomaly_source(
             *source_application.diagnostics,
             *assembly.diagnostics,
         ),
+    )
+
+
+def _prepare_grace_anomaly_source(
+    request: MoveCalculationRequest,
+    snapshots: tuple[CharacterSnapshot, ...],
+    rule_items: tuple[CalculationRuleItem, ...],
+    matcher: EffectMatcher,
+):
+    """Capture the selected active actor's current-panel Shock source record."""
+
+    choice = request.grace_anomaly_source_choice
+    if choice is None:
+        return request, ()
+    record_id = anomaly_source_record_id(choice)
+    existing = next(
+        (item for item in request.history_records if item.record_id == record_id),
+        None,
+    )
+    if existing is not None:
+        if (
+            existing.target_enemy != request.target_snapshot.enemy_id
+            or existing.element is not choice.element
+            or existing.anomaly_triggerer != choice.source_character_id
+            or choice.source_character_id not in existing.contributors
+        ):
+            return request, (_diagnostic(
+                str(record_id),
+                "grace-source-record-mismatch",
+                DiagnosticKind.MISSING_DATA,
+                "The selected anomaly record does not match its selected actor, element, or target.",
+            ),)
+        return request, ()
+    if request.history_record_mode is not HistoryRecordMode.STATIC_SINGLE_CHARACTER:
+        return request, (_diagnostic(
+            str(record_id),
+            "grace-source-record-missing",
+            DiagnosticKind.MISSING_DATA,
+            "An explicit anomaly record is required for the selected Grace Discharge source.",
+        ),)
+
+    source_definition = next(
+        (item for item in _all_definitions(request) if item.character_id == choice.source_character_id),
+        None,
+    )
+    if source_definition is None:
+        return request, (_diagnostic(
+            str(choice.source_character_id),
+            "grace-source-definition-missing",
+            DiagnosticKind.MISSING_DATA,
+            "The selected anomaly source actor has no active compiled definition.",
+        ),)
+    source_template = next(
+        (
+            item for item in source_definition.damage_event_templates
+            if isinstance(item, AttributeAnomalyDamageEventTemplate)
+            and item.element is choice.element
+            and item.element in ANOMALY_ELEMENTS
+        ),
+        None,
+    )
+    if source_template is None:
+        return request, (_diagnostic(
+            str(record_id),
+            "grace-source-template-missing",
+            DiagnosticKind.MISSING_DATA,
+            "The selected actor has no reviewed ordinary anomaly template for this element.",
+        ),)
+
+    source_event = AttributeAnomalyDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId(
+                f"event:{request.battle_state_id}:grace-source:{choice.source_character_id}:{choice.element.value.replace(':', '-') }"
+            ),
+            battle_state_id=request.battle_state_id,
+            damage_dealer=choice.source_character_id,
+            target_enemy=request.target_snapshot.enemy_id,
+            element=choice.element,
+            created_at=request.battle_time,
+            skill_group=None,
+            move_id=source_template.move_id,
+            damage_tags=frozenset(),
+        ),
+        anomaly_triggerer=choice.source_character_id,
+        base_settlement_data_source=AnomalyRecordValueSource(record_id),
+        history_record_source=record_id,
+        multiplier=FixedMultiplier(Resolved(1.0)),
+        crit_rule=NoCritRule(),
+    )
+    identity_assembly = static_attribute_anomaly_record(source_event, snapshots, ())
+    if identity_assembly is None or identity_assembly.record is None:
+        return request, (
+            *(identity_assembly.diagnostics if identity_assembly is not None else ()),
+            _diagnostic(
+                str(record_id),
+                "grace-source-identity-unresolved",
+                DiagnosticKind.MISSING_DATA,
+                "The selected source actor cannot produce a resolved ordinary anomaly record from the current panel.",
+            ),
+        )
+
+    match_request = replace(request, history_records=(*request.history_records, identity_assembly.record))
+    source_context = _match_context(
+        match_request,
+        source_event,
+        snapshots,
+        request.base_calculation_modifiers,
+        current_template_id=source_template.ref.template_id,
+    )
+    matches = matcher.match_rule_items(rule_items, source_context)
+    source_application = apply_matched_modifiers(
+        snapshots,
+        request.base_calculation_modifiers,
+        _matched_effects(matches, rule_items, request.scenario),
+        request.scenario.current_operator,
+        initial_character_snapshots=request.initial_character_snapshots,
+        scenario=request.scenario,
+        event=source_event,
+        apply_panel=False,
+    )
+    assembly = static_attribute_anomaly_record(
+        source_event,
+        source_application.character_snapshots,
+        source_application.event_modifiers,
+        modifier_sources=_modifier_sources(request),
+    )
+    if assembly is None or assembly.record is None:
+        return request, (
+            *_match_diagnostics(matches),
+            *source_application.diagnostics,
+            *(assembly.diagnostics if assembly is not None else ()),
+            _diagnostic(
+                str(record_id),
+                "grace-source-record-unresolved",
+                DiagnosticKind.MISSING_DATA,
+                "The selected anomaly source record could not be resolved from its active panel effects.",
+            ),
+        )
+    return replace(request, history_records=(*request.history_records, assembly.record)), (
+        *_match_diagnostics(matches),
+        *source_application.diagnostics,
+        *assembly.diagnostics,
     )
 
 
