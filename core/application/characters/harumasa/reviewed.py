@@ -86,6 +86,22 @@ def _move(
 
 
 _BASE_MOVES = (
+    *tuple(
+        _move(
+            f"basic-stage-{stage}",
+            move_id=HARUMASA_BASIC_MOVE_ID,
+            label=f"普通攻击：穿云（第{('一', '二', '三', '四', '五')[stage - 1]}段）",
+            source="普通攻击：穿云",
+            group=SkillGroup.BASIC_ATTACK,
+            tags=_BASIC,
+            parameter=f"{('一', '二', '三', '四', '五')[stage - 1]}段伤害倍率",
+            curve=f"120100{stage}",
+            element=Element.PHYSICAL if stage <= 3 else Element.ELECTRIC,
+            relation=MultiplierRelation.SEQUENTIAL_STAGE,
+            stage=stage,
+        )
+        for stage in range(1, 6)
+    ),
     _move("basic-shift", move_id=HARUMASA_SHIFT_MOVE_ID, label="普通攻击：穿云·移形", source="普通攻击：穿云·移形", group=SkillGroup.BASIC_ATTACK, tags=_BASIC, parameter="伤害倍率", curve="1201006", element=Element.PHYSICAL),
     _move("basic-feather", move_id=HARUMASA_FEATHER_MOVE_ID, label="普通攻击：落羽", source="普通攻击：落羽", group=SkillGroup.BASIC_ATTACK, tags=_BASIC, parameter="伤害倍率", curve="1201007", element=Element.ELECTRIC),
     _move("basic-arrow", move_id=HARUMASA_ARROW_MOVE_ID, label="普通攻击：甲乙矢", source="普通攻击：甲乙矢", group=SkillGroup.BASIC_ATTACK, tags=_BASIC, parameter="伤害倍率", curve="1201008", element=Element.ELECTRIC),
@@ -122,7 +138,7 @@ _BASE_MOVES = (
 HARUMASA_REVIEWED_MAPPING = NanokaReviewedMapping(
     moves=_BASE_MOVES,
     data_quality_notes=(
-        "The source lists five Basic stages as Physical and Electric damage without assigning each stage's element. The implementation leaves those five entries out until the source-to-stage split is confirmed; unrelated reviewed entries remain available.",
+        "The user confirmed Basic stages 1–3 as Physical and stages 4–5 as Electric, resolving the source's combined Physical/Electric description without inferring from attribute-infliction values.",
         "Potential 1 Julei is exposed as its single source coefficient, without assuming its attack tag or automatic trigger count.",
     ),
 )

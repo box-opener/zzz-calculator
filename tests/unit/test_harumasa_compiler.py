@@ -171,10 +171,12 @@ def test_harumasa_reviewed_direct_curves_and_potential_unlocks() -> None:
     assert entries0["move-entry:character:1201:ex-electric"].multiplier_variants[0].multiplier.value.value == pytest.approx(8.992)
     assert entries0["move-entry:character:1201:chain-electric"].multiplier_variants[0].multiplier.value.value == pytest.approx(10.357)
     assert entries0["move-entry:character:1201:ultimate-electric"].multiplier_variants[0].multiplier.value.value == pytest.approx(39.086)
-    for stage in range(1, 6):
-        basic = entries0[f"move-entry:character:1201:basic-stage-element-unresolved-{stage}"]
-        assert basic.multiplier_relation is MultiplierRelation.UNRESOLVED_RELATION
-        assert basic.multiplier_variants[0].multiplier.value.value > 0
+    basic_ratios = (0.853, 0.805, 1.424, 1.803, 2.660)
+    for stage, expected in enumerate(basic_ratios, start=1):
+        basic = entries0[f"move-entry:character:1201:basic-stage-{stage}"]
+        assert basic.multiplier_relation is MultiplierRelation.SEQUENTIAL_STAGE
+        assert basic.main_damage_event.element.value == ("physical" if stage <= 3 else "electric")
+        assert basic.multiplier_variants[0].multiplier.value.value == pytest.approx(expected)
     assert tuple(
         entries1[f"move-entry:character:1201:dash-slash-{stage}"].multiplier_variants[0].multiplier.value.value
         for stage in (1, 2, 3)
@@ -183,18 +185,13 @@ def test_harumasa_reviewed_direct_curves_and_potential_unlocks() -> None:
     assert entries1["move-entry:character:1201:potential1-ex-patrol"].multiplier_variants[0].multiplier.value.value == pytest.approx(10.268)
     assert len(entries1["move-entry:character:1201:ultimate-electric"].derived_damage_events) == 1
     assert entries1["move-entry:character:1201:ultimate-electric"].derived_damage_events[0].multiplier.value.value == pytest.approx(4.73)
-    assert any(
-        "五段" in diagnostic.message
-        for stage in range(1, 6)
-        for diagnostic in entries0[f"move-entry:character:1201:basic-stage-element-unresolved-{stage}"].diagnostics
-    )
-
-
-def test_harumasa_basic_unknown_element_is_selectable_but_never_instantiates_a_fake_hit() -> None:
-    result = _calculate(_payload("move-entry:character:1201:basic-stage-element-unresolved-1"))
-    assert result["events"] == []
-    assert result["totals"]["expected"]["complete"] is False
-    assert any("元素映射" in item["message"] for item in result["diagnostics"])
+def test_harumasa_basic_stage_split_is_physical_then_electric() -> None:
+    expected = ("physical", "physical", "physical", "electric", "electric")
+    for stage, element in enumerate(expected, start=1):
+        result = _calculate(_payload(f"move-entry:character:1201:basic-stage-{stage}"))
+        assert len(result["events"]) == 1
+        assert result["events"][0]["element"] == element
+        assert result["totals"]["expected"]["complete"] is True
 
 
 @pytest.mark.parametrize(
@@ -326,18 +323,87 @@ def test_harumasa_additional_ability_target_status_is_scoped_and_not_double_appl
     assert haru_bonuses(both)[0]["value"] == pytest.approx(0.4)
 
 
-def test_harumasa_c6_electromagnetic_child_is_partial_without_fake_direct_event() -> None:
-    rule = "rule:character:1201:cinema6:electric-explosion-local-unresolved"
+def test_harumasa_c6_electromagnetic_explosion_is_a_single_independent_direct_child() -> None:
+    rule = "rule:character:1201:cinema6:electric-explosion-child"
     result = _calculate(_payload(
         "move-entry:character:1201:basic-arrow",
         cinema=6,
         conditions={"condition:harumasa:cinema6-electromagnetic-explosion-ready": True},
         enabled=(rule,),
     ))
-    assert len(result["events"]) == 1
+    assert len(result["events"]) == 2
     assert result["events"][0]["damage_type"] == "direct"
-    assert result["totals"]["expected"]["complete"] is False
-    assert any("1500%" in item["message"] or "1500%" in item.get("original_text", "") for item in result["diagnostics"])
+    assert result["events"][1]["damage_type"] == "direct"
+    assert result["events"][1]["element"] == "electric"
+    assert result["totals"]["expected"]["complete"] is True
+
+    standalone = _calculate(_payload(
+        "move-entry:character:1201:cinema6-electromagnetic-explosion",
+        cinema=6,
+    ))
+    assert len(standalone["events"]) == 1
+    assert standalone["events"][0]["modes"]["expected"]["value"] == pytest.approx(
+        result["events"][1]["modes"]["expected"]["value"]
+    )
+    not_ready = _calculate(_payload(
+        "move-entry:character:1201:basic-arrow",
+        cinema=6,
+        enabled=(rule,),
+    ))
+    assert len(not_ready["events"]) == 1
+    assert not_ready["totals"]["expected"]["complete"] is True
+
+
+def test_harumasa_unlabeled_c6_explosion_keeps_generic_crit_and_damage_bonuses() -> None:
+    raw = load_raw_record(load_character_record(str(HARUMASA_ID)), potential_level=0)
+    definition = compile_harumasa(HarumasaCompileConfig(cinema_level=6), raw)
+    entry = next(
+        item
+        for item in definition.move_entries
+        if str(item.entry_id) == "move-entry:character:1201:cinema6-electromagnetic-explosion"
+    )
+    assert entry.skill_group is None
+    assert entry.damage_tags == frozenset()
+    assert entry.move_id is None
+
+    payload = _payload(
+        "move-entry:character:1201:cinema6-electromagnetic-explosion",
+        cinema=6,
+        supporting=("character:1141",),
+        enemy_stunned=True,
+        enabled=(
+            "rule:wengine:14120:owner:1201:electric-dash-damage",
+            "rule:character:1201:extra-ability:stunned-target-damage-bonus",
+        ),
+    )
+    payload["character_builds"][str(HARUMASA_ID)] = {
+        "level": 60,
+        "build_mode": "equipment-build",
+        "wengine_id": "wengine:14120",
+        "wengine_level": 60,
+        "wengine_refinement": 1,
+        "drive_discs": [],
+    }
+    result = _calculate(payload)
+    assert result["totals"]["expected"]["complete"] is True
+    assert len(result["events"]) == 1
+    snapshot = next(
+        item for item in result["resolved_character_snapshots"]
+        if item["character_id"] == str(HARUMASA_ID)
+    )
+    assert snapshot["stats"]["crit_rate"] == pytest.approx(0.194)
+    assert snapshot["stats"]["crit_damage"] == pytest.approx(0.98)
+    breakdown = {
+        item["node"]: item["value"]
+        for item in result["events"][0]["modes"]["expected"]["calculation_breakdown"]
+    }
+    assert breakdown["damage.normal-bonus"] == pytest.approx(0.4)
+    applied_effect_ids = {
+        item["effect_id"]
+        for item in result["events"][0]["common_application_trace"]["applied_modifiers"]
+    }
+    assert "effect:character:1201:extra-ability:stunned-target-damage-bonus" in applied_effect_ids
+    assert "effect:wengine:14120:owner:1201:electric-dash-damage" not in applied_effect_ids
 
 
 def test_harumasa_potential1_julei_is_a_local_partial_on_stunned_dash_slash() -> None:

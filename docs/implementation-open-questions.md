@@ -985,9 +985,9 @@ Raw text: `消耗所有<color=#FFFFFF>[电能]</color>发动<color=#FFFFFF>[特�
 
 ## Harumasa (`character:1201`) localized source questions
 
-### Basic stage element split
+### Basic stage element split — resolved
 
-The Basic prose says `向前方进行至多五段的穿透攻击，造成物理伤害和电属性伤害` but does not assign an element to each stage. The raw infliction values for source curves 1201001–1201005 are `0, 0, 0, 4917, 6584`; those values do not by themselves establish the element mapping. The five stage entries remain local until the user confirms their Physical/Electric split.
+The Basic prose says `向前方进行至多五段的穿透攻击，造成物理伤害和电属性伤害` but does not assign an element to each stage. The user confirmed `正确`: stages 1–3 are Physical and stages 4–5 Electric. The five raw curves are now selectable Direct Basic entries using that mapping; the raw infliction values do not override it.
 
 ### Potential 1 Julei follow-up count and tag
 
@@ -995,4 +995,4 @@ The Potential 1 Dash Slash text says `斩击命中处于失衡状态的敌人时
 
 ### Cinema 6 electromagnetic explosion identity
 
-Cinema 6 says `[甲乙矢]每命中同一名敌人12次，将额外触发1次电磁爆炸，对目标造成悠真1500%攻击力的电属性伤害`. The 1500% ATK coefficient and Electric element are known. The event's Crit capability and SkillGroup/DamageTag inheritance are pending clarification. When the current 12-hit trigger is selected, only the Jia-Yi Arrow branch becomes locally partial; the implementation does not create a synthetic Direct event.
+Cinema 6 says `[甲乙矢]每命中同一名敌人12次，将额外触发1次电磁爆炸，对目标造成悠真1500%攻击力的电属性伤害`. The user clarified `独立伤害，无标签，直伤可以暴击`. It is modeled as one Electric Direct Standard-Crit packet with no SkillGroup, damage tags, MoveId, or inherited parent tags. A current ready condition triggers exactly one event from the Jia-Yi Arrow; no 12-hit history is replayed.

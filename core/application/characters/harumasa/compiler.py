@@ -414,76 +414,81 @@ def _ultimate_scatter(raw: NanokaRawRecord, config: HarumasaCompileConfig, entri
     return (template,), (effect,), updated, (rule_id, source)
 
 
-def _unresolved_basic_element_entries(raw: NanokaRawRecord, config: HarumasaCompileConfig):
-    """Keep all Basic ratios selectable but block before any guessed element can execute."""
-    raw_moves = raw_move_index(raw)
-    source_name = "普通攻击：穿云"
-    source_move = raw_moves[source_name]
-    entries: list[MoveCalculationEntry] = []
-    templates: list[DirectDamageEventTemplate] = []
-    for stage in range(1, 6):
-        stage_name = ("一", "二", "三", "四", "五")[stage - 1]
-        source_id = f"120100{stage}"
-        source_diagnostics: list[CalculationDiagnostic] = []
-        multiplier = raw_multiplier(
-            raw_moves,
-            source_name,
-            f"{stage_name}段伤害倍率",
-            effective_skill_level(config, SkillGroup.BASIC_ATTACK),
-            f"character:1201:basic-stage-element-unresolved-{stage}",
-            source_diagnostics,
-            source_skill_id=source_id,
-        )
-        if not isinstance(multiplier, float):
-            raise ValueError(f"Harumasa Basic stage {stage} source multiplier is missing")
-        entry_key = f"basic-stage-element-unresolved-{stage}"
-        label = f"普通攻击：穿云（{stage_name}段，元素待确认）"
-        template_ref = DamageEventTemplateRef(
-            template_id=EventTemplateId(f"template:character:1201:{entry_key}:main"),
-            semantic_id=DamageEventSemanticId(f"event:character:1201:{entry_key}:main"),
-            label=label,
-            damage_type=DamageType.DIRECT,
-            element=Element.PHYSICAL,
-        )
-        # Element.PHYSICAL is a typed placeholder only. The unresolved move
-        # relation blocks before instantiation, so it cannot trigger procs.
-        templates.append(DirectDamageEventTemplate(
-            ref=template_ref,
-            damage_dealer=HARUMASA_ID,
-            element=Element.PHYSICAL,
-            base_source=CurrentAttackValueSource(HARUMASA_ID),
-            crit_rule=StandardCritRule(HARUMASA_ID),
-            move_id=None,
-        ))
-        diagnostic = CalculationDiagnostic(
-            diagnostic_id=DiagnosticId(f"review:character:1201:basic-element:{stage}"),
-            kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-            message=(
-                f"第{stage_name}段源倍率{multiplier:.4%}已保留；原文只说明整套攻击包含物理和电属性伤害，没有把元素映射到本段。"
-                "本条在元素确认前阻止事件生成，不使用占位元素结算。"
+def _c6_electromagnetic_explosion(source: RuleSource):
+    """Create the confirmed independent one-packet Direct event and its Arrow child."""
+    standalone_ref = DamageEventTemplateRef(
+        template_id=EventTemplateId("template:character:1201:cinema6-electromagnetic-explosion:standalone"),
+        semantic_id=DamageEventSemanticId("event:character:1201:cinema6-electromagnetic-explosion:standalone"),
+        label="6影：电磁爆炸（1500%攻击力，单次）",
+        damage_type=DamageType.DIRECT,
+        element=Element.ELECTRIC,
+    )
+    standalone_template = DirectDamageEventTemplate(
+        ref=standalone_ref,
+        damage_dealer=HARUMASA_ID,
+        element=Element.ELECTRIC,
+        base_source=CurrentAttackValueSource(HARUMASA_ID),
+        crit_rule=StandardCritRule(HARUMASA_ID),
+        move_id=None,
+    )
+    standalone_entry = MoveCalculationEntry(
+        entry_id=MoveEntryId("move-entry:character:1201:cinema6-electromagnetic-explosion"),
+        character_id=HARUMASA_ID,
+        move_id=None,
+        display_name="6影：电磁爆炸（1500%攻击力，单次）",
+        original_text=source.raw_text or "[甲乙矢]连续命中同一敌人12次后额外触发。",
+        skill_group=None,
+        damage_tags=frozenset(),
+        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_variants=(MultiplierVariant(
+            variant_id=MultiplierVariantId("variant:character:1201:cinema6-electromagnetic-explosion:standalone"),
+            label="1500%攻击力",
+            parameter_name="电磁爆炸倍率",
+            multiplier=FixedMultiplier(Resolved(15.0)),
+        ),),
+        main_damage_event=standalone_ref,
+    )
+    child_rule_id = RuleItemId("rule:character:1201:cinema6:electric-explosion-child")
+    child_ref = DamageEventTemplateRef(
+        template_id=EventTemplateId("template:character:1201:cinema6-electromagnetic-explosion:arrow-child"),
+        semantic_id=DamageEventSemanticId("event:character:1201:cinema6-electromagnetic-explosion:arrow-child"),
+        label="6影：甲乙矢触发的电磁爆炸（单次）",
+        damage_type=DamageType.DIRECT,
+        element=Element.ELECTRIC,
+        source_rule_item_id=child_rule_id,
+    )
+    child_template = DirectDamageEventTemplate(
+        ref=child_ref,
+        damage_dealer=HARUMASA_ID,
+        element=Element.ELECTRIC,
+        base_source=CurrentAttackValueSource(HARUMASA_ID),
+        crit_rule=StandardCritRule(HARUMASA_ID),
+        move_id=None,
+    )
+    child_ref_with_multiplier = DerivedDamageEventTemplateRef(
+        template=child_ref,
+        multiplier=FixedMultiplier(Resolved(15.0)),
+    )
+    child_effect = EventCreationEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:character:1201:cinema6:electric-explosion-child"),
+            source=source,
+            owner=HARUMASA_ID,
+            target=EffectTarget.TEAM,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+            filters=(
+                DamageTypeFilter(DamageType.DIRECT),
+                DamageDealerFilter(HARUMASA_ID),
+                EventTemplateIdFilter(EventTemplateId("template:character:1201:basic-arrow:main")),
             ),
-            blocking=True,
-            original_text=source_move.description,
-        )
-        entries.append(MoveCalculationEntry(
-            entry_id=MoveEntryId(f"move-entry:character:1201:{entry_key}"),
-            character_id=HARUMASA_ID,
-            move_id=None,
-            display_name=label,
-            original_text=source_move.description,
-            skill_group=None,
-            damage_tags=frozenset(),
-            multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
-            multiplier_variants=(MultiplierVariant(
-                variant_id=MultiplierVariantId(f"variant:character:1201:{entry_key}:ratio"),
-                label="已知源倍率（元素待确认）",
-                parameter_name=f"{stage_name}段伤害倍率",
-                multiplier=FixedMultiplier(Resolved(multiplier)),
-            ),),
-            main_damage_event=template_ref,
-            diagnostics=(diagnostic, *source_diagnostics),
-        ))
-    return tuple(entries), tuple(templates)
+        ),
+        result=EventCreationResult(
+            event_kind=BattleEventKind.DAMAGE,
+            event_template_id=child_ref.template_id,
+            unique_per_source_event=True,
+        ),
+    )
+    return standalone_entry, standalone_template, child_template, child_ref_with_multiplier, child_effect, child_rule_id
 
 
 def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord) -> CharacterCalculationDefinition:
@@ -508,33 +513,9 @@ def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord)
     templates = list(direct_templates)
     diagnostics = list(diagnostics)
     raw_moves = raw_move_index(raw_record)
-    unresolved_basic_entries, unresolved_basic_templates = _unresolved_basic_element_entries(raw_record, config)
-    entries.extend(unresolved_basic_entries)
-    templates.extend(unresolved_basic_templates)
     if config.potential_level >= 1:
         julei_index = next(
-            index
-            for index, item in enumerate(entries)
-            if str(item.entry_id) == "move-entry:character:1201:potential1-julei"
-        )
-        julei_entry = entries[julei_index]
-        entries[julei_index] = replace(
-            julei_entry,
-            diagnostics=(
-                *julei_entry.diagnostics,
-                CalculationDiagnostic(
-                    diagnostic_id=DiagnosticId("unsupported:character:1201:potential1:julei-tag-scope"),
-                    kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                    message="逐雷原始参数位于闪避技能段，但未明确DamageTag；当前不把它当作Dash或Follow-up标签，因此其基准伤害保留可算、标签限定装备加成不作推测。",
-                    blocking=False,
-                    original_text=raw_moves["冲刺攻击：飞弦·斩"].description,
-                ),
-            ),
-        )
-    if config.potential_level >= 1:
-        julei_index = next(
-            index
-            for index, entry in enumerate(entries)
+            index for index, entry in enumerate(entries)
             if str(entry.entry_id) == "move-entry:character:1201:potential1-julei"
         )
         julei_entry = entries[julei_index]
@@ -543,7 +524,7 @@ def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord)
             diagnostics=(CalculationDiagnostic(
                 diagnostic_id=DiagnosticId("unsupported:character:1201:potential1:julei-tag-scope"),
                 kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                message="[逐雷]单次来源倍率可计算；原始 Dodge 参数未明确它是否继承 Dash 或 Follow-up 标签，标签限定的装备增益不作猜测。",
+                message="逐雷来源位于闪避技能段，但未明确 DamageTag；基础倍率可计算，标签限定装备效果不作推测。",
                 blocking=False,
                 original_text=raw_moves["冲刺攻击：飞弦·斩"].description,
             ),),
@@ -761,6 +742,18 @@ def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord)
     if config.cinema_level >= 6:
         c6 = raw_record.mindscapes[5]
         c6_source = source_for(HARUMASA_ID, "cinema6", EffectSourceType.CINEMA, c6.name, c6.description)
+        standalone, standalone_template, explosion_template, explosion_ref, explosion_effect, child_rule_id = _c6_electromagnetic_explosion(c6_source)
+        entries.append(standalone)
+        templates.extend((standalone_template, explosion_template))
+        arrow_entry_index = next(
+            index for index, entry in enumerate(entries)
+            if str(entry.entry_id) == "move-entry:character:1201:basic-arrow"
+        )
+        arrow_entry = entries[arrow_entry_index]
+        entries[arrow_entry_index] = replace(
+            arrow_entry,
+            derived_damage_events=(*arrow_entry.derived_damage_events, explosion_ref),
+        )
         c6_res_ignore = _number(c6.description, r"无视其(?P<value>[\d.]+)%电属性伤害抗性", "Harumasa Cinema 6 Electric resistance ignore") / 100.0
         rules.append(_rule(
             "cinema6:electric-resistance-ignore-current",
@@ -778,29 +771,14 @@ def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord)
                 filters=(DamageDealerFilter(HARUMASA_ID), element_scope_filter(Element.ELECTRIC)),
             ),),
         ))
-        c6_unresolved = Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-            notes="C6明确每12次甲乙矢命中额外触发一次1500%攻击力电磁爆炸；其伤害类型、暴击能力、技能组/标签及父招式继承规则尚待确认。保留甲乙矢主事件，不生成虚构Direct子事件。",
-            original_text=c6.description,
-        )
         rules.append(_rule(
-            "cinema6:electric-explosion-local-unresolved",
+            "cinema6:electric-explosion-child",
             c6_source,
-            "6影：甲乙矢12次命中的电磁爆炸（倍率已知，事件身份待确认）",
+            "6影：甲乙矢满足当前12次命中状态时派生电磁爆炸",
             c6.description,
             RuleEligibility.ELIGIBLE,
             conditions=(HARUMASA_C6_ELECTROMAGNETIC_EXPLOSION_READY,),
-            effects=(EventCreationEffect(
-                rule=EffectRule(
-                    effect_id=EffectId("effect:character:1201:cinema6:electric-explosion-unresolved"),
-                    source=c6_source,
-                    owner=HARUMASA_ID,
-                    target=EffectTarget.TEAM,
-                    snapshot_rule=SnapshotRule.SETTLEMENT,
-                    filters=(DamageTypeFilter(DamageType.DIRECT), DamageDealerFilter(HARUMASA_ID), EventTemplateIdFilter(EventTemplateId("template:character:1201:basic-arrow:main"))),
-                ),
-                result=EventCreationResult(event_kind=BattleEventKind.DAMAGE, unresolved_template=c6_unresolved, unique_per_source_event=True),
-            ),),
+            effects=(explosion_effect,),
         ))
 
     if config.potential_level >= 2:
