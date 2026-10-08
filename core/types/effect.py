@@ -313,8 +313,9 @@ class PanelStatDerivedValue:
     Reviewed character effects can read a character's immutable initial
     attack, defense, HP, crit rate, or energy regeneration, the final settlement maximum HP, impact,
     anomaly mastery, proficiency, or crit rate. ``threshold`` (and its
-    compatibility alias ``minimum``)
-    expresses ``max(source - threshold, 0)`` before applying the coefficient.
+    compatibility alias ``minimum``) expresses ``max(source - threshold, 0)``
+    before applying the coefficient. ``step_size`` optionally floors this
+    excess into complete steps for supported panel formulas.
     Keeping the source node and threshold explicit prevents a compiler from
     accidentally reading an initial panel value or inventing a cap.
     """
@@ -366,11 +367,15 @@ class PanelStatDerivedValue:
         if isinstance(self.step_size, Resolved) and self.step_size.value <= 0:
             raise ValueError("derived panel value step_size must be positive")
         if self.step_size is not None and (
-            self.source_node is not CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN
+            self.source_node
+            not in {
+                CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
+                CalculationNode.CHARACTER_CURRENT_IMPACT,
+            }
             or (self.threshold is None and self.minimum is None)
         ):
             raise ValueError(
-                "stepped panel values require an initial energy-regeneration threshold"
+                "stepped panel values require an initial energy-regeneration or current-impact threshold"
             )
         if isinstance(self.minimum, Resolved) and self.minimum.value < 0:
             raise ValueError("derived panel value minimum must be non-negative")

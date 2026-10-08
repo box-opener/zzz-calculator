@@ -230,6 +230,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1141"): WENGINE_RESTRAINED_ID,
     # Local 13115 is Weapon_A_1151 and identifies Lucy's 好斗的阿炮.
     CharacterId("character:1151"): WEngineId("wengine:13115"),
+    # Live Nanoka 3.2 Weapon_S_1161 is Lighter's 焰心桂冠.
+    CharacterId("character:1161"): WEngineId("wengine:14116"),
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

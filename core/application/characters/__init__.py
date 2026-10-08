@@ -38,6 +38,7 @@ from .ben import BenCompileConfig, compile_ben
 from .soukaku import SoukakuCompileConfig, compile_soukaku
 from .lycaon import LycaonCompileConfig, compile_lycaon
 from .lucy import LucyCompileConfig, compile_lucy
+from .lighter import LighterCompileConfig, compile_lighter
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -101,4 +102,6 @@ __all__ = [
     "compile_lycaon",
     "LucyCompileConfig",
     "compile_lucy",
+    "LighterCompileConfig",
+    "compile_lighter",
 ]

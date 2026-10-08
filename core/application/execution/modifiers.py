@@ -1643,10 +1643,23 @@ def _resolve_effect_value(
                 )
             )
             return None
-        result = (
-            base.value
-            + max(current_stat.value - threshold.value, 0.0) * coefficient.value
-        )
+        excess = max(current_stat.value - threshold.value, 0.0)
+        if value.step_size is not None:
+            step_size = value.step_size
+            if not isinstance(step_size, Resolved):
+                diagnostics.append(
+                    _diagnostic(
+                        str(effect.rule.effect_id),
+                        "derived-value-step-size",
+                        DiagnosticKind.MISSING_DATA,
+                        step_size.notes,
+                    )
+                )
+                return None
+            steps = floor(excess / step_size.value + 1e-9)
+            result = base.value + steps * coefficient.value
+        else:
+            result = base.value + excess * coefficient.value
     else:
         source = next(
             (
@@ -1722,9 +1735,8 @@ def _resolve_effect_value(
                         )
                     )
                     return None
-                # Initial energy regeneration is recorded as decimal panel
-                # data. A tiny tolerance preserves exact hundredth thresholds
-                # after normal floating-point build arithmetic (e.g. 2.16).
+                # Panel values are decimal. A tiny tolerance preserves exact
+                # thresholds after normal floating-point build arithmetic.
                 steps = floor(excess / step_size.value + 1e-9)
                 result = base.value + steps * coefficient.value
             else:

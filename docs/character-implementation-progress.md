@@ -21,7 +21,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1131` | Soukaku | 苍角 | 3 | 4 | 部分实现（live 3.2 raw + level-60 Support panel + reviewed Physical/Ice Direct entries + static Physical Assault/Ice Shatter/Disorder + Core self-buff, Ice Additional Ability, Cinema 4/6 states; transferred Core buff recipient and EX multi-click total remain source-limited; Daze/Energy/time/resource outputs remain outside current contract） |
 | `1141` | Lycaon | 莱卡恩 | 4 | 2 | 部分实现（live 3.2 raw + level-60 Stun panel + Potential 0–6 selector + Physical/Ice Direct entries, Potential Ice Dance and selectable Hunt sequences + static Ice Anomaly/Disorder; Physical source hits have no anomaly buildup and do not create a Physical record; Core/Additional Ability/Cinema current states; Daze, shield, Energy and timing results remain outside the current contract） |
 | `1151` | Lucy | 露西 | 3 | 4 | 部分实现（live 3.2 raw + level-60 Support panel + reviewed Physical/Fire Direct entries + static Fire Burn/Disorder + current Cheer On team attack and Cinema 4 Crit Damage; the Basic 3 derived element and pig-actor stats are local diagnostics, Basic 4/Cinema 6 pig follow-ups are partial only when their source trigger state is selected; Daze, Energy, random pig attack cadence and buff-duration replay remain outside the current result contract） |
-| `1161` | Lighter | 莱特 | 4 | 2 | 待实现 |
+| `1161` | Lighter | 莱特 | 4 | 2 | 部分实现（live 3.2 raw + level-60 Stun panel + Physical/Fire Direct and Fire Burn/Disorder entries + Core/Add Ability/Cinema current-state effects + R1 signature mapping; Morale/Energy/Daze/timer replay remain outside the result contract） |
 | `1171` | Burnice | 柏妮思 | 4 | 3 | 待实现 |
 | `1181` | Grace | 格莉丝 | 4 | 3 | 待实现 |
 | `1191` | Ellen | 艾莲 | 4 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Lucy 1151 follows the reviewed and pushed Lycaon 1141. After Lucy is reviewed and pushed, continue with Lighter 1161.
+Current item: Lighter 1161 follows the reviewed and pushed Lucy 1151. After Lighter is reviewed and pushed, continue with Burnice 1171.
 
 ## Corin (`character:1061`)
 
@@ -204,3 +204,13 @@ Reviewed Direct entries retain the raw parameter-curve IDs: Basic stages 1–2 u
 The current Cheer On state applies Lucy's source formula to the team: effective Special level `L` yields `(13+0.8L)%` of Lucy's Initial ATK plus `40+4L` flat ATK, capped at 600. Cinema 4 adds 10% Crit Damage while Cheer On is active. The current-state input does not replay the straight-ball/high-fly durations, refreshes, or Cinema 1 energy cooldown.
 
 The raw source says the pigs inherit Lucy's ATK/Impact/Anomaly Proficiency and that Extra Ability eligibility lets them inherit Crit stats. The three random attack outcomes and the 592% Revolving Swing appear as source-linked choices with their known curves, but remain locally unresolved until the pig ATK/Crit actor snapshot is confirmed; random cadence and expected-value weighting are not simulated. Basic 4 has a current “pigs on the field” state; when selected, its known pig Revolving Swing child is marked locally unresolved without creating a fake Direct event. Cinema 6 exposes the known 300% pig-ATK Fire explosion and its subsequent one Revolving Swing as unresolved selectable children; on an actual non-Lucy teammate EX hit while Cheer On is active, only those children become partial and the parent EX remains calculated. The calculator does not invent a pig actor/stat snapshot. Daze, Energy, and time/history behavior remain outside the current output.
+
+## Lighter (`character:1161`)
+
+The complete live Nanoka 3.2 record is retained at `core/data/characters/lighter.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1161.json`. Lighter is an S-rank Stun agent with Fire as his base element and Sons of Calydon as his faction. The source icon is `IconRole26`, but that portrait is not packaged locally, so the character catalog uses the neutral placeholder. His reviewed signature mapping is `wengine:14116` 焰心桂冠 (`Weapon_S_1161`); it stays explicitly unequipped by default.
+
+The Direct list keeps Physical Basic stages/continuous-combo curves and Dash separate from Fire Basic 4/5, Dodge Counter, Special/EX, Chain, Ultimate, Quick Assist, and Assist Strike. EX main hit and optional one-time follow-up remain separate source entries. Static Fire Burn and Disorder use the shared current-state source model. S-rank skill inputs default to level 12; Core 7 and Cinema 0 are the initial selection. C3/C5 skill gains include Ultimate and respect the shared level-16 cap.
+
+The Core's current Morale-Brawl state selects the source's stronger Basic 5 jab/combo/finisher curves. Its Impact buff uses an adjustable 0–10 current-stack input. Core Fire/Ice resistance reduction, Cinema 1's additional reduction and exhausted-Morale finisher damage, Cinema 2's Blight Stun-vulnerability effect, and Cinema 4's current-frontline Energy-regeneration effect have separate owner/target scopes. The Additional Ability is team-eligible when another Attack agent or another Sons of Calydon agent is present. Its adjustable 0–20 Yang stacks add 1.25% per layer plus 0.25% per layer for each completed 10 current Impact above 170; Cinema 2 raises the complete per-layer effect to 120%, subject to the source cap.
+
+Cinema 6 adds one Fire Impact event to the last hit of each selected source-listed move (Basic, Counter, Special/EX, Quick Assist, Assist Strike, Chain, or Ultimate; Dash is excluded). The event retains the parent's skill group, tags, and Standard Crit ownership, uses Lighter's current ATK, and has Fire as its element. Its multiplier is 250% plus 5% per current Impact point above 170, capped at another 500%. The exhausted-Morale strong finisher has a separate additional Fire Impact, so enabling both C6 effects yields two Fire Impact events for that finisher. The calculator does not replay Morale/Energy, Daze, Stun-duration, cooldown, or other time/history behavior.

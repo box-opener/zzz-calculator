@@ -135,6 +135,12 @@ from core.application.characters.lucy import (
     compile_lucy,
     load_raw_record as load_lucy_raw_record,
 )
+from core.application.characters.lighter import (
+    LIGHTER_ID,
+    LighterCompileConfig,
+    compile_lighter,
+    load_raw_record as load_lighter_raw_record,
+)
 from core.application.characters.koleda.reviewed import BEN_ID
 from core.application.characters.caesar import (
     CAESAR_ID,
@@ -1076,6 +1082,31 @@ def _lucy_fields(
     )
 
 
+def _lighter_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "莱特核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "莱特影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
 def _caesar_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1678,6 +1709,42 @@ def _compile_lucy(
             additional_ability_eligible=_lucy_additional_ability_eligibility(team_ids),
         ),
         load_lucy_raw_record(load_character_record(str(LUCY_ID))),
+    )
+
+
+def _lighter_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(LIGHTER_ID)
+    for character_id in team_ids:
+        if character_id == LIGHTER_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role is CharacterRole.ATTACK:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _compile_lighter(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_lighter(
+        LighterCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=_lighter_additional_ability_eligibility(team_ids),
+        ),
+        load_lighter_raw_record(load_character_record(str(LIGHTER_ID))),
     )
 
 
@@ -3428,6 +3495,89 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
         equipment_capabilities=EquipmentOwnerCapabilities(
             character_id=LUCY_ID,
             role=CharacterRole.SUPPORT,
+            possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                }
+            ),
+        ),
+    ),
+    LIGHTER_ID: CharacterPresentationRegistration(
+        character_id=LIGHTER_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1161",
+            display_name="莱特",
+            rarity="S",
+            element="fire",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.FIRE,
+        compile_definition=_compile_lighter,
+        config_fields=_lighter_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=LIGHTER_ID,
+            role=CharacterRole.STUN,
             possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(
