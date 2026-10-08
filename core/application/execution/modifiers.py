@@ -93,7 +93,9 @@ def _select_non_stacking_event_effects(
             passthrough.append(application)
             continue
         source_id = (
-            str(application.rule_item_id)
+            effect.rule.non_stacking_source_id
+            if effect.rule.non_stacking_source_id is not None
+            else str(application.rule_item_id)
             if application.rule_item_id is not None
             else str(effect.rule.effect_id)
         )
@@ -1588,6 +1590,7 @@ def _resolve_effect_value(
         CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
         CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
         CalculationNode.CHARACTER_CURRENT_IMPACT,
+        CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE,
     }:
         current = next(
             (
@@ -1607,6 +1610,8 @@ def _resolve_effect_value(
             current_stat = current.settlement_stats.anomaly_proficiency
         elif value.source_node is CalculationNode.CHARACTER_CURRENT_IMPACT:
             current_stat = current.settlement_stats.impact
+        elif value.source_node is CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE:
+            current_stat = current.settlement_stats.penetration_rate
         else:
             current_stat = current.settlement_stats.crit_rate
         if not isinstance(current_stat, Resolved):
@@ -1619,6 +1624,8 @@ def _resolve_effect_value(
                 if value.source_node is CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY
                 else "current impact"
                 if value.source_node is CalculationNode.CHARACTER_CURRENT_IMPACT
+                else "current penetration rate"
+                if value.source_node is CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE
                 else "current crit rate"
             )
             diagnostics.append(
@@ -1783,6 +1790,7 @@ def _is_current_panel_derived_effect(effect: ModifierEffect) -> bool:
             CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
             CalculationNode.CHARACTER_CURRENT_IMPACT,
+            CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE,
         }
     )
 
@@ -2199,39 +2207,28 @@ def _apply_panel_effects(
         if effect.result.modifier_path in {
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
             CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+            CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE,
         }:
-            is_crit_rate = (
-                effect.result.modifier_path
-                is CalculationNode.CHARACTER_CURRENT_CRIT_RATE
-            )
-            current = (
-                updated_stats.crit_rate if is_crit_rate else updated_stats.crit_damage
-            )
+            panel_field = {
+                CalculationNode.CHARACTER_CURRENT_CRIT_RATE: "crit_rate",
+                CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE: "crit_damage",
+                CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE: "penetration_rate",
+            }[effect.result.modifier_path]
+            current = getattr(updated_stats, panel_field)
             if isinstance(current, Unresolved):
                 diagnostics.append(
                     _diagnostic(
                         str(effect.rule.effect_id),
                         "panel-base-value",
                         DiagnosticKind.MISSING_DATA,
-                        (
-                            "current crit rate is unresolved"
-                            if is_crit_rate
-                            else "current crit damage is unresolved"
-                        ),
+                        f"current {panel_field.replace('_', ' ')} is unresolved",
                     )
                 )
                 continue
+            applied_value = value.value * stack_count
             updated_stats = replace(
                 updated_stats,
-                **(
-                    {"crit_rate": Resolved(current.value + value.value * stack_count)}
-                    if is_crit_rate
-                    else {
-                        "crit_damage": Resolved(
-                            current.value + value.value * stack_count
-                        )
-                    }
-                ),
+                **{panel_field: Resolved(current.value + applied_value)},
             )
             applied_effect_ids.add(effect.rule.effect_id)
             traces.append(
@@ -2244,7 +2241,7 @@ def _apply_panel_effects(
                     effect_id=effect.rule.effect_id,
                     modifier_path=effect.result.modifier_path,
                     operation=effect.result.operation,
-                    resolved_value=value.value * stack_count,
+                    resolved_value=applied_value,
                     stack_count=stack_count,
                 )
             )

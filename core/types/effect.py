@@ -304,6 +304,16 @@ class EffectRule:
     condition: Condition | None = None
     filters: tuple[EffectFilter, ...] = ()
     notes: tuple[str, ...] = ()
+    # Effects split across multiple RuleItems can share one non-stacking
+    # instance identity while still competing against other owners.
+    non_stacking_source_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            self.non_stacking_source_id is not None
+            and not self.non_stacking_source_id.strip()
+        ):
+            raise ValueError("non_stacking_source_id must not be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -311,8 +321,8 @@ class PanelStatDerivedValue:
     """A deliberately small value source for build-time panel-derived Effects.
 
     Reviewed character effects can read a character's immutable initial
-    attack, defense, HP, crit rate, or energy regeneration, the final settlement maximum HP, impact,
-    anomaly mastery, proficiency, or crit rate. ``threshold`` (and its
+    attack, defense, HP, crit rate, or energy regeneration, the final settlement maximum HP,
+    impact, anomaly mastery, proficiency, crit rate, or penetration rate. ``threshold`` (and its
     compatibility alias ``minimum``) expresses ``max(source - threshold, 0)``
     before applying the coefficient. ``step_size`` is the source interval for
     a continuous proportional coefficient on the excess; fractional intervals
@@ -351,10 +361,11 @@ class PanelStatDerivedValue:
             CalculationNode.CHARACTER_CURRENT_IMPACT,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
+            CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE,
         }:
             raise ValueError(
                 "panel derived values only support initial attack/defense/HP/crit rate/energy regen, "
-                "current maximum HP/crit rate/impact, anomaly mastery, or "
+                "current maximum HP/crit rate/impact/penetration rate, anomaly mastery, or "
                 "anomaly proficiency"
             )
         if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:

@@ -42,6 +42,7 @@ from .lighter import LighterCompileConfig, compile_lighter
 from .burnice import BurniceCompileConfig, compile_burnice
 from .ellen import EllenCompileConfig, compile_ellen
 from .harumasa import HarumasaCompileConfig, compile_harumasa
+from .rina import RinaCompileConfig, compile_rina
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -113,4 +114,6 @@ __all__ = [
     "compile_ellen",
     "HarumasaCompileConfig",
     "compile_harumasa",
+    "RinaCompileConfig",
+    "compile_rina",
 ]

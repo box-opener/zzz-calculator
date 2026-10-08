@@ -26,7 +26,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1181` | Grace | 格莉丝 | 4 | 3 | 部分实现（live 3.2 raw/provenance + level-60 panel + all user-confirmed Direct/Anomaly/Potential/Cinema mappings; final validation and commit pending） |
 | `1191` | Ellen | 艾莲 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 panel + Physical/Ice Direct entries + static Ice Shatter/Disorder + Core/Cinema/Potential 0–6 + R1 signature mapping; resource/time behavior remains outside the current result contract） |
 | `1201` | Harumasa | 悠真 | 4 | 1 | 部分实现（live 3.2 raw + level-60 Electric Attack panel + Physical/Electric Basic and reviewed Direct entries/Potential 1 Ultimate follow-up + Electric Shock/Disorder + Core/Cinema/Potential current-state rules + R1 signature mapping; Julei trigger count/tag remains localized pending clarification） |
-| `1211` | Rina | 丽娜 | 4 | 4 | 待实现 |
+| `1211` | Rina | 丽娜 | 4 | 4 | 部分实现（live 3.2 raw/provenance + level-60 Support panel + source-defined Direct moves + static Shock/Disorder + Core/Additional Ability/Cinema/Potential current-state effects + `Weapon_S_1211` signature mapping; Basic/Morning Sweep element splits remain localized pending clarification） |
 | `1221` | Yanagi | 柳 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct moves + static Shock/Disorder + selected-record Polar Disorder with current-AP additive component; Daze, buildup, energy and timing outputs remain outside the current result contract） |
 | `1241` | Zhu Yuan | 朱鸢 | 4 | 1 | 待实现 |
 | `1251` | QingYi | 青衣 | 4 | 2 | 已实现（已有registry/compiler） |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Harumasa 1201 follows the reviewed and pushed Ellen 1191. After Harumasa is reviewed and pushed, continue with Rina 1211.
+Current item: Rina 1211 follows the reviewed and pushed Harumasa 1201. Continue with the next numeric ID after Rina is reviewed and pushed.
 
 ## Burnice (`character:1171`)
 
@@ -186,6 +186,14 @@ The reviewed baseline maps four Physical Warmup Basic stages, four Fire Fire-Sup
 The complete live-3.2 source is retained at `core/data/characters/yidhari.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1051.json`. Yidhari is registered as an S-rank Rupture agent with Ice as her base element. Her reviewed Ice skill curves use the Penetration calculator, so their base uses current Force and their breakdown does not include enemy Defense. Core adds 0.1 current-Max-HP Force on top of the generic 0.25 current ATK + 0.1 current Max HP formula. The R1 Kraken's Cradle (`14105`, `Weapon_S_1051`) is the reviewed signature and its level-60 build path is covered.
 
 The source review maps the three Shattered Strike stages and derived first-stage curve, four selectable Frost-Covering charge curves, Dash/Counter, Special/EX/Pursuit/Polar Crush, Chain with/without Veil, Ultimate, Quick Assist, and Support Follow-up. Static Ice Anomaly and Disorder use NoCrit. Cinema 1 Ice resistance ignore, Cinema 2 Crit Damage, Cinema 4 Veil max-HP, Cinema 6 Insight Penetration bonus, and the additional-ability eligibility/current low-HP conditions retain separate rules.
+
+## Rina (`character:1211`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/rina.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1211.json`, with only calculator provenance fields added. Rina is an S-rank Support agent with Electric as her base element and Victoria Housekeeping as her faction. Her normalized level-60 panel includes the source's +75 base ATK and +14.4% Penetration Rate. The local `14121` weapon record is `Weapon_S_1211` (`啜泣摇篮`) and is mapped as her signature; no weapon is auto-equipped. `IconRole22` is not packaged locally, so the catalog uses the neutral portrait placeholder.
+
+Source-defined Electric/Physical moves are selectable, including the hold Basic, Dash, Counter, Special/EX, Chain, Ultimate, Quick Assist, Assist Strike, and Potential 1 Midnight Sweep. Static Electric Shock and Disorder use the shared current-record model. Rina's Core applies a current-Penetration-derived bonus to teammates other than Rina while either Bangboo is assigned out; Potential 2–6 adds the source-defined team ATK/DEF values during that state, and the 1.6% Potential Penetration Rate is separately applied. The Additional Ability's Electric damage bonus, Cinema 2 self damage bonus, Cinema 4 Energy Regen, Cinema 6 Electric damage bonus, and Cinema 1 nearby-buff state are separate current-state rules.
+
+Basic's four source curves and Potential 1 Morning Sweep's three one-hit curves remain selectable as local partial entries because their Physical/Electric component split is not stated per curve. They emit no damage event until the user clarifies the element mapping. Cinema 1's 10-meter effect uses a current-state condition; when selected, the 130% value applies to the current TEAM_OTHER recipients without modeling positions or distance history. Attack intervals, Bangboo return times, Fear-stack history, Shock extension duration, and Energy history are not simulated.
 
 ## Velina (`character:1561`)
 

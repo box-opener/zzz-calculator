@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import re
 from typing import Mapping
 
 from core.application.diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -149,6 +150,7 @@ from .wengine_ids import (
     WENGINE_FUSION_COMPILER_ID,
     WENGINE_DEEP_SEA_VISITOR_ID,
     WENGINE_HEART_OF_SWORD_ID,
+    WENGINE_CRYING_CRADLE_ID,
     WENGINE_TIMEWEAVER_ID,
     WENGINE_JADE_TEA_ID,
     WENGINE_STINGING_RAZOR_ID,
@@ -243,6 +245,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1191"): WENGINE_DEEP_SEA_VISITOR_ID,
     # Local 14120 raw catalog icon is `Weapon_S_1201`, the reviewed Harumasa signature.
     CharacterId("character:1201"): WENGINE_HEART_OF_SWORD_ID,
+    # Local 14121 raw uses Weapon_S_1211, matching Rina's code-name ID.
+    CharacterId("character:1211"): WENGINE_CRYING_CRADLE_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,
@@ -4427,6 +4431,7 @@ def _team_damage_modifier(
     suffix: str,
     value: float,
     target: EffectTarget = EffectTarget.ENEMY,
+    non_stacking_source_id: str | None = None,
 ) -> ModifierEffect:
     return ModifierEffect(
         rule=_effect_rule(
@@ -4434,6 +4439,7 @@ def _team_damage_modifier(
             source=source,
             owner=owner,
             target=target,
+            non_stacking_source_id=non_stacking_source_id,
         ),
         result=ModifierResult(
             modifier_path=CalculationNode.DAMAGE_NORMAL_BONUS,
@@ -5019,6 +5025,13 @@ def _crying_cradle_rules(
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
     values = talent.numeric_values
+    off_field_id, off_field_condition = _condition(
+        raw,
+        owner,
+        "off-field-energy-regen-active",
+        "啜泣摇篮：装备者当前处于后场",
+        "位于后场时，装备者的能量自动回复提升",
+    )
     condition_id, condition = _condition(
         raw,
         owner,
@@ -5032,6 +5045,9 @@ def _crying_cradle_rules(
         source=source,
         suffix="damage-buff-base",
         value=float(values["damage_bonus_base"]),
+        non_stacking_source_id=(
+            f"{raw.wengine_id}:owner:{_owner_token(owner)}:team-damage-buff"
+        ),
     )
     increment = _team_damage_modifier(
         raw=raw,
@@ -5039,7 +5055,20 @@ def _crying_cradle_rules(
         source=source,
         suffix="damage-buff-increment",
         value=float(values["damage_bonus_per_tick"]),
+        non_stacking_source_id=(
+            f"{raw.wengine_id}:owner:{_owner_token(owner)}:team-damage-buff"
+        ),
     )
+    energy_match = tuple(
+        re.finditer(
+            r"能量自动回复提升<color=[^>]+>(?P<value>[\d.]+)</color>点/秒",
+            talent.text,
+            re.DOTALL,
+        )
+    )
+    if len(energy_match) != 1:
+        raise ValueError("Crying Cradle must state one off-field Energy Regeneration bonus")
+    off_field_energy_bonus = float(energy_match[0].group("value"))
     return (
         _rule(
             raw=raw,
@@ -5050,6 +5079,7 @@ def _crying_cradle_rules(
             eligibility=eligibility,
             condition_ids=(condition_id,),
             effects=(base,),
+            non_stacking_group_id=f"{raw.wengine_id}:same-name-team-damage",
         ),
         _rule(
             raw=raw,
@@ -5063,8 +5093,28 @@ def _crying_cradle_rules(
             stack_count=int(values["max_ticks"]),
             stack_min=0,
             stack_max=int(values["max_ticks"]),
+            non_stacking_group_id=f"{raw.wengine_id}:same-name-team-damage",
         ),
-    ), (condition,)
+        _rule(
+            raw=raw,
+            owner=owner,
+            source=source,
+            suffix="off-field-energy-regen",
+            label=f"{raw.name}·后场能量自动回复提升",
+            eligibility=eligibility,
+            condition_ids=(off_field_id,),
+            effects=(
+                _panel_modifier(
+                    raw=raw,
+                    owner=owner,
+                    source=source,
+                    suffix="off-field-energy-regen",
+                    path=CalculationNode.CHARACTER_COMBAT_ENERGY_REGEN_FLAT_BONUS,
+                    value=off_field_energy_bonus,
+                ),
+            ),
+        ),
+    ), (condition, off_field_condition)
 
 
 def _dream_forge_rules(
@@ -5518,6 +5568,7 @@ def _effect_rule(
     target: EffectTarget,
     filters=(),
     condition=None,
+    non_stacking_source_id: str | None = None,
 ) -> EffectRule:
     return EffectRule(
         effect_id=EffectId(effect_id),
@@ -5527,6 +5578,7 @@ def _effect_rule(
         snapshot_rule=SnapshotRule.SETTLEMENT,
         condition=condition,
         filters=filters,
+        non_stacking_source_id=non_stacking_source_id,
     )
 
 

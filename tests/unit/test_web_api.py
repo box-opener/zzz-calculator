@@ -428,7 +428,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1181",
         "character:1191",
         "character:1201",
-        "character:1201",
+        "character:1211",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
@@ -461,6 +461,13 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert harumasa["specialty"] == "attack"
     assert harumasa["element"] == "electric"
     assert harumasa["image_path"] == "/characters/portrait-placeholder.svg"
+    rina = next(item for item in payload if item["character_id"] == "character:1211")
+    assert rina["display_name"] == "丽娜"
+    assert rina["code_name"] == "Rina"
+    assert rina["rarity"] == "S"
+    assert rina["specialty"] == "support"
+    assert rina["element"] == "electric"
+    assert rina["image_path"] == "/characters/portrait-placeholder.svg"
     harumasa = next(item for item in payload if item["character_id"] == "character:1201")
     assert harumasa["display_name"] == "悠真"
     assert harumasa["code_name"] == "Harumasa"

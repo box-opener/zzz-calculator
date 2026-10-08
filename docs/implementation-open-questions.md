@@ -996,3 +996,13 @@ The Potential 1 Dash Slash text says `斩击命中处于失衡状态的敌人时
 ### Cinema 6 electromagnetic explosion identity
 
 Cinema 6 says `[甲乙矢]每命中同一名敌人12次，将额外触发1次电磁爆炸，对目标造成悠真1500%攻击力的电属性伤害`. The user clarified `独立伤害，无标签，直伤可以暴击`. It is modeled as one Electric Direct Standard-Crit packet with no SkillGroup, damage tags, MoveId, or inherited parent tags. A current ready condition triggers exactly one event from the Jia-Yi Arrow; no 12-hit history is replayed.
+
+## Rina (`character:1211`) localized source questions
+
+### Basic four-stage element mapping
+
+The Basic source says `指派杜苏拉和安娜塔莎发动至多四段的攻击，造成物理伤害和电属性伤害`. Its four stage curves are `1211001`, `1211003`, `1211004`, and `1211006`, but the source does not say which stages are Physical or Electric. The four ratios remain available as selectable local partial entries; none emits a damage event until the user confirms the stage mapping.
+
+### Potential 1 Morning Sweep element components
+
+The Morning Sweep text says `杜苏拉或安娜塔莎会每间隔2.5秒，攻击敌人1次，造成物理伤害和电属性伤害`. Its three per-hit curves are `1211023`–`1211025`, each with one damage multiplier and no per-element split in the parameter table. Each is exposed as a single source-hit ratio but remains locally unresolved and emits no damage event until the Physical/Electric component relationship is clarified. No interval or attack history is simulated.

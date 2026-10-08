@@ -142,6 +142,12 @@ from core.application.characters.harumasa import (
     compile_harumasa,
     load_raw_record as load_harumasa_raw_record,
 )
+from core.application.characters.rina import (
+    RINA_ID,
+    RinaCompileConfig,
+    compile_rina,
+    load_raw_record as load_rina_raw_record,
+)
 from core.application.characters.soukaku import (
     SOUKAKU_ID,
     SoukakuCompileConfig,
@@ -3061,6 +3067,79 @@ def _compile_harumasa(
     )
 
 
+def _rina_additional_ability_eligibility(team_ids: Sequence[CharacterId]) -> bool:
+    own_camps = _nanoka_camp_ids(RINA_ID)
+    for character_id in team_ids:
+        if character_id == RINA_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.base_element is Element.ELECTRIC:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _rina_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "丽娜核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前核心等级；邦布指派、返回与能量时间轴不回放。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "丽娜影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁影画等级；3/5影技能等级提升按实际技能等级计算。",
+        ),
+        _slider_field(
+            "potential_level",
+            "丽娜潜能等级",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "潜能1增加午夜清扫与邦布当前状态；潜能2–6提高核心增益期间的团队面板。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _compile_rina(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    potential_level = _integer_with_default(values, "potential_level", 0, False)
+    config = RinaCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=potential_level,
+        additional_ability_eligible=_rina_additional_ability_eligibility(team_ids),
+    )
+    return compile_rina(
+        config,
+        load_rina_raw_record(
+            load_character_record(str(RINA_ID)),
+            potential_level=config.potential_level,
+        ),
+    )
+
+
 def _compile_grace(
     values: Mapping[str, Any],
     team_ids: Sequence[CharacterId],
@@ -4794,6 +4873,54 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 }
             ),
             mechanisms=frozenset({HARUMASA_JULEI_TAG_SCOPE_MECHANISM}),
+        ),
+    ),
+    RINA_ID: CharacterPresentationRegistration(
+        character_id=RINA_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1211",
+            display_name="丽娜",
+            rarity="S",
+            element="electric",
+            specialty="support",
+            image_path="/characters/portrait-placeholder.svg",
+            code_name="Rina",
+        ),
+        role=CharacterRole.SUPPORT,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_rina,
+        config_fields=_rina_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=RINA_ID,
+            role=CharacterRole.SUPPORT,
+            native_element=Element.ELECTRIC,
+            possible_elements=frozenset({Element.PHYSICAL, Element.ELECTRIC}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.DODGE, frozenset({DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.DODGE, frozenset({DamageTag.DODGE_COUNTER})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.EX_SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.CHAIN_ATTACK, frozenset({DamageTag.CHAIN_ATTACK})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.ULTIMATE, frozenset({DamageTag.ULTIMATE})),
+                    EquipmentDamageScope(Element.ELECTRIC, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
+                }
+            ),
         ),
     ),
 

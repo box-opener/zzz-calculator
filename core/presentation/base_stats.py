@@ -156,7 +156,9 @@ def character_base_stats(
             # Anomaly Proficiency (精通).  Both contribute to the displayed
             # level-60 panel when present on an ascension record.
             "anomaly_proficiency": source_number("element_mystery") + extra_number("31201"),
-            "penetration_rate": source_number("pen_rate") / 10000.0,
+            "penetration_rate": (
+                source_number("pen_rate") + extra_number("23101")
+            ) / 10000.0,
             "energy_regen": (
                 source_number("sp_recover") / 100.0
                 + extra_number("30501") / 100.0
