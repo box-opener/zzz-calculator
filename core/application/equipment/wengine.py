@@ -146,6 +146,7 @@ from .wengine_ids import (
     WENGINE_BLAZING_LAUREL_ID,
     WENGINE_FLAMEMAKER_SHAKER_ID,
     WENGINE_FUSION_COMPILER_ID,
+    WENGINE_DEEP_SEA_VISITOR_ID,
     WENGINE_TIMEWEAVER_ID,
     WENGINE_JADE_TEA_ID,
     WENGINE_STINGING_RAZOR_ID,
@@ -236,6 +237,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1171"): WENGINE_FLAMEMAKER_SHAKER_ID,
     # The local 14118 record uses Weapon_S_1181 and identifies Grace in desc3.
     CharacterId("character:1181"): WENGINE_FUSION_COMPILER_ID,
+    # Local Nanoka 3.2 record 14119 is `Weapon_S_1191`, the reviewed Deep Sea Visitor signature.
+    CharacterId("character:1191"): WENGINE_DEEP_SEA_VISITOR_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

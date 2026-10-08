@@ -426,6 +426,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1161",
         "character:1171",
         "character:1181",
+        "character:1191",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
@@ -444,6 +445,13 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert grace["specialty"] == "anomaly"
     assert grace["element"] == "electric"
     assert grace["image_path"] == "/characters/portrait-placeholder.svg"
+    ellen = next(item for item in payload if item["character_id"] == "character:1191")
+    assert ellen["display_name"] == "艾莲"
+    assert ellen["code_name"] == "Ellen"
+    assert ellen["rarity"] == "S"
+    assert ellen["specialty"] == "attack"
+    assert ellen["element"] == "ice"
+    assert ellen["image_path"] == "/characters/portrait-placeholder.svg"
     anby = next(item for item in payload if item["character_id"] == "character:1011")
     assert anby["rarity"] == "A"
     assert anby["specialty"] == "stun"

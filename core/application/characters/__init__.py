@@ -40,6 +40,7 @@ from .lycaon import LycaonCompileConfig, compile_lycaon
 from .lucy import LucyCompileConfig, compile_lucy
 from .lighter import LighterCompileConfig, compile_lighter
 from .burnice import BurniceCompileConfig, compile_burnice
+from .ellen import EllenCompileConfig, compile_ellen
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -107,4 +108,6 @@ __all__ = [
     "compile_lighter",
     "BurniceCompileConfig",
     "compile_burnice",
+    "EllenCompileConfig",
+    "compile_ellen",
 ]
