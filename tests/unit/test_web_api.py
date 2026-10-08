@@ -5265,6 +5265,25 @@ def test_velina_14156_initial_energy_threshold_uses_initial_equipment_panel() ->
     assert stack_rule.stack_max == 2
 
 
+def test_velina_initial_energy_derived_bonuses_use_continuous_excess() -> None:
+    payload = _velina_payload("move-entry:character:1561:wind-weathering")
+    payload["character_builds"]["character:1561"]["out_of_combat_stats"][
+        "energy_regen"
+    ] = 1.205
+    payload["enabled_rule_item_ids"] = [
+        "rule:character:1561:core:initial-energy-regeneration-passive"
+    ]
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+
+    snapshot = result["resolved_character_snapshots"][0]
+    assert snapshot["stats"]["energy_regen"] == pytest.approx(1.205)
+    assert snapshot["stats"]["anomaly_mastery"] == pytest.approx(112.25)
+    trace = result["events"][0]["modes"]["expected"]["anomaly_effect_strength_trace"]
+    assert trace["normal_bonus"] == pytest.approx(0.00105)
+
+
 def test_velina_cinema4_attack_buff_is_owner_panel_state_independent_of_operator() -> None:
     payload = _velina_payload("move-entry:ye:1431:basic-fast-1")
     payload["primary_character_id"] = "character:1431"

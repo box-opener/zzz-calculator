@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from math import floor, prod
+from math import prod
 
 from core.types import (
     AllCondition,
@@ -1656,8 +1656,7 @@ def _resolve_effect_value(
                     )
                 )
                 return None
-            steps = floor(excess / step_size.value + 1e-9)
-            result = base.value + steps * coefficient.value
+            result = base.value + (excess / step_size.value) * coefficient.value
         else:
             result = base.value + excess * coefficient.value
     else:
@@ -1735,10 +1734,7 @@ def _resolve_effect_value(
                         )
                     )
                     return None
-                # Panel values are decimal. A tiny tolerance preserves exact
-                # thresholds after normal floating-point build arithmetic.
-                steps = floor(excess / step_size.value + 1e-9)
-                result = base.value + steps * coefficient.value
+                result = base.value + (excess / step_size.value) * coefficient.value
             else:
                 result = base.value + excess * coefficient.value
         else:

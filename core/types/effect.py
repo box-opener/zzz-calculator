@@ -314,8 +314,9 @@ class PanelStatDerivedValue:
     attack, defense, HP, crit rate, or energy regeneration, the final settlement maximum HP, impact,
     anomaly mastery, proficiency, or crit rate. ``threshold`` (and its
     compatibility alias ``minimum``) expresses ``max(source - threshold, 0)``
-    before applying the coefficient. ``step_size`` optionally floors this
-    excess into complete steps for supported panel formulas.
+    before applying the coefficient. ``step_size`` is the source interval for
+    a continuous proportional coefficient on the excess; fractional intervals
+    contribute proportionally.
     Keeping the source node and threshold explicit prevents a compiler from
     accidentally reading an initial panel value or inventing a cap.
     """
@@ -375,7 +376,7 @@ class PanelStatDerivedValue:
             or (self.threshold is None and self.minimum is None)
         ):
             raise ValueError(
-                "stepped panel values require an initial energy-regeneration or current-impact threshold"
+                "interval-scaled panel values require an initial energy-regeneration or current-impact threshold"
             )
         if isinstance(self.minimum, Resolved) and self.minimum.value < 0:
             raise ValueError("derived panel value minimum must be non-negative")

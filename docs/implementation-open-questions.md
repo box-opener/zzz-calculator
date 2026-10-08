@@ -958,3 +958,7 @@ Cinema 6 states: `处于[加油！]状态下的队友[强化特殊技]命中敌�
 ### Basic third-stage derived curve element
 
 The Basic description says the sequence deals Physical and Fire damage, and its parameter table separately names the `三段（派生）伤害倍率` curve `1151003` (level-16 ratio 501%). The source skill-list action ID `1151003` is the high-fly Special, so that numeric collision cannot identify the Basic derived curve's element. The main third/fourth-stage curves have Fire buildup values, but the source does not assign the derived coefficient to Physical or Fire. Its ratio remains available and the selected derived branch stays locally unresolved without emitting a damage event; the named third and fourth stage entries remain calculated.
+
+## Continuous current-panel coefficients (2026-10-08)
+
+The user revised the prior per-interval interpretation: “做修复吧，不考虑档位问题了，现有的档位全部修复成连续比例。以后有问题再改。” This non-authoritative implementation rule means `PanelStatDerivedValue.step_size` scales the excess continuously by `excess / step_size`; it does not floor panel excess to whole intervals. It currently affects Velina's initial Energy Regeneration-derived damage/Anomaly Mastery and Lighter's current-Impact-derived Yang bonus. The underlying thresholds, coefficients, caps, raw source text, and authoritative specifications are unchanged. Discrete stack counts, skill/Cinema/Potential levels, actual tick counts, and time-based `floor` formulas remain discrete.

@@ -290,7 +290,8 @@ def test_lighter_additional_ability_eligibility_uses_attack_role_or_own_faction(
     assert not _lighter_additional_ability_eligibility((LIGHTER_ID,))
 
 
-def test_lighter_yang_uses_impact_floor_and_cinema2_applies_120_percent_once() -> None:
+def test_lighter_yang_uses_continuous_impact_scaling_and_cinema2_applies_120_percent_once(
+) -> None:
     entry_id = "move-entry:character:1161:basic-4"
     team = (LIGHTER, SOLDIER11)
     base = _payload(
@@ -396,7 +397,7 @@ def test_lighter_yang_uses_impact_floor_and_cinema2_applies_120_percent_once() -
     )
     c0_impact_result = client.post("/api/v1/moves/calculate", json=c0_with_impact)
     assert c0_impact_result.status_code == 200, c0_impact_result.text
-    assert _expected(c0_impact_result.json()) / base_value == pytest.approx(1.35)
+    assert _expected(c0_impact_result.json()) / base_value == pytest.approx(1.36996)
 
     c2_with_impact = _payload(
         entry_id,
@@ -409,7 +410,7 @@ def test_lighter_yang_uses_impact_floor_and_cinema2_applies_120_percent_once() -
     )
     c2_impact_result = client.post("/api/v1/moves/calculate", json=c2_with_impact)
     assert c2_impact_result.status_code == 200, c2_impact_result.text
-    assert _expected(c2_impact_result.json()) / base_value == pytest.approx(1.42)
+    assert _expected(c2_impact_result.json()) / base_value == pytest.approx(1.443952)
 
     snapshot = next(
         item for item in c2_impact_result.json()["resolved_character_snapshots"]
@@ -444,6 +445,29 @@ def test_lighter_yang_uses_impact_floor_and_cinema2_applies_120_percent_once() -
     capped_c2_result = client.post("/api/v1/moves/calculate", json=capped_c2)
     assert capped_c2_result.status_code == 200, capped_c2_result.text
     assert _expected(capped_c2_result.json()) / base_value == pytest.approx(1.90)
+
+    fractional_impact_off = _payload(
+        entry_id,
+        team=team,
+        cinema=0,
+        conditions={YANG_ACTIVE: False},
+        enabled=[],
+        stacks={},
+        impact=175.0,
+    )
+    fractional_impact_on = _payload(
+        entry_id,
+        team=team,
+        cinema=0,
+        conditions={YANG_ACTIVE: True},
+        enabled=[YANG_RULE],
+        stacks={YANG_RULE: 20},
+        impact=175.0,
+    )
+    fractional_off = client.post("/api/v1/moves/calculate", json=fractional_impact_off)
+    fractional_on = client.post("/api/v1/moves/calculate", json=fractional_impact_on)
+    assert fractional_off.status_code == fractional_on.status_code == 200
+    assert _expected(fractional_on.json()) / _expected(fractional_off.json()) == pytest.approx(1.275)
 
 
 def test_lighter_cinema6_fire_impact_scales_from_current_impact_and_follows_parent_scope() -> None:
