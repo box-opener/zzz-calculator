@@ -28,7 +28,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1201` | Harumasa | 悠真 | 4 | 1 | 部分实现（live 3.2 raw + level-60 Electric Attack panel + Physical/Electric Basic and reviewed Direct entries/Potential 1 Ultimate follow-up + Electric Shock/Disorder + Core/Cinema/Potential current-state rules + R1 signature mapping; Julei trigger count/tag remains localized pending clarification） |
 | `1211` | Rina | 丽娜 | 4 | 4 | 部分实现（live 3.2 raw/provenance + level-60 Support panel + source-defined Direct moves + static Shock/Disorder + Core/Additional Ability/Cinema/Potential current-state effects + `Weapon_S_1211` signature mapping; Basic/Morning Sweep element splits remain localized pending clarification） |
 | `1221` | Yanagi | 柳 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct moves + static Shock/Disorder + selected-record Polar Disorder with current-AP additive component; Daze, buildup, energy and timing outputs remain outside the current result contract） |
-| `1241` | Zhu Yuan | 朱鸢 | 4 | 1 | 待实现 |
+| `1241` | Zhu Yuan | 朱鸢 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 panel + reviewed Ether/Physical Direct entries + static Ether Corrosion/Disorder + Core/Cinema current-state rules + `Weapon_S_1241` signature mapping; Assault Basic element mapping, Pressure shot component relation, C6 bullet event identity, and Assist Strike mixed-element split remain local partials） |
 | `1251` | QingYi | 青衣 | 4 | 2 | 已实现（已有registry/compiler） |
 | `1261` | Jane | 简 | 4 | 3 | 待实现 |
 | `1271` | Seth | 赛斯 | 3 | 5 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Rina 1211 follows the reviewed and pushed Harumasa 1201. Continue with the next numeric ID after Rina is reviewed and pushed.
+Current item: Zhu Yuan 1241 follows the reviewed and pushed Rina 1211. Continue with the next unregistered numeric ID after Zhu Yuan is reviewed and pushed.
 
 ## Burnice (`character:1171`)
 
@@ -194,6 +194,14 @@ The complete Nanoka live 3.2 record is retained at `core/data/characters/rina.js
 Source-defined Electric/Physical moves are selectable, including the hold Basic, Dash, Counter, Special/EX, Chain, Ultimate, Quick Assist, Assist Strike, and Potential 1 Midnight Sweep. Static Electric Shock and Disorder use the shared current-record model. Rina's Core applies a current-Penetration-derived bonus to teammates other than Rina while either Bangboo is assigned out; Potential 2–6 adds the source-defined team ATK/DEF values during that state, and the 1.6% Potential Penetration Rate is separately applied. The Additional Ability's Electric damage bonus, Cinema 2 self damage bonus, Cinema 4 Energy Regen, Cinema 6 Electric damage bonus, and Cinema 1 nearby-buff state are separate current-state rules.
 
 Basic's four source curves and Potential 1 Morning Sweep's three one-hit curves remain selectable as local partial entries because their Physical/Electric component split is not stated per curve. They emit no damage event until the user clarifies the element mapping. Cinema 1's 10-meter effect uses a current-state condition; when selected, the 130% value applies to the current TEAM_OTHER recipients without modeling positions or distance history. Attack intervals, Bangboo return times, Fear-stack history, Shock extension duration, and Energy history are not simulated.
+
+## Zhu Yuan (`character:1241`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/zhu_yuan.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1241.json`; only calculator provenance fields were added. Zhu Yuan is an S-rank Attack agent with Ether as her base element and New Eridu Public Security as her faction. Her level-60 panel includes the source's +75 base ATK and +28.8% Crit Damage extra-level property. `IconRole23` is not packaged locally, so the catalog uses the neutral portrait placeholder. The reviewed signature is `wengine:14124` (`Weapon_S_1241`, 防暴者Ⅵ型); it remains explicitly unequipped by default.
+
+Known Direct entries retain the raw parameter IDs: Assault Dash, Pressure-mode Physical/Ether Basic and Dash components, Counter, Special, EX, Chain, Ultimate, and Quick Assist. The Special entry uses a current 1–3 shot input. Static Ether Corrosion uses the shared 100%-buildup/NoCrit model; Ether Disorder reads a current remaining-time input. Core's +40% damage for a shell-consuming Pressure event and its additional +40% against a currently stunned target are separate additive rules. Additional Ability Crit Rate is a current Zhu Yuan panel state when a Support or same-faction teammate is present. Cinema 2's current 0–5 stacks affect only Pressure-mode Ether components, and Cinema 4's 25% Ether resistance ignore affects only the shell-consuming Pressure-mode Ether components.
+
+Four source-defined branches remain localized partial entries: Assault Basic stages 1–5 have known curves but the Physical/Ether split per stage is not stated; Pressure-mode Basic/Dash retain separate Physical and Ether component curves without guessing their per-shot pairing; Assist Strike has one mixed-element curve with no component split; Cinema 6 has a known total of four extra Ether bullets at 220% ATK each (880% total), but their damage-event identity is unresolved. These rows preserve known ratios without emitting synthetic Direct events. Shell counts, reload history, Energy, Daze, and timing are not simulated.
 
 ## Velina (`character:1561`)
 

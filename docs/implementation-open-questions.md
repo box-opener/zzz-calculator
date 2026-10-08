@@ -1006,3 +1006,21 @@ The Basic source says `指派杜苏拉和安娜塔莎发动至多四段的攻击
 ### Potential 1 Morning Sweep element components
 
 The Morning Sweep text says `杜苏拉或安娜塔莎会每间隔2.5秒，攻击敌人1次，造成物理伤害和电属性伤害`. Its three per-hit curves are `1211023`–`1211025`, each with one damage multiplier and no per-element split in the parameter table. Each is exposed as a single source-hit ratio but remains locally unresolved and emits no damage event until the Physical/Electric component relationship is clarified. No interval or attack history is simulated.
+
+## Zhu Yuan (`character:1241`) localized source questions
+
+### Assault Basic stage element mapping
+
+The live Basic description says `交替使用体术、手枪和以太鹿弹，向前方进行至多五段的攻击，造成物理伤害和以太伤害`. Its five source curves (`1241001`–`1241005`) are individually selectable with their known ratios, but the source does not assign Physical or Ether to each stage. The entries remain local partials without emitted damage events until the stage-to-element mapping is known.
+
+### Pressure-mode shot pairing
+
+The source says `使用霰弹枪向前方进行至多三段的穿透射击，造成物理伤害；开火时若拥有[强化霰弹]，则会消耗1枚[强化霰弹]，造成大量以太伤害`. Separate Physical (`1241006`–`1241008`) and Ether (`1241009`–`1241011`) curves are preserved. The exact relationship between those components for a shot that consumes a shell is unresolved, so no full multi-shot total is inferred; the components stay separately selectable.
+
+### Cinema 6 extra Ether bullet event identity
+
+Cinema 6 says `发动[强化特殊技]时，将消耗[以太余温]效果，额外发射总计4枚以太鹿弹，每枚额外发射的以太鹿弹将造成朱鸢220%攻击力的伤害`. The known total is 880% ATK. The event's damage type, Crit behavior, skill group, and damage tags remain unresolved; the selector preserves the ratio as a local partial and does not fabricate a Direct event or trigger weapon effects.
+
+### Assist Strike Physical/Ether split
+
+The Assist Strike says `交替使用体术和霰弹枪进行攻击，造成物理伤害和以太伤害`, but provides one mixed curve (`1241025`). The curve remains selectable as a local partial without emitting a damage event until its element split is specified.

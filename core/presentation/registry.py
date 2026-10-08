@@ -148,6 +148,12 @@ from core.application.characters.rina import (
     compile_rina,
     load_raw_record as load_rina_raw_record,
 )
+from core.application.characters.zhu_yuan import (
+    ZHU_YUAN_ID,
+    ZhuYuanCompileConfig,
+    compile_zhu_yuan,
+    load_raw_record as load_zhu_yuan_raw_record,
+)
 from core.application.characters.soukaku import (
     SOUKAKU_ID,
     SoukakuCompileConfig,
@@ -3140,6 +3146,68 @@ def _compile_rina(
     )
 
 
+def _zhu_yuan_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(ZHU_YUAN_ID)
+    for character_id in team_ids:
+        if character_id == ZHU_YUAN_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role is CharacterRole.SUPPORT:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _zhu_yuan_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "朱鸢核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前核心等级；强化霰弹数量、装填和累积历史不回放。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "朱鸢影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁影画等级；3/5影技能等级提升按实际技能等级计算。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _compile_zhu_yuan(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = ZhuYuanCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_zhu_yuan_additional_ability_eligibility(team_ids),
+    )
+    return compile_zhu_yuan(
+        config,
+        load_zhu_yuan_raw_record(load_character_record(str(ZHU_YUAN_ID))),
+    )
+
+
 def _compile_grace(
     values: Mapping[str, Any],
     team_ids: Sequence[CharacterId],
@@ -4919,6 +4987,56 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     EquipmentDamageScope(Element.ELECTRIC, SkillGroup.CHAIN_ATTACK, frozenset({DamageTag.CHAIN_ATTACK})),
                     EquipmentDamageScope(Element.ELECTRIC, SkillGroup.ULTIMATE, frozenset({DamageTag.ULTIMATE})),
                     EquipmentDamageScope(Element.ELECTRIC, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
+                }
+            ),
+        ),
+    ),
+    ZHU_YUAN_ID: CharacterPresentationRegistration(
+        character_id=ZHU_YUAN_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1241",
+            display_name="朱鸢",
+            rarity="S",
+            element="ether",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            code_name="Zhu Yuan",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ETHER,
+        compile_definition=_compile_zhu_yuan,
+        config_fields=_zhu_yuan_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=ZHU_YUAN_ID,
+            role=CharacterRole.ATTACK,
+            native_element=Element.ETHER,
+            possible_elements=frozenset({Element.PHYSICAL, Element.ETHER}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK})),
+                    EquipmentDamageScope(Element.ETHER, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.DODGE, frozenset({DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.ETHER, SkillGroup.DODGE, frozenset({DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.ETHER, SkillGroup.DODGE, frozenset({DamageTag.DODGE_COUNTER})),
+                    EquipmentDamageScope(Element.ETHER, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.ETHER, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.EX_SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.ETHER, SkillGroup.CHAIN_ATTACK, frozenset({DamageTag.CHAIN_ATTACK})),
+                    EquipmentDamageScope(Element.ETHER, SkillGroup.ULTIMATE, frozenset({DamageTag.ULTIMATE})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
+                    EquipmentDamageScope(Element.ETHER, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
                 }
             ),
         ),
