@@ -268,6 +268,10 @@ def build_character_editor_view(
             element.value
             for element in _source_anomaly_elements(definition)
         ),
+        reviewed_anomaly_source_elements=tuple(
+            element.value
+            for element in _reviewed_anomaly_source_elements(definition)
+        ),
         effective_damage_element=_effective_damage_element(definition).value,
     )
 
@@ -284,6 +288,20 @@ def _source_anomaly_elements(definition):
     if not elements and definition.base_element in ANOMALY_ELEMENTS:
         elements.add(definition.base_element)
     return tuple(sorted(elements, key=lambda item: item.value))
+
+
+def _reviewed_anomaly_source_elements(definition):
+    return tuple(
+        sorted(
+            {
+                template.element
+                for template in definition.damage_event_templates
+                if isinstance(template, AttributeAnomalyDamageEventTemplate)
+                and template.element in ANOMALY_ELEMENTS
+            },
+            key=lambda item: item.value,
+        )
+    )
 
 
 def _effective_damage_element(definition):

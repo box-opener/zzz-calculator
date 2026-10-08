@@ -29,6 +29,14 @@ export type EquipmentConfigParseResult =
 
 export const CHARACTER_CONFIG_SCHEMA_VERSION = "zzz-character-config-v2" as const;
 
+const POTENTIAL_CONFIG_CHARACTER_IDS = new Set([
+  "character:1021", // Nekomata
+  "character:1041", // Soldier 11
+  "character:1101", // Koleda
+  "character:1141", // Lycaon
+  "character:1171", // Burnice
+]);
+
 export function characterConfigFilename(
   codeName: string | undefined,
   characterId: string,
@@ -270,7 +278,8 @@ function validateCompileConfig(raw: unknown, characterId: string): Record<string
     "mingxin_active",
     "entry_move_uses_linren",
   ]);
-  if (characterId === "character:1021") allowed.add("potential_level");
+  const supportsPotential = POTENTIAL_CONFIG_CHARACTER_IDS.has(characterId);
+  if (supportsPotential) allowed.add("potential_level");
   const unknown = Object.keys(raw).filter((key) => !allowed.has(key));
   if (unknown.length > 0) {
     invalid(`compile_config has unsupported fields: ${unknown.join(", ")}`);
@@ -281,7 +290,7 @@ function validateCompileConfig(raw: unknown, characterId: string): Record<string
   const cinemaLevel = "cinema_level" in raw
     ? integerInRange(raw.cinema_level, 0, 6, "compile_config.cinema_level")
     : 0;
-  if (characterId === "character:1021" && "potential_level" in raw) {
+  if (supportsPotential && "potential_level" in raw) {
     integerInRange(raw.potential_level, 0, 6, "compile_config.potential_level");
   }
   for (const key of ["mingxin_active", "entry_move_uses_linren"]) {

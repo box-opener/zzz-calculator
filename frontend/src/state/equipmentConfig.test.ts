@@ -67,7 +67,7 @@ const roundTripWengines = [
   { id: "wengine:14110", characterId: "character:1361", specialty: "stun" },
   { id: "wengine:14114", characterId: "character:1361", specialty: "stun" },
   { id: "wengine:14116", characterId: "character:1361", specialty: "stun" },
-  { id: "wengine:14117", characterId: "character:1401", specialty: "anomaly" },
+  { id: "wengine:14117", characterId: "character:1171", specialty: "anomaly" },
   { id: "wengine:14118", characterId: "character:1401", specialty: "anomaly" },
   { id: "wengine:14122", characterId: "character:1401", specialty: "anomaly" },
   { id: "wengine:14125", characterId: "character:1361", specialty: "stun" },
@@ -523,6 +523,62 @@ describe("complete character config v2", () => {
       catalog,
     );
     expect(parsed.ok).toBe(false);
+  });
+
+  it("round-trips Potential sliders for every registered Potential character", () => {
+    const characterIds = [
+      "character:1021",
+      "character:1041",
+      "character:1101",
+      "character:1141",
+      "character:1171",
+    ];
+    for (const characterId of characterIds) {
+      const character = createCharacterConfig(
+        characterId,
+        60,
+        "equipment-build",
+        { core_level: 7, cinema_level: 0, potential_level: 6 },
+        null,
+        [],
+        null,
+      );
+      const parsed = parseCharacterConfig(
+        serializeCharacterConfig(character),
+        characterId,
+        catalog,
+      );
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) expect(parsed.config.compile_config.potential_level).toBe(6);
+    }
+  });
+
+  it("rejects out-of-range Potential values for registered Potential characters", () => {
+    const characterIds = [
+      "character:1021",
+      "character:1041",
+      "character:1101",
+      "character:1141",
+      "character:1171",
+    ];
+    for (const characterId of characterIds) {
+      const character = createCharacterConfig(
+        characterId,
+        60,
+        "equipment-build",
+        { core_level: 7, cinema_level: 0, potential_level: 7 },
+        null,
+        [],
+        null,
+      );
+      expect(
+        parseCharacterConfig(
+          serializeCharacterConfig(character),
+          characterId,
+          catalog,
+        ).ok,
+      ).toBe(false);
+    }
   });
 
   it("round-trips Lucia's core, cinema, and skill levels through v2", () => {

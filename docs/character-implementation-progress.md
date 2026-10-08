@@ -1,6 +1,6 @@
 # Character implementation progress (non-authoritative)
 
-This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; with Lycaon registered, 32 are not yet implemented. Rank and type columns retain the source index numeric values without redefining their semantics.
+This is an implementation queue, not a game-semantics source. Unless the user gives a different priority order, the catalog order is ascending numeric character ID from the live Nanoka 3.2 character index at `https://static.nanoka.cc/zzz/3.2/character.json`, cached at `/private/tmp/nanoka-character-index-3.2.json`. The index has 60 IDs; row statuses are the current implementation count. Rank and type columns retain the source index numeric values without redefining their semantics.
 
 New live records should retain the complete source JSON and the verified live-3.2 source URL/version. Existing character raw records remain unchanged. Rows marked “已实现” or “部分实现” are present in the calculator registry. Rows still marked “待实现” will be addressed in ascending ID order.
 
@@ -22,7 +22,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1141` | Lycaon | 莱卡恩 | 4 | 2 | 部分实现（live 3.2 raw + level-60 Stun panel + Potential 0–6 selector + Physical/Ice Direct entries, Potential Ice Dance and selectable Hunt sequences + static Ice Anomaly/Disorder; Physical source hits have no anomaly buildup and do not create a Physical record; Core/Additional Ability/Cinema current states; Daze, shield, Energy and timing results remain outside the current contract） |
 | `1151` | Lucy | 露西 | 3 | 4 | 部分实现（live 3.2 raw + level-60 Support panel + reviewed Physical/Fire Direct entries + static Fire Burn/Disorder + current Cheer On team attack and Cinema 4 Crit Damage; the Basic 3 derived element and pig-actor stats are local diagnostics, Basic 4/Cinema 6 pig follow-ups are partial only when their source trigger state is selected; Daze, Energy, random pig attack cadence and buff-duration replay remain outside the current result contract） |
 | `1161` | Lighter | 莱特 | 4 | 2 | 部分实现（live 3.2 raw + level-60 Stun panel + Physical/Fire Direct and Fire Burn/Disorder entries + Core/Add Ability/Cinema current-state effects + R1 signature mapping; Morale/Energy/Daze/timer replay remain outside the result contract） |
-| `1171` | Burnice | 柏妮思 | 4 | 3 | 待实现 |
+| `1171` | Burnice | 柏妮思 | 4 | 3 | 部分实现（live 3.2 raw + S-rank level-60 Anomaly panel + Physical/Fire Direct and full Blender/EX entries + static Fire Burn/Disorder + Core/Cinema/Potential 0–6 + selected-source Potential 1 Discharge; fuel, duration, cooldown, buildup and Daze are not replayed） |
 | `1181` | Grace | 格莉丝 | 4 | 3 | 待实现 |
 | `1191` | Ellen | 艾莲 | 4 | 1 | 待实现 |
 | `1201` | Harumasa | 悠真 | 4 | 1 | 待实现 |
@@ -69,7 +69,17 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Lighter 1161 follows the reviewed and pushed Lucy 1151. After Lighter is reviewed and pushed, continue with Burnice 1171.
+Current item: Burnice 1171 follows the reviewed and pushed Lighter 1161. After Burnice is reviewed and pushed, continue with Grace 1181.
+
+## Burnice (`character:1171`)
+
+The complete Nanoka live 3.2 source is retained at `core/data/characters/burnice.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1171.json`; only calculator provenance fields were added. The raw identity is Burnice / 柏妮思, rank value 4 (catalog S), Anomaly, Fire, Sons of Calydon. The level-60 panel is normalized from the raw level and extra-level fields. The reviewed signature is `wengine:14117` (`Weapon_S_1171`, 燃油特调), left unequipped by default.
+
+The Direct list keeps Basic 1–2 Physical and Basic 3–5 Fire, plus the source Fire Dash, Counter, Special, Assist, Chain, and Ultimate entries. Blender and each EX action have a full entry that adds their listed component curves once; component entries remain independently selectable, without extending spray duration or inferring ticks. Potential 1 marks Blender damage as Support Attack, exposes the Fire Special Throw and its single anomaly-record Discharge, and creates one extra Ember on the selected Blender finisher/full action. The Discharge source selector accepts one active character ID plus a reviewed ordinary-anomaly element and builds a current-panel record without changing the current operator or formation. DoT sources pass the per-tick multiplier to Discharge.
+
+Core 7 Ember is a one-hit Fire Direct Support Attack at 350% ATK. Cinema 1 adds 100 percentage points to its ratio. Cinema 6's separate special Ember is 60% ATK plus the same Cinema 1 addition; both Ember hits use the Core's current-AP damage increase, capped at 30%, and Standard Crit. The Cinema 6 Fire impact against a Burning target adds one 9.0× selected Burn tick, not the full 20-tick total. The Cinema 4 Crit Rate bonus is event-only for Enhanced Special and Support Attack hits. Cinema 2's 0–5 target Burn Through stacks add 4% penetration rate each to the current hit. Potential 2–6 reads Initial Energy Regeneration above 1.8; per the user's latest continuous-panel instruction, the per-0.1 coefficients scale proportionally without flooring, retaining the source caps.
+
+The calculator does not replay Fuel/Fuel Point, Burn duration, proc cooldowns, buildup, Energy, or Daze. It exposes current Scorched/Burning/Double EX states only where those states gate the selected single event.
 
 ## Corin (`character:1061`)
 

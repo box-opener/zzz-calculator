@@ -59,6 +59,10 @@ import {
   selectedYanagiAnomalySource,
   yanagiAnomalySourceOptions,
 } from "./state/yanagiAnomalySource";
+import {
+  burniceAnomalySourceOptions,
+  selectedBurniceAnomalySource,
+} from "./state/burniceAnomalySource";
 
 type Character = {
   character_id: string;
@@ -151,6 +155,7 @@ type EditorView = {
   effective_damage_element?: string | null;
   luminance_source_elements?: string[];
   anomaly_source_elements?: string[];
+  reviewed_anomaly_source_elements?: string[];
   moves: Move[];
   rule_items: Rule[];
   scenario_conditions: Condition[];
@@ -378,6 +383,7 @@ function App() {
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({});
   const [remielleSourceSlotOverrides, setRemielleSourceSlotOverrides] = useState<string[] | null>(null);
   const [yanagiPolarSourceKey, setYanagiPolarSourceKey] = useState<string | null>(null);
+  const [burniceAnomalySourceKey, setBurniceAnomalySourceKey] = useState<string | null>(null);
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
   const [parameterValues, setParameterValues] = useState<Record<string, number | null>>({});
   const conditionValuesRef = useRef<Record<string, boolean | null>>({});
@@ -454,6 +460,14 @@ function App() {
   const showYanagiPolarSource = currentOperatorId === "character:1221"
     && yanagiPolarMoveEntries.has(moveEntryId)
     && yanagiAnomalySources.length > 0;
+  const burniceAnomalySources = burniceAnomalySourceOptions(teamIds, editorViews);
+  const effectiveBurniceAnomalySource = selectedBurniceAnomalySource(
+    burniceAnomalySources,
+    burniceAnomalySourceKey,
+  );
+  const showBurniceDischargeSource = currentOperatorId === "character:1171"
+    && moveEntryId === "move-entry:character:1171:special-throw"
+    && burniceAnomalySources.length > 0;
   const requestTeam = useMemo(() => calculationTeamOrder(teamIds, currentOperatorId), [teamIds, currentOperatorId]);
   const supportingIds = requestTeam.supportingCharacterIds;
   const aggregatedEditors = useMemo(
@@ -1169,6 +1183,12 @@ function App() {
               element: effectiveYanagiAnomalySource.element,
             },
           } : {}),
+          ...(showBurniceDischargeSource && effectiveBurniceAnomalySource ? {
+            burnice_anomaly_source: {
+              source_character_id: effectiveBurniceAnomalySource.characterId,
+              element: effectiveBurniceAnomalySource.element,
+            },
+          } : {}),
           compile_configs: Object.fromEntries(teamIds.map((id) => [id, {
             core_level: 7,
             cinema_level: 0,
@@ -1466,6 +1486,14 @@ function App() {
             <div className="section-heading compact"><div><p className="eyebrow">POLAR DISORDER SOURCE</p><h2>本次极性紊乱来源</h2><p className="control-section-hint">选择一条当前属性异常记录；默认使用柳的感电记录。</p></div></div>
             <label className="select-field"><span>异常来源</span><select value={effectiveYanagiAnomalySource?.key ?? ""} onChange={(event) => setYanagiPolarSourceKey(event.target.value || null)}>
               {yanagiAnomalySources.map((option) => <option key={option.key} value={option.key}>
+                {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
+              </option>)}
+            </select></label>
+          </div>}
+          {showBurniceDischargeSource && <div className="control-list yanagi-polar-source">
+            <div className="section-heading compact"><div><p className="eyebrow">BURNICE DISCHARGE SOURCE</p><h2>灼热抛接异放来源</h2><p className="control-section-hint">选择当前队伍中的一条异常记录；默认使用柏妮思自身灼烧。来源按当前面板结算，不切换操作角色。</p></div></div>
+            <label className="select-field"><span>异常来源</span><select value={effectiveBurniceAnomalySource?.key ?? ""} onChange={(event) => setBurniceAnomalySourceKey(event.target.value || null)}>
+              {burniceAnomalySources.map((option) => <option key={option.key} value={option.key}>
                 {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
               </option>)}
             </select></label>

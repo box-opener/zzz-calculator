@@ -86,6 +86,7 @@ class MoveCalculationRequest:
     history_record_mode: HistoryRecordMode = HistoryRecordMode.EXPLICIT
     luminance_source_choice: LuminanceSourceChoice | None = None
     polarity_anomaly_source_choice: AnomalySourceChoice | None = None
+    burnice_anomaly_source_choice: AnomalySourceChoice | None = None
     additional_damage_event_templates: tuple[DamageEventTemplate, ...] = ()
     additional_derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
@@ -197,6 +198,30 @@ class MoveCalculationRequest:
                 raise ValueError(
                     "Polar source element is not an ordinary anomaly available to "
                     f"{choice.source_character_id}"
+                )
+        if self.burnice_anomaly_source_choice is not None:
+            choice = self.burnice_anomaly_source_choice
+            if self.definition.character_id != CharacterId("character:1171"):
+                raise ValueError("Burnice anomaly source selection requires Burnice as primary")
+            if choice.source_character_id not in set(profile_ids):
+                raise ValueError("Burnice anomaly source must be an active teammate")
+            if choice.element not in ANOMALY_ELEMENTS:
+                raise ValueError("Burnice Discharge source must use an ordinary anomaly element")
+            source_definition = next(
+                item
+                for item in definitions
+                if item.character_id == choice.source_character_id
+            )
+            source_elements = {
+                template.element
+                for template in source_definition.damage_event_templates
+                if isinstance(template, AttributeAnomalyDamageEventTemplate)
+                and template.element in ANOMALY_ELEMENTS
+            }
+            if choice.element not in source_elements:
+                raise ValueError(
+                    "Burnice Discharge source element is not backed by an active "
+                    f"ordinary anomaly template for {choice.source_character_id}"
                 )
 
         rule_items = tuple(

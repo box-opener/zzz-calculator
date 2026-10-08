@@ -58,6 +58,9 @@ from core.application.moves import (
 from core.application.rules import CalculationRuleItem, RuleEligibility
 from core.application.scenario import ScenarioCondition
 from core.application.execution.modifiers import is_panel_modifier_path
+from core.application.execution.anomaly_source_profiles import (
+    FULL_GAUGE_ANOMALY_PROFILE,
+)
 from core.types import (
     AnomalySourceChoice,
     AnomalyRecordId,
@@ -208,6 +211,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         payload,
         luminance_flow_element=rem_flow_element,
         normal_source_elements=_normal_source_element_options(definitions),
+        reviewed_anomaly_source_elements=_reviewed_anomaly_source_element_options(
+            definitions
+        ),
     )
     if vivian_discharge_selected and primary.character_id != VIVIAN_ID:
         raise ValueError("Vivian Discharge selection requires Vivian as current operator")
@@ -359,6 +365,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 luminance_source_choice=choice,
                 polarity_anomaly_source_choice=(
                     view_request.polarity_anomaly_source_choice
+                ),
+                burnice_anomaly_source_choice=(
+                    view_request.burnice_anomaly_source_choice
                 ),
                 crit_display_mode=mode,
             )
@@ -840,17 +849,7 @@ def _vivian_panel_source_results(
     return tuple(result_views)
 
 
-_FULL_GAUGE_ANOMALY_PROFILE: dict[Element, tuple[float, int]] = {
-    Element.PHYSICAL: (7.13, 1),
-    Element.LINREN: (7.13, 1),
-    Element.ICE: (5.0, 1),
-    Element.LIESHUANG: (5.0, 1),
-    Element.ETHER: (0.625, 20),
-    Element.XUANMO: (0.625, 20),
-    Element.FIRE: (0.5, 20),
-    Element.ELECTRIC: (1.25, 10),
-    Element.WIND: (17.5, 1),
-}
+_FULL_GAUGE_ANOMALY_PROFILE = FULL_GAUGE_ANOMALY_PROFILE
 
 _VIVIAN_MUTATION_ELEMENT_RULE_SUFFIX = {
     Element.ETHER: "ether",
@@ -1089,11 +1088,31 @@ def _normal_source_element_options(definitions):
     return result
 
 
+def _reviewed_anomaly_source_element_options(definitions):
+    """Return only typed ordinary-anomaly elements with reviewed templates."""
+
+    return {
+        str(definition.character_id): tuple(
+            sorted(
+                {
+                    item.element
+                    for item in definition.damage_event_templates
+                    if isinstance(item, AttributeAnomalyDamageEventTemplate)
+                    and item.element in ANOMALY_ELEMENTS
+                },
+                key=lambda item: item.value,
+            )
+        )
+        for definition in definitions
+    }
+
+
 def _presentation_request(
     payload: Mapping[str, Any],
     *,
     luminance_flow_element: Element | None = None,
     normal_source_elements: Mapping[str, tuple[Element, ...]] | None = None,
+    reviewed_anomaly_source_elements: Mapping[str, tuple[Element, ...]] | None = None,
 ) -> MoveCalculationViewRequest:
     """Validate the browser-shaped request before domain assembly."""
 
@@ -1383,6 +1402,45 @@ def _presentation_request(
         )
     elif raw_polar_source not in (None, {}, ()):
         raise ValueError("polarity_anomaly_source requires Yanagi as current operator")
+    raw_burnice_source = payload.get("burnice_anomaly_source")
+    burnice_source_choice: AnomalySourceChoice | None = None
+    burnice_throw_entry = "move-entry:character:1171:special-throw"
+    if primary_id == "character:1171" and move_entry_id == burnice_throw_entry:
+        source_spec = raw_burnice_source
+        if source_spec is None:
+            source_spec = {"source_character_id": primary_id}
+        if not isinstance(source_spec, Mapping):
+            raise ValueError("burnice_anomaly_source must be an object")
+        source_character_id = str(source_spec.get("source_character_id", ""))
+        if source_character_id not in team_ids:
+            raise ValueError("Burnice Discharge source must be an active teammate")
+        source_options = tuple(
+            (reviewed_anomaly_source_elements or {}).get(source_character_id, ())
+        )
+        if not source_options:
+            raise ValueError(
+                f"no reviewed ordinary anomaly source is available for {source_character_id}"
+            )
+        native_element = registration_for(source_character_id).base_element
+        default_element = native_element if native_element in source_options else source_options[0]
+        raw_source_element = source_spec.get("element")
+        source_element = (
+            default_element
+            if raw_source_element is None
+            else _element(str(raw_source_element))
+        )
+        if source_element not in source_options:
+            raise ValueError(
+                f"Burnice Discharge source element {source_element.value} is not available for {source_character_id}"
+            )
+        burnice_source_choice = AnomalySourceChoice(
+            source_character_id=CharacterId(source_character_id),
+            element=source_element,
+        )
+    elif raw_burnice_source not in (None, {}, ()):
+        raise ValueError(
+            "burnice_anomaly_source is only valid for Burnice's Potential 1 Special Throw entry"
+        )
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
         supporting_character_ids=supporting_ids,
@@ -1405,6 +1463,7 @@ def _presentation_request(
         ),
         luminance_source_slots=luminance_sources,
         polarity_anomaly_source_choice=polarity_source_choice,
+        burnice_anomaly_source_choice=burnice_source_choice,
     )
 
 

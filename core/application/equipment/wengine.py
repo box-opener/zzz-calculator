@@ -232,6 +232,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1151"): WEngineId("wengine:13115"),
     # Live Nanoka 3.2 Weapon_S_1161 is Lighter's 焰心桂冠.
     CharacterId("character:1161"): WEngineId("wengine:14116"),
+    # The local 14117 record is Weapon_S_1171 and identifies Burnice's 燃油特调.
+    CharacterId("character:1171"): WENGINE_FLAMEMAKER_SHAKER_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

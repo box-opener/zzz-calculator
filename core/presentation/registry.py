@@ -117,6 +117,12 @@ from core.application.characters.ben import (
     compile_ben,
     load_raw_record as load_ben_raw_record,
 )
+from core.application.characters.burnice import (
+    BURNICE_ID,
+    BurniceCompileConfig,
+    compile_burnice,
+    load_raw_record as load_burnice_raw_record,
+)
 from core.application.characters.soukaku import (
     SOUKAKU_ID,
     SoukakuCompileConfig,
@@ -1293,6 +1299,39 @@ def _velina_fields(
             0,
             5,
             "染色气旋只结算选中属性，不与风属性单跳相加。",
+        ),
+        *_skill_level_fields(values),
+    )
+
+
+def _burnice_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "柏妮思核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前核心等级；余烬倍率按所选等级计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "柏妮思影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级；C3/C5技能等级提升会按实际等级生效。",
+        ),
+        _slider_field(
+            "potential_level",
+            "柏妮思潜能等级",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "潜能1解锁强化招式；潜能2–6读取初始能量回复增益。",
         ),
         *_skill_level_fields(values),
     )
@@ -2685,6 +2724,48 @@ def _compile_qingyi(
             ),
         ),
         load_qingyi_raw_record(load_character_record(str(QINGYI_ID))),
+    )
+
+
+def _burnice_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(BURNICE_ID)
+    for character_id in team_ids:
+        if character_id == BURNICE_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.role is CharacterRole.ANOMALY:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _compile_burnice(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = BurniceCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=_integer_with_default(values, "potential_level", 0, False),
+        additional_ability_eligible=_burnice_additional_ability_eligibility(team_ids),
+    )
+    return compile_burnice(
+        config,
+        load_burnice_raw_record(
+            load_character_record(str(BURNICE_ID)),
+            potential_level=config.potential_level,
+        ),
     )
 
 
@@ -4162,6 +4243,92 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             ),
         ),
     ),
+    BURNICE_ID: CharacterPresentationRegistration(
+        character_id=BURNICE_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1171",
+            display_name="柏妮思",
+            rarity="S",
+            element="fire",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.FIRE,
+        compile_definition=_compile_burnice,
+        config_fields=_burnice_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=BURNICE_ID,
+            role=CharacterRole.ANOMALY,
+            native_element=Element.FIRE,
+            possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(
+                        Element.PHYSICAL,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.BASIC_ATTACK,
+                        frozenset({DamageTag.BASIC_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DASH_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.DODGE,
+                        frozenset({DamageTag.DODGE_COUNTER}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.SPECIAL_ATTACK,
+                        frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.CHAIN_ATTACK,
+                        frozenset({DamageTag.CHAIN_ATTACK}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.ULTIMATE,
+                        frozenset({DamageTag.ULTIMATE}),
+                    ),
+                    EquipmentDamageScope(
+                        Element.FIRE,
+                        SkillGroup.ASSIST,
+                        frozenset({DamageTag.ASSIST}),
+                    ),
+                }
+            ),
+            mechanisms=frozenset({"burnice-ember", "burnice-fuel-state"}),
+        ),
+    ),
+
 }
 
 

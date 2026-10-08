@@ -201,6 +201,7 @@ class DischargeDamageEventTemplate:
     crit_rule: RecordedAnomalyCritRule | NoCritRule | Unresolved
     move_id: MoveId | None
     multiplier_from_source_event: bool = True
+    source_multiplier_by_element: tuple[tuple[Element, float], ...] = ()
 
     def __post_init__(self) -> None:
         if self.ref.damage_type is not DamageType.ANOMALY:
@@ -211,6 +212,11 @@ class DischargeDamageEventTemplate:
             raise ValueError("template ref element must match typed template element")
         if self.ref.skill_group is not None or self.move_id is not None:
             raise ValueError("synthetic discharge damage must not invent a move identity")
+        source_elements = tuple(element for element, _ in self.source_multiplier_by_element)
+        if len(set(source_elements)) != len(source_elements):
+            raise ValueError("discharge source multipliers must have unique elements")
+        if any(value < 0 for _, value in self.source_multiplier_by_element):
+            raise ValueError("discharge source multipliers must be non-negative")
 
 
 @dataclass(frozen=True, slots=True)

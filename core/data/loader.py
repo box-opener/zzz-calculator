@@ -43,6 +43,7 @@ _CHARACTER_FILES = {
     "character:1141": "lycaon.json",
     "character:1151": "lucy.json",
     "character:1161": "lighter.json",
+    "character:1171": "burnice.json",
 }
 
 
