@@ -52,6 +52,7 @@ from ..characters.templates import (
     LuminanceFlareDamageEventTemplate,
     SettledAnomalyDamageEventTemplate,
     TurbulenceDamageEventTemplate,
+    UnresolvedDamageEventTemplate,
 )
 from ..ids import DamageEventSemanticId, RuleItemId
 from .contracts import InstantiatedDamageEvent
@@ -121,6 +122,8 @@ def instantiate_damage_event(
 ) -> InstantiatedDamageEvent:
     """Instantiate any typed template without collapsing anomaly identity."""
 
+    if isinstance(template, UnresolvedDamageEventTemplate):
+        raise ValueError("unresolved direct template cannot be instantiated")
     if isinstance(template, DirectDamageEventTemplate):
         return instantiate_direct_damage_event(
             template,
@@ -372,6 +375,8 @@ def template_metadata(
     target_enemy: EnemyId,
     created_at: BattleTime,
 ) -> DamageEventMetadata:
+    if isinstance(template, UnresolvedDamageEventTemplate):
+        raise ValueError("unresolved direct template has no typed event metadata")
     return DamageEventMetadata(
         event_id=DamageEventId(f"event:{battle_state_id}:{template.ref.semantic_id}"),
         battle_state_id=battle_state_id,

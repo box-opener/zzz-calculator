@@ -248,6 +248,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1201"): WENGINE_HEART_OF_SWORD_ID,
     # Local 14121 raw uses Weapon_S_1211, matching Rina's code-name ID.
     CharacterId("character:1211"): WENGINE_CRYING_CRADLE_ID,
+    # Local Nanoka 3.2 13127 record is Weapon_A_1271 and explicitly names Seth.
+    CharacterId("character:1271"): WENGINE_PEACEKEEPER_SPECIALIZED_ID,
     # Local 14124 raw uses Weapon_S_1241, matching Zhu Yuan's code-name ID.
     CharacterId("character:1241"): WENGINE_DEFENSE_PATROL_ID,
     # Local 14126 raw uses Weapon_S_1261 and names Jane Doe in its source description.

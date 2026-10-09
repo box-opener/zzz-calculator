@@ -117,6 +117,7 @@ class EffectTarget(StrEnum):
 
     SELF = "self"
     CURRENT_OPERATOR = "current-operator"
+    RECIPIENT = "recipient"
     TEAM = "team"
     TEAM_OTHER = "team-other"
     ENEMY = "enemy"

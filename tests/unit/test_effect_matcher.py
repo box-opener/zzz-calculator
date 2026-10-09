@@ -135,8 +135,8 @@ def _event(
     element: Element = Element.FIRE,
     skill_group: SkillGroup | None = SkillGroup.DODGE,
     tags: frozenset[DamageTag] = frozenset({DamageTag.DODGE_COUNTER}),
+    dealer: CharacterId = CharacterId("character:operator"),
 ) -> DirectDamageEvent:
-    dealer = CharacterId("character:operator")
     return DirectDamageEvent(
         metadata=DamageEventMetadata(
             event_id=DamageEventId("damage:matcher"),
@@ -193,6 +193,7 @@ def _context(
     enemy_states: frozenset[StateId] = frozenset(),
     owner_states: frozenset[StateId] = frozenset(),
     history_records: tuple[AnomalyRecord, ...] = (),
+    additional_team_members: tuple[CharacterId, ...] = (),
 ) -> EffectMatchContext:
     operator = CharacterId("character:operator")
     target = EnemyId("enemy:matcher")
@@ -213,6 +214,18 @@ def _context(
                 owner,
                 owner_role,
                 states=owner_states,
+                field_position=FieldPosition.BACK,
+                operation_state=OperationState.NOT_OPERATED,
+            )
+        )
+    for member in additional_team_members:
+        if member in {operator, owner}:
+            continue
+        snapshots.append(CharacterSnapshot(member, 60, _stats()))
+        profiles.append(
+            CharacterMatchProfile(
+                member,
+                CharacterRole.SUPPORT,
                 field_position=FieldPosition.BACK,
                 operation_state=OperationState.NOT_OPERATED,
             )
@@ -245,6 +258,7 @@ def _effect(
     *,
     owner: CharacterId = CharacterId("character:owner"),
     target: EffectTarget = EffectTarget.TEAM,
+    recipient_character_id: CharacterId | None = None,
     trigger=None,
     condition=None,
     filters=(),
@@ -255,6 +269,7 @@ def _effect(
             source=_source(),
             owner=owner,
             target=target,
+            recipient_character_id=recipient_character_id,
             snapshot_rule=SnapshotRule.SETTLEMENT,
             trigger=trigger,
             condition=condition,
@@ -318,6 +333,50 @@ def test_target_and_current_event_filters_are_separate() -> None:
         _context(event, _scenario()),
     )
     assert result.status is EffectMatchStatus.MATCHED
+
+
+def test_recipient_target_is_distinct_from_effect_owner_and_current_operator() -> None:
+    owner = CharacterId("character:seth")
+    recipient = CharacterId("character:nekomata")
+    scenario = _scenario()
+    event = _event(dealer=recipient)
+    effect = _effect(
+        "effect:test",
+        owner=owner,
+        target=EffectTarget.RECIPIENT,
+        recipient_character_id=recipient,
+    )
+
+    matched = EffectMatcher().match_rule_item(
+        _rule(effect, scenario),
+        _context(
+            event,
+            scenario,
+            owner=owner,
+            additional_team_members=(recipient,),
+        ),
+    )
+    assert matched.status is EffectMatchStatus.MATCHED
+    assert effect.rule.owner == owner
+    assert effect.rule.recipient_character_id == recipient
+
+    out_of_team = EffectMatcher().match_rule_item(
+        _rule(effect, scenario),
+        _context(event, scenario, owner=owner),
+    )
+    assert out_of_team.status is EffectMatchStatus.NOT_MATCHED
+
+    unrelated_actor_event = _event(dealer=CharacterId("character:burnice"))
+    unrelated = EffectMatcher().match_rule_item(
+        _rule(effect, scenario),
+        _context(
+            unrelated_actor_event,
+            scenario,
+            owner=owner,
+            additional_team_members=(recipient,),
+        ),
+    )
+    assert unrelated.status is EffectMatchStatus.NOT_MATCHED
 
 
 def test_rule_stack_condition_follows_the_resolved_stack_not_a_second_boolean() -> None:

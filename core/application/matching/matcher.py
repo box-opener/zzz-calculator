@@ -104,6 +104,7 @@ class EffectMatcher:
                     effect.rule.owner,
                     context,
                     str(effect_id),
+                    effect.rule.recipient_character_id,
                 ),
                 match_trigger(effect.rule, context, str(effect_id)),
                 match_condition(

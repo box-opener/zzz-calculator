@@ -244,6 +244,7 @@ class DirectMoveApplicationService:
                 global_panel_application.character_snapshots,
                 rule_items,
                 self._matcher,
+                global_panel_application.applied_panel_effect_ids,
             )
         if request.burnice_anomaly_source_choice is not None:
             has_reviewed_burnice_discharge = any(
@@ -267,6 +268,7 @@ class DirectMoveApplicationService:
                 global_panel_application.character_snapshots,
                 rule_items,
                 self._matcher,
+                global_panel_application.applied_panel_effect_ids,
             )
             source_diagnostics = (*source_diagnostics, *burnice_source_diagnostics)
         if request.grace_anomaly_source_choice is not None:
@@ -292,6 +294,7 @@ class DirectMoveApplicationService:
                 global_panel_application.character_snapshots,
                 rule_items,
                 self._matcher,
+                global_panel_application.applied_panel_effect_ids,
             )
             source_diagnostics = (*source_diagnostics, *grace_source_diagnostics)
         main_event = instantiate_damage_event(
@@ -317,6 +320,7 @@ class DirectMoveApplicationService:
             (),
             matcher=self._matcher,
             rule_items=rule_items,
+            applied_panel_effect_ids=global_panel_application.applied_panel_effect_ids,
         )
         identity_diagnostics = (*source_diagnostics, *identity_diagnostics)
         identity_request = replace(request, history_records=identity_history)
@@ -369,6 +373,7 @@ class DirectMoveApplicationService:
             panel_application.event_modifiers,
             matcher=self._matcher,
             rule_items=rule_items,
+            applied_panel_effect_ids=panel_application.applied_panel_effect_ids,
         )
         request = replace(request, history_records=final_history)
         if request.history_record_mode is HistoryRecordMode.STATIC_SINGLE_CHARACTER:
@@ -531,6 +536,7 @@ class DirectMoveApplicationService:
                         application.character_snapshots,
                         rule_items,
                         self._matcher,
+                        application.applied_panel_effect_ids,
                     )
                     move_diagnostics.extend(polar_source_diagnostics)
                 child_history, child_history_diagnostics = _history_records_for_event(
@@ -540,6 +546,7 @@ class DirectMoveApplicationService:
                     (),
                     matcher=self._matcher,
                     rule_items=rule_items,
+                    applied_panel_effect_ids=application.applied_panel_effect_ids,
                 )
                 request = replace(request, history_records=child_history)
                 if request.history_record_mode is HistoryRecordMode.STATIC_SINGLE_CHARACTER:
@@ -1349,6 +1356,7 @@ def _history_records_for_event(
     *,
     matcher: EffectMatcher | None = None,
     rule_items: tuple[CalculationRuleItem, ...] = (),
+    applied_panel_effect_ids: frozenset[EffectId] = frozenset(),
 ):
     """Resolve explicit history first, then the opt-in static adapter.
 
@@ -1444,6 +1452,7 @@ def _history_records_for_event(
                 scenario=request.scenario,
                 event=generation_event,
                 apply_panel=False,
+                applied_panel_effect_ids=applied_panel_effect_ids,
             )
             assembly = static_attribute_anomaly_record(
                 generation_event,
@@ -1511,6 +1520,7 @@ def _prepare_remielle_flare_source(
     snapshots: tuple[CharacterSnapshot, ...],
     rule_items: tuple[CalculationRuleItem, ...],
     matcher: EffectMatcher,
+    applied_panel_effect_ids: frozenset[EffectId],
 ):
     """Create one selected source snapshot without inventing Flare history.
 
@@ -1574,6 +1584,7 @@ def _prepare_remielle_flare_source(
         scenario=source_scenario,
         event=source_event,
         apply_panel=False,
+        applied_panel_effect_ids=applied_panel_effect_ids,
     )
     source_diagnostics = (
         *_match_diagnostics(matches),
@@ -1648,6 +1659,7 @@ def _prepare_polar_anomaly_source(
     snapshots: tuple[CharacterSnapshot, ...],
     rule_items: tuple[CalculationRuleItem, ...],
     matcher: EffectMatcher,
+    applied_panel_effect_ids: frozenset[EffectId],
 ):
     """Resolve exactly one selected current anomaly source for Polar Disorder."""
 
@@ -1782,6 +1794,7 @@ def _prepare_polar_anomaly_source(
         scenario=source_scenario,
         event=source_event,
         apply_panel=False,
+        applied_panel_effect_ids=applied_panel_effect_ids,
     )
     assembly = static_attribute_anomaly_record(
         source_event,
@@ -1816,6 +1829,7 @@ def _prepare_burnice_anomaly_source(
     snapshots: tuple[CharacterSnapshot, ...],
     rule_items: tuple[CalculationRuleItem, ...],
     matcher: EffectMatcher,
+    applied_panel_effect_ids: frozenset[EffectId],
 ):
     """Capture one selected active actor's current-panel anomaly record.
 
@@ -1949,6 +1963,7 @@ def _prepare_burnice_anomaly_source(
         scenario=request.scenario,
         event=source_event,
         apply_panel=False,
+        applied_panel_effect_ids=applied_panel_effect_ids,
     )
     assembly = static_attribute_anomaly_record(
         source_event,
@@ -1983,6 +1998,7 @@ def _prepare_grace_anomaly_source(
     snapshots: tuple[CharacterSnapshot, ...],
     rule_items: tuple[CalculationRuleItem, ...],
     matcher: EffectMatcher,
+    applied_panel_effect_ids: frozenset[EffectId],
 ):
     """Capture the selected active actor's current-panel Shock source record."""
 
@@ -2094,6 +2110,7 @@ def _prepare_grace_anomaly_source(
         scenario=request.scenario,
         event=source_event,
         apply_panel=False,
+        applied_panel_effect_ids=applied_panel_effect_ids,
     )
     assembly = static_attribute_anomaly_record(
         source_event,

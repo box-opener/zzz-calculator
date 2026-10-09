@@ -153,6 +153,75 @@ def _ye_request(definition, suffix: str) -> MoveCalculationRequest:
     )
 
 
+def test_named_recipients_keep_seth_as_owner_and_apply_off_field_once() -> None:
+    from core.application.execution.modifiers import apply_global_panel_effects
+
+    seth = CharacterId("character:1271")
+    neko = CharacterId("character:1021")
+    anby = CharacterId("character:1011")
+    outsider = CharacterId("character:outside")
+    source = _source("Seth shield holder")
+    stats = _stats(anomaly_proficiency=90.0)
+
+    def holder_rule(recipient: CharacterId) -> CalculationRuleItem:
+        key = str(recipient).replace(":", "-")
+        effect = ModifierEffect(
+            rule=EffectRule(
+                effect_id=EffectId(f"effect:seth:shield-ap:{key}"),
+                source=source,
+                owner=seth,
+                target=EffectTarget.RECIPIENT,
+                recipient_character_id=recipient,
+                snapshot_rule=SnapshotRule.SETTLEMENT,
+            ),
+            result=ModifierResult(
+                modifier_path=CalculationNode.CHARACTER_COMBAT_ANOMALY_PROFICIENCY_FLAT_BONUS,
+                operation=EffectOperation.ADD,
+                value=Resolved(100.0),
+            ),
+        )
+        return CalculationRuleItem(
+            rule_id=RuleItemId(f"rule:seth:shield-ap:{key}"),
+            owner=seth,
+            source=source,
+            display_name="匪石之盾：当前持有者异常精通",
+            original_text="赛斯核心被动：当前持有护盾的角色异常精通提升。",
+            eligibility=RuleEligibility.ELIGIBLE,
+            effects=(effect,),
+        )
+
+    rules = tuple(holder_rule(recipient) for recipient in (neko, anby, outsider))
+    snapshots = tuple(
+        CharacterSnapshot(character_id, 60, stats)
+        for character_id in (seth, neko, anby, outsider)
+    )
+    initial = tuple(
+        InitialCharacterSnapshot(character_id, 60, stats)
+        for character_id in (seth, neko, anby, outsider)
+    )
+    scenario = CalculationScenario(
+        scenario_id="scenario:seth:shield-recipients",
+        current_operator=seth,
+        enabled_rule_item_ids=frozenset(rule.rule_id for rule in rules),
+    )
+
+    result = apply_global_panel_effects(
+        snapshots,
+        initial,
+        rules,
+        scenario,
+        team_character_ids=frozenset({seth, neko, anby}),
+    )
+
+    assert {trace.recipient_character_id for trace in result.panel_traces} == {neko, anby}
+    assert all(effect.rule.owner == seth for rule in rules for effect in rule.effects)
+    by_id = {item.character_id: item.settlement_stats for item in result.character_snapshots}
+    assert by_id[seth].anomaly_proficiency == Resolved(90.0)
+    assert by_id[neko].anomaly_proficiency == Resolved(190.0)
+    assert by_id[anby].anomaly_proficiency == Resolved(190.0)
+    assert by_id[outsider].anomaly_proficiency == Resolved(90.0)
+
+
 def _support_definition(*, stacked: bool = False) -> CharacterCalculationDefinition:
     owner = CharacterId("character:stage16-support")
     effect = ModifierEffect(

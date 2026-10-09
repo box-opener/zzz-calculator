@@ -298,6 +298,27 @@ class SettledAnomalyDamageEventTemplate:
             raise ValueError("settled anomaly template requires a damage dealer")
 
 
+@dataclass(frozen=True, slots=True)
+class UnresolvedDamageEventTemplate:
+    """Entry reference for a direct source whose event identity is unresolved.
+
+    This carries the known source label and actor for a partial move entry, but
+    deliberately cannot be instantiated as a damage event until its typed
+    element/event identity is reviewed.
+    """
+
+    ref: DamageEventTemplateRef
+    damage_dealer: CharacterId
+    move_id: MoveId | None
+    unresolved: Unresolved
+
+    def __post_init__(self) -> None:
+        if self.ref.damage_type is not DamageType.DIRECT:
+            raise ValueError("unresolved direct template requires direct damage metadata")
+        if self.ref.element is not None:
+            raise ValueError("unresolved direct template must not guess an element")
+
+
 DamageEventTemplate = (
     DirectDamageEventTemplate
     | PenetrationDamageEventTemplate
@@ -309,6 +330,7 @@ DamageEventTemplate = (
     | TurbulenceDamageEventTemplate
     | LuminanceFlareDamageEventTemplate
     | SettledAnomalyDamageEventTemplate
+    | UnresolvedDamageEventTemplate
 )
 
 
@@ -324,4 +346,5 @@ __all__ = [
     "TurbulenceDamageEventTemplate",
     "LuminanceFlareDamageEventTemplate",
     "SettledAnomalyDamageEventTemplate",
+    "UnresolvedDamageEventTemplate",
 ]

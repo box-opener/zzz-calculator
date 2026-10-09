@@ -96,6 +96,7 @@ def match_target(
     owner,
     context: EffectMatchContext,
     effect_id: str,
+    recipient_character_id=None,
 ) -> tuple[EffectMatchStatus, tuple[CalculationDiagnostic, ...]]:
     if owner is not None and context.character(owner) is None:
         return EffectMatchStatus.NOT_MATCHED, ()
@@ -120,6 +121,33 @@ def match_target(
             profile.character_id for profile in context.team
         }:
             return EffectMatchStatus.BLOCKED, ()
+    elif target is EffectTarget.RECIPIENT:
+        if recipient_character_id is None:
+            return (
+                EffectMatchStatus.BLOCKED,
+                (
+                    diagnostic(
+                        effect_id,
+                        "missing-recipient",
+                        DiagnosticKind.MISSING_DATA,
+                        "recipient-targeted Effect has no selected recipient character ID",
+                        blocking=True,
+                    ),
+                ),
+            )
+        if recipient_character_id not in {
+            profile.character_id for profile in context.team
+        }:
+            return EffectMatchStatus.NOT_MATCHED, ()
+        # Named panel recipients are resolved globally for their own
+        # snapshots. During event matching, only the matching damage dealer's
+        # panel can consume that effect; otherwise an off-field holder would
+        # make an unrelated actor's event look like an unapplied panel rule.
+        if (
+            context.current_event is not None
+            and context.current_event.metadata.damage_dealer != recipient_character_id
+        ):
+            return EffectMatchStatus.NOT_MATCHED, ()
     elif target in {EffectTarget.TEAM, EffectTarget.TEAM_OTHER}:
         if target is EffectTarget.TEAM_OTHER and owner is None:
             return (

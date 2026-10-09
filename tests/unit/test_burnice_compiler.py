@@ -55,6 +55,8 @@ _C6_BURN_RULE = "rule:character:1171:cinema6:double-ex-extra-burn-tick"
 _C6_RES_RULE = "rule:character:1171:cinema6:fire-resistance-ignore-state"
 _CAESAR_SHIELD_ATTACK_RULE = "rule:character:1071:core:shield-holder-attack"
 _CAESAR_SHIELD_ATTACK_ACTIVE = "condition:caesar:shield-holder-attack-buff-active"
+_SETH_SHIELD_AP_RULE = "rule:character:1271:core:shield-holder-ap:character-1021"
+_SETH_NEKO_SHIELD_ACTIVE = "condition:seth:shield-active:character-1021"
 
 
 def _stats_for(character_id: str, *, energy_regen: float | None = None) -> dict:
@@ -565,3 +567,56 @@ def test_burnice_source_picker_uses_reviewed_anomaly_templates_without_base_fall
     options = _reviewed_anomaly_source_element_options((burnice, ye))
     assert options[str(BURNICE_ID)] == (Element.FIRE,)
     assert options["character:1431"] == ()
+
+
+def test_off_field_seth_shield_recipient_buffs_selected_source_record_without_false_diagnostic() -> None:
+    source = {"source_character_id": "character:1021", "element": "physical"}
+
+    def payload(shield_active: bool) -> dict:
+        result = _payload(
+            "move-entry:character:1171:special-throw",
+            potential=1,
+            source=source,
+            enabled=(_P1_THROW_DISCHARGE_RULE, _SETH_SHIELD_AP_RULE),
+        )
+        result["supporting_character_ids"].append("character:1271")
+        result["team_character_ids"].append("character:1271")
+        result["formation_character_ids"] = [
+            "character:1271",
+            "character:1021",
+            "character:1171",
+        ]
+        result["compile_configs"]["character:1271"] = {
+            "core_level": 7,
+            "cinema_level": 0,
+        }
+        result["character_builds"]["character:1271"] = {
+            "level": 60,
+            "build_mode": "equipment-build",
+            "base_stats": _stats_for("character:1271"),
+            "drive_discs": [],
+        }
+        result["condition_values"][_SETH_NEKO_SHIELD_ACTIVE] = shield_active
+        return result
+
+    active = _calculate(payload(True))
+    inactive = _calculate(payload(False))
+    active_snapshots = {
+        item["character_id"]: item["stats"]
+        for item in active["resolved_character_snapshots"]
+    }
+    assert active_snapshots["character:1021"]["anomaly_proficiency"] == pytest.approx(196.0)
+    assert active_snapshots["character:1271"]["anomaly_proficiency"] == pytest.approx(90.0)
+    assert active["diagnostics"] == []
+    assert active["totals"]["expected"]["complete"] is True
+
+    active_direct = _event(active, "special-throw:main")
+    inactive_direct = _event(inactive, "special-throw:main")
+    assert active_direct["modes"]["expected"]["value"] == pytest.approx(
+        inactive_direct["modes"]["expected"]["value"]
+    )
+    active_discharge = _event(active, "potential1:special-throw-discharge")
+    inactive_discharge = _event(inactive, "potential1:special-throw-discharge")
+    assert active_discharge["modes"]["expected"]["value"] / inactive_discharge["modes"]["expected"]["value"] == pytest.approx(
+        196.0 / 96.0
+    )

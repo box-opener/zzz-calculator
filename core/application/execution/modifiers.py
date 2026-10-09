@@ -1477,6 +1477,17 @@ def _panel_recipients(
             if any(item.character_id == current_operator for item in snapshots)
             else ()
         )
+    if rule.target is EffectTarget.RECIPIENT:
+        recipient = rule.recipient_character_id
+        if recipient is None:
+            return ()
+        if team_character_ids is not None and recipient not in team_character_ids:
+            return ()
+        return (
+            (recipient,)
+            if any(item.character_id == recipient for item in snapshots)
+            else ()
+        )
     if rule.target is EffectTarget.TEAM:
         return tuple(
             item.character_id
@@ -1771,6 +1782,7 @@ def _is_recipient_panel_effect(effect: ModifierEffect) -> bool:
         in {
             EffectTarget.SELF,
             EffectTarget.CURRENT_OPERATOR,
+            EffectTarget.RECIPIENT,
             EffectTarget.TEAM,
             EffectTarget.TEAM_OTHER,
         }

@@ -172,6 +172,12 @@ from core.application.characters.lycaon import (
     compile_lycaon,
     load_raw_record as load_lycaon_raw_record,
 )
+from core.application.characters.seth import (
+    SETH_ID,
+    SethCompileConfig,
+    compile_seth,
+    load_raw_record as load_seth_raw_record,
+)
 from core.application.characters.lucy import (
     LUCY_ID,
     LucyCompileConfig,
@@ -1100,6 +1106,31 @@ def _lycaon_fields(
     )
 
 
+def _seth_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "赛斯核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前持盾角色获得异常精通；持盾状态按每名队员分别选择。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "赛斯影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
 def _lucy_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1747,6 +1778,68 @@ def _compile_lycaon(
             load_character_record(str(LYCAON_ID)),
             potential_level=config.potential_level,
         ),
+    )
+
+
+def _seth_additional_ability_eligibility(team_ids: Sequence[CharacterId]) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(SETH_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == SETH_ID:
+            continue
+        try:
+            raw = load_character_record(str(character_id))
+        except ValueError:
+            continue
+        element_map = raw.get("element_type", {})
+        elements = (
+            {str(value) for value in element_map.values()}
+            if isinstance(element_map, Mapping)
+            else set()
+        )
+        camps = raw.get("camp", {})
+        camp_values = (
+            {str(value) for value in camps.values()}
+            if isinstance(camps, Mapping)
+            else set()
+        )
+        registration = _REGISTRATIONS.get(character_id)
+        if (
+            "电属性" in elements
+            or (registration is not None and registration.base_element is Element.ELECTRIC)
+            or bool(own_camps.intersection(camp_values))
+        ):
+            return True
+    return False
+
+
+def _compile_seth(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    recipients = tuple(dict.fromkeys((SETH_ID, *team_ids)))
+    recipient_names = tuple(
+        (character_id, _REGISTRATIONS[character_id].catalog.display_name)
+        for character_id in recipients
+        if character_id in _REGISTRATIONS
+    )
+    config = SethCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_seth_additional_ability_eligibility(team_ids),
+        shield_recipient_ids=recipients,
+        shield_recipient_names=recipient_names,
+    )
+    return compile_seth(
+        config,
+        load_seth_raw_record(load_character_record(str(SETH_ID))),
     )
 
 
@@ -4099,6 +4192,41 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     ),
                 }
             ),
+        ),
+    ),
+    SETH_ID: CharacterPresentationRegistration(
+        character_id=SETH_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1271",
+            display_name="赛斯",
+            rarity="A",
+            element="electric",
+            specialty="defense",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.DEFENSE,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_seth,
+        config_fields=_seth_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SETH_ID,
+            role=CharacterRole.DEFENSE,
+            possible_elements=frozenset({Element.PHYSICAL, Element.ELECTRIC}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            native_element=Element.ELECTRIC,
         ),
     ),
     LUCY_ID: CharacterPresentationRegistration(

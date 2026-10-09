@@ -45,6 +45,7 @@ from .harumasa import HarumasaCompileConfig, compile_harumasa
 from .rina import RinaCompileConfig, compile_rina
 from .jane_doe import JaneDoeCompileConfig, compile_jane_doe
 from .zhu_yuan import ZhuYuanCompileConfig, compile_zhu_yuan
+from .seth import SethCompileConfig, compile_seth
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -122,4 +123,6 @@ __all__ = [
     "compile_jane_doe",
     "ZhuYuanCompileConfig",
     "compile_zhu_yuan",
+    "SethCompileConfig",
+    "compile_seth",
 ]

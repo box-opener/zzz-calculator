@@ -1030,3 +1030,13 @@ Cinema 6 says `发动[强化特殊技]时，将消耗[以太余温]效果，额�
 ### Assist Strike Physical/Ether split
 
 The Assist Strike says `交替使用体术和霰弹枪进行攻击，造成物理伤害和以太伤害`, but provides one mixed curve (`1241025`). The curve remains selectable as a local partial without emitting a damage event until its element split is specified.
+
+## Seth (`character:1271`) localized source questions
+
+### Basic four-stage element mapping
+
+The Basic text says `向前方进行至多四段的攻击，造成<color=#F0D12B>物理伤害</color>和<color=#2EB6FF>电属性伤害</color>`. It does not map each of the four curves (`1271001`–`1271004`) to Physical or Electric. Each ratio remains selectable as a local partial; no Direct event is emitted until the stage mapping is confirmed.
+
+### Cinema 6 Basic Shock child identity
+
+Cinema 6 says `赛斯在<color=#FFFFFF>[普通攻击：雷霆击-感电]</color>中发动终结一击命中敌人时，额外造成自身500%攻击力的伤害，本次攻击必定触发暴击，且暴击伤害提升60%`. The 500% current-ATK addition, guaranteed Crit, and +60% Crit Damage are known. The child event's element and inherited group/tag identity remain unresolved; the finisher is preserved and the child stays local partial without creating a synthetic Direct event.

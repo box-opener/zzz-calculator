@@ -307,6 +307,9 @@ class EffectRule:
     # Effects split across multiple RuleItems can share one non-stacking
     # instance identity while still competing against other owners.
     non_stacking_source_id: str | None = None
+    # Named panel recipient for effects whose holder is independent of the
+    # current operator; ``owner`` continues to identify the effect source.
+    recipient_character_id: CharacterId | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -314,6 +317,11 @@ class EffectRule:
             and not self.non_stacking_source_id.strip()
         ):
             raise ValueError("non_stacking_source_id must not be empty")
+        if self.target is EffectTarget.RECIPIENT:
+            if self.recipient_character_id is None or not str(self.recipient_character_id):
+                raise ValueError("recipient-targeted Effects require a named recipient")
+        elif self.recipient_character_id is not None:
+            raise ValueError("recipient_character_id is only valid for recipient-targeted Effects")
 
 
 @dataclass(frozen=True, slots=True)
