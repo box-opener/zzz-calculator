@@ -1048,3 +1048,18 @@ The complete Nanoka live 3.2 source is retained at `core/data/characters/piper.j
 The calculator exposes her four Physical Basic stages and listed Physical Dash, Counter, Special, EX, Chain, Ultimate, and Assist curves. The EX spin entry uses one source-defined circle (`{Skill:1281010, Prop:1001}/2`), and the Ultimate curve is used once as its listed rotation-plus-slam total. The static Physical Assault and Disorder entries use the documented 7.13 Assault ratio and the user-selected current remaining duration; the calculator does not replay Power generation, duration, Energy, or Daze.
 
 The user confirmed that Cinema 2's listed Physical damage bonus applies at 100% to eligible downslam Direct entries, including the full listed Ultimate ratio as a temporary 100% assumption. The current Power stack count is selectable and the source bonus is `10% + 1% × Power`. For the Physical anomaly source record only, a separate user-selected 0%/100% option defaults to 100%; the current normal-damage bonus is captured in the record's anomaly effect strength once, so source-derived Disorder and Discharge inherit it without a second post-settlement bonus. Cinema 1's current Power cap and its extra-stack chance, Cinema 4 Energy recovery, and Cinema 6 duration are retained as source-only behavior where no current damage result is defined.
+
+## Hugo (`character:1291`) localized Decision scope
+
+The live Nanoka 3.2 record is retained at `core/data/characters/hugo.json` with its source URL/version. Hugo is an S-rank Attack agent with Ice as his native element; the locally reviewed signature is `14129` (`Weapon_S_1291`, 千面日陨). The catalog currently uses the neutral portrait placeholder because `IconRole42` is not packaged locally.
+
+Basic 1–3 retain their Physical source curves. The fourth-stage slash, ordinary shot, and charged shot are separately selectable Ice Direct entries; no cross-action Basic combo is inferred. The full EX and Chain entries contain their source-defined components as separate events. The full EX always emits the spin and finisher once; the full Chain emits its Chain slash and one Basic charged-shot child (`1291006`) once. These required child events do not depend on an optional scenario rule.
+
+The source states:
+
+- Cinema 1: `触发[决算]效果时招式的暴击率额外提升12%，暴击伤害额外提升30%。`
+- Cinema 2: `终结技触发[决算]效果时不会使敌人的失衡状态结束；此外，触发[决算]效果时招式将会无视其15%防御力。`
+- Cinema 6: `任意招式触发[决算]效果时，此次伤害额外提升60%；[强化特殊技：魂狩·惩戒]的终结一击命中非失衡状态下的敌人时也可触发[决算]效果，使得招式的终结一击伤害倍率固定提升1000%。`
+- Additional Ability: `触发[决算]时，招式造成的伤害提升40%。`
+
+The user has been asked whether the Cinema 1 Crit bonuses, Cinema 2's 15% Defense ignore, Cinema 6's +60%, and the Additional Ability's +40% apply only to the Decision-triggering finisher or to the whole multi-part attack, including the Ultimate's aggregate curve. While this remains unanswered, known EX-finisher effects stay on the identified terminal event. A selected full EX or stunned Ultimate becomes locally incomplete only when one of these corresponding rules is enabled and the unresolved scope could affect it; known event values remain available and no synthetic damage hit is created. The Core Decision's additive multiplier remains calculated from the known total Ultimate curve. Daze changes, Energy, and timing replay are outside the current output contract.

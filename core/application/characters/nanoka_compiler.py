@@ -85,6 +85,7 @@ class NanokaMoveSpec:
     element: Element
     stage_index: int | None = None
     condition_ids: tuple[object, ...] = ()
+    parameter_skill_group: SkillGroup | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,7 +205,10 @@ def compile_direct_moves(
     namespace = id_namespace or str(character_id)
     for spec in reviewed_mapping.moves:
         raw_move = raw_moves.get(spec.source_name)
-        level = effective_skill_level(config, spec.skill_group)
+        level = effective_skill_level(
+            config,
+            spec.parameter_skill_group or spec.skill_group,
+        )
         variants: list[MultiplierVariant] = []
         entry_diagnostics: list[CalculationDiagnostic] = []
         for parameter in spec.parameters:

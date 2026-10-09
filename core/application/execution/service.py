@@ -32,8 +32,11 @@ from core.types import (
     PenetrationDamageEvent,
     EffectId,
     EffectOperation,
+    EffectRule,
+    EffectTarget,
     FixedMultiplier,
     EventCreationEffect,
+    EventCreationResult,
     EventTemplateId,
     Element,
     IndependentAnomalyCrit,
@@ -50,6 +53,7 @@ from core.types import (
     RecordedAnomalyCritRule,
     Resolved,
     StandardCritRule,
+    SnapshotRule,
     TurbulenceDamageEvent,
     Unresolved,
     UnresolvedReason,
@@ -464,11 +468,17 @@ class DirectMoveApplicationService:
                     calculation[0].result.value
                 )
 
-            for effect_application in _matched_event_creations(
-                matches,
-                rule_items,
-                request.scenario,
-            ):
+            event_creation_applications = list(
+                _matched_event_creations(matches, rule_items, request.scenario)
+            )
+            if instantiated.template_id == main_event.template_id:
+                event_creation_applications.extend(
+                    _required_event_creation_applications(
+                        entry,
+                        request.definition,
+                    )
+                )
+            for effect_application in event_creation_applications:
                 if effect_application.stack_count != 1:
                     move_diagnostics.append(
                         _diagnostic(
@@ -521,6 +531,7 @@ class DirectMoveApplicationService:
                         if isinstance(instantiated.event, AttributeAnomalyDamageEvent)
                         else None
                     ),
+                    required_component=effect_application.rule_item_id is None,
                 )
                 if isinstance(created, CalculationDiagnostic):
                     move_diagnostics.append(created)
@@ -778,6 +789,7 @@ class DirectMoveApplicationService:
         source_event_id: DamageEventId | None = None,
         source_history_record_id: AnomalyRecordId | None = None,
         source_anomaly_multiplier: DamageMultiplier | None = None,
+        required_component: bool = False,
     ) -> (
         tuple[InstantiatedDamageEvent, tuple[EventTemplateId, ...]]
         | CalculationDiagnostic
@@ -998,7 +1010,9 @@ class DirectMoveApplicationService:
             target_enemy=request.target_snapshot.enemy_id,
             created_at=request.battle_time,
             source_rule_item_id=template.ref.source_rule_item_id,
-            created_by_effect_id=effect.rule.effect_id,
+            created_by_effect_id=(
+                None if required_component else effect.rule.effect_id
+            ),
             repeat_count=repeat_count,
             source_event_id=source_event_id,
             source_history_record_id=source_history_record_id,
@@ -1246,6 +1260,42 @@ def _matched_event_creations(
         for application in _matched_effects(matches, rule_items, scenario)
         if isinstance(application.effect, EventCreationEffect)
     )
+
+
+def _required_event_creation_applications(
+    entry: MoveCalculationEntry,
+    definition: CharacterCalculationDefinition,
+) -> tuple[MatchedEffectApplication, ...]:
+    """Expose required source components through the normal derived-event path.
+
+    These components are part of the selected move's authored damage packet,
+    rather than optional scenario effects. The synthetic effect wrapper keeps
+    the ordinary event-instantiation and calculation pipeline while making no
+    RuleItem that a caller could disable.
+    """
+
+    applications: list[MatchedEffectApplication] = []
+    for derived in entry.derived_damage_events:
+        if not derived.required:
+            continue
+        effect_id = EffectId(
+            f"effect:required-component:{derived.template.template_id}"
+        )
+        effect = EventCreationEffect(
+            rule=EffectRule(
+                effect_id=effect_id,
+                source=definition.source,
+                owner=definition.character_id,
+                target=EffectTarget.TEAM,
+                snapshot_rule=SnapshotRule.SETTLEMENT,
+            ),
+            result=EventCreationResult(
+                event_kind=BattleEventKind.DAMAGE,
+                event_template_id=derived.template.template_id,
+            ),
+        )
+        applications.append(MatchedEffectApplication(effect=effect))
+    return tuple(applications)
 
 
 def _all_definitions(

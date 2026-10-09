@@ -391,6 +391,7 @@ def test_move_event_semantic_ids_are_unique_and_derived_events_are_explicit() ->
     assert move.main_damage_event.event_kind is BattleEventKind.DAMAGE
     assert move.derived_damage_events[0].template.label == "extra damage"
     assert move.derived_damage_events[0].multiplier is not None
+    assert move.derived_damage_events[0].required is False
 
     with pytest.raises(ValueError, match="semantic IDs"):
         _move(

@@ -129,6 +129,7 @@ class CharacterCalculationDefinition:
             EventTemplateId,
             DerivedDamageEventTemplateRef,
         ] = {}
+        required_template_ids: set[EventTemplateId] = set()
         definition_event_ids: set[DamageEventSemanticId] = set()
         for derived in self.independent_derived_damage_events:
             self._assert_template_ref(
@@ -152,10 +153,14 @@ class CharacterCalculationDefinition:
                 raise ValueError(
                     "derived event references an unknown repeat-count parameter"
                 )
-            self._assert_derived_source_rule(
-                derived,
-                rule_map,
-            )
+            if derived.required:
+                if derived.template.source_rule_item_id is not None:
+                    raise ValueError(
+                        "required derived templates cannot reference an EventCreation rule"
+                    )
+                required_template_ids.add(template_id)
+            else:
+                self._assert_derived_source_rule(derived, rule_map)
         for entry in self.move_entries:
             if entry.character_id != self.character_id:
                 raise ValueError("move entry character_id must match definition")
@@ -211,8 +216,17 @@ class CharacterCalculationDefinition:
                     raise ValueError(
                         "derived event references an unknown repeat-count parameter"
                     )
-                self._assert_derived_source_rule(derived, rule_map)
-        if event_creation_template_ids != set(derived_refs_by_template):
+                if derived.required:
+                    if derived.template.source_rule_item_id is not None:
+                        raise ValueError(
+                            "required derived templates cannot reference an EventCreation rule"
+                        )
+                    required_template_ids.add(template_id)
+                else:
+                    self._assert_derived_source_rule(derived, rule_map)
+        if event_creation_template_ids != (
+            set(derived_refs_by_template) - required_template_ids
+        ):
             raise ValueError(
                 "event creation templates and derived template references must match"
             )

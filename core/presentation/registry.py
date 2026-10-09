@@ -184,6 +184,12 @@ from core.application.characters.piper import (
     compile_piper,
     load_raw_record as load_piper_raw_record,
 )
+from core.application.characters.hugo import (
+    HUGO_ID,
+    HugoCompileConfig,
+    compile_hugo,
+    load_raw_record as load_hugo_raw_record,
+)
 from core.application.characters.lucy import (
     LUCY_ID,
     LucyCompileConfig,
@@ -1162,6 +1168,31 @@ def _piper_fields(
     )
 
 
+def _hugo_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "雨果核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前队伍中其他击破角色数由编队计算；暗渊回响等战斗状态单独选择。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "雨果影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
 def _lucy_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1930,6 +1961,53 @@ def _compile_piper(
     return compile_piper(
         config,
         load_piper_raw_record(load_character_record(str(PIPER_ID))),
+    )
+
+
+def _hugo_stun_teammate_count(team_ids: Sequence[CharacterId]) -> int:
+    count = 0
+    for character_id in team_ids:
+        if character_id == HUGO_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.role is CharacterRole.STUN:
+            count += 1
+    return min(count, 2)
+
+
+def _hugo_additional_ability_eligibility(team_ids: Sequence[CharacterId]) -> bool:
+    for character_id in team_ids:
+        if character_id == HUGO_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role is CharacterRole.STUN or registration.base_element in {
+            Element.ICE,
+            Element.LIESHUANG,
+        }:
+            return True
+    return False
+
+
+def _compile_hugo(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = HugoCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        stun_teammate_count=_hugo_stun_teammate_count(team_ids),
+        additional_ability_eligible=_hugo_additional_ability_eligibility(team_ids),
+    )
+    return compile_hugo(
+        config,
+        load_hugo_raw_record(load_character_record(str(HUGO_ID))),
     )
 
 
@@ -4352,6 +4430,41 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 }
             ),
             native_element=Element.PHYSICAL,
+        ),
+    ),
+    HUGO_ID: CharacterPresentationRegistration(
+        character_id=HUGO_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1291",
+            display_name="雨果",
+            rarity="S",
+            element="ice",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ICE,
+        compile_definition=_compile_hugo,
+        config_fields=_hugo_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=HUGO_ID,
+            role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.PHYSICAL, Element.ICE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            native_element=Element.ICE,
         ),
     ),
     LUCY_ID: CharacterPresentationRegistration(

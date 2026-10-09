@@ -47,6 +47,7 @@ from .jane_doe import JaneDoeCompileConfig, compile_jane_doe
 from .zhu_yuan import ZhuYuanCompileConfig, compile_zhu_yuan
 from .seth import SethCompileConfig, compile_seth
 from .piper import PiperCompileConfig, compile_piper
+from .hugo import HugoCompileConfig, compile_hugo
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -128,4 +129,6 @@ __all__ = [
     "compile_seth",
     "PiperCompileConfig",
     "compile_piper",
+    "HugoCompileConfig",
+    "compile_hugo",
 ]
