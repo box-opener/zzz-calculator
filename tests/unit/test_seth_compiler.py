@@ -17,19 +17,21 @@ from core.data.wengines.loader import load_wengine_record
 from core.types import WEngineId
 from web.api import app
 from core.types import (
-    AnyFilter,
+    CalculationNode,
     CharacterId,
     CharacterSnapshot,
     CharacterStats,
     DamageTag,
-    DirectDamageEvent,
     EffectTarget,
     Element,
     InitialCharacterSnapshot,
     Resolved,
     SkillGroup,
 )
-from core.application.characters.templates import DirectDamageEventTemplate, UnresolvedDamageEventTemplate
+from core.application.characters.templates import (
+    AttributeAnomalyDamageEventTemplate,
+    DirectDamageEventTemplate,
+)
 
 
 SETH = CharacterId("character:1271")
@@ -98,6 +100,12 @@ def test_seth_live_source_registration_and_reviewed_damage_scope() -> None:
     assert raw.icon == "IconRole30"
     assert definition.role.value == "defense"
     assert definition.base_element is Element.ELECTRIC
+    legacy_c6_rule = next(
+        item for item in definition.rule_items
+        if str(item.rule_id) == "rule:character:1271:cinema6:basic-shock-extra"
+    )
+    assert legacy_c6_rule.eligibility is RuleEligibility.INELIGIBLE
+    assert legacy_c6_rule.effects == ()
 
     catalog_item = next(
         item for item in supported_character_catalog() if item.character_id == str(SETH)
@@ -151,14 +159,22 @@ def test_seth_live_source_registration_and_reviewed_damage_scope() -> None:
     assert counter_template.element is Element.ELECTRIC
     assert counter_template.ref.damage_tags == frozenset({DamageTag.DODGE_COUNTER})
 
-    unknown_basics = [item for item in definition.move_entries if "basic-stage-" in str(item.entry_id)]
-    assert len(unknown_basics) == 4
-    for entry in unknown_basics:
-        assert entry.multiplier_relation.value == "unresolved-relation"
+    basic_stages = [item for item in definition.move_entries if "basic-stage-" in str(item.entry_id)]
+    assert len(basic_stages) == 4
+    expected_basic = (0.857, 1.345, 4.573, 2.309)
+    expected_elements = (Element.PHYSICAL, Element.PHYSICAL, Element.PHYSICAL, Element.ELECTRIC)
+    for entry, expected_ratio, expected_element in zip(basic_stages, expected_basic, expected_elements):
+        assert entry.multiplier_relation.value == "sequential-stage"
+        assert entry.multiplier_variants[0].multiplier.value == Resolved(expected_ratio)
         template = templates[entry.main_damage_event.template_id]
-        assert isinstance(template, UnresolvedDamageEventTemplate)
-        assert template.ref.element is None
+        assert isinstance(template, DirectDamageEventTemplate)
+        assert template.element is expected_element
         assert entry.main_damage_event.damage_tags == frozenset({DamageTag.BASIC_ATTACK})
+    assert not any(
+        isinstance(template, AttributeAnomalyDamageEventTemplate)
+        and template.element is Element.PHYSICAL
+        for template in definition.damage_event_templates
+    )
 
 
 def test_seth_shield_ap_is_owned_by_seth_and_applied_to_each_named_off_field_holder() -> None:
@@ -227,46 +243,86 @@ def test_seth_shield_ap_is_owned_by_seth_and_applied_to_each_named_off_field_hol
     assert set(rule_by_recipient) == {SETH, NEKO, ANBY}
 
 
-def test_seth_c6_keeps_known_coefficient_but_does_not_create_unconfirmed_child_event() -> None:
+def test_seth_c6_extra_is_electric_guaranteed_crit_basic_and_scoped_to_child() -> None:
     raw = load_raw_record(load_character_record(str(SETH)))
     definition = compile_seth(SethCompileConfig(cinema_level=6), raw)
-    c6_entry = next(item for item in definition.move_entries if "cinema6-basic-shock-extra" in str(item.entry_id))
-    assert c6_entry.multiplier_variants[0].multiplier == Resolved(5.0) or getattr(
-        c6_entry.multiplier_variants[0].multiplier, "value", None
-    ) == Resolved(5.0)
-    unresolved = next(item for item in definition.damage_event_templates if isinstance(item, UnresolvedDamageEventTemplate) and "cinema6" in str(item.ref.template_id))
-    assert unresolved.ref.element is None
-    c6_rule = next(item for item in definition.rule_items if str(item.rule_id).endswith("cinema6:basic-shock-extra"))
-    assert c6_rule.eligibility is RuleEligibility.ELIGIBLE
-    assert c6_rule.effects[0].rule.owner == SETH
-    assert c6_rule.effects[0].result.unresolved_template is not None
-    assert c6_rule.effects[0].result.event_template_id is None
-    template_filter = next(
+    c6_entry = next(
         item
-        for item in c6_rule.effects[0].rule.filters
-        if isinstance(item, AnyFilter)
+        for item in definition.move_entries
+        if str(item.entry_id).endswith("cinema6-basic-shock-extra")
     )
+    standalone = next(
+        item
+        for item in definition.damage_event_templates
+        if item.ref.template_id == c6_entry.main_damage_event.template_id
+    )
+    assert isinstance(standalone, DirectDamageEventTemplate)
+    assert standalone.element is Element.ELECTRIC
+    assert standalone.ref.skill_group is SkillGroup.BASIC_ATTACK
+    assert standalone.ref.damage_tags == frozenset({DamageTag.BASIC_ATTACK})
+    assert standalone.move_id is None
+    assert standalone.crit_rule.guaranteed is True
+
+    child_templates = tuple(
+        item
+        for item in definition.damage_event_templates
+        if str(item.ref.template_id).startswith("template:character:1271:cinema6:basic-shock-extra:")
+    )
+    assert len(child_templates) == 2
+    assert all(isinstance(item, DirectDamageEventTemplate) for item in child_templates)
+    assert all(item.element is Element.ELECTRIC for item in child_templates)
+    assert all(item.ref.skill_group is SkillGroup.BASIC_ATTACK for item in child_templates)
+    assert all(item.ref.damage_tags == frozenset({DamageTag.BASIC_ATTACK}) for item in child_templates)
+    assert all(item.move_id is None and item.crit_rule.guaranteed for item in child_templates)
     assert {
-        item.template_id for item in template_filter.filters
-    } == {
-        "template:character:1271:basic-shock-finisher:main",
-        "template:character:1271:basic-shock-full:main",
-    }
+        len(item.derived_damage_events)
+        for item in definition.move_entries
+        if str(item.entry_id).endswith(("basic-shock-finisher", "basic-shock-full"))
+    } == {1}
+
+    c6_rule = next(
+        item
+        for item in definition.rule_items
+        if str(item.rule_id).endswith("cinema6:basic-shock-extra")
+    )
+    assert c6_rule.eligibility is RuleEligibility.ELIGIBLE
+    assert len(c6_rule.effects) == 3
+    crit_damage_effect = next(
+        item
+        for item in c6_rule.effects
+        if getattr(item, "result", None) is not None
+        and getattr(item.result, "modifier_path", None) is CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE
+    )
+    assert crit_damage_effect.rule.owner == SETH
+    assert crit_damage_effect.result.value == Resolved(0.60)
 
 
-def test_seth_basic_shock_full_query_sums_both_source_curves_and_keeps_c6_partial_local() -> None:
-    unresolved_basic = client.post(
+def test_seth_basic_shock_full_query_sums_both_source_curves_and_c6_adds_one_child() -> None:
+    stage1_response = client.post(
         "/api/v1/moves/calculate",
         json=_seth_api_payload("basic-stage-1-element-unresolved"),
     )
-    assert unresolved_basic.status_code == 200, unresolved_basic.text
-    unresolved_basic_result = unresolved_basic.json()
-    assert unresolved_basic_result["events"] == []
-    assert unresolved_basic_result["totals"]["expected"]["complete"] is False
+    assert stage1_response.status_code == 200, stage1_response.text
+    stage1 = stage1_response.json()
+    assert stage1["totals"]["expected"]["complete"] is True
+    assert len(stage1["events"]) == 1
+    assert stage1["events"][0]["element"] == "physical"
+    assert stage1["events"][0]["modes"]["expected"]["calculation_breakdown"]
     assert any(
-        "四段" in item["message"] or "元素" in item["message"]
-        for item in unresolved_basic_result["totals"]["expected"]["diagnostics"]
+        item["node"] == "damage.skill-multiplier" and item["value"] == pytest.approx(0.857)
+        for item in stage1["events"][0]["modes"]["expected"]["calculation_breakdown"]
     )
+
+    stage4_response = client.post(
+        "/api/v1/moves/calculate",
+        json=_seth_api_payload("basic-stage-4-element-unresolved"),
+    )
+    assert stage4_response.status_code == 200, stage4_response.text
+    stage4 = stage4_response.json()
+    assert stage4["totals"]["expected"]["complete"] is True
+    assert len(stage4["events"]) == 1
+    assert stage4["events"][0]["element"] == "electric"
+    assert all(event["damage_type"] != "anomaly" for event in stage4["events"])
 
     full = client.post(
         "/api/v1/moves/calculate",
@@ -289,9 +345,24 @@ def test_seth_basic_shock_full_query_sums_both_source_curves_and_keeps_c6_partia
     )
     assert c6.status_code == 200, c6.text
     c6_result = c6.json()
-    assert c6_result["totals"]["expected"]["value"] == pytest.approx(
-        full_result["totals"]["expected"]["value"]
+    assert c6_result["totals"]["expected"]["complete"] is True
+    assert len(c6_result["events"]) == 2
+    assert c6_result["events"][0]["modes"]["expected"]["value"] == pytest.approx(
+        full_result["events"][0]["modes"]["expected"]["value"]
     )
-    assert c6_result["totals"]["expected"]["complete"] is False
-    assert len(c6_result["events"]) == 1
-    assert any("500%" in item["message"] for item in c6_result["totals"]["expected"]["diagnostics"])
+    child = c6_result["events"][1]
+    assert child["element"] == "electric"
+    assert child["crit_capability"] == "standard"
+
+    standalone = client.post(
+        "/api/v1/moves/calculate",
+        json=_seth_api_payload(
+            "cinema6-basic-shock-extra",
+            cinema=6,
+            enabled=("rule:character:1271:cinema6:basic-shock-extra",),
+        ),
+    )
+    assert standalone.status_code == 200, standalone.text
+    assert standalone.json()["events"][0]["modes"]["expected"]["value"] == pytest.approx(
+        child["modes"]["expected"]["value"]
+    )

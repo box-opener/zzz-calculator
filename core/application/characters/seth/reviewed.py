@@ -46,6 +46,8 @@ def _move(
     parameter: str,
     curve: str,
     element: Element,
+    relation: MultiplierRelation = MultiplierRelation.COMPLETE,
+    stage: int | None = None,
 ) -> NanokaMoveSpec:
     return NanokaMoveSpec(
         entry_key=key,
@@ -61,13 +63,33 @@ def _move(
                 source_skill_id=curve,
             ),
         ),
-        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_relation=relation,
         element=element,
+        stage_index=stage,
     )
 
 
 SETH_REVIEWED_MAPPING = NanokaReviewedMapping(
     moves=(
+        *tuple(
+            _move(
+                f"basic-stage-{stage}-element-unresolved",
+                move_id=SETH_BASIC_MOVE_ID,
+                label=(
+                    f"普通攻击：雷霆击（{('一', '二', '三', '四')[stage - 1]}段，"
+                    f"{('物理' if stage < 4 else '电')}属性）"
+                ),
+                source_name="普通攻击：雷霆击",
+                group=SkillGroup.BASIC_ATTACK,
+                tags=_BASIC,
+                parameter=f"{('一段', '二段', '三段', '四段')[stage - 1]}伤害倍率",
+                curve=f"127100{stage}",
+                element=Element.PHYSICAL if stage < 4 else Element.ELECTRIC,
+                relation=MultiplierRelation.SEQUENTIAL_STAGE,
+                stage=stage,
+            )
+            for stage in range(1, 5)
+        ),
         _move(
             "basic-shock-continuous",
             move_id=SETH_BASIC_SHOCK_MOVE_ID,
@@ -190,9 +212,7 @@ SETH_REVIEWED_MAPPING = NanokaReviewedMapping(
             element=Element.ELECTRIC,
         ),
     ),
-    data_quality_notes=(
-        "普通攻击：雷霆击的四段说明合述物理与电属性伤害，段与元素的对应关系尚未确认。",
-    ),
+    data_quality_notes=(),
 )
 
 

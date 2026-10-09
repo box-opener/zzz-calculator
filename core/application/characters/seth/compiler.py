@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import replace
 import re
 
 from core.types import (
@@ -39,7 +40,6 @@ from core.types import (
     SnapshotRule,
     StandardCritRule,
     Unresolved,
-    UnresolvedReason,
 )
 
 from ...diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -54,6 +54,7 @@ from ...ids import (
 )
 from ...moves import (
     DamageEventTemplateRef,
+    DerivedDamageEventTemplateRef,
     MoveCalculationEntry,
     MultiplierRelation,
     MultiplierVariant,
@@ -75,7 +76,6 @@ from ..templates import (
     AttributeAnomalyDamageEventTemplate,
     DirectDamageEventTemplate,
     DisorderDamageEventTemplate,
-    UnresolvedDamageEventTemplate,
 )
 from .config import SethCompileConfig
 from .reviewed import (
@@ -149,6 +149,34 @@ def _rule(
     )
 
 
+def _modifier(
+    key: str,
+    source: RuleSource,
+    node: CalculationNode,
+    value,
+    *,
+    target: EffectTarget,
+    filters=(),
+    condition=None,
+) -> ModifierEffect:
+    return ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId(f"effect:character:1271:{key}"),
+            source=source,
+            owner=SETH_ID,
+            target=target,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+            condition=condition,
+            filters=tuple(filters),
+        ),
+        result=ModifierResult(
+            modifier_path=node,
+            operation=EffectOperation.ADD,
+            value=value,
+        ),
+    )
+
+
 def _shield_ap_effect(
     recipient: CharacterId,
     source: RuleSource,
@@ -170,84 +198,6 @@ def _shield_ap_effect(
             value=Resolved(amount),
         ),
     )
-
-
-def _unresolved_basic_entries(
-    raw: NanokaRawRecord,
-    config: SethCompileConfig,
-) -> tuple[tuple[MoveCalculationEntry, ...], tuple[UnresolvedDamageEventTemplate, ...], tuple[CalculationDiagnostic, ...]]:
-    raw_moves = raw_move_index(raw)
-    source_move = raw_moves["普通攻击：雷霆击"]
-    entries: list[MoveCalculationEntry] = []
-    templates: list[UnresolvedDamageEventTemplate] = []
-    diagnostics: list[CalculationDiagnostic] = []
-    stage_labels = ("一段", "二段", "三段", "四段")
-    for stage, skill_id in enumerate(("1271001", "1271002", "1271003", "1271004"), start=1):
-        stage_label = stage_labels[stage - 1]
-        key = f"basic-stage-{stage}-element-unresolved"
-        ratio = raw_multiplier(
-            raw_moves,
-            source_move.name,
-            f"{stage_label}伤害倍率",
-            effective_skill_level(config, SkillGroup.BASIC_ATTACK),
-            f"{SETH_ID}:{key}",
-            [],
-            source_skill_id=skill_id,
-        )
-        if isinstance(ratio, Unresolved):
-            raise ValueError(f"Seth source is missing the {stage_label} damage curve")
-        label = f"普通攻击：雷霆击（{stage_label}，元素待确认）"
-        unresolved = Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-            notes="原文只说明四段攻击合计造成物理与电属性伤害，未说明各段元素；保留本段源倍率，不生成伤害事件。",
-            original_text=source_move.description,
-        )
-        ref = DamageEventTemplateRef(
-            template_id=EventTemplateId(f"template:character:1271:{key}:main"),
-            semantic_id=DamageEventSemanticId(f"event:character:1271:{key}:main"),
-            label=label,
-            damage_type=DamageType.DIRECT,
-            skill_group=SkillGroup.BASIC_ATTACK,
-            damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
-            element=None,
-        )
-        template = UnresolvedDamageEventTemplate(
-            ref=ref,
-            damage_dealer=SETH_ID,
-            move_id=SETH_BASIC_MOVE_ID,
-            unresolved=unresolved,
-        )
-        diagnostic = CalculationDiagnostic(
-            diagnostic_id=DiagnosticId(f"unsupported:character:1271:{key}:element"),
-            kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-            message=unresolved.notes,
-            blocking=True,
-            original_text=source_move.description,
-        )
-        entry = MoveCalculationEntry(
-            entry_id=MoveEntryId(f"move-entry:character:1271:{key}"),
-            character_id=SETH_ID,
-            move_id=SETH_BASIC_MOVE_ID,
-            display_name=label,
-            original_text=source_move.description,
-            skill_group=SkillGroup.BASIC_ATTACK,
-            damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
-            multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
-            multiplier_variants=(
-                MultiplierVariant(
-                    variant_id=MultiplierVariantId(f"variant:character:1271:{key}:known-ratio"),
-                    label=f"已知源倍率{ratio:.3%}（元素待确认）",
-                    parameter_name=f"{stage_label}伤害倍率",
-                    multiplier=FixedMultiplier(Resolved(ratio)),
-                ),
-            ),
-            main_damage_event=ref,
-            diagnostics=(diagnostic,),
-        )
-        entries.append(entry)
-        templates.append(template)
-        diagnostics.append(diagnostic)
-    return tuple(entries), tuple(templates), tuple(diagnostics)
 
 
 def _full_basic_shock_entry(raw: NanokaRawRecord, config: SethCompileConfig):
@@ -406,56 +356,96 @@ def _static_electric_entries(raw: NanokaRawRecord):
     return (anomaly_entry, disorder_entry), (anomaly_template, disorder_template), remaining
 
 
-def _unresolved_c6_extra(raw: NanokaRawRecord):
-    cinema6 = raw.mindscapes[5]
-    unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_TEXT,
-        notes="已知追加倍率为500%赛斯当前攻击力、必定暴击且额外提高60%暴击伤害；追加事件的元素及技能标签/分组尚未确认，因此不创建伤害事件。",
-        original_text=cinema6.description,
-    )
+def _cinema6_standalone_entry(source_text: str):
     ref = DamageEventTemplateRef(
-        template_id=EventTemplateId("template:character:1271:cinema6-basic-shock-extra-unresolved"),
-        semantic_id=DamageEventSemanticId("event:character:1271:cinema6-basic-shock-extra-unresolved"),
-        label="6影：雷霆击-感电终结一击追加伤害（500%攻击力，类型待确认）",
+        template_id=EventTemplateId("template:character:1271:cinema6:basic-shock-extra-standalone"),
+        semantic_id=DamageEventSemanticId("event:character:1271:cinema6:basic-shock-extra-standalone"),
+        label="6影：雷霆击-感电终结一击追加伤害（500%攻击力）",
         damage_type=DamageType.DIRECT,
-        skill_group=None,
-        damage_tags=frozenset(),
-        element=None,
+        skill_group=SkillGroup.BASIC_ATTACK,
+        damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
+        element=Element.ELECTRIC,
     )
-    template = UnresolvedDamageEventTemplate(
+    template = DirectDamageEventTemplate(
         ref=ref,
         damage_dealer=SETH_ID,
+        element=Element.ELECTRIC,
+        base_source=CurrentAttackValueSource(SETH_ID),
+        crit_rule=StandardCritRule(SETH_ID, guaranteed=True),
         move_id=None,
-        unresolved=unresolved,
-    )
-    diagnostic = CalculationDiagnostic(
-        diagnostic_id=DiagnosticId("unsupported:character:1271:cinema6:extra-damage-identity"),
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        message=unresolved.notes,
-        blocking=True,
-        original_text=cinema6.description,
     )
     entry = MoveCalculationEntry(
         entry_id=MoveEntryId("move-entry:character:1271:cinema6-basic-shock-extra"),
         character_id=SETH_ID,
         move_id=None,
         display_name=ref.label,
-        original_text=cinema6.description,
-        skill_group=None,
-        damage_tags=frozenset(),
-        multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
+        original_text=source_text,
+        skill_group=SkillGroup.BASIC_ATTACK,
+        damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
+        multiplier_relation=MultiplierRelation.COMPLETE,
         multiplier_variants=(
             MultiplierVariant(
-                variant_id=MultiplierVariantId("variant:character:1271:cinema6-basic-shock-extra"),
-                label="500%攻击力（必暴；额外暴击伤害+60%）",
+                variant_id=MultiplierVariantId("variant:character:1271:cinema6-basic-shock-extra-standalone"),
+                label="500%当前攻击力（必定暴击）",
                 parameter_name="追加伤害倍率",
                 multiplier=FixedMultiplier(Resolved(5.0)),
             ),
         ),
         main_damage_event=ref,
-        diagnostics=(diagnostic,),
     )
-    return entry, template, diagnostic
+    return entry, template
+
+
+def _cinema6_child(
+    *,
+    suffix: str,
+    parent_template: EventTemplateId,
+    source: RuleSource,
+    rule_id: RuleItemId,
+):
+    template_id = EventTemplateId(f"template:character:1271:cinema6:basic-shock-extra:{suffix}")
+    ref = DamageEventTemplateRef(
+        template_id=template_id,
+        semantic_id=DamageEventSemanticId(f"event:character:1271:cinema6:basic-shock-extra:{suffix}"),
+        label="6影：雷霆击-感电终结一击追加伤害（500%攻击力）",
+        damage_type=DamageType.DIRECT,
+        skill_group=SkillGroup.BASIC_ATTACK,
+        damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
+        element=Element.ELECTRIC,
+        source_rule_item_id=rule_id,
+    )
+    template = DirectDamageEventTemplate(
+        ref=ref,
+        damage_dealer=SETH_ID,
+        element=Element.ELECTRIC,
+        base_source=CurrentAttackValueSource(SETH_ID),
+        crit_rule=StandardCritRule(SETH_ID, guaranteed=True),
+        move_id=None,
+    )
+    effect = EventCreationEffect(
+        rule=EffectRule(
+            effect_id=EffectId(f"effect:character:1271:cinema6:basic-shock-extra:{suffix}"),
+            source=source,
+            owner=SETH_ID,
+            target=EffectTarget.TEAM,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+            filters=(
+                DamageTypeFilter(DamageType.DIRECT),
+                DamageDealerFilter(SETH_ID),
+                EventTemplateIdFilter(parent_template),
+            ),
+        ),
+        result=EventCreationResult(
+            event_kind=BattleEventKind.DAMAGE,
+            event_template_id=template_id,
+            unique_per_source_event=True,
+        ),
+    )
+    derived = DerivedDamageEventTemplateRef(
+        template=ref,
+        multiplier=FixedMultiplier(Resolved(5.0)),
+    )
+    return template, effect, derived
 
 
 def load_raw_record(data: Mapping[str, object]) -> NanokaRawRecord:
@@ -485,13 +475,6 @@ def compile_seth(
     )
     entries.append(full_shock_entry)
     templates.append(full_shock_template)
-
-    unresolved_basics, unresolved_basic_templates, unresolved_basic_diagnostics = (
-        _unresolved_basic_entries(raw_record, config)
-    )
-    entries.extend(unresolved_basics)
-    templates.extend(unresolved_basic_templates)
-    diagnostics.extend(unresolved_basic_diagnostics)
 
     shield_core = raw_record.core_levels[config.core_level - 1]
     shield_ap = _number(
@@ -594,46 +577,68 @@ def compile_seth(
 
     c6 = raw_record.mindscapes[5]
     c6_source = _source("cinema6:basic-shock-extra", EffectSourceType.CINEMA, c6.name, c6.description)
-    c6_entry, c6_template, c6_diagnostic = _unresolved_c6_extra(raw_record)
+    c6_eligibility = (
+        RuleEligibility.ELIGIBLE
+        if config.cinema_level >= 6
+        else RuleEligibility.INELIGIBLE
+    )
+    c6_effects = ()
     if config.cinema_level >= 6:
+        c6_entry, c6_standalone_template = _cinema6_standalone_entry(c6.description)
         entries.append(c6_entry)
-        templates.append(c6_template)
-        diagnostics.append(c6_diagnostic)
-    c6_effect = EventCreationEffect(
-        rule=EffectRule(
-            effect_id=EffectId("effect:character:1271:cinema6:basic-shock-extra"),
+        templates.append(c6_standalone_template)
+        c6_rule_id = RuleItemId("rule:character:1271:cinema6:basic-shock-extra")
+        finisher_child, finisher_effect, finisher_derived = _cinema6_child(
+            suffix="basic-shock-finisher",
+            parent_template=_BASIC_FINISHER_TEMPLATE_ID,
             source=c6_source,
-            owner=SETH_ID,
+            rule_id=c6_rule_id,
+        )
+        full_child, full_effect, full_derived = _cinema6_child(
+            suffix="basic-shock-full",
+            parent_template=_BASIC_SHOCK_FULL_TEMPLATE_ID,
+            source=c6_source,
+            rule_id=c6_rule_id,
+        )
+        templates.extend((finisher_child, full_child))
+        c6_effects = [finisher_effect, full_effect]
+        c6_templates = (
+            c6_standalone_template,
+            finisher_child,
+            full_child,
+        )
+        c6_crit_damage_effect = _modifier(
+            "cinema6:basic-shock-extra-crit-damage",
+            c6_source,
+            CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
+            Resolved(0.60),
             target=EffectTarget.TEAM,
-            snapshot_rule=SnapshotRule.SETTLEMENT,
             filters=(
                 DamageTypeFilter(DamageType.DIRECT),
                 DamageDealerFilter(SETH_ID),
                 AnyFilter(
-                    (
-                        EventTemplateIdFilter(_BASIC_FINISHER_TEMPLATE_ID),
-                        EventTemplateIdFilter(_BASIC_SHOCK_FULL_TEMPLATE_ID),
+                    tuple(
+                        EventTemplateIdFilter(template.ref.template_id)
+                        for template in c6_templates
                     )
                 ),
             ),
-        ),
-        result=EventCreationResult(
-            event_kind=BattleEventKind.DAMAGE,
-            unresolved_template=c6_template.unresolved,
-            unique_per_source_event=True,
-        ),
-    )
-    rules.append(
-        _rule(
-            "cinema6:basic-shock-extra",
-            c6_source,
-            "6影：雷霆击-感电终结一击追加伤害（事件类型待确认）",
-            c6.description,
-            RuleEligibility.ELIGIBLE if config.cinema_level >= 6 else RuleEligibility.INELIGIBLE,
-            effects=(c6_effect,) if config.cinema_level >= 6 else (),
         )
-    )
-
+        c6_effects.append(c6_crit_damage_effect)
+        entries = [
+            replace(
+                entry,
+                derived_damage_events=(*entry.derived_damage_events, finisher_derived),
+            )
+            if entry.entry_id == MoveEntryId("move-entry:character:1271:basic-shock-finisher")
+            else replace(
+                entry,
+                derived_damage_events=(*entry.derived_damage_events, full_derived),
+            )
+            if entry.entry_id == MoveEntryId("move-entry:character:1271:basic-shock-full")
+            else entry
+            for entry in entries
+        ]
     anomaly_entries, anomaly_templates, disorder_parameter = _static_electric_entries(raw_record)
     entries.extend(anomaly_entries)
     templates.extend(anomaly_templates)
@@ -645,6 +650,16 @@ def compile_seth(
         message="This Parry Assist source lists Daze values but no damage ratio; no damage event is created.",
         blocking=False,
         original_text=parry_source.description,
+    )
+    rules.append(
+        _rule(
+            "cinema6:basic-shock-extra",
+            c6_source,
+            "6影：感电终结一击追加电属性必暴伤害",
+            c6.description,
+            c6_eligibility,
+            effects=tuple(c6_effects),
+        )
     )
     rules.append(
         _rule(

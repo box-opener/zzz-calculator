@@ -1033,10 +1033,10 @@ The Assist Strike says `交替使用体术和霰弹枪进行攻击，造成物�
 
 ## Seth (`character:1271`) localized source questions
 
-### Basic four-stage element mapping
+### Basic four-stage element mapping — resolved
 
-The Basic text says `向前方进行至多四段的攻击，造成<color=#F0D12B>物理伤害</color>和<color=#2EB6FF>电属性伤害</color>`. It does not map each of the four curves (`1271001`–`1271004`) to Physical or Electric. Each ratio remains selectable as a local partial; no Direct event is emitted until the stage mapping is confirmed.
+The Basic text says `向前方进行至多四段的攻击，造成<color=#F0D12B>物理伤害</color>和<color=#2EB6FF>电属性伤害</color>`. The user confirmed `正确，1-3物理，第4电`. Curves `1271001`–`1271003` are Physical, and `1271004` is Electric. The first three curves have zero attribute infliction, so they do not create Physical anomaly buildup records.
 
-### Cinema 6 Basic Shock child identity
+### Cinema 6 Basic Shock child identity — resolved
 
-Cinema 6 says `赛斯在<color=#FFFFFF>[普通攻击：雷霆击-感电]</color>中发动终结一击命中敌人时，额外造成自身500%攻击力的伤害，本次攻击必定触发暴击，且暴击伤害提升60%`. The 500% current-ATK addition, guaranteed Crit, and +60% Crit Damage are known. The child event's element and inherited group/tag identity remain unresolved; the finisher is preserved and the child stays local partial without creating a synthetic Direct event.
+Cinema 6 says `赛斯在<color=#FFFFFF>[普通攻击：雷霆击-感电]</color>中发动终结一击命中敌人时，额外造成自身500%攻击力的伤害，本次攻击必定触发暴击，且暴击伤害提升60%`. User clarification: `全部继承父招式`. The extra packet therefore uses Seth's current ATK, Electric Direct damage, Standard Crit with guaranteed Crit and +60% Crit Damage, and inherits the parent Basic group/tag. It applies only to the added packet; the parent finisher does not inherit guaranteed Crit or the extra Crit Damage. The complete Basic Shock query adds the child once, without recursive child creation.
