@@ -32,7 +32,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1251` | QingYi | 青衣 | 4 | 2 | 已实现（已有registry/compiler） |
 | `1261` | Jane | 简 | 4 | 3 | 部分实现（live 3.2 raw + S-rank level-60 Anomaly panel + Physical Direct/Saohov entries + static Strong/Disorder + Bite/Frenzy/Core/Cinema/Potential current-state effects + `Weapon_S_1261` signature mapping; Cinema 6 extra AP-based Physical hit identity remains localized pending clarification） |
 | `1271` | Seth | 赛斯 | 3 | 5 | 部分实现（live 3.2 raw/provenance + A-rank level-60 Defense panel + reviewed Physical/Electric Direct entries + static Shock/Disorder + per-recipient shield AP rules; ordinary Basic stages 1–3 Physical/4 Electric and C6 child inheritance confirmed） |
-| `1281` | Piper | 派派 | 3 | 3 | 待实现 |
+| `1281` | Piper | 派派 | 3 | 3 | 部分实现（live 3.2 raw + A-rank level-60 Anomaly panel + reviewed Physical Direct/Assault/Disorder entries + current Power/Core/Additional Ability/Cinema effects + `Weapon_A_1281` signature mapping; time, Energy, buildup and Daze history are not replayed） |
 | `1291` | Hugo | 雨果 | 4 | 1 | 待实现 |
 | `1301` | Orphie & Magus | 奥菲丝&「鬼火」 | 4 | 1 | 待实现 |
 | `1311` | Astra | 耀嘉音 | 4 | 4 | 已实现（已有registry/compiler） |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Jane 1261 follows the reviewed and pushed Zhu Yuan 1241. Continue with the next unregistered numeric ID after Jane is reviewed and pushed.
+Current item: Piper 1281 follows the reviewed and pushed Seth 1271. Continue with the next unregistered numeric ID after Piper is reviewed and pushed.
 
 ## Burnice (`character:1171`)
 

@@ -178,6 +178,12 @@ from core.application.characters.seth import (
     compile_seth,
     load_raw_record as load_seth_raw_record,
 )
+from core.application.characters.piper import (
+    PIPER_ID,
+    PiperCompileConfig,
+    compile_piper,
+    load_raw_record as load_piper_raw_record,
+)
 from core.application.characters.lucy import (
     LUCY_ID,
     LucyCompileConfig,
@@ -1131,6 +1137,31 @@ def _seth_fields(
     )
 
 
+def _piper_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "派派核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前动力层数由独立0–20/30层输入控制；不模拟旋转命中与持续时间。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "派派影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
 def _lucy_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1840,6 +1871,65 @@ def _compile_seth(
     return compile_seth(
         config,
         load_seth_raw_record(load_character_record(str(SETH_ID))),
+    )
+
+
+def _piper_additional_ability_eligibility(team_ids: Sequence[CharacterId]) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(PIPER_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == PIPER_ID:
+            continue
+        try:
+            raw = load_character_record(str(character_id))
+        except ValueError:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None:
+            if registration.base_element is Element.PHYSICAL or registration.role is CharacterRole.ANOMALY:
+                return True
+        element_map = raw.get("element_type", {})
+        elements = (
+            {str(value) for value in element_map.values()}
+            if isinstance(element_map, Mapping)
+            else set()
+        )
+        camps = raw.get("camp", {})
+        camp_values = (
+            {str(value) for value in camps.values()}
+            if isinstance(camps, Mapping)
+            else set()
+        )
+        if "物理" in elements or bool(own_camps.intersection(camp_values)):
+            return True
+        try:
+            role = raw.get("weapon_type", {})
+            if isinstance(role, Mapping) and "异常" in {str(value) for value in role.values()}:
+                return True
+        except TypeError:
+            pass
+    return False
+
+
+def _compile_piper(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = PiperCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_piper_additional_ability_eligibility(team_ids),
+    )
+    return compile_piper(
+        config,
+        load_piper_raw_record(load_character_record(str(PIPER_ID))),
     )
 
 
@@ -4227,6 +4317,41 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 }
             ),
             native_element=Element.ELECTRIC,
+        ),
+    ),
+    PIPER_ID: CharacterPresentationRegistration(
+        character_id=PIPER_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1281",
+            display_name="派派",
+            rarity="A",
+            element="physical",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_piper,
+        config_fields=_piper_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=PIPER_ID,
+            role=CharacterRole.ANOMALY,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            native_element=Element.PHYSICAL,
         ),
     ),
     LUCY_ID: CharacterPresentationRegistration(

@@ -51,6 +51,7 @@ _CHARACTER_FILES = {
     "character:1241": "zhu_yuan.json",
     "character:1261": "jane_doe.json",
     "character:1271": "seth.json",
+    "character:1281": "piper.json",
 }
 
 

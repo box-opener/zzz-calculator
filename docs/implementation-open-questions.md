@@ -1040,3 +1040,11 @@ The Basic text says `向前方进行至多四段的攻击，造成<color=#F0D12B
 ### Cinema 6 Basic Shock child identity — resolved
 
 Cinema 6 says `赛斯在<color=#FFFFFF>[普通攻击：雷霆击-感电]</color>中发动终结一击命中敌人时，额外造成自身500%攻击力的伤害，本次攻击必定触发暴击，且暴击伤害提升60%`. User clarification: `全部继承父招式`. The extra packet therefore uses Seth's current ATK, Electric Direct damage, Standard Crit with guaranteed Crit and +60% Crit Damage, and inherits the parent Basic group/tag. It applies only to the added packet; the parent finisher does not inherit guaranteed Crit or the extra Crit Damage. The complete Basic Shock query adds the child once, without recursive child creation.
+
+## Piper (`character:1281`) implementation decisions
+
+The complete Nanoka live 3.2 source is retained at `core/data/characters/piper.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1281.json`, with only source version and URL provenance added. Piper is an A-rank Physical Anomaly agent. Her reviewed signature is `wengine:13128` (`Weapon_A_1281`, 轰鸣座驾); it remains unequipped by default.
+
+The calculator exposes her four Physical Basic stages and listed Physical Dash, Counter, Special, EX, Chain, Ultimate, and Assist curves. The EX spin entry uses one source-defined circle (`{Skill:1281010, Prop:1001}/2`), and the Ultimate curve is used once as its listed rotation-plus-slam total. The static Physical Assault and Disorder entries use the documented 7.13 Assault ratio and the user-selected current remaining duration; the calculator does not replay Power generation, duration, Energy, or Daze.
+
+The user confirmed that Cinema 2's listed Physical damage bonus applies at 100% to eligible downslam Direct entries, including the full listed Ultimate ratio as a temporary 100% assumption. The current Power stack count is selectable and the source bonus is `10% + 1% × Power`. For the Physical anomaly source record only, a separate user-selected 0%/100% option defaults to 100%; the current normal-damage bonus is captured in the record's anomaly effect strength once, so source-derived Disorder and Discharge inherit it without a second post-settlement bonus. Cinema 1's current Power cap and its extra-stack chance, Cinema 4 Energy recovery, and Cinema 6 duration are retained as source-only behavior where no current damage result is defined.
