@@ -190,6 +190,12 @@ from core.application.characters.hugo import (
     compile_hugo,
     load_raw_record as load_hugo_raw_record,
 )
+from core.application.characters.orphie_magus import (
+    ORPHIE_MAGUS_ID,
+    OrphieMagusCompileConfig,
+    compile_orphie_magus,
+    load_raw_record as load_orphie_magus_raw_record,
+)
 from core.application.characters.lucy import (
     LUCY_ID,
     LucyCompileConfig,
@@ -1184,6 +1190,31 @@ def _hugo_fields(
         _slider_field(
             "cinema_level",
             "雨果影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _orphie_magus_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "奥菲丝&「鬼火」核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "准星聚焦等战斗状态单独选择；初始能量加成读取各接收者的局外面板。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "奥菲丝&「鬼火」影画",
             int(values.get("cinema_level", 0)),
             0,
             6,
@@ -2829,6 +2860,47 @@ def _compile_yixuan(
     )
 
 
+def _orphie_magus_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    for character_id in team_ids:
+        if character_id == ORPHIE_MAGUS_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is not None and registration.role in {
+            CharacterRole.STUN,
+            CharacterRole.SUPPORT,
+        }:
+            return True
+    return False
+
+
+def _compile_orphie_magus(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    recipients = tuple(dict.fromkeys((ORPHIE_MAGUS_ID, *team_ids)))
+    config = OrphieMagusCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_orphie_magus_additional_ability_eligibility(
+            team_ids
+        ),
+        focus_recipient_ids=recipients,
+    )
+    return compile_orphie_magus(
+        config,
+        load_orphie_magus_raw_record(
+            load_character_record(str(ORPHIE_MAGUS_ID))
+        ),
+    )
+
+
 def _lucia_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -4465,6 +4537,43 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 }
             ),
             native_element=Element.ICE,
+        ),
+    ),
+    ORPHIE_MAGUS_ID: CharacterPresentationRegistration(
+        character_id=ORPHIE_MAGUS_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1301",
+            display_name="奥菲丝&「鬼火」",
+            rarity="S",
+            element="fire",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+            code_name="Orphie & Magus",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.FIRE,
+        compile_definition=_compile_orphie_magus,
+        config_fields=_orphie_magus_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=ORPHIE_MAGUS_ID,
+            role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                    DamageTag.FOLLOW_UP_ATTACK,
+                }
+            ),
+            native_element=Element.FIRE,
         ),
     ),
     LUCY_ID: CharacterPresentationRegistration(

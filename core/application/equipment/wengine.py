@@ -254,6 +254,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1281"): WENGINE_ROARING_RIDE_ID,
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
+    # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).
+    CharacterId("character:1301"): WENGINE_HELLHOUND_BOOMSTICK_ID,
     # Local 14124 raw uses Weapon_S_1241, matching Zhu Yuan's code-name ID.
     CharacterId("character:1241"): WENGINE_DEFENSE_PATROL_ID,
     # Local 14126 raw uses Weapon_S_1261 and names Jane Doe in its source description.

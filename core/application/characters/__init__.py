@@ -48,6 +48,7 @@ from .zhu_yuan import ZhuYuanCompileConfig, compile_zhu_yuan
 from .seth import SethCompileConfig, compile_seth
 from .piper import PiperCompileConfig, compile_piper
 from .hugo import HugoCompileConfig, compile_hugo
+from .orphie_magus import OrphieMagusCompileConfig, compile_orphie_magus
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -131,4 +132,6 @@ __all__ = [
     "compile_piper",
     "HugoCompileConfig",
     "compile_hugo",
+    "OrphieMagusCompileConfig",
+    "compile_orphie_magus",
 ]

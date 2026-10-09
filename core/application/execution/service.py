@@ -394,8 +394,12 @@ class DirectMoveApplicationService:
 
         event_outputs: list[DamageEventCalculationOutput] = []
         traces: list[DamageEventExecutionTrace] = []
+        entry_and_multiplier_diagnostics = {
+            item.diagnostic_id: item
+            for item in (*entry.diagnostics, *multiplier.diagnostics)
+        }
         move_diagnostics: list[CalculationDiagnostic] = [
-            *multiplier.diagnostics,
+            *entry_and_multiplier_diagnostics.values(),
             *(
                 diagnostic
                 for rule in rule_items
