@@ -24,12 +24,15 @@ from core.types import (
     CalculationNode,
     CharacterSnapshot,
     DamageEvent,
+    DamageSubtype,
     DisorderDamageEvent,
     EffectOperation,
     Element,
+    IndependentAnomalyCrit,
     FixedMultiplier,
     NoAnomalyCrit,
     NoCritRule,
+    RecordedAnomalyCritRule,
     Resolved,
     Unresolved,
     UnresolvedReason,
@@ -202,6 +205,36 @@ def static_attribute_anomaly_record(
         CalculationNode.ANOMALY_DAMAGE_BONUS,
         event,
     )
+    anomaly_crit_rate, anomaly_crit_rate_diagnostics = _modifier_total(
+        modifiers,
+        CalculationNode.ANOMALY_CRIT_RATE,
+        event,
+    )
+    anomaly_crit_damage, anomaly_crit_damage_diagnostics = _modifier_total(
+        modifiers,
+        CalculationNode.ANOMALY_CRIT_DAMAGE,
+        event,
+    )
+    if isinstance(anomaly_crit_rate, Resolved) and anomaly_crit_rate.value > 0.0:
+        inherited_by = (
+            (DamageSubtype.DISCHARGE, DamageSubtype.TURBULENCE)
+            if event.metadata.element in {Element.PHYSICAL, Element.LINREN}
+            else ()
+        )
+        crit_capability = IndependentAnomalyCrit(
+            crit_rate=anomaly_crit_rate,
+            crit_damage=anomaly_crit_damage,
+            inherited_by=inherited_by,
+        )
+    elif not isinstance(anomaly_crit_rate, Resolved):
+        crit_capability = anomaly_crit_rate
+    elif (
+        isinstance(event.crit_rule, RecordedAnomalyCritRule)
+        and isinstance(event.crit_rule.capability, IndependentAnomalyCrit)
+    ):
+        crit_capability = event.crit_rule.capability
+    else:
+        crit_capability = NoAnomalyCrit()
     effect_strength, effect_trace = _effect_strength(
         level,
         attack,
@@ -245,7 +278,7 @@ def static_attribute_anomaly_record(
         anomaly_damage_bonus_region=_region(anomaly_bonus),
         contributors=(event.anomaly_triggerer,),
         anomaly_triggerer=event.anomaly_triggerer,
-        crit_capability=NoAnomalyCrit(),
+        crit_capability=crit_capability,
         triggered_at=event.metadata.created_at,
         duration=duration_value,
         contributions=(contribution,),
@@ -258,6 +291,8 @@ def static_attribute_anomaly_record(
         diagnostics=(
             *normal_diagnostics,
             *anomaly_diagnostics,
+            *anomaly_crit_rate_diagnostics,
+            *anomaly_crit_damage_diagnostics,
             *mutation_diagnostics,
         ),
     )

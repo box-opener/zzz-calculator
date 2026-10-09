@@ -38,6 +38,7 @@ from core.types import (
     Element,
     IndependentAnomalyCrit,
     IndependentAnomalyCritRule,
+    NoAnomalyCrit,
     ModifierEffect,
     NoCritRule,
     LuminanceSourceChoice,
@@ -370,6 +371,8 @@ class DirectMoveApplicationService:
             rule_items=rule_items,
         )
         request = replace(request, history_records=final_history)
+        if request.history_record_mode is HistoryRecordMode.STATIC_SINGLE_CHARACTER:
+            main_event = _bind_static_anomaly_crit(main_event, final_history)
         if identity_diagnostics or final_diagnostics:
             panel_application = replace(
                 panel_application,
@@ -539,6 +542,8 @@ class DirectMoveApplicationService:
                     rule_items=rule_items,
                 )
                 request = replace(request, history_records=child_history)
+                if request.history_record_mode is HistoryRecordMode.STATIC_SINGLE_CHARACTER:
+                    child = _bind_static_anomaly_crit(child, child_history)
                 move_diagnostics.extend(child_history_diagnostics)
                 seen_semantics.add(child.semantic_id)
                 child_context = _match_context(
@@ -1469,6 +1474,35 @@ def _history_records_for_event(
     if source_id is None:
         return request.history_records, assembly.diagnostics
     return (*request.history_records, assembly.record), assembly.diagnostics
+
+
+def _bind_static_anomaly_crit(
+    instantiated: InstantiatedDamageEvent,
+    records: tuple[AnomalyRecord, ...],
+) -> InstantiatedDamageEvent:
+    """Bind anomaly and inheriting Discharge events to the recorded crit capability."""
+
+    event = instantiated.event
+    if not isinstance(event, (AttributeAnomalyDamageEvent, DischargeDamageEvent)):
+        return instantiated
+    record = next(
+        (item for item in records if item.record_id == event.history_record_source),
+        None,
+    )
+    if record is None:
+        return instantiated
+    if isinstance(record.crit_capability, IndependentAnomalyCrit):
+        if (
+            isinstance(event, DischargeDamageEvent)
+            and DamageSubtype.DISCHARGE not in record.crit_capability.inherited_by
+        ):
+            return instantiated
+        crit_rule = RecordedAnomalyCritRule(record.record_id, record.crit_capability)
+    elif isinstance(record.crit_capability, NoAnomalyCrit):
+        crit_rule = NoCritRule()
+    else:
+        crit_rule = RecordedAnomalyCritRule(record.record_id, record.crit_capability)
+    return replace(instantiated, event=replace(event, crit_rule=crit_rule))
 
 
 def _prepare_remielle_flare_source(

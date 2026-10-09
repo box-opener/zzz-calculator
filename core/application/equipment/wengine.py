@@ -250,6 +250,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1211"): WENGINE_CRYING_CRADLE_ID,
     # Local 14124 raw uses Weapon_S_1241, matching Zhu Yuan's code-name ID.
     CharacterId("character:1241"): WENGINE_DEFENSE_PATROL_ID,
+    # Local 14126 raw uses Weapon_S_1261 and names Jane Doe in its source description.
+    CharacterId("character:1261"): WENGINE_STINGING_RAZOR_ID,
     ASTRA_ID: WENGINE_ASTRA_ID,
     YE_ID: WENGINE_YE_ID,
     ALICE_ID: WENGINE_ALICE_ID,

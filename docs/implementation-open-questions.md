@@ -1007,6 +1007,12 @@ The Basic source says `指派杜苏拉和安娜塔莎发动至多四段的攻击
 
 The Morning Sweep text says `杜苏拉或安娜塔莎会每间隔2.5秒，攻击敌人1次，造成物理伤害和电属性伤害`. Its three per-hit curves are `1211023`–`1211025`, each with one damage multiplier and no per-element split in the parameter table. Each is exposed as a single source-hit ratio but remains locally unresolved and emits no damage event until the Physical/Electric component relationship is clarified. No interval or attack history is simulated.
 
+## Jane (`character:1261`) localized source question
+
+### Cinema 6 extra attack identity
+
+The source says `队伍中任意角色对敌人施加[强击]效果时，简将直接进入[狂热]状态，并使[狂热心流]回复至上限，此次[强击]伤害触发暴击时，将会对目标发动一次额外攻击，造成等同于简1600%异常精通的物理伤害`. The trigger, one-time count, current Jane AP base, and Physical element are known. The extra packet's damage type, Crit behavior, SkillGroup, and damage tags remain unresolved. The known 1600% AP coefficient is available as a local partial entry; the calculator emits no synthetic Direct event or weapon proc until the event identity is confirmed.
+
 ## Zhu Yuan (`character:1241`) localized source questions
 
 ### Assault Basic stage element mapping

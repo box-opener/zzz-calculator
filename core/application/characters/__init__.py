@@ -43,6 +43,7 @@ from .burnice import BurniceCompileConfig, compile_burnice
 from .ellen import EllenCompileConfig, compile_ellen
 from .harumasa import HarumasaCompileConfig, compile_harumasa
 from .rina import RinaCompileConfig, compile_rina
+from .jane_doe import JaneDoeCompileConfig, compile_jane_doe
 from .zhu_yuan import ZhuYuanCompileConfig, compile_zhu_yuan
 
 __all__ = [
@@ -117,6 +118,8 @@ __all__ = [
     "compile_harumasa",
     "RinaCompileConfig",
     "compile_rina",
+    "JaneDoeCompileConfig",
+    "compile_jane_doe",
     "ZhuYuanCompileConfig",
     "compile_zhu_yuan",
 ]

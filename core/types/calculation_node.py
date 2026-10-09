@@ -75,6 +75,8 @@ class CalculationNode(StrEnum):
     DISCHARGE_PROFICIENCY_MULTIPLIER = "discharge.proficiency-multiplier"
     ANOMALY_EFFECT_STRENGTH = "anomaly.effect-strength"
     ATTRIBUTE_ANOMALY_MULTIPLIER = "anomaly.attribute.multiplier"
+    ANOMALY_CRIT_RATE = "anomaly.attribute.crit-rate"
+    ANOMALY_CRIT_DAMAGE = "anomaly.attribute.crit-damage"
     ANOMALY_CRIT_REGION = "anomaly.attribute.crit-region"
     ANOMALY_DAMAGE_BONUS = "anomaly.attribute.damage-bonus"
     ANOMALY_DAMAGE_BONUS_REGION = "anomaly.attribute.damage-bonus-region"

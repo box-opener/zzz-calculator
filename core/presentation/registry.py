@@ -154,6 +154,12 @@ from core.application.characters.zhu_yuan import (
     compile_zhu_yuan,
     load_raw_record as load_zhu_yuan_raw_record,
 )
+from core.application.characters.jane_doe import (
+    JANE_DOE_ID,
+    JaneDoeCompileConfig,
+    compile_jane_doe,
+    load_raw_record as load_jane_doe_raw_record,
+)
 from core.application.characters.soukaku import (
     SOUKAKU_ID,
     SoukakuCompileConfig,
@@ -3208,6 +3214,77 @@ def _compile_zhu_yuan(
     )
 
 
+def _jane_doe_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(JANE_DOE_ID)
+    for character_id in team_ids:
+        if character_id == JANE_DOE_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role is CharacterRole.ANOMALY:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _jane_doe_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "简核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "当前核心等级；狂热心流、异常积蓄和触发历史不回放。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "简影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁影画等级；3/5影技能等级提升按实际技能等级计算。",
+        ),
+        _slider_field(
+            "potential_level",
+            "简潜能",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "当前潜能等级；不回放狂热心流或额外萨霍夫跳使用次数。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _compile_jane_doe(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = JaneDoeCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=_integer_with_default(values, "potential_level", 0, False),
+        additional_ability_eligible=_jane_doe_additional_ability_eligibility(team_ids),
+    )
+    return compile_jane_doe(
+        config,
+        load_jane_doe_raw_record(load_character_record(str(JANE_DOE_ID))),
+    )
+
+
 def _compile_grace(
     values: Mapping[str, Any],
     team_ids: Sequence[CharacterId],
@@ -5037,6 +5114,56 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     EquipmentDamageScope(Element.ETHER, SkillGroup.ULTIMATE, frozenset({DamageTag.ULTIMATE})),
                     EquipmentDamageScope(Element.PHYSICAL, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
                     EquipmentDamageScope(Element.ETHER, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
+                }
+            ),
+        ),
+    ),
+    JANE_DOE_ID: CharacterPresentationRegistration(
+        character_id=JANE_DOE_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1261",
+            display_name="简",
+            rarity="S",
+            element="physical",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            code_name="Jane",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_jane_doe,
+        config_fields=_jane_doe_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=JANE_DOE_ID,
+            role=CharacterRole.ANOMALY,
+            native_element=Element.PHYSICAL,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            damage_scopes=frozenset(
+                {
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.BASIC_ATTACK, DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.BASIC_ATTACK, frozenset({DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.DODGE, frozenset({DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.DODGE, frozenset({DamageTag.DODGE_COUNTER})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.EX_SPECIAL_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.SPECIAL_ATTACK, frozenset({DamageTag.EX_SPECIAL_ATTACK, DamageTag.DASH_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.CHAIN_ATTACK, frozenset({DamageTag.CHAIN_ATTACK})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.ULTIMATE, frozenset({DamageTag.ULTIMATE})),
+                    EquipmentDamageScope(Element.PHYSICAL, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
                 }
             ),
         ),

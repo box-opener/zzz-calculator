@@ -30,7 +30,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1221` | Yanagi | 柳 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct moves + static Shock/Disorder + selected-record Polar Disorder with current-AP additive component; Daze, buildup, energy and timing outputs remain outside the current result contract） |
 | `1241` | Zhu Yuan | 朱鸢 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 panel + reviewed Ether/Physical Direct entries + static Ether Corrosion/Disorder + Core/Cinema current-state rules + `Weapon_S_1241` signature mapping; Assault Basic element mapping, Pressure shot component relation, C6 bullet event identity, and Assist Strike mixed-element split remain local partials） |
 | `1251` | QingYi | 青衣 | 4 | 2 | 已实现（已有registry/compiler） |
-| `1261` | Jane | 简 | 4 | 3 | 待实现 |
+| `1261` | Jane | 简 | 4 | 3 | 部分实现（live 3.2 raw + S-rank level-60 Anomaly panel + Physical Direct/Saohov entries + static Strong/Disorder + Bite/Frenzy/Core/Cinema/Potential current-state effects + `Weapon_S_1261` signature mapping; Cinema 6 extra AP-based Physical hit identity remains localized pending clarification） |
 | `1271` | Seth | 赛斯 | 3 | 5 | 待实现 |
 | `1281` | Piper | 派派 | 3 | 3 | 待实现 |
 | `1291` | Hugo | 雨果 | 4 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Zhu Yuan 1241 follows the reviewed and pushed Rina 1211. Continue with the next unregistered numeric ID after Zhu Yuan is reviewed and pushed.
+Current item: Jane 1261 follows the reviewed and pushed Zhu Yuan 1241. Continue with the next unregistered numeric ID after Jane is reviewed and pushed.
 
 ## Burnice (`character:1171`)
 
@@ -202,6 +202,16 @@ The complete Nanoka live 3.2 record is retained at `core/data/characters/zhu_yua
 Known Direct entries retain the raw parameter IDs: Assault Dash, Pressure-mode Physical/Ether Basic and Dash components, Counter, Special, EX, Chain, Ultimate, and Quick Assist. The Special entry uses a current 1–3 shot input. Static Ether Corrosion uses the shared 100%-buildup/NoCrit model; Ether Disorder reads a current remaining-time input. Core's +40% damage for a shell-consuming Pressure event and its additional +40% against a currently stunned target are separate additive rules. Additional Ability Crit Rate is a current Zhu Yuan panel state when a Support or same-faction teammate is present. Cinema 2's current 0–5 stacks affect only Pressure-mode Ether components, and Cinema 4's 25% Ether resistance ignore affects only the shell-consuming Pressure-mode Ether components.
 
 Four source-defined branches remain localized partial entries: Assault Basic stages 1–5 have known curves but the Physical/Ether split per stage is not stated; Pressure-mode Basic/Dash retain separate Physical and Ether component curves without guessing their per-shot pairing; Assist Strike has one mixed-element curve with no component split; Cinema 6 has a known total of four extra Ether bullets at 220% ATK each (880% total), but their damage-event identity is unresolved. These rows preserve known ratios without emitting synthetic Direct events. Shell counts, reload history, Energy, Daze, and timing are not simulated.
+
+## Jane (`character:1261`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/jane_doe.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1261.json`; only calculator provenance fields were added. Jane is an S-rank Anomaly agent with Physical as her base element and New Eridu Public Security as her faction. Her level-60 panel is ATK `880.6952`, HP `7788.6961`, DEF `606.5977`, AP `114`, AM `148`, and Impact `86`. The local `14126` engine is `Weapon_S_1261` 淬锋钳刺 and is mapped as her signature. `IconRole24` is not packaged locally, so the catalog uses the neutral portrait placeholder.
+
+Known Direct entries retain the source curves for Basic 1–6, both Dodge-Counter branches, both Dash branches, Special/EX (including the Frenzy EX Dash tag), Chain, Ultimate, Quick Assist, and Assist Strike. Saohov Jump exposes its continuous and finishing components plus their complete one-use sum; Potential 1 selects the separately listed extended continuous curve. Its current Frenzy and available-use states are user-selected. The calculator does not replay Frenzy Flow, attack cadence, or timing.
+
+The static Physical Strong record uses the shared 100%-buildup model. When the target is currently Gnawed, Jane's Core contributes the AP-derived anomaly-Crit rate and its 50% anomaly Crit Damage to Physical Strong records from any team member; the record retains its actual source actor's strength. Eligible Discharge and Turbulence can inherit that recorded capability, while Disorder does not. Cinema 2's current Gnawing state scopes its 15% Defense ignore to Jane's Direct hits and any team's Physical Strong, and adds 50% anomaly Crit Damage to the Strong record. Potential 2–6 adds its 10/15/20/25/30% Crit Damage only to Jane's Strong. Cinema 4's current state adds 18% attribute anomaly damage to the captured record. C1's current Frenzy state applies its AP-based normal damage bonus. Core's Frenzy AP-to-ATK conversion and Cinema 6's Frenzy Crit Rate/Crit Damage use Jane's own current panel.
+
+Cinema 6's extra attack has a known single-hit coefficient of 1600% current AP, Physical element, and team Strong-Crit trigger. Its damage type, Crit behavior, skill group, and tags remain unresolved; the selected parent becomes local partial and no synthetic damage event is emitted. The calculator does not replay Gnawing/Frenzy duration, Strong applications, Energy, dodge count, or Daze.
 
 ## Velina (`character:1561`)
 
