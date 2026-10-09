@@ -435,6 +435,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1281",
         "character:1291",
         "character:1301",
+        "character:1321",
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"

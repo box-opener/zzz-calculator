@@ -196,6 +196,12 @@ from core.application.characters.orphie_magus import (
     compile_orphie_magus,
     load_raw_record as load_orphie_magus_raw_record,
 )
+from core.application.characters.evelyn import (
+    EvelynCompileConfig,
+    compile_evelyn,
+    load_raw_record as load_evelyn_raw_record,
+)
+from core.application.characters.evelyn.config import EVELYN_ID
 from core.application.characters.lucy import (
     LUCY_ID,
     LucyCompileConfig,
@@ -1222,6 +1228,66 @@ def _orphie_magus_fields(
         ),
         *_skill_level_fields(values, default_level=12),
     )
+
+
+def _evelyn_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    cinema = int(values.get("cinema_level", 0))
+    fields: list[CompileConfigFieldView] = [
+        _slider_field(
+            "core_level",
+            "伊芙琳核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "牵缠禁制期间的暴击率增益按当前状态选择；不模拟10秒延续。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "伊芙琳影画",
+            cinema,
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        _boolean_field(
+            "constraint_crit_active",
+            "牵缠禁制暴击率增益当前生效",
+            bool(values.get("constraint_crit_active", False)),
+            "包含状态退出后的10秒延续；不模拟状态触发或剩余时间。",
+        ),
+    ]
+    if cinema >= 1:
+        fields.append(
+            _boolean_field(
+                "target_imprisoned",
+                "当前目标处于禁锢状态",
+                bool(values.get("target_imprisoned", False)),
+                "1影无视防御只作用于伊芙琳对当前禁锢目标造成的伤害。",
+            )
+        )
+    if cinema >= 4:
+        fields.append(
+            _boolean_field(
+                "cinema4_shield_active",
+                "4影护盾当前持有",
+                bool(values.get("cinema4_shield_active", False)),
+                "只按当前护盾状态应用暴击伤害；不模拟护盾触发或数值。",
+            )
+        )
+    if cinema >= 6:
+        fields.append(
+            _boolean_field(
+                "cinema6_shadow_edge_active",
+                "6影弦影绝锋当前生效",
+                bool(values.get("cinema6_shadow_edge_active", False)),
+                "已选单次普通攻击、冲刺攻击、特殊技或强化特殊技命中时生成一次375%火属性连携追加伤害；不累计20秒/16次历史。",
+            )
+        )
+    fields.extend(_skill_level_fields(values, default_level=12))
+    return tuple(fields)
 
 
 def _lucy_fields(
@@ -2901,6 +2967,52 @@ def _compile_orphie_magus(
     )
 
 
+def _evelyn_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != EVELYN_ID
+        and character_id in _REGISTRATIONS
+        and _REGISTRATIONS[character_id].role in {CharacterRole.STUN, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_evelyn(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    allowed = frozenset(
+        {
+            "core_level",
+            "cinema_level",
+            "skill_levels",
+            "constraint_crit_active",
+            "target_imprisoned",
+            "cinema4_shield_active",
+            "cinema6_shadow_edge_active",
+        }
+    )
+    _allowed(values, allowed)
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = EvelynCompileConfig(
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        skill_levels=_skill_levels(values),
+        additional_ability_eligible=_evelyn_additional_ability_eligibility(team_ids),
+        constraint_crit_active=_boolean_with_default(values, "constraint_crit_active", False, strict),
+        target_imprisoned=_boolean_with_default(values, "target_imprisoned", False, strict),
+        cinema4_shield_active=_boolean_with_default(values, "cinema4_shield_active", False, strict),
+        cinema6_shadow_edge_active=_boolean_with_default(values, "cinema6_shadow_edge_active", False, strict),
+    )
+    return compile_evelyn(
+        config,
+        load_evelyn_raw_record(load_character_record(str(EVELYN_ID))),
+    )
+
+
 def _lucia_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -4571,6 +4683,42 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     DamageTag.ULTIMATE,
                     DamageTag.ASSIST,
                     DamageTag.FOLLOW_UP_ATTACK,
+                }
+            ),
+            native_element=Element.FIRE,
+        ),
+    ),
+    EVELYN_ID: CharacterPresentationRegistration(
+        character_id=EVELYN_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1321",
+            display_name="伊芙琳",
+            rarity="S",
+            element="fire",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+            code_name="Evelyn",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.FIRE,
+        compile_definition=_compile_evelyn,
+        config_fields=_evelyn_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=EVELYN_ID,
+            role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
                 }
             ),
             native_element=Element.FIRE,

@@ -169,6 +169,7 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1281",
         "character:1291",
         "character:1301",
+        "character:1321",
     )
     assert load_character_record("character:1011")["name"] == "安比"
     assert load_character_record("character:1011")["source_version"] == "3.2"

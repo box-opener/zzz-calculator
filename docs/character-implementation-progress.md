@@ -36,7 +36,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1291` | Hugo | 雨果 | 4 | 1 | 部分实现（live 3.2 raw + level-60 panel + reviewed Physical/Ice Basic and Direct entries + static Ice Shatter/Disorder + Core/Cinema current states; 用户已明确 C1/C2/C6/额外能力增益只作用于决算增量，当前已推实现保留，待后续统一拆分原伤害与决算增量） |
 | `1301` | Orphie & Magus | 奥菲丝&「鬼火」 | 4 | 1 | 部分实现（live 3.2 raw + level-60 panel + reviewed Fire/Physical Direct entries + static Fire Burn/Disorder + Core/Cinema current Focus and attack states + Weapon_S_1301 signature; Basic/Counter/Quick mixed-element curves and selected multi-hit/extension scopes remain localized） |
 | `1311` | Astra | 耀嘉音 | 4 | 4 | 已实现（已有registry/compiler） |
-| `1321` | Evelyn | 伊芙琳 | 4 | 1 | 待实现 |
+| `1321` | Evelyn | 伊芙琳 | 4 | 1 | 部分实现（live 3.2 raw/provenance + S-rank level-60 Fire Attack panel + reviewed Physical/Fire Direct moves + Fire Burn/Disorder + Core/Additional Ability/Cinema current-state effects + `Weapon_S_1321` signature mapping; Basic element groups use the named skill-list ranges, with the separate Fire third-stage cancel path selectable without modeling its preceding action） |
 | `1331` | Vivian | 薇薇安 | 4 | 3 | 已实现（已有registry/compiler；B5在当前上场角色面板下分组显示各自异放结果，不计入所选招式总计） |
 | `1341` | Zhao | 照 | 4 | 5 | 已实现（已有registry/compiler） |
 | `1351` | Pulchra | 波可娜 | 3 | 2 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Orphie & Magus 1301 follows the reviewed and pushed Hugo 1291. Continue with the next unregistered numeric ID after Orphie & Magus is reviewed and pushed.
+Current item: Evelyn 1321 follows the reviewed and pushed Orphie & Magus 1301. Continue with the next unregistered numeric ID after Evelyn is reviewed and pushed.
 
 ## Burnice (`character:1171`)
 
