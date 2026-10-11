@@ -699,6 +699,3 @@ def test_signature_engine_current_blade_edge_effect_is_ice_only() -> None:
     assert _api_breakdown(physical_with_max_stacks)["resistance.damage-ignore"] == pytest.approx(0.0)
     assert _api_total(ice_with_max_stacks) / _api_total(ice_without_buffs) == pytest.approx(1.25, rel=1e-8)
     assert _api_total(physical_with_max_stacks) == pytest.approx(_api_total(physical_without_buffs))
-
-
-\n
