@@ -163,6 +163,32 @@ class MoveCalculationRequest:
         profile_ids = tuple(item.character_id for item in self.team_profiles)
         if len(set(profile_ids)) != len(profile_ids):
             raise ValueError("team profile IDs must be unique")
+        profile_id_set = set(profile_ids)
+        definition_id_set = set(definition_character_ids)
+        external_derived_dealers = {
+            template.damage_dealer
+            for definition in definitions
+            for template in definition.damage_event_templates
+            if template.damage_dealer != definition.character_id
+        }
+        if not external_derived_dealers.issubset(profile_id_set):
+            missing = sorted(
+                str(item)
+                for item in external_derived_dealers - profile_id_set
+            )
+            raise ValueError(
+                "cross-dealer derived-event actors must be active team members: "
+                + ", ".join(missing)
+            )
+        if not external_derived_dealers.issubset(definition_id_set):
+            missing = sorted(
+                str(item)
+                for item in external_derived_dealers - definition_id_set
+            )
+            raise ValueError(
+                "cross-dealer derived-event actors require a team definition: "
+                + ", ".join(missing)
+            )
         if self.scenario.current_operator not in set(profile_ids):
             raise ValueError("scenario current_operator must be a team member")
         if self.luminance_source_choice is not None:

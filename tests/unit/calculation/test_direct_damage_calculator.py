@@ -35,6 +35,8 @@ from core.types import (
     EnemyId,
     EnemySnapshot,
     FixedMultiplier,
+    InitialAttackValueSource,
+    InitialCharacterSnapshot,
     IndependentAnomalyCrit,
     IndependentAnomalyCritRule,
     Modifier,
@@ -604,3 +606,48 @@ def test_calculator_satisfies_protocol_and_does_not_mutate_context() -> None:
     assert isinstance(calculator, DamageCalculator)
     calculator.calculate(context)
     assert context == original
+
+
+def test_initial_attack_damage_basis_uses_initial_not_current_panel() -> None:
+    dealer = CharacterId("character:initial-attack-basis")
+    event = replace(
+        _direct_event(dealer),
+        base_settlement_data_source=InitialAttackValueSource(dealer),
+    )
+    context = replace(
+        _context(event, snapshots=(_snapshot(dealer, attack=9000.0),)),
+        initial_character_snapshots=(
+            InitialCharacterSnapshot(
+                character_id=dealer,
+                level=60,
+                initial_stats=_stats(attack=1200.0),
+            ),
+        ),
+    )
+
+    result = DirectDamageCalculator().calculate(context)
+
+    assert result.value is not None
+    values = _breakdown(result)
+    assert values[CalculationNode.CHARACTER_INITIAL_ATTACK] == pytest.approx(1200.0)
+    assert values[CalculationNode.DAMAGE_BASE_VALUE] == pytest.approx(2400.0)
+    assert next(
+        item for item in result.breakdown
+        if item.node is CalculationNode.CHARACTER_INITIAL_ATTACK
+    ).read_rule is SnapshotRule.INITIAL
+
+
+def test_initial_attack_damage_basis_does_not_fall_back_to_current_panel() -> None:
+    dealer = CharacterId("character:missing-initial-attack")
+    event = replace(
+        _direct_event(dealer),
+        base_settlement_data_source=InitialAttackValueSource(dealer),
+    )
+    context = _context(event, snapshots=(_snapshot(dealer, attack=9000.0),))
+
+    result = DirectDamageCalculator().calculate(context)
+
+    assert result.value is None
+    assert len(result.unresolved) == 1
+    assert result.unresolved[0].reason is UnresolvedReason.MISSING_DATA
+    assert "Initial ATK" in result.unresolved[0].notes

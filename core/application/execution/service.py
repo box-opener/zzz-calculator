@@ -765,6 +765,7 @@ class DirectMoveApplicationService:
             history_records=request.history_records,
             vulnerability_policy=application.vulnerability_policy,
             settled_damage_values=settled_damage_values,
+            initial_character_snapshots=request.initial_character_snapshots,
         )
         calculation = self._router.calculate(calculation_event, context)
         all_diagnostics = diagnostics + calculation.diagnostics
@@ -865,6 +866,18 @@ class DirectMoveApplicationService:
                 "missing-template",
                 DiagnosticKind.MISSING_DATA,
                 "EventCreation template is not registered",
+            )
+        if (
+            isinstance(template, DirectDamageEventTemplate)
+            and template.damage_dealer != effect.rule.owner
+            and template.damage_dealer
+            not in {item.character_id for item in current_character_snapshots}
+        ):
+            return _diagnostic(
+                str(template.damage_dealer),
+                "derived-dealer-panel",
+                DiagnosticKind.MISSING_DATA,
+                "The explicitly selected derived-event dealer has no current panel snapshot.",
             )
         if (
             isinstance(template, PolarDisorderDamageEventTemplate)
@@ -1389,6 +1402,7 @@ def _match_context(
         target_snapshot=request.target_snapshot,
         modifiers=tuple(modifiers),
         history_records=request.history_records,
+        initial_character_snapshots=request.initial_character_snapshots,
     )
     return EffectMatchContext(
         current_event=event,

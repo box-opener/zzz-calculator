@@ -165,6 +165,7 @@ from .wengine_ids import (
     WENGINE_FOX_FURNACE_ID,
     WENGINE_MACHINERY_SEED_ID,
     WENGINE_VAJRA_ID,
+    WENGINE_SONG_OF_NOISE_ID,
     WENGINE_LAST_NIGHT_ID,
     WENGINE_SOUL_IN_SHELL_ID,
     WENGINE_NEON_FANTASY_ID,
@@ -260,6 +261,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1461"): WENGINE_MACHINERY_SEED_ID,
     # Local Nanoka 3.2 record 14147 is Weapon_S_1471, BanYue's reviewed signature.
     CharacterId("character:1471"): WENGINE_VAJRA_ID,
+    # Nanoka 3.2 `Weapon_S_1491` is Sunna's explicitly identified signature.
+    CharacterId("character:1491"): WENGINE_SONG_OF_NOISE_ID,
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
     # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).

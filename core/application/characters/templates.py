@@ -14,6 +14,7 @@ from core.types import (
     SettledDamageValueSource,
     CharacterId,
     CurrentAttackValueSource,
+    InitialAttackValueSource,
     CurrentDefenseValueSource,
     DamageType,
     DamageSubtype,
@@ -37,6 +38,7 @@ class DirectDamageEventTemplate:
     element: Element
     base_source: (
         CurrentAttackValueSource
+        | InitialAttackValueSource
         | CurrentDefenseValueSource
         | CurrentMaxHPValueSource
         | CurrentAnomalyProficiencyValueSource

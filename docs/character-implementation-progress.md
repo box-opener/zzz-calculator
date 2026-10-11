@@ -53,7 +53,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1461` | Seed | 「席德」 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 Electric Attack panel + reviewed Direct moves + Core/Additional Ability/Cinema current-state rules + `Weapon_S_1461` signature mapping; Core partner is selected from Initial ATK panels, while ambiguous ties and C6 laser event identity remain local partials） |
 | `1471` | Banyue | 般岳 | 4 | 6 | 部分实现（live 3.2 raw + S-rank level-60 Fire Rupture panel + 24 reviewed Penetration moves + Core/Cinema current-state rules + `Weapon_S_1471` signature mapping; Mingwang's C6-only base-bonus eligibility and event resource/timing remain local limits） |
 | `1481` | Dialyn | 琉音 | 4 | 2 | 已实现（已有registry/compiler） |
-| `1491` | Sunna | 千夏 | 4 | 4 | 待实现 |
+| `1491` | Sunna | 千夏 | 4 | 4 | 部分实现（live 3.2 raw + S-rank level-60 Support panel + 14 reviewed Physical Direct entries + Initial ATK Bad Cat + Core/Cinema current-state rules + Cat's Gaze Direct children attributed to actual Attack/Anomaly triggerers + `Weapon_S_1491` signature mapping; timing, resources, and Daze remain outside the static result contract） |
 | `1501` | Aria | 爱芮 | 4 | 3 | 待实现 |
 | `1511` | NangongYu | 南宫羽 | 4 | 2 | 待实现 |
 | `1521` | Cissia | 希希芙 | 4 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Sunna 1491 follows Banyue 1471 after this branch is reviewed and pushed.
+Current item: Aria 1501 follows Sunna 1491 after this branch is reviewed and pushed.
 
 ## Manato (`character:1441`)
 
