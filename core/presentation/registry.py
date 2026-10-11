@@ -240,6 +240,13 @@ from core.application.characters.pyrois import (
     compile_pyrois,
     load_raw_record as load_pyrois_raw_record,
 )
+from core.application.characters.norma import (
+    NORMA_ID,
+    NORMA_REVIEWED_MAPPING,
+    NormaCompileConfig,
+    compile_norma,
+    load_raw_record as load_norma_raw_record,
+)
 from core.application.characters.seed import (
     SEED_ID,
     SEED_REVIEWED_MAPPING,
@@ -2745,6 +2752,69 @@ def _compile_pyrois(
             ),
         ),
         load_pyrois_raw_record(load_character_record(str(PYROIS_ID))),
+    )
+
+
+def _norma_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "诺姆核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级；初始暴击率条件按初始面板计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "诺姆影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _norma_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(NORMA_ID)
+    for character_id in team_ids:
+        if character_id == NORMA_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role in {CharacterRole.ATTACK, CharacterRole.RUPTURE}:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _compile_norma(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_norma(
+        NormaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _norma_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_norma_raw_record(load_character_record(str(NORMA_ID))),
     )
 
 
@@ -6335,6 +6405,43 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 )
                 for move in PYROIS_REVIEWED_MAPPING.moves
             ),
+        ),
+    ),
+    NORMA_ID: CharacterPresentationRegistration(
+        character_id=NORMA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(NORMA_ID),
+            display_name="诺姆",
+            rarity="S",
+            element="fire",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.FIRE,
+        compile_definition=_compile_norma,
+        config_fields=_norma_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=NORMA_ID,
+            role=CharacterRole.STUN,
+            native_element=Element.FIRE,
+            possible_elements=frozenset(
+                move.element for move in NORMA_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in NORMA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in NORMA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(move.element, move.skill_group, move.damage_tags)
+                for move in NORMA_REVIEWED_MAPPING.moves
+            ),
+            mechanisms=frozenset({"norma-technical-gap", "norma-en-ni-barrage"}),
         ),
     ),
     CharacterId("character:1361"): CharacterPresentationRegistration(

@@ -105,7 +105,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 093 | `14154` | 朔月裁霜 | S | 异常 | 部分实现（raw + Ice伤害当前层 + 满层Discharge独立区；触发和计时以当前状态表示） |
 | 094 | `14155` | 日冕遗蜕 | S | 强攻 | 已实现（常驻暴击率 + 仅佩洛伊斯可用的当前日蚀以太抗性无视，R1–R5为16/17.5/19/20.5/22%；原描述/装备者文字确认佩洛伊斯映射，原45秒持续、入场与终结技时序不回放） |
 | 095 | `14156` | 琳琅鎏心 | S | 异常 | 部分实现（raw + 常驻异常精通 + 当前风化/乱流层与满层TEAM精通；当前异常角色无风伤能力） |
-| 096 | `14157` | 首席跟班 | S | 击破 | 部分实现（raw + 冲击力/暴击率/抗性与后场回复 + Fire EX触发TEAM层；Daze结果无输出） |
+| 096 | `14157` | 首席跟班 | S | 击破 | 部分实现（raw + 冲击力/暴击率/抗性与后场回复 + Fire EX触发TEAM层；Daze结果无输出；诺姆具有已审Fire EX能力） |
 | 097 | `14158` | 空羽复归之诗 | S | 异常 | 部分实现（raw + 常驻异常精通 + 异化反应当前态下TEAM伤害和自身属性异常伤害；不增加紊乱伤害） |
 | 098 | `14159` | 骁骑礼赞 | S | 强攻 | 已实现（raw + 暴伤当前层 + 满层冰抗性无视 + R1–R5） |
 | 099 | `14161` | 猩红渴望 | S | 锋御 | 部分实现（typed DEF白值/DEF%Build + Crit Rate/电伤；Vanguard无角色注册，Sharp结果无结算节点） |
@@ -166,7 +166,7 @@ result lane, and no current Stun owner can produce that Fire trigger.
 
 The final source-order batch is `14146`, `14147`, `14148`, `14150`–`14159`, `14161`, and `14162`. All 15 fixtures retain the full live-3.2 detail payload and each Refinement 1–5 source description. The loader and reviewed mappings now cover all 100 index entries. The build adapter remains level-60 only; other levels return the existing missing-data diagnostic.
 
-`14148` requires a physical EX Special for its physical-layer trigger. Owner capability eligibility is based on element/skill-group/tag combinations from the same reviewed move, so Qingyi's physical Dash and Electric EX do not combine into a fictional Physical EX. Dialyn's registered Physical EX capability remains eligible. For `14151`, the source says Ether EX Special **or** Basic Attack; those are evaluated as two alternative scopes, not as one event carrying both tags. The registered Stun owners currently have no Ether damage capability. `14157`'s Fire EX team effect likewise remains ineligible for Stun owners with no Fire EX.
+`14148` requires a physical EX Special for its physical-layer trigger. Owner capability eligibility is based on element/skill-group/tag combinations from the same reviewed move, so Qingyi's physical Dash and Electric EX do not combine into a fictional Physical EX. Dialyn's registered Physical EX capability remains eligible. For `14151`, the source says Ether EX Special **or** Basic Attack; those are evaluated as two alternative scopes, not as one event carrying both tags. The registered Stun owners currently have no Ether damage capability. `14157`'s Fire EX team effect can match Norma's reviewed Fire EX; other Stun owners remain ineligible unless they have a reviewed Fire EX.
 
 The user confirmed that `14151`'s “team unique” phrase scopes the TEAM damage stack only. Full-stack owner Anomaly Proficiency is a SELF panel bonus per wearer and has no cross-owner non-stacking group.
 

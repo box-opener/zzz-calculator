@@ -61,7 +61,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1541` | Promeia | 普罗米娅 | 4 | 3 | 部分实现（live 3.2 raw + S-rank Ice Anomaly panel + 17 Direct entries + standard Ice Anomaly/Disorder + Core/Chain/Ultimate fixed-ratio Discharge source selection + Extra duration and Cinema rules + `Weapon_S_1541` signature mapping; Cinema 2's Frost-consuming Discharge +120% interpretation remains local; resource and timing replay remain outside the current contract） |
 | `1551` | Pyrois | 佩洛伊斯 | 4 | 1 | 部分实现（live 3.2 raw + S-rank Ether Attack panel + 18 reviewed Ether Direct entries + current-state Core/Extra/Cinema rules + description/talent-reviewed `wengine:14155` signature mapping; left/right Core extra-event identity and Special Battle Order actor inputs remain localized partials; resources, Daze, and timing are not replayed） |
 | `1561` | Velina | 维琳娜 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct/cyclone curves + static Weathering + Wind-triggered Turbulence/Discharge; Daze, buildup, resource and timing outputs remain outside the result contract） |
-| `1571` | Norma | 诺姆 | 4 | 2 | 待实现 |
+| `1571` | Norma | 诺姆 | 4 | 2 | 部分实现（live 3.2 raw + S-rank level-60 Fire Stun panel + 18 reviewed Fire Direct entries + Initial Crit Rate Core/Cinema rules + current Technical Gap and Term states + C1/C6 scopes + `Weapon_S_1571` signature mapping; Norma Direct Penetration Force conversion and autonomous turret actor stats remain localized limits） |
 | `1581` | Remielle | 蕾米埃尔 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + 17 Luminance Direct entries + stable formation Flow + selectable ordinary/special virtual-void source slots + typed Flare/penetration snapshots + switchable AP/C4/C6 rules; Daze/resource results remain outside the current calculation output） |
 | `1591` | Sigrid | 希格莉德 | 4 | 1 | 待实现 |
 | `1611` | Claret | 克拉蕾 | 4 | 7 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Norma 1571. The 1561 source-to-implementation audit completed on 2026-10-11 and found no clearly specified omitted damage rule.
+Current item: Remielle 1581 audit, followed by Sigrid 1591. Norma 1571 source-backed character support was added on 2026-10-11; the 1561 source-to-implementation audit found no clearly specified omitted damage rule.
 
 ## Manato (`character:1441`)
 
@@ -366,3 +366,13 @@ The complete Nanoka live 3.2 record is retained at `core/data/characters/pyrois.
 Core, Extra Ability, and Cinema damage/panel effects use their named moves and current-state conditions. The left/right Core additions retain their known ATK ratios and trigger conditions, but the source does not identify the extra event's element, move, skill group, or tags; those child results remain local partials while each parent move still calculates. Special: Battle Order `1551022` has a known independent Ether curve and EX/Ultimate trigger, but does not identify an actor whose panel should supply its damage; only that child event remains unresolved. Core resources, shield, Daze, Cinema 6, action order, duration, and timeline behavior are not invented.
 
 The explicitly reviewed signature mapping is `wengine:14155` (日冕遗蜕). The raw W-Engine uses a shared code name; Pyrois ownership is established by its description and wearer text. Its permanent 20% Crit Rate applies under the engine's Attack eligibility. The Ether Resistance Ignore is available only to Pyrois and requires a selected current eclipse state; the 45-second duration, battle-entry transition, and Ultimate timing are not replayed. The shared editor currently initializes a mapped S-rank engine unequipped.
+
+## Norma (`character:1571`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/norma.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1571.json`. It identifies Norma / 诺姆 as an S-rank Fire Stun agent of 罗斯凯利法 (`IconRole65`); because that portrait is not packaged locally, the catalog uses the neutral placeholder. Her signature is explicitly mapped to W-Engine `14157` (`Weapon_S_1571`, 首席跟班). The S-rank editor defaults to Core 7, Cinema 0, and skill level 12; Cinema 3/5 include Ultimate and obey the shared level-16 cap.
+
+Eighteen reviewed Fire Direct entries cover Basic, Dash, Counter, Special/EX, Chain, Ultimate, Quick Assist, and Assist Strike. EX target-state variants are selected explicitly. She has no selectable self Anomaly or Disorder, and parry-assist records containing only Daze do not become damage entries. Autonomous target-practice and turret curves remain source-visible local actor diagnostics rather than Norma hits.
+
+Core Crit Damage derives from immutable Initial Crit Rate, starting above 50% and using the Core-level source coefficient/cap. The source's Penetration Force-to-ATK conversion (+1.25 ATK per current Force, capped at 1200) remains a local partial only for Norma's own Direct hits because the Stun panel contract has no Penetration Force source; the Rupture-only formula is not reused. Extra Ability eligibility uses another Attack/Rupture agent or a teammate sharing Norma's raw camp ID. Current Technical Gap stacks are 0–10. Term `1000012` is a separate current-state input and uses its source level-60 cap of +870 ATK without exposing another character-level selector; En-Ni Barrage's 20% damage bonus targets the team. Cinema 1 reduces all enemy resistances by 15%; Cinema 2 raises eligible Technical Gap stacks from 3% to 6% each.
+
+Cinema 6's high-explosive +30% normal-damage bonus applies only to the named EX high-explosive packets. Its additional Fire missile is an explicitly selected single current packet at 200% ATK, classified as Ultimate; the source's firing interval is not expanded into a total count. Resource and timing histories are not replayed.

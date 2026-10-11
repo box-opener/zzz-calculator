@@ -117,6 +117,20 @@ The browser formats values only. It does not perform damage multiplication,
 crit calculations, repeat-count multiplication, total aggregation, modifier
 matching, or eligibility evaluation.
 
+## Norma (`character:1571`)
+
+Norma is presented as an S-rank Fire Stun agent with Core 7, Cinema 0, and
+skill level 12 defaults. Cinema 3/5 include Ultimate and respect the shared
+level-16 cap. Her reviewed Direct moves expose the source-backed Core, Cinema,
+and current-state inputs; Extra eligibility is derived from another Attack or
+Rupture agent, or a teammate sharing her raw faction ID. The level-60-only
+Term `1000012` state is separate from Technical Gap stacks, and no character
+level selector is exposed. The selected C6 high-explosive missile represents
+one current packet rather than a simulated firing sequence. Norma's own
+Penetration Force conversion is shown as a localized incomplete result while
+the Stun panel contract has no Force stat source; autonomous turret actor
+ownership remains a separate local diagnostic.
+
 Enemy `is_stunned` and `stun_vulnerability_bonus` are independent named inputs.
 The latter is supplied once by the enemy settlement environment; a character
 compiler must not carry a second copy. A veil-like mechanism is represented as

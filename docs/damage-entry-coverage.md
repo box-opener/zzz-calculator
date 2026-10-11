@@ -30,5 +30,6 @@ This is a presentation-coverage record for the supported reviewed characters. It
 | 星徽·比利 Starlight - Billy | 17项reviewed Physical Penetration entries可选择；不展示自身Anomaly/Disorder。 | 四段普通攻击分别保留源曲线；最高马力独立可选。Core当前最大生命值贯穿力和各影画/额外能力仅作用于源明示面板、招式与状态。C6消耗星辉按当前0–2层给最高马力/终结技的整次贯穿倍率各加100%贯穿力倍率/层，同时其+18%贯穿伤害区独立结算，不创建重复子事件。三项招架支援只有失衡值，不建立伤害入口。 |
 | 普罗米娅 Promeia | 17项reviewed Ice Direct招式、披风每秒曲线、重霜飞镖曲线、Ice Anomaly与Disorder可选择。 | Core异放只由当前绝裁末击创建；读取已选择真实普通异常来源，但保持固定type-2倍率，不乘来源tick profile。额外能力使普通Ice/Lieshuang霜寒记录分别从10/20秒延长到13/23秒，紊乱默认剩余时间随当前记录调整。资源消耗和30秒有罪推定刷新不回放。 |
 | 佩洛伊斯 Pyrois | 18项reviewed Ether Direct招式可选择；不展示自身Anomaly/Disorder。 | 左/右Core额外ATK事件保留已知倍率与触发条件，但元素和事件身份未知，因此仅子事件局部partial、父招式继续计算。Special: Battle Order 1551022保留已知独立Ether倍率及EX/Ultimate触发事实，但伤害代理人身份未定义，只有子事件未决。Core资源、Daze、护盾和时间轴不生成伤害入口。 |
+| 诺姆 Norma | 18项reviewed Fire Direct招式可选择；不展示自身Anomaly/Disorder。 | Penetration Force转换因当前Stun面板缺少该stat而仅令诺姆Direct结果局部partial；靶场/炮塔来源记录的独立操作者面板未定义，保留局部actor诊断。C6只结算所选当前单发高爆弹头，不推断自动攻击总次数。 |
 
 The Alice periodic selection is intentionally not reported as a complete damage calculation. The typed base source requires `event:alice:1401:periodic-source`, while the one-selected-move request contains no such settled result. A future request contract may supply that result; until then the entry shows the missing source diagnostic and preserves the known main calculation paths.

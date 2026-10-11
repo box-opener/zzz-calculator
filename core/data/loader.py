@@ -35,6 +35,7 @@ _CHARACTER_FILES = {
     "character:1531": "starlight_billy.json",
     "character:1541": "promeia.json",
     "character:1551": "pyrois.json",
+    "character:1571": "norma.json",
     "character:1361": "trigger.json",
     "character:1091": "miyabi.json",
     "character:1371": "yixuan.json",

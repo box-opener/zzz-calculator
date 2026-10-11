@@ -276,6 +276,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     # Engine 14155's descriptions name Pyrois as its intended wearer; its generic
     # Weapon_S_Common_04 code name is not treated as an identity mapping.
     CharacterId("character:1551"): WENGINE_ECLIPSE_REMAINS_ID,
+    # Nanoka 3.2 weapon 14157 uses Weapon_S_1571, matching Norma's source ID.
+    CharacterId("character:1571"): WENGINE_HEAD_ATTENDANT_ID,
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
     # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).
