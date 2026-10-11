@@ -57,7 +57,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1501` | Aria | 爱芮 | 4 | 3 | 部分实现（live 3.2 raw + S-rank level-60 Anomaly panel + 19 reviewed Ether Direct entries + static Ether Corrosion/Disorder + six Core Discharge ratios from Initial Anomaly Mastery + C1 independent Discharge crit + C2/C6 current-state rules + `Weapon_S_1501` signature mapping; current-state inputs do not replay resources or timing, and no registered ordinary Linren anomaly source is available to select） |
 | `1511` | NangongYu | 南宫羽 | 4 | 2 | 部分实现（live 3.2 raw + S-rank Ether Stun panel + 15 reviewed Direct moves + Ether Anomaly/Disorder + six-family Core Discharge with normal/C6 source selection and C2/Cinema rules + Polar Disorder for current eligible hits + `Weapon_S_1511` signature mapping; current stack/proc and source records are selected inputs, not timeline replay） |
 | `1521` | Cissia | 希希芙 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 Electric Attack panel + 13 reviewed Electric Direct entries + Core Initial ER defense-ignore/Bone curve + Extra and Cinema current-state rules + `Weapon_S_1521` signature mapping; `IconRole60` is not packaged locally, so the catalog uses the portrait placeholder; poison/energy, mark timing, and resource history are not replayed） |
-| `1531` | Starlight - Billy | 星徽·比利 | 4 | 6 | 待实现 |
+| `1531` | Starlight - Billy | 星徽·比利 | 4 | 6 | 部分实现（live 3.2 raw + S-rank Physical Rupture panel + 17 reviewed Physical Penetration entries + Core/Additional Ability/Cinema current-state rules + `Weapon_S_1531` signature mapping; Starshine, proc, resource and Daze history are not replayed） |
 | `1541` | Promeia | 普罗米娅 | 4 | 3 | 待实现 |
 | `1551` | Pyrois | 佩洛伊斯 | 4 | 1 | 待实现 |
 | `1561` | Velina | 维琳娜 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct/cyclone curves + static Weathering + Wind-triggered Turbulence/Discharge; Daze, buildup, resource and timing outputs remain outside the result contract） |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Starlight - Billy 1531 follows Cissia 1521.
+Current item: Promeia 1541 follows Starlight - Billy 1531.
 
 ## Manato (`character:1441`)
 
@@ -340,3 +340,11 @@ The complete Nanoka live 3.2 record is retained at `core/data/characters/cissia.
 Thirteen reviewed Electric Direct entries use their own source curves; the calculator does not expose Cissia's own Anomaly or Disorder. The S-rank skill default is level 12 and Core defaults to level 7. Cinema 3/5 add two effective skill levels, including Ultimate, under the shared level-16 cap. The Core's defense ignore reads immutable Initial Energy Regeneration continuously above 1.4, in 0.12 steps, up to 25%; Cinema 1 scales that complete value by 1.4 (35% cap). Combat-current Energy Regeneration does not alter it. The Core's additional 335% ATK is added to the same 1521019 Bone Erosion curve. Cinema 1's team Electric resistance ignore and Bone Erosion Electric resistance ignore have their separate source scopes.
 
 The Extra Ability is eligible with another Stun or Electric teammate. Its team Crit Damage and Cissia's self bonus require the current poison-or-post-depletion state. The EX extra-hit count and Cinema 4 awareness stacks are explicit 0–3 static inputs; Cinema 6's mark proc is also a current input and creates one Bone Erosion only from an eligible main Direct/Penetration hit. Generated Bone events do not recursively trigger Cinema 6. The calculator does not replay poison consumption, energy costs, the 30-second interval, or action timing; the source-defined damage ratios and scopes have no remaining Cissia-specific ambiguity.
+
+## Starlight - Billy (`character:1531`)
+
+The complete Nanoka live 3.2 source is retained at `core/data/characters/starlight_billy.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1531.json` and source version `3.2`. It identifies Starlight - Billy / 星徽·比利 as an S-rank Physical Rupture agent of 狡兔屋. The explicit signature mapping is `wengine:14153` (`Weapon_S_1531`, 辉骑面铠); the shared editor initializes new W-Engine selections unequipped.
+
+Seventeen reviewed Physical Penetration entries use their individual source curves: four separate sequential Basic stages, High Mileage, Dash, two Dodge Counters, two Special attacks, three EX attacks, Chain, Ultimate, Quick Assist, and Assist Strike. The three parry-assist entries are Daze-only and are not damage entries. S-rank skills default to level 12 and Core to level 7; Cinema 3/5 raise all skill groups including Ultimate under the shared level-16 cap. Core adds 10% of current Max HP as Penetration Force and provides a separately selected current Crit Damage state for Motor Suppression. The Extra Ability's current 0–2 Starshine stacks add 20% per stack to its six named moves and is eligible with another Stun, Defense, or Support agent.
+
+Cinema 1's current Physical resistance ignore, Cinema 2's +50% normal damage for High Mileage/Lone Wheel/Ultimate and Turbo Crit Damage for Lone Wheel, and Cinema 4's current Motor Suppression stack Crit Damage remain separately scoped. Cinema 6 adds 18% Penetration Damage Bonus to High Mileage and Ultimate, and its selected 0–2 consumed Starshine count adds that many whole-move Penetration Force ratios to those two entries. Cinema 3/5 and Cinema 6 effects retain the source's distinct skill and move scopes. Starshine stacks, Turbo, Motor Suppression, resistance-ignore state, and consumed layers are current inputs; the calculation does not replay resources, Daze, combat timing, or state history. No source-defined damage ratio or event identity remains unresolved.

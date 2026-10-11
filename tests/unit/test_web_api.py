@@ -467,6 +467,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1501",
         "character:1511",
         "character:1521",
+        "character:1531",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -798,6 +799,10 @@ def test_wengine_catalog_exposes_source_verified_signature_owners() -> None:
         "wengine:14152": {
             "name": "鳞齿寻踪",
             "owner": "character:1521",
+        },
+        "wengine:14153": {
+            "name": "辉骑面铠",
+            "owner": "character:1531",
         },
     }
     for wengine_id, values in expected.items():

@@ -64,6 +64,15 @@ proc timing from a combat history. The signature mapping is available to the
 W-Engine picker, while the shared editor's unequipped default remains in
 effect.
 
+Starlight - Billy's registry derives Extra Ability eligibility from the actual
+team (another Stun, Defense, or Support agent). His editor defaults are Core 7,
+Cinema 0, and skill level 12; Cinema 3/5 include Ultimate and obey the shared
+level-16 cap. Current Motor Suppression, Turbo, Physical resistance-ignore,
+Starshine, and Cinema 6 consumed-stack values are named state inputs. The UI
+does not infer them from resources, Daze, action history, or timing. The
+signature mapping is available to the W-Engine picker under the shared
+unequipped default.
+
 ## Output ownership
 
 Presentation output is versioned as `presentation-v1`. Three crit-display

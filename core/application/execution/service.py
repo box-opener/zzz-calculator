@@ -2788,13 +2788,13 @@ def _apply_event_multiplier_modifiers(
         # the source AP contribution, which preserves Remielle's explicit
         # (base + AP) * Cinema-4 order.
         return event
-    if not isinstance(event, DirectDamageEvent):
+    if not isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)):
         diagnostics.append(
             _diagnostic(
                 "event-multiplier",
                 "event-kind",
                 DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                "event multiplier modifiers require a direct damage event",
+                "event multiplier modifiers require a direct or penetration damage event",
             )
         )
         return event
