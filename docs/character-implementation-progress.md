@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Remielle 1581 audit, followed by Sigrid 1591. Norma 1571 source-backed character support was added on 2026-10-11; the 1561 source-to-implementation audit found no clearly specified omitted damage rule.
+Current item: Sigrid 1591. The Remielle 1581 source-to-implementation audit completed on 2026-10-11 and found no additional explicitly specified damage rule omitted from the implementation. Norma 1571 source-backed character support was also added on 2026-10-11; the 1561 audit found no clearly specified omitted damage rule.
 
 ## Manato (`character:1441`)
 
