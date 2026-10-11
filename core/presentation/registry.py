@@ -191,6 +191,15 @@ from core.application.characters.manato import (
     compile_manato,
     load_raw_record as load_manato_raw_record,
 )
+from core.application.characters.seed import (
+    SEED_ID,
+    SEED_REVIEWED_MAPPING,
+    SeedCompileConfig,
+    compile_seed,
+)
+from core.application.characters.seed.compiler import (
+    load_raw_record as load_seed_raw_record,
+)
 from core.application.characters.piper import (
     PIPER_ID,
     PiperCompileConfig,
@@ -1218,6 +1227,31 @@ def _manato_fields(
     )
 
 
+def _seed_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "席德核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "正兵按队伍中其他强攻代理人的初始攻击力自动判定；多候选需要可比的初始面板。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "席德影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级增加仍受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
 def _piper_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -2138,6 +2172,106 @@ def _compile_manato(
             ),
         ),
         load_manato_raw_record(load_character_record(str(MANATO_ID))),
+    )
+
+
+def _seed_attack_teammates(
+    team_ids: Sequence[CharacterId],
+) -> tuple[CharacterId, ...]:
+    return tuple(
+        dict.fromkeys(
+            character_id
+            for character_id in team_ids
+            if character_id != SEED_ID
+            and (registration := _REGISTRATIONS.get(character_id)) is not None
+            and registration.role is CharacterRole.ATTACK
+        )
+    )
+
+
+def seed_attack_teammates(
+    team_character_ids: Sequence[str | CharacterId],
+) -> tuple[CharacterId, ...]:
+    """Return Seed's other Attack teammates in stable team order."""
+
+    return _seed_attack_teammates(
+        tuple(CharacterId(str(item)) for item in team_character_ids)
+    )
+
+
+def _compile_seed_definition(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool,
+    *,
+    resolved_partner_id: CharacterId | None = None,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    candidates = _seed_attack_teammates(team_ids)
+    if resolved_partner_id is not None:
+        resolved_partner_id = CharacterId(str(resolved_partner_id))
+        if resolved_partner_id not in candidates:
+            raise ValueError(
+                "resolved Seed Core partner must be another Attack teammate"
+            )
+        partner_id = resolved_partner_id
+        unresolved = False
+    elif len(candidates) == 1:
+        partner_id = candidates[0]
+        unresolved = False
+    else:
+        partner_id = None
+        unresolved = len(candidates) > 1
+    return compile_seed(
+        SeedCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=bool(candidates),
+            partner_character_id=partner_id,
+            partner_selection_unresolved=unresolved,
+            partner_candidate_ids=candidates if unresolved else (),
+        ),
+        load_seed_raw_record(load_character_record(str(SEED_ID))),
+    )
+
+
+def _compile_seed(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    return _compile_seed_definition(values, team_ids, strict)
+
+
+def _compile_seed_with_resolved_partner(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    resolved_partner_id: CharacterId,
+) -> CharacterCalculationDefinition:
+    """Recompile Seed after Initial panels uniquely resolve its Core partner."""
+
+    return _compile_seed_definition(
+        values,
+        team_ids,
+        False,
+        resolved_partner_id=resolved_partner_id,
+    )
+
+
+def compile_seed_with_resolved_partner(
+    values: Mapping[str, Any],
+    team_character_ids: Sequence[str | CharacterId],
+    resolved_partner_id: str | CharacterId,
+) -> CharacterCalculationDefinition:
+    """Compile Seed after a unique highest Initial ATK partner is known."""
+
+    return _compile_seed_with_resolved_partner(
+        values,
+        tuple(CharacterId(str(item)) for item in team_character_ids),
+        CharacterId(str(resolved_partner_id)),
     )
 
 
@@ -5269,6 +5403,38 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 for tag in move.damage_tags
             ),
             mechanisms=frozenset({"manato-ember-heart"}),
+        ),
+    ),
+    SEED_ID: CharacterPresentationRegistration(
+        character_id=SEED_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(SEED_ID),
+            display_name="「席德」",
+            rarity="S",
+            element="electric",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_seed,
+        config_fields=_seed_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SEED_ID,
+            role=CharacterRole.ATTACK,
+            native_element=Element.ELECTRIC,
+            possible_elements=frozenset(
+                move.element for move in SEED_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in SEED_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in SEED_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
         ),
     ),
     CharacterId("character:1361"): CharacterPresentationRegistration(

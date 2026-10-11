@@ -23,6 +23,7 @@ from core.application import (
 )
 from core.application.characters.dialyn import DIALYN_ID
 from core.application.characters.remielle import REMIELLE_ID
+from core.application.characters.seed import SEED_ID
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.templates import (
     AttributeAnomalyDamageEventTemplate,
@@ -123,7 +124,9 @@ from core.presentation.registry import (
     VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
     VIVIAN_PROPHECY_TICK_SELECTION_ENTRY_ID,
     equipment_capabilities_for_definition,
+    compile_seed_with_resolved_partner,
     registration_for,
+    seed_attack_teammates,
     compile_registered_definition,
     effective_character_damage_element,
     element_enables_frostbite_crit_damage,
@@ -251,6 +254,13 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("current_operator must be a team member")
 
     build_records = _build_records(view_request.character_builds, definitions)
+    definitions = _resolve_seed_core_partner(
+        definitions,
+        team_ids,
+        build_records,
+        payload.get("compile_configs", {}),
+    )
+    primary = definitions[0]
     additional_rule_items = tuple(
         rule for record in build_records for rule in record.rule_items
     )
@@ -1089,6 +1099,59 @@ def _normal_source_element_options(definitions):
             sorted(elements, key=lambda item: item.value)
         )
     return result
+
+
+def _resolve_seed_core_partner(
+    definitions: tuple[CharacterCalculationDefinition, ...],
+    team_ids: tuple[CharacterId, ...],
+    build_records: tuple[_BuiltCharacterRecord, ...],
+    raw_compile_configs: Any,
+) -> tuple[CharacterCalculationDefinition, ...]:
+    """Resolve Seed's Core recipient from the other Attack agents' Initial ATK.
+
+    This deliberately runs after panel assembly and reads only Initial snapshots.
+    If panels are missing or the maximum is tied, the first-pass placeholder
+    definition remains in place with its local diagnostic and stable rule IDs.
+    """
+
+    seed_index = next(
+        (index for index, item in enumerate(definitions) if item.character_id == SEED_ID),
+        None,
+    )
+    if seed_index is None:
+        return definitions
+    candidates = seed_attack_teammates(team_ids)
+    if len(candidates) <= 1:
+        return definitions
+
+    initial_by_id = {
+        record.initial_snapshot.character_id: record.initial_snapshot
+        for record in build_records
+    }
+    attack_values = []
+    for character_id in candidates:
+        snapshot = initial_by_id.get(character_id)
+        attack = None if snapshot is None else snapshot.initial_stats.attack
+        if not isinstance(attack, Resolved):
+            return definitions
+        attack_values.append((character_id, float(attack.value)))
+
+    maximum = max(value for _, value in attack_values)
+    winners = tuple(character_id for character_id, value in attack_values if value == maximum)
+    if len(winners) != 1:
+        return definitions
+
+    configs = raw_compile_configs if isinstance(raw_compile_configs, Mapping) else {}
+    raw_seed_values = configs.get(str(SEED_ID), {})
+    seed_values = raw_seed_values if isinstance(raw_seed_values, Mapping) else {}
+    resolved = compile_seed_with_resolved_partner(
+        seed_values,
+        team_ids,
+        winners[0],
+    )
+    updated = list(definitions)
+    updated[seed_index] = resolved
+    return tuple(updated)
 
 
 def _reviewed_anomaly_source_element_options(definitions):

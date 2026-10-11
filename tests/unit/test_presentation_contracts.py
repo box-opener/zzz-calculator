@@ -141,6 +141,7 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1411",
         "character:1421",
         "character:1441",
+        "character:1461",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -235,6 +236,10 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
     assert load_character_record("character:1441")["code_name"] == "Manato"
     assert load_character_record("character:1441")["source_version"] == "3.2"
     assert load_character_record("character:1441")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1441.json"
+    assert load_character_record("character:1461")["name"] == "「席德」"
+    assert load_character_record("character:1461")["code_name"] == "Seed"
+    assert load_character_record("character:1461")["source_version"] == "3.2"
+    assert load_character_record("character:1461")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1461.json"
     assert load_character_record("character:1361")["name"] == "「扳机」"
     assert load_character_record("character:1091")["name"] == "雅"
     assert load_character_record("character:1091")["source_version"] == "3.2"
