@@ -191,6 +191,13 @@ from core.application.characters.manato import (
     compile_manato,
     load_raw_record as load_manato_raw_record,
 )
+from core.application.characters.banyue import (
+    BANYUE_ID,
+    BANYUE_REVIEWED_MAPPING,
+    BanYueCompileConfig,
+    compile_banyue,
+    load_raw_record as load_banyue_raw_record,
+)
 from core.application.characters.seed import (
     SEED_ID,
     SEED_REVIEWED_MAPPING,
@@ -1227,6 +1234,31 @@ def _manato_fields(
     )
 
 
+def _banyue_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "般岳核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "般岳影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级增加受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
 def _seed_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -2172,6 +2204,37 @@ def _compile_manato(
             ),
         ),
         load_manato_raw_record(load_character_record(str(MANATO_ID))),
+    )
+
+
+def _banyue_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != BANYUE_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.SUPPORT, CharacterRole.STUN}
+        for character_id in team_ids
+    )
+
+
+def _compile_banyue(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = BanYueCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_banyue_additional_ability_eligibility(team_ids),
+    )
+    return compile_banyue(
+        config,
+        load_banyue_raw_record(load_character_record(str(BANYUE_ID))),
     )
 
 
@@ -5403,6 +5466,46 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 for tag in move.damage_tags
             ),
             mechanisms=frozenset({"manato-ember-heart"}),
+        ),
+    ),
+    BANYUE_ID: CharacterPresentationRegistration(
+        character_id=BANYUE_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(BANYUE_ID),
+            display_name="般岳",
+            rarity="S",
+            element="fire",
+            specialty="rupture",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.RUPTURE,
+        base_element=Element.FIRE,
+        compile_definition=_compile_banyue,
+        config_fields=_banyue_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=BANYUE_ID,
+            role=CharacterRole.RUPTURE,
+            possible_elements=frozenset(
+                move.element for move in BANYUE_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in BANYUE_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in BANYUE_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            mechanisms=frozenset({"rupture-vajra"}),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in BANYUE_REVIEWED_MAPPING.moves
+            ),
         ),
     ),
     SEED_ID: CharacterPresentationRegistration(

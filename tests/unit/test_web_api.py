@@ -462,6 +462,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1421",
         "character:1441",
         "character:1461",
+        "character:1471",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -695,6 +696,16 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     seed_raw = load_character_record("character:1461")
     assert seed_raw["source_version"] == "3.2"
     assert seed_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1461.json"
+    banyue = next(item for item in payload if item["character_id"] == "character:1471")
+    assert banyue["display_name"] == "般岳"
+    assert banyue["code_name"] == "BanYue"
+    assert banyue["rarity"] == "S"
+    assert banyue["specialty"] == "rupture"
+    assert banyue["element"] == "fire"
+    assert banyue["image_path"] == "/characters/portrait-placeholder.svg"
+    banyue_raw = load_character_record("character:1471")
+    assert banyue_raw["source_version"] == "3.2"
+    assert banyue_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1471.json"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
     assert (asset_root / "IconRole46.webp").is_file()
@@ -750,6 +761,10 @@ def test_wengine_catalog_exposes_source_verified_signature_owners() -> None:
         "wengine:14146": {
             "name": "机巧心种",
             "owner": "character:1461",
+        },
+        "wengine:14147": {
+            "name": "怒目金刚",
+            "owner": "character:1471",
         },
     }
     for wengine_id, values in expected.items():

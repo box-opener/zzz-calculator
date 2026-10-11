@@ -258,6 +258,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1421"): WEngineId("wengine:13142"),
     # Local Nanoka 3.2 record 14146 is Weapon_S_1461, Seed's reviewed signature.
     CharacterId("character:1461"): WENGINE_MACHINERY_SEED_ID,
+    # Local Nanoka 3.2 record 14147 is Weapon_S_1471, BanYue's reviewed signature.
+    CharacterId("character:1471"): WENGINE_VAJRA_ID,
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
     # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).
