@@ -45,6 +45,15 @@ for a selected Ether/Xuanmo Disorder duration parameter, the browser omits an
 untouched default so the server can resolve it against the currently enabled
 duration rules.
 
+Source-record selectors are shown only for the compiled current entry and
+eligible team effects that consume a real anomaly record. For Nangong Yu's Core
+Discharge and Polar Disorder, the browser sends the selected teammate and
+element variant as named selector input; the server verifies that the teammate
+is present and has the required compiled source template. These selectors do
+not imply a new anomaly, trigger effects on an ordinary anomaly query, or
+replay combat history. Yanagi's source selector remains scoped to her own Polar
+Disorder rules.
+
 ## Output ownership
 
 Presentation output is versioned as `presentation-v1`. Three crit-display

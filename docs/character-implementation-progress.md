@@ -55,7 +55,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1481` | Dialyn | 琉音 | 4 | 2 | 已实现（已有registry/compiler） |
 | `1491` | Sunna | 千夏 | 4 | 4 | 部分实现（live 3.2 raw + S-rank level-60 Support panel + 14 reviewed Physical Direct entries + Initial ATK Bad Cat + Core/Cinema current-state rules + Cat's Gaze Direct children attributed to actual Attack/Anomaly triggerers + `Weapon_S_1491` signature mapping; timing, resources, and Daze remain outside the static result contract） |
 | `1501` | Aria | 爱芮 | 4 | 3 | 部分实现（live 3.2 raw + S-rank level-60 Anomaly panel + 19 reviewed Ether Direct entries + static Ether Corrosion/Disorder + six Core Discharge ratios from Initial Anomaly Mastery + C1 independent Discharge crit + C2/C6 current-state rules + `Weapon_S_1501` signature mapping; current-state inputs do not replay resources or timing, and no registered ordinary Linren anomaly source is available to select） |
-| `1511` | NangongYu | 南宫羽 | 4 | 2 | 待实现 |
+| `1511` | NangongYu | 南宫羽 | 4 | 2 | 部分实现（live 3.2 raw + S-rank Ether Stun panel + 15 reviewed Direct moves + Ether Anomaly/Disorder + six-family Core Discharge with normal/C6 source selection and C2/Cinema rules + Polar Disorder for current eligible hits + `Weapon_S_1511` signature mapping; current stack/proc and source records are selected inputs, not timeline replay） |
 | `1521` | Cissia | 希希芙 | 4 | 1 | 待实现 |
 | `1531` | Starlight - Billy | 星徽·比利 | 4 | 6 | 待实现 |
 | `1541` | Promeia | 普罗米娅 | 4 | 3 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Nangong Yu 1511 follows Aria 1501 after this branch is reviewed and pushed.
+Current item: Cissia 1521 follows Nangong Yu 1511 after this branch is reviewed and pushed.
 
 ## Manato (`character:1441`)
 
@@ -322,3 +322,13 @@ The complete Nanoka live 3.2 record is retained at `core/data/characters/aria.js
 Nineteen reviewed Ether Direct entries, Ether Corrosion, and Ether Disorder use the source curves. S-rank skills default to level 12 and Core to level 7. The Core's +90 is Anomaly Proficiency; its six Discharge ratios and Cinema 1's Discharge crit override read immutable Initial Anomaly Mastery. Cinema 3/5 include Ultimate and respect the shared level-16 cap. Cinema 2 and 6 apply only to their source-named events/states. A Core Discharge is created only for the selected third charged Basic hit and selected ordinary anomaly source; its ratio follows the source element's base family while retaining the actual variant identity. The API requires an active teammate with a compiled ordinary-anomaly source template; it does not invent a Linren record from equipment-element capability alone.
 
 The Extra Ability adds three seconds to eligible Ether/Xuanmo current anomaly records. Full corrosion and Disorder calculations follow the resulting record duration (10 or 13 seconds); selected remaining-time values beyond that record are locally blocked. The request does not replay resource costs, tick timing, or action history.
+
+## Nangong Yu (`character:1511`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/nangongyu.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1511.json` and source version `3.2`. It identifies Nangong Yu / 南宫羽 as an S-rank Ether Stun agent of 妄想天使. The explicit signature mapping is `wengine:14151` (`Weapon_S_1511`, 绚烂星光); the shared editor continues to initialize new W-Engine selections unequipped.
+
+Fifteen reviewed Ether Direct moves, Ether Anomaly, Ether Disorder, and the Core Discharge use the source curves. S-rank skills default to level 12 and Core to level 7. The Core and Cinema 6 each expose the six source Discharge ratios. Discharge is generated only for the selected Core entry when its current proc inputs are valid and a real teammate's compiled ordinary anomaly record is selected. The selected record's actual variant identity and current anomaly strength are retained. The Core's +120 is Anomaly Proficiency; Cinema 4's +40 is also Proficiency, while the `Initial Anomaly Mastery > 110` condition grants Impact. These effects do not change Initial Anomaly Mastery. Cinema 3/5 include Ultimate and respect the shared level-16 cap.
+
+The ordinary Voice Discharge uses the source's six base ratios with the current pre-clear Voice stack count, then scales by `1 + 0.25 × stacks`; Cinema 2 adds `0.10 × stacks` to that normal-mode factor. Cinema 6's changed mode has its own six source ratios and scales by `1 + 0.25 × stacks`, without Cinema 2's normal-mode addition. The modes are mutually exclusive. The ordinary mode can clear on a four-stack Stun clear or on recovery from Stun with one to four stacks; the changed mode requires the current target to be stunned. A ready/proc selection is a current event fact, and the calculator does not replay stack acquisition, clear timing, or the preceding actions. When an explicit rule-selection list disables the selected mode's Core/Cinema rule, a ready selection is blocked locally even if that mode's optional disabled-guard rule was omitted. Invalid or unavailable mode/proc combinations remain local diagnostics rather than silently using another ratio.
+
+The Extra Ability's current polar-disorder effect is scoped to its reviewed Direct-hit trigger; it does not derive Polar Disorder merely from an ordinary anomaly record query. Cinema 2's Chain effect uses a separate current Chain proc condition and has no Dance-stack requirement. Aria's cooperation effect is scoped to its named current attack. The selected Polar source is an actual eligible teammate record; source variant, holder identity, and current anomaly strength are preserved. Anomaly Proficiency is not read for the 25% Polar record when its coefficient is zero. The calculator does not simulate Daze, Energy, resource consumption, duration, or combat timing.

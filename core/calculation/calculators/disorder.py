@@ -430,7 +430,7 @@ def _polar_time_compensation(element, duration, unresolved: list[Unresolved]) ->
 
 
 class PolarDisorderDamageCalculator:
-    """Calculate Yanagi's confirmed additive Polar Disorder base."""
+    """Calculate the selected record base and any source-defined Polar addition."""
 
     def calculate(self, context: CalculationContext) -> CalculationResult:
         event = context.event
@@ -522,9 +522,13 @@ class PolarDisorderDamageCalculator:
             record.duration,
             unresolved,
         )
-        anomaly_proficiency = _resolved_number(
-            damage_dealer.settlement_stats.anomaly_proficiency,
-            unresolved,
+        anomaly_proficiency = (
+            _resolved_number(
+                damage_dealer.settlement_stats.anomaly_proficiency,
+                unresolved,
+            )
+            if event.anomaly_proficiency_coefficient != 0
+            else None
         )
         modifiers = _modifier_totals(context, unresolved)
         if isinstance(event.polarity_multiplier, bool) or not math.isfinite(
@@ -575,13 +579,15 @@ class PolarDisorderDamageCalculator:
             if anomaly_proficiency is not None
             else None
         )
-        if ap_addition is None:
+        if ap_addition is None and event.anomaly_proficiency_coefficient != 0:
             unresolved.append(
                 Unresolved(
                     reason=UnresolvedReason.MISSING_DATA,
-                    notes="Yanagi's current Anomaly Proficiency is unavailable.",
+                    notes="The Polar Disorder dealer's current Anomaly Proficiency is unavailable.",
                 )
             )
+        elif ap_addition is None:
+            ap_addition = 0.0
 
         known_base = (inherited_base or 0.0) + (ap_addition or 0.0)
         if inherited_base is None and ap_addition is None:
@@ -662,11 +668,24 @@ class PolarDisorderDamageCalculator:
                 CalculationNode.POLAR_DISORDER_AP_COEFFICIENT,
                 event.anomaly_proficiency_coefficient,
             ),
-            _node(CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY, anomaly_proficiency)
-            if anomaly_proficiency is not None
-            else _node_unresolved(
-                CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
-                damage_dealer.settlement_stats.anomaly_proficiency,
+            *(
+                (
+                    _node(
+                        CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
+                        anomaly_proficiency,
+                    ),
+                )
+                if anomaly_proficiency is not None
+                else (
+                    (
+                        _node_unresolved(
+                            CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
+                            damage_dealer.settlement_stats.anomaly_proficiency,
+                        ),
+                    )
+                    if event.anomaly_proficiency_coefficient != 0
+                    else ()
+                )
             ),
             _node(CalculationNode.DAMAGE_BASE_VALUE, known_base),
         )

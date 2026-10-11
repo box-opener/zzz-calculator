@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from core.application.characters.definition import CharacterCalculationDefinition
@@ -77,7 +79,7 @@ _SOURCE_TICKS = {
 }
 
 
-def _dynamic_template() -> DischargeDamageEventTemplate:
+def _dynamic_template(*, uses_tick_profile: bool = True) -> DischargeDamageEventTemplate:
     ref = DamageEventTemplateRef(
         template_id=EventTemplateId("template:test:dynamic-discharge"),
         semantic_id=DamageEventSemanticId("event:test:dynamic-discharge"),
@@ -94,6 +96,7 @@ def _dynamic_template() -> DischargeDamageEventTemplate:
         history_record_source=None,
         crit_rule=NoCritRule(),
         move_id=None,
+        source_multiplier_uses_tick_profile=uses_tick_profile,
         source_multiplier_by_element=tuple(_BASE_RATIOS.items()),
     )
 
@@ -282,6 +285,67 @@ def test_dynamic_discharge_uses_base_curve_and_preserves_all_nine_source_element
     assert event.multiplier.value.value == pytest.approx(
         2.0 * _BASE_RATIOS[base_element] * _SOURCE_TICKS[element]
     )
+
+
+@pytest.mark.parametrize(
+    ("element", "uses_tick_profile", "expected"),
+    (
+        (Element.ETHER, True, 2.0 * 0.55 * 0.625),
+        (Element.ETHER, False, 2.0 * 0.55),
+        (Element.PHYSICAL, False, 2.0 * 0.11),
+    ),
+)
+def test_dynamic_discharge_tick_profile_is_independent_of_source_multiplier_inheritance(
+    element: Element,
+    uses_tick_profile: bool,
+    expected: float,
+) -> None:
+    template = _dynamic_template(uses_tick_profile=uses_tick_profile)
+    event = instantiate_damage_event(
+        template,
+        FixedMultiplier(Resolved(2.0)),
+        battle_state_id=BattleStateId("battle:dynamic-discharge-profile-flag"),
+        target_enemy=_ENEMY,
+        created_at=0.0,
+        discharge_anomaly_source_choice=AnomalySourceChoice(_SOURCE, element),
+    ).event
+
+    assert isinstance(event, DischargeDamageEvent)
+    assert isinstance(event.multiplier, FixedMultiplier)
+    assert isinstance(event.multiplier.value, Resolved)
+    assert event.multiplier.value.value == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("element", "uses_tick_profile", "expected"),
+    (
+        (Element.ETHER, True, 6.35 * 0.625),
+        (Element.ETHER, False, 6.35),
+        (Element.PHYSICAL, False, 6.35),
+    ),
+)
+def test_dynamic_discharge_can_use_a_fixed_rate_without_applying_anomaly_tick_profile(
+    element: Element,
+    uses_tick_profile: bool,
+    expected: float,
+) -> None:
+    template = replace(
+        _dynamic_template(uses_tick_profile=uses_tick_profile),
+        source_multiplier_by_element=((element, 6.35),),
+    )
+    event = instantiate_damage_event(
+        template,
+        FixedMultiplier(Resolved(1.0)),
+        battle_state_id=BattleStateId("battle:dynamic-discharge-fixed-rate"),
+        target_enemy=_ENEMY,
+        created_at=0.0,
+        discharge_anomaly_source_choice=AnomalySourceChoice(_SOURCE, element),
+    ).event
+
+    assert isinstance(event, DischargeDamageEvent)
+    assert isinstance(event.multiplier, FixedMultiplier)
+    assert isinstance(event.multiplier.value, Resolved)
+    assert event.multiplier.value.value == pytest.approx(expected)
 
 
 def test_source_choice_requires_team_and_compiled_anomaly_template() -> None:

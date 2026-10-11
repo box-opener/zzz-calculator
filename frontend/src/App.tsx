@@ -459,10 +459,6 @@ function App() {
     remielleSourceSlotOverrides ?? defaultRemielleSourceSlots
   ).slice(0, 3).map((value) => validRemielleSourceOptions.has(value) ? value : "");
   const yanagiAnomalySources = yanagiAnomalySourceOptions(teamIds, editorViews);
-  const effectiveYanagiAnomalySource = selectedYanagiAnomalySource(
-    yanagiAnomalySources,
-    yanagiPolarSourceKey,
-  );
   const yanagiPolarMoveEntries = new Set([
     "move-entry:character:1221:ex-special-moonlit-flow-thrust",
     "move-entry:character:1221:ex-special-moonlit-flow-downfall",
@@ -471,6 +467,47 @@ function App() {
   const showYanagiPolarSource = currentOperatorId === "character:1221"
     && yanagiPolarMoveEntries.has(moveEntryId)
     && yanagiAnomalySources.length > 0;
+  const nangongSelfPolarMoveEntries = new Set([
+    "move-entry:character:1511:basic-charge-strike-1",
+    "move-entry:character:1511:basic-charge-strike-2",
+    "move-entry:character:1511:basic-charge-strike-3",
+    "move-entry:character:1511:basic-charge-strike-3-cooperative",
+    "move-entry:character:1511:ex-special",
+    "move-entry:character:1511:quick-assist",
+  ]);
+  const ariaPolarMoveEntries = new Set([
+    "move-entry:character:1501:basic-absolute-pitch-charge-3",
+    "move-entry:character:1501:basic-absolute-pitch-charge-3-cooperative",
+    "move-entry:character:1501:basic-absolute-pitch-enhanced",
+  ]);
+  const selectedPolarMove = editorViews[currentOperatorId]?.moves.find(
+    (move) => move.entry_id === moveEntryId,
+  );
+  const nangongIsInTeam = teamIds.includes("character:1511");
+  const nangongDanceStacks = parameterValues["parameter:character:1511:dance-all-night-stacks"] ?? 2;
+  const nangongCinema = Number(configs["character:1511"]?.cinema_level ?? 0);
+  const nangongExtraPolarMayTrigger = nangongDanceStacks > 0 && (
+    currentOperatorId === "character:1511"
+      && nangongSelfPolarMoveEntries.has(moveEntryId)
+    || currentOperatorId === "character:1501"
+      && ariaPolarMoveEntries.has(moveEntryId)
+      && conditionValuesRef.current["condition:character:1511:aria-full-participation"] === true
+  );
+  const nangongChainPolarMayTrigger = selectedPolarMove?.damage_type === "direct"
+    && selectedPolarMove.damage_tags.includes("chain-attack")
+    && nangongCinema >= 2
+    && conditionValuesRef.current["condition:character:1511:cinema2-chain-polarity-available"] === true;
+  const nangongPolarMayTrigger = nangongIsInTeam
+    && (nangongExtraPolarMayTrigger || nangongChainPolarMayTrigger);
+  const showNangongPolarSource = nangongPolarMayTrigger
+    && conditionValuesRef.current["condition:character:1511:target-has-active-anomaly"] === true
+    && yanagiAnomalySources.length > 0;
+  const showPolarSource = showYanagiPolarSource || showNangongPolarSource;
+  const effectivePolarAnomalySource = selectedYanagiAnomalySource(
+    yanagiAnomalySources,
+    yanagiPolarSourceKey,
+    showNangongPolarSource ? "character:1511" : "character:1221",
+  );
   const burniceAnomalySources = burniceAnomalySourceOptions(teamIds, editorViews);
   const effectiveBurniceAnomalySource = selectedBurniceAnomalySource(
     burniceAnomalySources,
@@ -491,10 +528,13 @@ function App() {
       || moveEntryId === "move-entry:character:1181:potential1-cycle-single-throw")
     && graceAnomalySources.length > 0;
   const dischargeAnomalySources = burniceAnomalySourceOptions(teamIds, editorViews);
+  const dischargeSourceDefaultCharacterId = currentOperatorId === "character:1511"
+    ? "character:1511"
+    : "character:1501";
   const effectiveDischargeAnomalySource = selectedBurniceAnomalySource(
     dischargeAnomalySources,
     dischargeAnomalySourceKey,
-    "character:1501",
+    dischargeSourceDefaultCharacterId,
   );
   const ariaThirdChargeEntries = new Set([
     "move-entry:character:1501:basic-absolute-pitch-charge-3",
@@ -503,6 +543,15 @@ function App() {
   const showAriaDischargeSource = currentOperatorId === "character:1501"
     && ariaThirdChargeEntries.has(moveEntryId)
     && conditionValuesRef.current["condition:aria:third-charge-anomaly-hit"] === true
+    && dischargeAnomalySources.length > 0;
+  const nangongChangedVoiceSelected = conditionValuesRef.current[
+    "condition:character:1511:voice-changed-mode"
+  ] === true;
+  const showNangongDischargeSource = currentOperatorId === "character:1511"
+    && moveEntryId === "move-entry:character:1511:core:voice-discharge"
+    && conditionValuesRef.current["condition:character:1511:voice-discharge-ready"] === true
+    && conditionValuesRef.current["condition:character:1511:target-has-active-anomaly"] === true
+    && (!nangongChangedVoiceSelected || Number(configs[currentOperatorId]?.cinema_level ?? 0) >= 6 && enemyIsStunned)
     && dischargeAnomalySources.length > 0;
   useEffect(() => {
     if (
@@ -1247,10 +1296,10 @@ function App() {
           ...(currentOperatorId === remielleId
             ? { luminance_source_slots: luminanceSourceSlots }
             : {}),
-          ...(showYanagiPolarSource && effectiveYanagiAnomalySource ? {
+          ...(showPolarSource && effectivePolarAnomalySource ? {
             polarity_anomaly_source: {
-              source_character_id: effectiveYanagiAnomalySource.characterId,
-              element: effectiveYanagiAnomalySource.element,
+              source_character_id: effectivePolarAnomalySource.characterId,
+              element: effectivePolarAnomalySource.element,
             },
           } : {}),
           ...(showBurniceDischargeSource && effectiveBurniceAnomalySource ? {
@@ -1265,7 +1314,7 @@ function App() {
               element: effectiveGraceAnomalySource.element,
             },
           } : {}),
-          ...(showAriaDischargeSource && effectiveDischargeAnomalySource ? {
+          ...((showAriaDischargeSource || showNangongDischargeSource) && effectiveDischargeAnomalySource ? {
             discharge_anomaly_source: {
               source_character_id: effectiveDischargeAnomalySource.characterId,
               element: effectiveDischargeAnomalySource.element,
@@ -1564,9 +1613,9 @@ function App() {
               </select>
             </label>)}
           </div>}
-          {showYanagiPolarSource && <div className="control-list yanagi-polar-source">
-            <div className="section-heading compact"><div><p className="eyebrow">POLAR DISORDER SOURCE</p><h2>本次极性紊乱来源</h2><p className="control-section-hint">选择一条当前属性异常记录；默认使用柳的感电记录。</p></div></div>
-            <label className="select-field"><span>异常来源</span><select value={effectiveYanagiAnomalySource?.key ?? ""} onChange={(event) => setYanagiPolarSourceKey(event.target.value || null)}>
+          {showPolarSource && <div className="control-list yanagi-polar-source">
+            <div className="section-heading compact"><div><p className="eyebrow">POLAR DISORDER SOURCE</p><h2>本次极性紊乱来源</h2><p className="control-section-hint">选择队伍中一条当前普通异常记录；普通异常事件本身不会自动触发极性紊乱。</p></div></div>
+            <label className="select-field"><span>异常来源</span><select value={effectivePolarAnomalySource?.key ?? ""} onChange={(event) => setYanagiPolarSourceKey(event.target.value || null)}>
               {yanagiAnomalySources.map((option) => <option key={option.key} value={option.key}>
                 {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
               </option>)}
@@ -1588,8 +1637,8 @@ function App() {
               </option>)}
             </select></label>
           </div>}
-          {showAriaDischargeSource && <div className="control-list yanagi-polar-source">
-            <div className="section-heading compact"><div><p className="eyebrow">ARIA DISCHARGE SOURCE</p><h2>异放原异常来源</h2><p className="control-section-hint">选择当前队伍已有的普通异常记录；默认使用爱芮自身以太异常。来源按当前面板结算，不切换操作角色。</p></div></div>
+          {(showAriaDischargeSource || showNangongDischargeSource) && <div className="control-list yanagi-polar-source">
+            <div className="section-heading compact"><div><p className="eyebrow">DISCHARGE SOURCE</p><h2>异放原异常来源</h2><p className="control-section-hint">选择当前队伍已有的普通异常记录；南宫羽默认使用自身以太异常，爱芮默认使用自身以太异常。来源按当前面板结算，不切换操作角色。</p></div></div>
             <label className="select-field"><span>原异常来源</span><select value={effectiveDischargeAnomalySource?.key ?? ""} onChange={(event) => setDischargeAnomalySourceKey(event.target.value || null)}>
               {dischargeAnomalySources.map((option) => <option key={option.key} value={option.key}>
                 {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}

@@ -265,6 +265,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1491"): WENGINE_SONG_OF_NOISE_ID,
     # The local 14150 raw record is `Weapon_S_1501`, matching Aria's source ID.
     CharacterId("character:1501"): WENGINE_SOUL_IN_SHELL_ID,
+    # Nanoka 3.2 engine 14151 explicitly identifies Nangong Yu's Weapon_S_1511.
+    CharacterId("character:1511"): WENGINE_NEON_FANTASY_ID,
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
     # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).

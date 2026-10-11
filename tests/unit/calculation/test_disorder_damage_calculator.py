@@ -637,6 +637,83 @@ def test_polar_disorder_uses_record_base_then_adds_current_ap_once() -> None:
     assert breakdown[CalculationNode.DAMAGE_BASE_VALUE] == pytest.approx(1600 * 19.5 * 0.15 + 32 * 200)
 
 
+def test_polar_disorder_with_zero_ap_coefficient_does_not_require_current_ap() -> None:
+    source_id = CharacterId("character:source")
+    source = _record(
+        record_id="anomaly:polar-zero-ap-source",
+        element=Element.ETHER,
+        anomaly_triggerer=source_id,
+        contributors=(source_id,),
+        effect_strength=1600.0,
+    )
+    nangong = CharacterId("character:1511")
+    event = PolarDisorderDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId("damage:polar-zero-ap"),
+            battle_state_id=BattleStateId("battle:1"),
+            damage_dealer=nangong,
+            target_enemy=source.target_enemy,
+            element=Element.ETHER,
+            created_at=2.0,
+        ),
+        disorder_triggerer=nangong,
+        source_anomaly_character_id=source_id,
+        base_settlement_data_source=AnomalyRecordValueSource(source.record_id),
+        history_record_source=source.record_id,
+        polarity_multiplier=0.25,
+        anomaly_proficiency_coefficient=0.0,
+        crit_rule=NoCritRule(),
+    )
+    snapshot = CharacterSnapshot(
+        character_id=nangong,
+        level=60,
+        settlement_stats=replace(
+            _stats(),
+            anomaly_proficiency=Unresolved(
+                reason=UnresolvedReason.MISSING_DATA,
+                notes="This test intentionally has no current AP panel.",
+            ),
+        ),
+    )
+    context = _context(
+        event,  # type: ignore[arg-type]
+        snapshots=(snapshot,),
+        records=(source,),
+        target=_target(element=Element.ETHER, resistance=0.0),
+    )
+
+    result = PolarDisorderDamageCalculator().calculate(context)
+
+    assert result.unresolved == ()
+    assert result.value == pytest.approx(3400.0)
+    assert _breakdown(result)[CalculationNode.DAMAGE_BASE_VALUE] == pytest.approx(
+        1600.0 * 17.0 * 0.25
+    )
+    assert CalculationRouter().calculate(event, context).status is EventCalculationStatus.CALCULATED
+
+    ap_dependent_event = replace(event, anomaly_proficiency_coefficient=32.0)
+    ap_dependent_context = replace(context, event=ap_dependent_event)
+    ap_dependent_result = PolarDisorderDamageCalculator().calculate(
+        ap_dependent_context
+    )
+    assert any(
+        "current Anomaly Proficiency is unavailable" in item.notes
+        for item in ap_dependent_result.unresolved
+    )
+    unresolved_ap = next(
+        item
+        for item in ap_dependent_result.breakdown
+        if item.node is CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY
+    )
+    assert isinstance(unresolved_ap.value, Unresolved)
+    ap_dependent_routed = CalculationRouter().calculate(
+        ap_dependent_event, ap_dependent_context
+    )
+    assert ap_dependent_routed.status is EventCalculationStatus.CALCULATED
+    assert ap_dependent_routed.diagnostics
+    assert ap_dependent_routed.diagnostics[0].blocking is True
+
+
 def test_polar_disorder_keeps_known_ap_component_when_selected_record_is_missing() -> None:
     yanagi = CharacterId("character:yanagi")
     missing_record_id = AnomalyRecordId("anomaly:polar-missing")

@@ -193,7 +193,15 @@ class PolarDisorderDamageEventTemplate:
 
 @dataclass(frozen=True, slots=True)
 class DischargeDamageEventTemplate:
-    """Typed discharge child that can inherit the source anomaly record/multiplier."""
+    """Typed Discharge child tied to an explicitly selected anomaly record.
+
+    ``multiplier_from_source_event`` controls whether the child inherits a
+    static triggering event's multiplier.  It is independent of
+    ``source_multiplier_by_element``: when that dynamic map is present, its
+    values describe a pre-profile source rate and ``source_multiplier_uses_tick_profile``
+    explicitly controls whether the selected source's ordinary anomaly tick
+    profile is applied.
+    """
 
     ref: DamageEventTemplateRef
     damage_dealer: CharacterId
@@ -204,6 +212,7 @@ class DischargeDamageEventTemplate:
     move_id: MoveId | None
     multiplier_from_source_event: bool = True
     source_multiplier_by_element: tuple[tuple[Element, float], ...] = ()
+    source_multiplier_uses_tick_profile: bool = True
 
     def __post_init__(self) -> None:
         if self.ref.damage_type is not DamageType.ANOMALY:
@@ -214,6 +223,10 @@ class DischargeDamageEventTemplate:
             raise ValueError("template ref element must match typed template element")
         if self.ref.skill_group is not None or self.move_id is not None:
             raise ValueError("synthetic discharge damage must not invent a move identity")
+        if not isinstance(self.multiplier_from_source_event, bool):
+            raise ValueError("multiplier_from_source_event must be boolean")
+        if not isinstance(self.source_multiplier_uses_tick_profile, bool):
+            raise ValueError("source_multiplier_uses_tick_profile must be boolean")
         source_elements = tuple(element for element, _ in self.source_multiplier_by_element)
         if len(set(source_elements)) != len(source_elements):
             raise ValueError("discharge source multipliers must have unique elements")

@@ -205,6 +205,13 @@ from core.application.characters.aria import (
     compile_aria,
     load_raw_record as load_aria_raw_record,
 )
+from core.application.characters.nangongyu import (
+    NANGONGYU_ID,
+    NANGONGYU_REVIEWED_MAPPING,
+    NangongYuCompileConfig,
+    compile_nangongyu,
+    load_raw_record as load_nangongyu_raw_record,
+)
 from core.application.characters.seed import (
     SEED_ID,
     SEED_REVIEWED_MAPPING,
@@ -2471,6 +2478,69 @@ def _compile_aria(
             ),
         ),
         load_aria_raw_record(load_character_record(str(ARIA_ID))),
+    )
+
+
+def _nangongyu_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "南宫羽核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "南宫羽影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级提升受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _nangongyu_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(NANGONGYU_ID)
+    return any(
+        character_id != NANGONGYU_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and (
+            registration.role is CharacterRole.ANOMALY
+            or bool(own_camps.intersection(_nanoka_camp_ids(character_id)))
+        )
+        for character_id in team_ids
+    )
+
+
+def _compile_nangongyu(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    aria_in_team = CharacterId("character:1501") in team_ids
+    return compile_nangongyu(
+        NangongYuCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _nangongyu_additional_ability_eligibility(team_ids)
+            ),
+            aria_in_team=aria_in_team,
+        ),
+        load_nangongyu_raw_record(load_character_record(str(NANGONGYU_ID))),
     )
 
 
@@ -5791,6 +5861,54 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 )
                 for move in ARIA_REVIEWED_MAPPING.moves
             ),
+        ),
+    ),
+    NANGONGYU_ID: CharacterPresentationRegistration(
+        character_id=NANGONGYU_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(NANGONGYU_ID),
+            display_name="南宫羽",
+            rarity="S",
+            element="ether",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.ETHER,
+        compile_definition=_compile_nangongyu,
+        config_fields=_nangongyu_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=NANGONGYU_ID,
+            role=CharacterRole.STUN,
+            native_element=Element.ETHER,
+            possible_elements=frozenset(
+                {
+                    Element.ETHER,
+                    Element.ELECTRIC,
+                    Element.FIRE,
+                    Element.PHYSICAL,
+                    Element.ICE,
+                    Element.WIND,
+                }
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in NANGONGYU_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in NANGONGYU_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in NANGONGYU_REVIEWED_MAPPING.moves
+            ),
+            mechanisms=frozenset({"nangongyu-voice-discharge", "nangongyu-polar-disorder"}),
         ),
     ),
     CharacterId("character:1361"): CharacterPresentationRegistration(

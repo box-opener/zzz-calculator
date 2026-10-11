@@ -318,7 +318,11 @@ def instantiate_damage_event(
                 Resolved(
                     multiplier.value.value
                     * source_ratio
-                    * anomaly_source_tick_multiplier(choice.element)
+                    * (
+                        anomaly_source_tick_multiplier(choice.element)
+                        if template.source_multiplier_uses_tick_profile
+                        else 1.0
+                    )
                 )
             )
         event = DischargeDamageEvent(
