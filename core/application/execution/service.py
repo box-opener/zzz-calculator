@@ -301,6 +301,31 @@ class DirectMoveApplicationService:
                 global_panel_application.applied_panel_effect_ids,
             )
             source_diagnostics = (*source_diagnostics, *grace_source_diagnostics)
+        if request.discharge_anomaly_source_choice is not None:
+            has_dynamic_discharge = any(
+                isinstance(template, DischargeDamageEventTemplate)
+                and template.source_multiplier_by_element
+                for definition in _all_definitions(request)
+                for template in definition.damage_event_templates
+            )
+            if not has_dynamic_discharge:
+                return _execution_without_events(
+                    request,
+                    _diagnostic(
+                        str(request.move_entry_id),
+                        "discharge-source-on-non-discharge",
+                        DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                        "A Discharge source selection is valid only for a reviewed dynamic Discharge event.",
+                    ),
+                )
+            request, discharge_source_diagnostics = _prepare_dynamic_discharge_source(
+                request,
+                global_panel_application.character_snapshots,
+                rule_items,
+                self._matcher,
+                global_panel_application.applied_panel_effect_ids,
+            )
+            source_diagnostics = (*source_diagnostics, *discharge_source_diagnostics)
         main_event = instantiate_damage_event(
             main_template,
             multiplier.multiplier,
@@ -312,6 +337,9 @@ class DirectMoveApplicationService:
             luminance_special_source=special_source,
             burnice_anomaly_source_choice=request.burnice_anomaly_source_choice,
             grace_anomaly_source_choice=request.grace_anomaly_source_choice,
+            discharge_anomaly_source_choice=(
+                request.discharge_anomaly_source_choice
+            ),
         )
         # Static browser requests need an identity-only record before matching
         # (ANOMALY_CONTRIBUTORS can be a filter).  This is deliberately gated
@@ -380,6 +408,27 @@ class DirectMoveApplicationService:
             applied_panel_effect_ids=panel_application.applied_panel_effect_ids,
         )
         request = replace(request, history_records=final_history)
+        main_event = _duration_scaled_anomaly_repeat_count(
+            entry,
+            main_event,
+            final_history,
+        )
+        main_event = _full_duration_disorder_multiplier(
+            entry,
+            main_event,
+            final_history,
+        )
+        duration_diagnostic = _disorder_duration_diagnostic(
+            entry,
+            main_event.event,
+            request.scenario,
+            final_history,
+        )
+        if duration_diagnostic is not None:
+            panel_application = replace(
+                panel_application,
+                diagnostics=(*panel_application.diagnostics, duration_diagnostic),
+            )
         if request.history_record_mode is HistoryRecordMode.STATIC_SINGLE_CHARACTER:
             main_event = _bind_static_anomaly_crit(main_event, final_history)
         if identity_diagnostics or final_diagnostics:
@@ -736,7 +785,10 @@ class DirectMoveApplicationService:
                 status=EventCalculationStatus.BLOCKED,
                 diagnostics=diagnostics,
                 repeat_count=instantiated.repeat_count,
-                crit_capability=_crit_capability(calculation_event),
+                crit_capability=_crit_capability(
+                    calculation_event,
+                    application.event_modifiers,
+                ),
             )
             return (
                 output,
@@ -765,6 +817,7 @@ class DirectMoveApplicationService:
             history_records=request.history_records,
             vulnerability_policy=application.vulnerability_policy,
             settled_damage_values=settled_damage_values,
+            initial_character_snapshots=request.initial_character_snapshots,
         )
         calculation = self._router.calculate(calculation_event, context)
         all_diagnostics = diagnostics + calculation.diagnostics
@@ -778,7 +831,10 @@ class DirectMoveApplicationService:
             result=calculation.result,
             diagnostics=all_diagnostics,
             repeat_count=instantiated.repeat_count,
-            crit_capability=_crit_capability(calculation_event),
+            crit_capability=_crit_capability(
+                calculation_event,
+                application.event_modifiers,
+            ),
         )
         return output, calculation, all_diagnostics
 
@@ -867,6 +923,18 @@ class DirectMoveApplicationService:
                 "EventCreation template is not registered",
             )
         if (
+            isinstance(template, DirectDamageEventTemplate)
+            and template.damage_dealer != effect.rule.owner
+            and template.damage_dealer
+            not in {item.character_id for item in current_character_snapshots}
+        ):
+            return _diagnostic(
+                str(template.damage_dealer),
+                "derived-dealer-panel",
+                DiagnosticKind.MISSING_DATA,
+                "The explicitly selected derived-event dealer has no current panel snapshot.",
+            )
+        if (
             isinstance(template, PolarDisorderDamageEventTemplate)
             and request.polarity_anomaly_source_choice is None
         ):
@@ -875,6 +943,19 @@ class DirectMoveApplicationService:
                 "polar-source-choice",
                 DiagnosticKind.MISSING_DATA,
                 "Select one active ordinary anomaly source for Polar Disorder.",
+            )
+        if (
+            isinstance(template, DischargeDamageEventTemplate)
+            and template.source_multiplier_by_element
+            and request.discharge_anomaly_source_choice is None
+            and str(template.damage_dealer)
+            not in {"character:1171", "character:1181"}
+        ):
+            return _diagnostic(
+                str(effect.rule.effect_id),
+                "discharge-source-choice",
+                DiagnosticKind.MISSING_DATA,
+                "Select one active teammate's ordinary anomaly record for this Discharge.",
             )
         if (
             isinstance(template, DirectDamageEventTemplate)
@@ -1026,6 +1107,9 @@ class DirectMoveApplicationService:
             polarity_anomaly_source_choice=request.polarity_anomaly_source_choice,
             burnice_anomaly_source_choice=request.burnice_anomaly_source_choice,
             grace_anomaly_source_choice=request.grace_anomaly_source_choice,
+            discharge_anomaly_source_choice=(
+                request.discharge_anomaly_source_choice
+            ),
         )
         return child, (*ancestry, template_id)
 
@@ -1389,6 +1473,7 @@ def _match_context(
         target_snapshot=request.target_snapshot,
         modifiers=tuple(modifiers),
         history_records=request.history_records,
+        initial_character_snapshots=request.initial_character_snapshots,
     )
     return EffectMatchContext(
         current_event=event,
@@ -1449,7 +1534,12 @@ def _history_records_for_event(
         # This keeps the adapter from guessing an owner or numeric record from
         # an arbitrary history-record ID.
         return request.history_records, ()
-    if isinstance(event, DischargeDamageEvent):
+    if isinstance(event, (DischargeDamageEvent, DisorderDamageEvent)):
+        source_triggerer = (
+            event.discharge_triggerer
+            if isinstance(event, DischargeDamageEvent)
+            else event.disorder_triggerer
+        )
         source_template = next(
             (
                 template
@@ -1457,7 +1547,7 @@ def _history_records_for_event(
                 for template in definition.damage_event_templates
                 if isinstance(template, AttributeAnomalyDamageEventTemplate)
                 and template.history_record_source == event.history_record_source
-                and template.damage_dealer == event.discharge_triggerer
+                and template.damage_dealer == source_triggerer
                 and template.element is event.metadata.element
             ),
             None,
@@ -1537,6 +1627,136 @@ def _history_records_for_event(
     if source_id is None:
         return request.history_records, assembly.diagnostics
     return (*request.history_records, assembly.record), assembly.diagnostics
+
+
+def _duration_scaled_anomaly_repeat_count(
+    entry: MoveCalculationEntry,
+    instantiated: InstantiatedDamageEvent,
+    records: tuple[AnomalyRecord, ...],
+) -> InstantiatedDamageEvent:
+    """Scale a full Ether/Xuanmo Anomaly repeat to its final record duration."""
+
+    if (
+        entry.multiplier_relation.value != "unit-repeat"
+        or not isinstance(instantiated.event, AttributeAnomalyDamageEvent)
+        or instantiated.event.metadata.element not in {Element.ETHER, Element.XUANMO}
+        or len(entry.multiplier_variants) != 1
+        or entry.multiplier_variants[0].repeat_count not in {20, 26}
+        or entry.multiplier_variants[0].repeat_count_parameter_id is not None
+    ):
+        return instantiated
+    record = next(
+        (
+            item
+            for item in records
+            if item.record_id == instantiated.event.history_record_source
+        ),
+        None,
+    )
+    if record is None or not isinstance(record.duration, Resolved):
+        return instantiated
+    ticks = max(0, floor(float(record.duration.value) * 2.0 + 1e-9))
+    return replace(instantiated, repeat_count=ticks)
+
+
+def _full_duration_disorder_multiplier(
+    entry: MoveCalculationEntry,
+    instantiated: InstantiatedDamageEvent,
+    records: tuple[AnomalyRecord, ...],
+) -> InstantiatedDamageEvent:
+    """Scale legacy fixed full Ether/Xuanmo Disorder entries to their record."""
+
+    if (
+        entry.multiplier_relation.value != "complete"
+        or not isinstance(instantiated.event, DisorderDamageEvent)
+        or instantiated.event.metadata.element not in {Element.ETHER, Element.XUANMO}
+        or len(entry.multiplier_variants) != 1
+        or entry.multiplier_variants[0].parameter_value_id is not None
+        or not isinstance(instantiated.event.multiplier, FixedMultiplier)
+        or not isinstance(instantiated.event.multiplier.value, Resolved)
+        or abs(float(instantiated.event.multiplier.value.value) - 17.0) > 1e-9
+    ):
+        return instantiated
+    record = next(
+        (
+            item
+            for item in records
+            if item.record_id == instantiated.event.history_record_source
+        ),
+        None,
+    )
+    if record is None or not isinstance(record.duration, Resolved):
+        return instantiated
+    ticks = max(0, floor(float(record.duration.value) * 2.0 + 1e-9))
+    multiplier = FixedMultiplier(Resolved(4.5 + ticks * 0.625))
+    return replace(instantiated, event=replace(instantiated.event, multiplier=multiplier))
+
+
+def _duration_parameter_units_per_second(parameter) -> int | None:
+    """Read the authored unit from a duration parameter's reviewed wording."""
+
+    description = f"{parameter.label} {parameter.original_text}".lower()
+    if "半秒" in description or "half-second" in description or "half second" in description:
+        return 2
+    if "秒" in description or "second" in description:
+        return 1
+    return None
+
+
+def _disorder_duration_diagnostic(
+    entry: MoveCalculationEntry,
+    event: DamageEvent,
+    scenario,
+    records: tuple[AnomalyRecord, ...],
+) -> CalculationDiagnostic | None:
+    """Reject explicit remaining-time inputs beyond Aria's active record."""
+
+    if not isinstance(event, DisorderDamageEvent) or event.metadata.element not in {
+        Element.ETHER,
+        Element.XUANMO,
+    } or len(entry.multiplier_variants) != 1:
+        return None
+    parameter_id = entry.multiplier_variants[0].parameter_value_id
+    if parameter_id is None:
+        return None
+    parameter = next(
+        (
+            item
+            for item in scenario.parameters
+            if item.parameter_id == parameter_id
+        ),
+        None,
+    )
+    record = next(
+        (item for item in records if item.record_id == event.history_record_source),
+        None,
+    )
+    if (
+        parameter is None
+        or parameter.value is None
+        or record is None
+        or not isinstance(record.duration, Resolved)
+    ):
+        return None
+    units_per_second = _duration_parameter_units_per_second(parameter)
+    if units_per_second is None:
+        return None
+    maximum = max(
+        0,
+        floor(float(record.duration.value) * units_per_second + 1e-9),
+    )
+    if parameter.value <= maximum:
+        return None
+    return _diagnostic(
+        str(entry.entry_id),
+        "remaining-time-exceeds-active-duration",
+        DiagnosticKind.DATA_QUALITY,
+        "The selected Disorder remaining time exceeds the active Ether/Xuanmo Anomaly record duration.",
+        original_text=(
+            f"selected {parameter.value} duration units, active record allows at most "
+            f"{maximum} units"
+        ),
+    )
 
 
 def _bind_static_anomaly_crit(
@@ -2191,6 +2411,161 @@ def _prepare_grace_anomaly_source(
     )
 
 
+def _prepare_dynamic_discharge_source(
+    request: MoveCalculationRequest,
+    snapshots: tuple[CharacterSnapshot, ...],
+    rule_items: tuple[CalculationRuleItem, ...],
+    matcher: EffectMatcher,
+    applied_panel_effect_ids: frozenset[EffectId],
+):
+    """Resolve the selected ordinary anomaly record for a dynamic Discharge."""
+
+    choice = request.discharge_anomaly_source_choice
+    if choice is None:
+        return request, ()
+    record_id = anomaly_source_record_id(choice)
+    existing = next(
+        (item for item in request.history_records if item.record_id == record_id),
+        None,
+    )
+    if existing is not None:
+        if (
+            existing.target_enemy != request.target_snapshot.enemy_id
+            or existing.element is not choice.element
+            or existing.anomaly_triggerer != choice.source_character_id
+            or choice.source_character_id not in existing.contributors
+        ):
+            return request, (_diagnostic(
+                str(record_id),
+                "discharge-source-record-mismatch",
+                DiagnosticKind.MISSING_DATA,
+                "The selected anomaly record does not match its actor, element, or target.",
+            ),)
+        return request, ()
+    if request.history_record_mode is not HistoryRecordMode.STATIC_SINGLE_CHARACTER:
+        return request, (_diagnostic(
+            str(record_id),
+            "discharge-source-record-missing",
+            DiagnosticKind.MISSING_DATA,
+            "An explicit anomaly record is required for the selected Discharge source.",
+        ),)
+
+    source_definition = next(
+        (
+            item
+            for item in _all_definitions(request)
+            if item.character_id == choice.source_character_id
+        ),
+        None,
+    )
+    if source_definition is None:
+        return request, (_diagnostic(
+            str(choice.source_character_id),
+            "discharge-source-definition-missing",
+            DiagnosticKind.MISSING_DATA,
+            "The selected anomaly source actor has no active compiled definition.",
+        ),)
+    source_template = next(
+        (
+            item
+            for item in source_definition.damage_event_templates
+            if isinstance(item, AttributeAnomalyDamageEventTemplate)
+            and item.element is choice.element
+            and item.element in ANOMALY_ELEMENTS
+        ),
+        None,
+    )
+    if source_template is None:
+        return request, (_diagnostic(
+            str(record_id),
+            "discharge-source-template-missing",
+            DiagnosticKind.MISSING_DATA,
+            "The selected actor has no reviewed ordinary anomaly template for this element.",
+        ),)
+
+    source_event = AttributeAnomalyDamageEvent(
+        metadata=DamageEventMetadata(
+            event_id=DamageEventId(
+                f"event:{request.battle_state_id}:discharge-source:"
+                f"{choice.source_character_id}:{choice.element.value.replace(':', '-') }"
+            ),
+            battle_state_id=request.battle_state_id,
+            damage_dealer=choice.source_character_id,
+            target_enemy=request.target_snapshot.enemy_id,
+            element=choice.element,
+            created_at=request.battle_time,
+            skill_group=None,
+            move_id=source_template.move_id,
+            damage_tags=frozenset(),
+        ),
+        anomaly_triggerer=choice.source_character_id,
+        base_settlement_data_source=AnomalyRecordValueSource(record_id),
+        history_record_source=record_id,
+        multiplier=FixedMultiplier(Resolved(1.0)),
+        crit_rule=NoCritRule(),
+    )
+    identity_assembly = static_attribute_anomaly_record(source_event, snapshots, ())
+    if identity_assembly is None or identity_assembly.record is None:
+        return request, (
+            *(identity_assembly.diagnostics if identity_assembly is not None else ()),
+            _diagnostic(
+                str(record_id),
+                "discharge-source-identity-unresolved",
+                DiagnosticKind.MISSING_DATA,
+                "The selected source actor cannot produce a resolved ordinary anomaly record.",
+            ),
+        )
+    match_request = replace(
+        request,
+        history_records=(*request.history_records, identity_assembly.record),
+    )
+    source_context = _match_context(
+        match_request,
+        source_event,
+        snapshots,
+        request.base_calculation_modifiers,
+        current_template_id=source_template.ref.template_id,
+    )
+    matches = matcher.match_rule_items(rule_items, source_context)
+    source_application = apply_matched_modifiers(
+        snapshots,
+        request.base_calculation_modifiers,
+        _matched_effects(matches, rule_items, request.scenario),
+        request.scenario.current_operator,
+        initial_character_snapshots=request.initial_character_snapshots,
+        scenario=request.scenario,
+        event=source_event,
+        apply_panel=False,
+        applied_panel_effect_ids=applied_panel_effect_ids,
+    )
+    assembly = static_attribute_anomaly_record(
+        source_event,
+        source_application.character_snapshots,
+        source_application.event_modifiers,
+        modifier_sources=_modifier_sources(request),
+    )
+    if assembly is None or assembly.record is None:
+        return request, (
+            *_match_diagnostics(matches),
+            *source_application.diagnostics,
+            *(assembly.diagnostics if assembly is not None else ()),
+            _diagnostic(
+                str(record_id),
+                "discharge-source-record-unresolved",
+                DiagnosticKind.MISSING_DATA,
+                "The selected anomaly source record could not be resolved from the active panel.",
+            ),
+        )
+    return replace(
+        request,
+        history_records=(*request.history_records, assembly.record),
+    ), (
+        *_match_diagnostics(matches),
+        *source_application.diagnostics,
+        *assembly.diagnostics,
+    )
+
+
 def _modifier_sources(request: MoveCalculationRequest):
     """Resolve effect provenance without coupling the calculation helper to UI DTOs."""
 
@@ -2225,7 +2600,28 @@ def _declared_static_disorder_source(
     return False
 
 
-def _crit_capability(event: DamageEvent) -> CritCapability:
+def _crit_capability(event: DamageEvent, modifiers=()) -> CritCapability:
+    if isinstance(event, DischargeDamageEvent):
+        rate_overrides = tuple(
+            item
+            for item in modifiers
+            if item.modifier_path is CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE
+        )
+        damage_overrides = tuple(
+            item
+            for item in modifiers
+            if item.modifier_path is CalculationNode.DISCHARGE_CRIT_DAMAGE_OVERRIDE
+        )
+        if (
+            len(rate_overrides) == 1
+            and len(damage_overrides) == 1
+            and all(
+                item.operation is EffectOperation.OVERRIDE
+                and isinstance(item.value, Resolved)
+                for item in (*rate_overrides, *damage_overrides)
+            )
+        ):
+            return CritCapability.ANOMALY_INDEPENDENT
     rule = getattr(event, "crit_rule", None)
     if isinstance(rule, StandardCritRule):
         return CritCapability.STANDARD
@@ -2392,13 +2788,13 @@ def _apply_event_multiplier_modifiers(
         # the source AP contribution, which preserves Remielle's explicit
         # (base + AP) * Cinema-4 order.
         return event
-    if not isinstance(event, DirectDamageEvent):
+    if not isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)):
         diagnostics.append(
             _diagnostic(
                 "event-multiplier",
                 "event-kind",
                 DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                "event multiplier modifiers require a direct damage event",
+                "event multiplier modifiers require a direct or penetration damage event",
             )
         )
         return event

@@ -1,5 +1,9 @@
 # Implementation notes and open questions
 
+## Stopped development checkpoint — 2026-10-12
+
+At the user's request, work stopped after the completed 1591 implementation. Unregistered 1611/1621 drafts and the unfinished shared integration patch are preserved outside the active package in [the checkpoint](in-progress/characters-1611-1621/README.md). That document distinguishes previously passed source checks from later unverified work and records the remaining typed-sharpened settlement, initial-panel conversion, Roxy rule/scope, signature, and UI tasks. These are unfinished implementation tasks, not newly inferred game semantics.
+
 This file records non-authoritative implementation limits. It does not change
 the terminology, calculation, or implementation specifications, and it does
 not decide game semantics.
@@ -917,6 +921,12 @@ choices unresolved; it does not block Wind or those five known infusion paths,
 and the source is not being interpreted as an explicit five-element
 restriction.
 
+The 2026-10-11 source-to-implementation audit found no additional explicitly
+specified damage behavior omitted from the current Velina implementation. The
+remaining element-choice uncertainty is limited to variants the source does
+not enumerate; the other listed gaps concern Daze, buildup, resources,
+durations, and timing, which have no result in the current static contract.
+
 ## Yanagi Polarity Disorder calculation decision
 
 The user clarified the final model: `紊乱伤害抛去防御、抗性、紊乱增伤、加减易伤之后存在一个数值，极性紊乱读取这个数值的*15%+3200%*柳的异常精通成为此极性紊乱的数值进入后续防御、抗性、紊乱增伤、加减易伤等等乘区` and confirmed `新的解释才是柳极性紊乱真正的作用方式。`
@@ -1090,3 +1100,85 @@ The Basic description says `向前方进行至多五段的攻击，造成物理�
 The Core's current Constraint state grants its level-specific Crit Rate bonus, including the source's 10-second continuation after leaving the state. Cinema 1's target imprisonment, Cinema 4 shield, and Cinema 6 Shadow Edge are explicit current-state inputs. Cinema 2's +15% ATK is always available once unlocked. When her team contains a Stun or Support agent, the Additional Ability applies +30% normal damage to Evelyn's Chain/Ultimate damage; at 80% current Crit Rate it multiplies only the three named Chain/Ultimate move ratios by 1.25. The Cinema 6 375% Fire packet is typed as Chain damage and therefore receives the Chain/Ultimate normal bonus, but not the 1.25 multiplier that names only the separate Chain/Ultimate moves. Fire Burn and Fire Disorder use the standard single-source record and current remaining-time input; Energy, Decibels, interrupt resistance, shield capacity, and resource history are not calculated.
 
 The current Evelyn entries have resolved damage elements. A separate shared contract limitation remains: selecting a future entry whose main template is `UnresolvedDamageEventTemplate` currently cannot produce a no-event partial API response and may return an invalid-request error. No Evelyn entry relies on that path; this is recorded for a later shared contract update and does not create a synthetic Direct event.
+
+## Pyrois (`character:1551`)
+
+The source gives the left/right Core extra ATK ratios and trigger conditions but does not identify those packets' element, move, skill group, or damage tags. Their parent move continues to calculate; only the generated child packet remains local partial. Special: Battle Order (`1551022`) has an independently named Ether curve and known EX/Ultimate trigger, but the source names Phaethon as its actor without a registered character identity or panel inheritance rule; only that child result is unresolved. The source states that Cinema 6's effect is not revealed, so no effect is invented. The explicit W-Engine `14155` ownership mapping is supported by the weapon's Pyrois description and wearer text despite its shared raw code name; this is a reviewed identity mapping, not an unresolved association.
+
+## Yinhu (`character:1421`)
+
+The character implementation specification says an A-rank agent's mapped signature W-Engine is equipped at refinement 5 by default. The current presentation contract creates new W-Engine selections unequipped. Yinhu's signature is explicitly mapped to `wengine:13142` (`Weapon_A_1421`, 震元奇枢), but remains unequipped by default to preserve the current shared presentation behavior. Resolve this default-equipment contract difference in a coordinated shared change; no Yinhu damage rule depends on assuming the engine is equipped.
+
+## Manato (`character:1441`) localized source limits
+
+The source provides an ordinary Support Follow-up ratio and a separate maximum continuous-slash total, but no per-slash ratio for the 0–7 additional continuous slashes. The calculator retains the ordinary 1441024 curve and, for the explicit maximum variant, the 1441024 opening hit plus 1441025 continuous-slash aggregate. It does not divide the maximum total by seven or infer ratios for intermediate counts.
+
+The implementation specification says an A-rank agent's mapped signature W-Engine is equipped at refinement 5 by default. The shared presentation contract creates newly selected W-Engines unequipped. Manato's signature is explicitly mapped to `wengine:13144` (`Weapon_A_1441`, 燔火胧夜) and remains unequipped by default under the shared contract, as recorded for Yinhu. This default-equipment difference does not change Manato's known damage curves or assume that the signature's effects are active.
+
+## Seed (`character:1461`) localized current-state and identity limits
+
+The live Core rule identifies the partner as the other Attack agent with the highest Initial ATK. The calculator chooses that identity from fully assembled Initial panels, including equipment contributions; it does not infer the choice from team order or let the user override it. If a preview contains multiple other Attack candidates but lacks their panels, or the available Initial ATK values tie, no recipient is guessed and a nonblocking local diagnostic remains. Candidate-specific damage is partial only when its corresponding recipient rule and current-state condition are active; Seed's own damage and unrelated dealers remain calculable. Current combat buffs do not participate in the ranking. A single other Attack candidate is unambiguous without ranking.
+
+Core EX/Surround Hunt holders and Cinema 6's laser trigger are static current-state inputs. The calculator does not replay entry, exit, duration, refresh, energy consumption history, or the three-second laser interval. Cinema 6 source text supplies the Heavy Strike trigger, three lasers, and 165% ATK per laser, but not an independent child MoveId, element, tag, or event classification. The known `3 × 165% ATK` remains in the local unresolved diagnostic; no synthetic Direct event is emitted.
+
+The implementation specification says an S-rank signature should be equipped by default, while the shared W-Engine editor initializes a new choice unequipped. Seed's signature is mapped to `wengine:14146` (`Weapon_S_1461`, 机巧心种), but stays unequipped under the current editor contract. Coordinate any change to this default with a shared presentation-contract update.
+
+## BanYue (`character:1471`) localized current-state and identity limits
+
+BanYue's Core source makes all of his Fire damage Penetration damage that uses current Penetration Force and ignores enemy Defense. The compiler registers the source-backed Fire Penetration moves. The Cinema 6 600% Penetration Force packet triggered by 摧岳 is a separate Fire event; the source does not assign it a MoveId, SkillGroup, or DamageTag, so it retains no authored event identity and does not inherit 摧岳's Basic identity. Core's Fire/Penetration buffs still apply by their broad source scope. Cinema 1 and Cinema 4 remain limited to their listed moves and the separately identified 摧岳→倾山 Basic follow-up.
+
+Mingwang's current 0–3 stacks are one shared static input with a default of three; the calculator does not replay 山威, EX/resource costs, stack acquisition history, or the 8-second refresh. The Extra Ability's base +5% Fire damage per Mingwang stack requires a Support or Stun teammate. Cinema 6 explicitly adds another +8% per stack and permits Mingwang acquisition from any EX, but does not say whether that makes the Extra Ability's base +5% available without its team condition. In a C6-only team, the known +8% applies while only the base +5% component becomes a local partial diagnostic when a stack is selected; with an eligible teammate both known components apply, and with Cinema 6 disabled there is no Mingwang partial. Selecting the current EX/Assist state does not by itself establish that its buff applied before the triggering hit settled; the static request does not model intra-move ordering.
+
+BanYue's signature is explicitly mapped to `wengine:14147` (`Weapon_S_1471`, 怒目金刚), whose existing Vajra rules are capability-gated for the registered Fire Penetration owner. The implementation specification says an S-rank signature should be equipped by default; the current W-Engine editor initializes a new selection unequipped, so the signature remains mapped but inactive until selected under the shared editor contract.
+
+## Sunna (`character:1491`) localized current-state limits
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/sunna.json` from `https://static.nanoka.cc/zzz/3.2/zh/character/1491.json`. It identifies Sunna / 千夏 as an S-rank Physical Support from 妄想天使. The source portrait `IconRole58` is not packaged locally, so the catalog uses the neutral portrait placeholder. Her explicit signature mapping is `wengine:14149` (`Weapon_S_1491`, 思络成歌). The implementation specification says an S-rank signature should start equipped, while the current W-Engine editor starts a new selection unequipped; the mapping is preserved and the engine stays inactive until selected under that shared editor contract.
+
+All fourteen reviewed source damage entries are Physical Direct. S-rank skills default to level 12; Cinema 3 and 5 add two skill levels, including Ultimate, under the shared level-16 cap. The source-defined Core and Cinema damage ratios, panel buffs, enemy Defense/Stun vulnerability effects, and per-event scopes are compiled. Sunna's own anomaly and disorder results are not displayed.
+
+The Core's Cat's Gaze uses the actual Attack/Anomaly teammate as dealer, ATK source, Crit owner, and native-element source. Its generated event keeps no parent MoveId, SkillGroup, or DamageTag, and all Cat's Gaze templates are excluded from recursively creating another Cat's Gaze event. Anomaly-triggered Cat's Gaze is guaranteed to crit and receives the source's Crit Damage bonus. The static event rule requires a Direct hit; selecting an anomaly or disorder record does not stand in for a separate Direct attack hit. The target mark, Angel Chorus, veil, Bad Cat trigger, post-Ultimate team damage, and Cinema 6 creation state are current-state inputs; the calculator does not replay mark duration, hit thresholds, energy/tool acquisition, or action timing. Bad Cat uses Sunna's immutable Initial ATK panel. A missing Initial panel remains a local missing-data result instead of falling back to her current Attack.
+
+Cinema 1's target Defense reduction is modeled as a selectable current 0–3 stack count, defaulting to three; individual 40-second stack timers are not replayed. Cinema 4's 60-second team damage state is likewise selected as current. Angel Chorus's Core bonus reads Sunna's Initial ATK and applies to the team; Cinema 2's additional team ATK requires any current Ether Veil, while its role-specific Cat's Gaze multiplier additions do not. The Extra Ability's eligibility comes from the active team (another Attack agent or a teammate with Sunna's Nanoka camp ID); its +30% Stun vulnerability remains a separate current-state input.
+
+## Aria (`character:1501`) localized source availability
+
+The source-defined Core gives six Discharge ratios per ten points of Initial Anomaly Mastery and adds 50% of that ratio against a stunned target. The Core +90 panel effect is Anomaly Proficiency; the Discharge ratios and Cinema 1's independent Discharge crit are based on immutable Initial Anomaly Mastery. The browser/API selector uses an active teammate's actual compiled ordinary-anomaly template and preserves the selected element variant. No registered ordinary anomaly template currently produces `physical:linren`, so the UI does not offer a synthetic Linren source; the Core's Physical-family filter includes Linren if a reviewed source template is added later. This is a source-availability boundary, not an inferred damage branch.
+
+The Core trigger is a user-selected current fact that the third charged Basic hit struck an anomalous target. The Extra Ability's +3 seconds changes current Ether/Xuanmo record duration and therefore full corrosion/Disorder duration math; the static request does not replay the triggering hit, duration flow, or resource costs. The source-defined known damage curves and scopes have no remaining Aria-specific ambiguity.
+
+## Nangong Yu (`character:1511`) localized current-state limits
+
+The complete Nanoka live 3.2 source is retained at `core/data/characters/nangongyu.json`. Core Discharge requires an explicit eligible teammate's compiled ordinary anomaly source and the selected current proc/mode inputs. The selector does not synthesize an anomaly record from equipment capability or trigger a Discharge during an ordinary anomaly query. The chosen record's actual element variant, source identity, and current anomaly strength are used.
+
+Voice stacks, the ready/clear fact, changed-mode selection, the C2 Chain proc, and the Extra Ability/Aria Polar proc are current-scene inputs. The calculation does not reconstruct prior hits, clear timing, Daze, resource consumption, or durations. The source's normal and Cinema 6 modes, ratios, stack scaling, and Cinema 2 interaction are implemented; there is no unresolved ratio or element assignment for these entries. The signature engine is explicitly mapped to `wengine:14151`, but remains unequipped by default under the shared editor contract.
+
+## Cissia (`character:1521`) localized current-state limits
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/cissia.json`. The reviewed Direct damage curves, Core/Cinema ratios, Initial Energy Regeneration basis, and effect scopes are implemented; no source-defined damage ratio or event identity remains unresolved. Cissia is an Attack agent, so her own Anomaly and Disorder are not exposed.
+
+Poison or its post-depletion window, Snake Shadow, the EX extra-hit count, Cinema 4 awareness stacks, and Cinema 6's mark proc are explicit current-scene inputs. The 0–3 EX/Cinema 4 counts are static selections, not reconstructed Energy or stack histories. Cinema 6's current proc is limited to one eligible main Direct/Penetration hit and excludes neutral derived events and every Bone Erosion event. The calculator does not replay poison consumption, the 30-second window, energy costs, proc timing, or action order.
+
+The signature is explicitly mapped to `wengine:14152` (`Weapon_S_1521`, 鳞齿寻踪). As with other mapped S-rank engines, the current shared W-Engine editor starts the choice unequipped; this presentation default differs from the implementation specification's equipped-by-default rule and does not change Cissia's known source damage.
+
+## Starlight - Billy (`character:1531`) localized current-state limits
+
+The complete Nanoka live 3.2 source is retained at `core/data/characters/starlight_billy.json`. All 17 reviewed damage entries are Physical Penetration entries; the three parry-assist source records are Daze-only. The compiler uses current Max HP for Core Penetration Force and current state inputs for Motor Suppression, Turbo, resistance ignore, Starshine stacks, and Cinema 6 consumption. Cinema 6's two named moves receive the selected whole-move ratio addition and separate Penetration Damage Bonus; this does not create a child event. The signature is explicitly mapped to `wengine:14153` (`Weapon_S_1531`, 辉骑面铠), while the shared editor initializes it unequipped. No source-defined ratio or event identity remains unresolved; resource, Daze, and timing replay are outside the current calculation contract.
+
+## Promeia (`character:1541`) localized source limits
+
+The complete Nanoka live 3.2 source is retained at `core/data/characters/promeia.json`. Her Core, Chain, and Ultimate each create a fixed-ratio Discharge from the selected teammate's real ordinary anomaly record. These are type-2 ratios (Core 6.35, Chain 1.0, Ultimate 2.5 at the represented level), so the selected record's anomaly strength and modifiers carry through but its tick profile does not multiply the fixed ratio. The Core additionally requires the current EX finisher, an active target anomaly, and current Frost consumption; Chain and Ultimate require an active target anomaly. Selecting the source record alone does not trigger a Discharge.
+
+Cinema 2's wording for Frost-consuming Discharge says its ratio is “increased by 120%.” The source does not distinguish an additive 120 percentage-point increase from a relative increase by 120% (a ×2.20 ratio), so only the affected Core and Cinema 6 special cases remain locally partial while this rule is enabled. Chain and Ultimate do not consume Frost and are unaffected. Cinema 6's separate 2.0 fixed-ratio Discharge does not inherit the Core's trigger identity or tags. Cinema 6's 15% Resistance Ignore applies to Promeia's own Ice anomaly and Disorder, not to Discharge events.
+
+The Additional Ability adds three seconds to eligible current Ice/Lieshuang Frost Chill records (10→13 seconds for ordinary Ice and 20→23 for Lieshuang); it does not infer extra Ice anomaly hits. The signature is explicitly mapped to `wengine:14154` (`Weapon_S_1541`, 月裁霜刑). The shared W-Engine editor initializes mapped choices unequipped, while the implementation specification calls for an S-rank signature to start equipped; the engine therefore remains inactive until selected under the current shared editor behavior.
+
+## Norma (`character:1571`) localized limits
+
+The source gives Norma a Penetration Force conversion of 1.25 ATK per current Force, capped at 1200 ATK. The current Stun-panel contract has no Penetration Force stat source, so only Norma's own Direct damage result remains locally partial when this conversion is enabled; the known coefficient and cap are retained. The Rupture-only Force formula is not applied to a Stun character.
+
+The source includes autonomous target-practice/turret damage curves but does not establish an independently modeled actor's panel ownership. Those source rows remain local actor diagnostics; the explicitly Norma-driven Basic, Counter, Chain, Quick Assist, Ultimate, and EX attacks remain usable. Term `1000012`'s localized name/effect is not resolved by the local term dictionary, but its source condition and level-60 ATK cap (+870) are represented as a separate current-state input. Cinema 6's source interval does not determine how many high-explosive missiles occur in a query, so the calculator handles the selected current missile packet and does not extrapolate a total count. No other reviewed Norma damage curve or element assignment is withheld.
+
+## Sigrid (`character:1591`) localized current-state limits
+
+The reviewed Direct curves, element identities, panel scopes, Core/Cinema ratios, and W-Engine owner mapping have no remaining Sigrid-specific source ambiguity. The current Sky Rider, Chain, Winded-target, overflow, and consumed-charge facts are explicit scene inputs; the calculator does not replay charge acquisition, Energy, timers, or action order. The implementation-spec equipped-by-default recommendation for S-rank signatures differs from the shared editor's current unequipped default, so the mapping is available but does not activate the engine until selected.

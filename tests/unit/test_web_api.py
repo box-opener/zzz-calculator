@@ -208,6 +208,60 @@ def _wengine_build(wengine_id: str, refinement: int, *, element: str) -> dict:
     }
 
 
+def _seed_panel(attack: float, *, element: str = "electric") -> dict:
+    return {
+        "level": 60,
+        "out_of_combat_stats": {
+            "hp": 9000.0,
+            "attack": attack,
+            "defense": 800.0,
+            "impact": 120.0,
+            "crit_rate": 0.5,
+            "crit_damage": 0.5,
+            "anomaly_mastery": 100.0,
+            "anomaly_proficiency": 100.0,
+            "energy_regen": 1.2,
+            "penetration_rate": 0.0,
+            "penetration_flat": 0.0,
+            "element_damage_bonus": {element: 0.0},
+        },
+    }
+
+
+def _seed_calculation_payload(
+    primary: str,
+    supporting: list[str],
+    builds: dict[str, dict],
+    *,
+    cinema_level: int = 0,
+    move_entry_id: str = "move-entry:character:1461:heavy-strike",
+    conditions: dict[str, bool | None] | None = None,
+    enabled_rules: list[str] | None = None,
+    parameters: dict[str, int | None] | None = None,
+) -> dict:
+    payload = deepcopy(_valid_calculation_payload())
+    team = [primary, *supporting]
+    payload.update(
+        {
+            "primary_character_id": primary,
+            "supporting_character_ids": supporting,
+            "team_character_ids": team,
+            "formation_character_ids": team,
+            "move_entry_id": move_entry_id,
+            "compile_configs": {
+                "character:1461": {"core_level": 7, "cinema_level": cinema_level}
+            },
+            "character_builds": builds,
+            "condition_values": conditions or {},
+            "parameter_values": parameters or {},
+            "enabled_rule_item_ids": enabled_rules or [],
+        }
+    )
+    for element in ("physical", "electric"):
+        payload["enemy"]["damage_resistance"][element] = 0.0
+    return payload
+
+
 def _with_supporting_wengine(
     payload: dict,
     support_engines: list[tuple[str, str, int, str]],
@@ -400,11 +454,24 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1041",
             "character:1051",
             "character:1581",
+            "character:1591",
             "character:1561",
             "character:1311",
         "character:1431",
         "character:1401",
         "character:1411",
+        "character:1421",
+        "character:1441",
+        "character:1461",
+        "character:1471",
+        "character:1491",
+        "character:1501",
+        "character:1511",
+        "character:1521",
+        "character:1531",
+        "character:1541",
+        "character:1551",
+        "character:1571",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -611,6 +678,86 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert yidhari["element"] == "ice"
     assert yidhari["code_name"] == "Yidhari"
     assert yidhari["image_path"] == "/characters/portrait-placeholder.svg"
+    yinhu = next(item for item in payload if item["character_id"] == "character:1421")
+    assert yinhu["display_name"] == "潘引壶"
+    assert yinhu["code_name"] == "Yinhu"
+    assert yinhu["rarity"] == "A"
+    assert yinhu["specialty"] == "defense"
+    assert yinhu["element"] == "physical"
+    assert yinhu["image_path"] == "/characters/portrait-placeholder.svg"
+    manato = next(item for item in payload if item["character_id"] == "character:1441")
+    assert manato["display_name"] == "真斗"
+    assert manato["code_name"] == "Manato"
+    assert manato["rarity"] == "A"
+    assert manato["specialty"] == "rupture"
+    assert manato["element"] == "fire"
+    assert manato["image_path"] == "/characters/portrait-placeholder.svg"
+    manato_raw = load_character_record("character:1441")
+    assert manato_raw["source_version"] == "3.2"
+    assert manato_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1441.json"
+    seed = next(item for item in payload if item["character_id"] == "character:1461")
+    assert seed["display_name"] == "「席德」"
+    assert seed["code_name"] == "Seed"
+    assert seed["rarity"] == "S"
+    assert seed["specialty"] == "attack"
+    assert seed["element"] == "electric"
+    assert seed["image_path"] == "/characters/portrait-placeholder.svg"
+    seed_raw = load_character_record("character:1461")
+    assert seed_raw["source_version"] == "3.2"
+    assert seed_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1461.json"
+    banyue = next(item for item in payload if item["character_id"] == "character:1471")
+    assert banyue["display_name"] == "般岳"
+    assert banyue["code_name"] == "BanYue"
+    assert banyue["rarity"] == "S"
+    assert banyue["specialty"] == "rupture"
+    assert banyue["element"] == "fire"
+    assert banyue["image_path"] == "/characters/portrait-placeholder.svg"
+    banyue_raw = load_character_record("character:1471")
+    assert banyue_raw["source_version"] == "3.2"
+    assert banyue_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1471.json"
+    aria = next(item for item in payload if item["character_id"] == "character:1501")
+    assert aria["display_name"] == "爱芮"
+    assert aria["code_name"] == "Aria"
+    assert aria["rarity"] == "S"
+    assert aria["specialty"] == "anomaly"
+    assert aria["element"] == "ether"
+    assert aria["image_path"] == "/characters/portrait-placeholder.svg"
+    aria_raw = load_character_record("character:1501")
+    assert aria_raw["source_version"] == "3.2"
+    assert aria_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1501.json"
+    cissia = next(item for item in payload if item["character_id"] == "character:1521")
+    assert cissia["display_name"] == "希希芙"
+    assert cissia["code_name"] == "Cissia"
+    assert cissia["rarity"] == "S"
+    assert cissia["specialty"] == "attack"
+    assert cissia["element"] == "electric"
+    assert cissia["image_path"] == "/characters/portrait-placeholder.svg"
+    cissia_raw = load_character_record("character:1521")
+    assert cissia_raw["rarity"] == 4
+    assert cissia_raw["source_version"] == "3.2"
+    assert cissia_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1521.json"
+    promeia = next(item for item in payload if item["character_id"] == "character:1541")
+    assert promeia["display_name"] == "普罗米娅"
+    assert promeia["code_name"] == "Promeia"
+    assert promeia["rarity"] == "S"
+    assert promeia["specialty"] == "anomaly"
+    assert promeia["element"] == "ice"
+    assert promeia["image_path"] == "/characters/portrait-placeholder.svg"
+    promeia_raw = load_character_record("character:1541")
+    assert promeia_raw["rarity"] == 4
+    assert promeia_raw["source_version"] == "3.2"
+    assert promeia_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1541.json"
+    norma = next(item for item in payload if item["character_id"] == "character:1571")
+    assert norma["display_name"] == "诺姆"
+    assert norma["code_name"] == "Norma"
+    assert norma["rarity"] == "S"
+    assert norma["specialty"] == "stun"
+    assert norma["element"] == "fire"
+    assert norma["image_path"] == "/characters/portrait-placeholder.svg"
+    norma_raw = load_character_record("character:1571")
+    assert norma_raw["rarity"] == 4
+    assert norma_raw["source_version"] == "3.2"
+    assert norma_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1571.json"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
     assert (asset_root / "IconRole46.webp").is_file()
@@ -659,6 +806,34 @@ def test_wengine_catalog_exposes_source_verified_signature_owners() -> None:
             "name": "半糖雪兔",
             "owner": "character:1341",
         },
+        "wengine:13144": {
+            "name": "燔火胧夜",
+            "owner": "character:1441",
+        },
+        "wengine:14146": {
+            "name": "机巧心种",
+            "owner": "character:1461",
+        },
+        "wengine:14147": {
+            "name": "怒目金刚",
+            "owner": "character:1471",
+        },
+        "wengine:14150": {
+            "name": "壳中之灵",
+            "owner": "character:1501",
+        },
+        "wengine:14152": {
+            "name": "鳞齿寻踪",
+            "owner": "character:1521",
+        },
+        "wengine:14153": {
+            "name": "辉骑面铠",
+            "owner": "character:1531",
+        },
+        "wengine:14157": {
+            "name": "首席跟班",
+            "owner": "character:1571",
+        },
     }
     for wengine_id, values in expected.items():
         assert catalog[wengine_id]["display_name"] == values["name"]
@@ -693,6 +868,341 @@ def test_every_supported_character_has_a_signature_for_picker_ordering() -> None
         for registration in supported_character_registrations()
     }
     assert set(SIGNATURE_WENGINE_BY_CHARACTER) == registered_ids
+
+
+def test_seed_editor_defaults_and_eligibility_follow_s_rank_and_attack_roster() -> None:
+    alone = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1461",
+            "team_character_ids": ["character:1461"],
+            "compile_config": {},
+            "condition_values": {},
+        },
+    )
+    with_attack = client.post(
+        "/api/v1/definitions/preview",
+        json={
+            "character_id": "character:1461",
+            "team_character_ids": ["character:1461", "character:1111"],
+            "compile_config": {},
+            "condition_values": {},
+        },
+    )
+    assert alone.status_code == 200, alone.text
+    assert with_attack.status_code == 200, with_attack.text
+    alone_view, attack_view = alone.json(), with_attack.json()
+    fields = {
+        item["field_id"]: item["value"]
+        for item in alone_view["compile_config_fields"]
+    }
+    assert fields["core_level"] == 7
+    assert fields["cinema_level"] == 0
+    assert all(
+        fields[f"skill_level:{group}"] == 12
+        for group in (
+            "basic-attack",
+            "dodge",
+            "special-attack",
+            "chain-attack",
+            "assist",
+            "ultimate",
+        )
+    )
+    extra_rule = next(
+        item
+        for item in alone_view["rule_items"]
+        if item["rule_id"] == "rule:character:1461:extra-ability:damage-and-electric-resistance"
+    )
+    eligible_extra_rule = next(
+        item
+        for item in attack_view["rule_items"]
+        if item["rule_id"] == "rule:character:1461:extra-ability:damage-and-electric-resistance"
+    )
+    assert extra_rule["eligibility"] == "ineligible"
+    assert eligible_extra_rule["eligibility"] == "eligible"
+
+
+def test_seed_core_resolves_highest_initial_attack_and_scopes_recipient_buffs() -> None:
+    seed, anton, billy = "character:1461", "character:1111", "character:1081"
+    billy_equipment_build = _wengine_build(
+        "wengine:14146", 1, element="physical"
+    )
+    billy_equipment_build["base_stats"]["attack"] = 1600.0
+    builds = {
+        seed: _seed_panel(1200.0),
+        anton: _seed_panel(1900.0),
+        billy: billy_equipment_build,
+    }
+    payload = _seed_calculation_payload(
+        seed,
+        [anton, billy],
+        builds,
+        conditions={"condition:seed:seed-ex-buff-active-on-partner": True},
+        enabled_rules=["rule:character:1461:core:partner-bright-attack"],
+    )
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    core_panel_traces = [
+        item
+        for item in result["panel_traces"]
+        if item["rule_item_id"] == "rule:character:1461:core:partner-bright-attack"
+    ]
+    assert {item["recipient_character_id"] for item in core_panel_traces} == {billy}
+    assert {item["resolved_value"] for item in core_panel_traces} == {1000.0, 0.3}
+    billy_engine_attack = next(
+        item
+        for item in result["build_provenance"]
+        if item["character_id"] == billy
+        and item["stat"] == "attack"
+        and item["source_label"] == "机巧心种"
+    )
+    assert billy_engine_attack["value"] == pytest.approx(713.0)
+
+    disabled_payload = _seed_calculation_payload(
+        seed,
+        [anton, billy],
+        builds,
+        conditions={"condition:seed:seed-ex-buff-active-on-partner": True},
+    )
+    disabled_response = client.post("/api/v1/moves/calculate", json=disabled_payload)
+    assert disabled_response.status_code == 200, disabled_response.text
+    assert not any(
+        item["rule_item_id"] == "rule:character:1461:core:partner-bright-attack"
+        for item in disabled_response.json()["panel_traces"]
+    )
+
+    reversed_payload = _seed_calculation_payload(
+        seed,
+        [anton, billy],
+        {
+            seed: _seed_panel(1200.0),
+            anton: _seed_panel(2200.0),
+            billy: _seed_panel(1500.0, element="physical"),
+        },
+        conditions={"condition:seed:seed-ex-buff-active-on-partner": True},
+        enabled_rules=["rule:character:1461:core:partner-bright-attack"],
+    )
+    reversed_response = client.post("/api/v1/moves/calculate", json=reversed_payload)
+    assert reversed_response.status_code == 200, reversed_response.text
+    reversed_traces = [
+        item
+        for item in reversed_response.json()["panel_traces"]
+        if item["rule_item_id"] == "rule:character:1461:core:partner-bright-attack"
+    ]
+    assert {item["recipient_character_id"] for item in reversed_traces} == {anton}
+
+
+def test_seed_partner_surround_hunt_targets_only_the_selected_dealer_off_field() -> None:
+    seed, anton, billy = "character:1461", "character:1111", "character:1081"
+    builds = {
+        seed: _seed_panel(1200.0),
+        anton: _seed_panel(2200.0),
+        billy: _seed_panel(1500.0, element="physical"),
+    }
+    shared = {
+        "condition:seed:partner-surround-hunt-active": True,
+    }
+    enabled = ["rule:character:1461:core:partner-surround-hunt"]
+    anton_payload = _seed_calculation_payload(
+        anton,
+        [seed, billy],
+        builds,
+        move_entry_id="move-entry:character:1111:basic-normal-1",
+        conditions=shared,
+        enabled_rules=enabled,
+    )
+    anton_response = client.post("/api/v1/moves/calculate", json=anton_payload)
+    assert anton_response.status_code == 200, anton_response.text
+    anton_trace = anton_response.json()["events"][0]["common_application_trace"]
+    anton_bonus = [
+        item
+        for item in anton_trace["applied_modifiers"]
+        if item["effect_id"] == "effect:character:1461:core:partner-surround-hunt-damage"
+    ]
+    assert [item["value"] for item in anton_bonus] == [0.25]
+
+    billy_payload = _seed_calculation_payload(
+        billy,
+        [seed, anton],
+        builds,
+        move_entry_id="move-entry:character:1081:basic-standing-fire",
+        conditions=shared,
+        enabled_rules=enabled,
+    )
+    billy_response = client.post("/api/v1/moves/calculate", json=billy_payload)
+    assert billy_response.status_code == 200, billy_response.text
+    billy_trace = billy_response.json()["events"][0]["common_application_trace"]
+    assert not any(
+        item["effect_id"] == "effect:character:1461:core:partner-surround-hunt-damage"
+        for item in billy_trace["applied_modifiers"]
+    )
+
+
+def test_seed_tied_initial_attack_keeps_local_diagnostic_and_api_result() -> None:
+    seed, anton, billy = "character:1461", "character:1111", "character:1081"
+    payload = _seed_calculation_payload(
+        seed,
+        [anton, billy],
+        {
+            seed: _seed_panel(1200.0),
+            anton: _seed_panel(1900.0),
+            billy: _seed_panel(1900.0, element="physical"),
+        },
+        conditions={"condition:seed:seed-ex-buff-active-on-partner": True},
+        enabled_rules=["rule:character:1461:core:partner-bright-attack"],
+    )
+
+    response = client.post("/api/v1/moves/calculate", json=payload)
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    tie_diagnostic = next(
+        item
+        for item in result["diagnostics"]
+        if item["diagnostic_id"] == "ambiguous:character:1461:core-partner-selection"
+    )
+    assert tie_diagnostic["blocking"] is False
+    # Seed's own result is independent of the unknown Core recipient.
+    assert result["totals"]["expected"]["complete"] is True
+    assert not any(
+        item["rule_item_id"] == "rule:character:1461:core:partner-bright-attack"
+        for item in result["panel_traces"]
+    )
+
+    candidate_payload = _seed_calculation_payload(
+        anton,
+        [seed, billy],
+        {
+            seed: _seed_panel(1200.0),
+            anton: _seed_panel(1900.0),
+            billy: _seed_panel(1900.0, element="physical"),
+        },
+        move_entry_id="move-entry:character:1111:basic-normal-1",
+        conditions={"condition:seed:seed-ex-buff-active-on-partner": True},
+        enabled_rules=["rule:character:1461:core:partner-bright-attack"],
+    )
+    candidate_response = client.post(
+        "/api/v1/moves/calculate", json=candidate_payload
+    )
+    assert candidate_response.status_code == 200, candidate_response.text
+    candidate_result = candidate_response.json()
+    assert candidate_result["totals"]["expected"]["complete"] is False
+    assert any(
+        item["diagnostic_id"].startswith("effect:character:1461:core:partner-bright-attack")
+        and item["diagnostic_id"].endswith("unresolved-effect")
+        and item["blocking"]
+        for item in candidate_result["diagnostics"]
+    )
+
+    disabled_payload = dict(candidate_payload)
+    disabled_payload["enabled_rule_item_ids"] = []
+    disabled_response = client.post("/api/v1/moves/calculate", json=disabled_payload)
+    assert disabled_response.status_code == 200, disabled_response.text
+    assert disabled_response.json()["totals"]["expected"]["complete"] is True
+
+    hunt_payload = dict(candidate_payload)
+    hunt_payload["condition_values"] = {
+        "condition:seed:partner-surround-hunt-active": True
+    }
+    hunt_payload["enabled_rule_item_ids"] = [
+        "rule:character:1461:core:partner-surround-hunt"
+    ]
+    hunt_response = client.post("/api/v1/moves/calculate", json=hunt_payload)
+    assert hunt_response.status_code == 200, hunt_response.text
+    hunt_result = hunt_response.json()
+    assert hunt_result["totals"]["expected"]["complete"] is False
+    assert any(
+        item["diagnostic_id"].startswith(
+            "effect:character:1461:core:partner-surround-hunt-damage"
+        )
+        and item["blocking"]
+        for item in hunt_result["diagnostics"]
+    )
+
+    hunt_inactive_payload = dict(hunt_payload)
+    hunt_inactive_payload["condition_values"] = {}
+    hunt_inactive_response = client.post(
+        "/api/v1/moves/calculate", json=hunt_inactive_payload
+    )
+    assert hunt_inactive_response.status_code == 200, hunt_inactive_response.text
+    assert hunt_inactive_response.json()["totals"]["expected"]["complete"] is True
+
+    c2_payload = dict(candidate_payload)
+    c2_payload["compile_configs"] = {
+        seed: {"core_level": 7, "cinema_level": 2}
+    }
+    c2_payload["condition_values"] = {
+        "condition:seed:partner-surround-hunt-active": True
+    }
+    c2_payload["enabled_rule_item_ids"] = [
+        "rule:character:1461:cinema2:partner-surround-hunt-defense-ignore"
+    ]
+    c2_response = client.post("/api/v1/moves/calculate", json=c2_payload)
+    assert c2_response.status_code == 200, c2_response.text
+    c2_result = c2_response.json()
+    assert c2_result["totals"]["expected"]["complete"] is False
+    assert any(
+        item["diagnostic_id"].startswith(
+            "effect:character:1461:cinema2:partner-defense-ignore"
+        )
+        and item["blocking"]
+        for item in c2_result["diagnostics"]
+    )
+
+    no_attack_payload = _seed_calculation_payload(
+        seed,
+        ["character:1031"],
+        {seed: _seed_panel(1200.0), "character:1031": _seed_panel(1300.0, element="ether")},
+    )
+    no_attack_response = client.post(
+        "/api/v1/moves/calculate", json=no_attack_payload
+    )
+    assert no_attack_response.status_code == 200, no_attack_response.text
+    assert no_attack_response.json()["totals"]["expected"]["complete"] is True
+
+
+def test_seed_cinema6_unknown_laser_is_local_partial_and_disabling_it_keeps_parent() -> None:
+    seed = "character:1461"
+    payload = _seed_calculation_payload(
+        seed,
+        [],
+        {seed: _seed_panel(2000.0)},
+        cinema_level=6,
+        conditions={"condition:seed:cinema6-laser-proc-active": True},
+        enabled_rules=["rule:character:1461:cinema6:heavy-strike-laser-child"],
+    )
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["events"][0]["modes"]["expected"]["status"] == "calculated"
+    assert result["diagnostics"][0]["diagnostic_id"] == "ambiguous:character:1461:cinema6-laser-event-identity"
+    unresolved_laser = next(
+        item
+        for item in result["diagnostics"]
+        if item["diagnostic_id"]
+        == "application:effect:character:1461:cinema6:laser-followup:unresolved-template"
+    )
+    assert "count (3)" in unresolved_laser["message"]
+    assert "165% ATK each" in unresolved_laser["message"]
+    assert "3道激光" in unresolved_laser["original_text"]
+    assert "165%" in unresolved_laser["original_text"]
+
+    disabled_payload = _seed_calculation_payload(
+        seed,
+        [],
+        {seed: _seed_panel(2000.0)},
+        cinema_level=0,
+    )
+    disabled_response = client.post("/api/v1/moves/calculate", json=disabled_payload)
+    assert disabled_response.status_code == 200, disabled_response.text
+    disabled_result = disabled_response.json()
+    assert disabled_result["events"][0]["modes"]["expected"]["status"] == "calculated"
+    assert not any(
+        "cinema6-laser" in item["diagnostic_id"]
+        for item in disabled_result["diagnostics"]
+    )
 
 
 def test_anby_definition_preview_uses_a_rank_defaults_and_exposes_its_actual_rules() -> None:
@@ -5668,4 +6178,34 @@ def test_stale_frostbite_state_is_ignored_when_active_team_has_no_ice_element() 
     assert not any(
         item["effect_id"] == "effect:enemy:frostbite-crit-damage:primary:character:1431"
         for item in result["events"][0]["common_application_trace"]["event_stat_modifiers"]
+    )
+
+
+def test_pyrois_eclipse_remains_ether_ignore_is_current_and_owner_scoped() -> None:
+    payload = _single_wengine_payload(
+        "character:1551",
+        "move-entry:character:1551:basic-afterglow-stage-1",
+        "wengine:14155",
+        1,
+        element="ether",
+    )
+    eclipse_rule = "rule:wengine:14155:owner:1551:pellois-eclipse-ether-resistance-ignore"
+    eclipse_condition = "condition:wengine:14155:owner:1551:pellois-eclipse-active"
+    payload["enabled_rule_item_ids"] = [eclipse_rule]
+
+    payload["condition_values"] = {eclipse_condition: True}
+    active = client.post("/api/v1/moves/calculate", json=payload)
+    assert active.status_code == 200, active.text
+    active_result = active.json()
+    assert active_result["totals"]["expected"]["complete"] is True
+
+    payload["condition_values"] = {eclipse_condition: False}
+    inactive = client.post("/api/v1/moves/calculate", json=payload)
+    assert inactive.status_code == 200, inactive.text
+    inactive_result = inactive.json()
+    assert inactive_result["totals"]["expected"]["complete"] is True
+
+    # R1 ignores 16 percentage points of the source Ether resistance, from 20% to 4%.
+    assert active_result["totals"]["expected"]["value"] == pytest.approx(
+        inactive_result["totals"]["expected"]["value"] * 1.2
     )

@@ -178,6 +178,99 @@ from core.application.characters.seth import (
     compile_seth,
     load_raw_record as load_seth_raw_record,
 )
+from core.application.characters.yinhu import (
+    YINHU_ID,
+    YinhuCompileConfig,
+    compile_yinhu,
+    load_raw_record as load_yinhu_raw_record,
+)
+from core.application.characters.manato import (
+    MANATO_ID,
+    MANATO_REVIEWED_MAPPING,
+    ManatoCompileConfig,
+    compile_manato,
+    load_raw_record as load_manato_raw_record,
+)
+from core.application.characters.banyue import (
+    BANYUE_ID,
+    BANYUE_REVIEWED_MAPPING,
+    BanYueCompileConfig,
+    compile_banyue,
+    load_raw_record as load_banyue_raw_record,
+)
+from core.application.characters.aria import (
+    ARIA_ID,
+    ARIA_REVIEWED_MAPPING,
+    AriaCompileConfig,
+    compile_aria,
+    load_raw_record as load_aria_raw_record,
+)
+from core.application.characters.nangongyu import (
+    NANGONGYU_ID,
+    NANGONGYU_REVIEWED_MAPPING,
+    NangongYuCompileConfig,
+    compile_nangongyu,
+    load_raw_record as load_nangongyu_raw_record,
+)
+from core.application.characters.cissia import (
+    CISSIA_ID,
+    CISSIA_REVIEWED_MAPPING,
+    CissiaCompileConfig,
+    compile_cissia,
+    load_raw_record as load_cissia_raw_record,
+)
+from core.application.characters.starlight_billy import (
+    STARLIGHT_BILLY_ID,
+    STARLIGHT_BILLY_REVIEWED_MAPPING,
+    StarlightBillyCompileConfig,
+    compile_starlight_billy,
+    load_raw_record as load_starlight_billy_raw_record,
+)
+from core.application.characters.sigrid import (
+    SIGRID_ID,
+    SIGRID_REVIEWED_MAPPING,
+    SigridCompileConfig,
+    compile_sigrid,
+    load_raw_record as load_sigrid_raw_record,
+)
+from core.application.characters.promeia import (
+    PROMEIA_ID,
+    PROMEIA_REVIEWED_MAPPING,
+    PromeiaCompileConfig,
+    compile_promeia,
+    load_raw_record as load_promeia_raw_record,
+)
+from core.application.characters.pyrois import (
+    PYROIS_ID,
+    PYROIS_REVIEWED_MAPPING,
+    PyroisCompileConfig,
+    compile_pyrois,
+    load_raw_record as load_pyrois_raw_record,
+)
+from core.application.characters.norma import (
+    NORMA_ID,
+    NORMA_REVIEWED_MAPPING,
+    NormaCompileConfig,
+    compile_norma,
+    load_raw_record as load_norma_raw_record,
+)
+from core.application.characters.seed import (
+    SEED_ID,
+    SEED_REVIEWED_MAPPING,
+    SeedCompileConfig,
+    compile_seed,
+)
+from core.application.characters.seed.compiler import (
+    load_raw_record as load_seed_raw_record,
+)
+from core.application.characters.sunna import (
+    SUNNA_ID,
+    SUNNA_REVIEWED_MAPPING,
+    SunnaCatGazeTriggerer,
+    SunnaCompileConfig,
+    compile_sunna,
+    load_raw_record as load_sunna_raw_record,
+)
 from core.application.characters.piper import (
     PIPER_ID,
     PiperCompileConfig,
@@ -1155,6 +1248,235 @@ def _seth_fields(
     )
 
 
+def _yinhu_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "潘引壶核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "通窍贯穿力按潘引壶初始攻击力和当前核心等级计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "潘引壶影画",
+            int(values.get("cinema_level", 6)),
+            0,
+            6,
+            "A级代理人的默认影画为6；3影与5影技能等级增加仍受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
+def _manato_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "真斗核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "真斗影画",
+            int(values.get("cinema_level", 6)),
+            0,
+            6,
+            "A级代理人的默认影画为6；3影与5影技能等级增加仍受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
+def _banyue_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "般岳核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "般岳影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级增加受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _seed_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "席德核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "正兵按队伍中其他强攻代理人的初始攻击力自动判定；多候选需要可比的初始面板。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "席德影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级增加仍受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _aria_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "爱芮核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "爱芮影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级增加受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _aria_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(ARIA_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == ARIA_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role in {
+            CharacterRole.SUPPORT,
+            CharacterRole.STUN,
+            CharacterRole.ANOMALY,
+        }:
+            return True
+        teammate_camp = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(teammate_camp, Mapping) and own_camps.intersection(
+            str(value) for value in teammate_camp.values()
+        ):
+            return True
+    return False
+
+
+def _sunna_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "千夏核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "千夏影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级提升受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _sunna_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(SUNNA_ID)
+    return any(
+        character_id != SUNNA_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and (
+            registration.role is CharacterRole.ATTACK
+            or bool(own_camps.intersection(_nanoka_camp_ids(character_id)))
+        )
+        for character_id in team_ids
+    )
+
+
+def _compile_sunna(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    triggerers = tuple(
+        SunnaCatGazeTriggerer(
+            character_id=character_id,
+            role=registration.role,
+            element=(
+                registration.equipment_capabilities.native_element
+                or registration.base_element
+            ),
+        )
+        for character_id in team_ids
+        if character_id != SUNNA_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.ATTACK, CharacterRole.ANOMALY}
+    )
+    config = SunnaCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=(
+            _sunna_additional_ability_eligibility(team_ids)
+        ),
+        cat_gaze_triggerers=triggerers,
+    )
+    return compile_sunna(
+        config,
+        load_sunna_raw_record(load_character_record(str(SUNNA_ID))),
+    )
+
+
 def _piper_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -2002,6 +2324,665 @@ def _compile_seth(
     )
 
 
+def _yinhu_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(YINHU_ID)
+    for character_id in team_ids:
+        if character_id == YINHU_ID or character_id not in _REGISTRATIONS:
+            continue
+        if _REGISTRATIONS[character_id].role is CharacterRole.RUPTURE:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _compile_yinhu(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    recipients = tuple(
+        dict.fromkeys(character_id for character_id in team_ids if character_id != YINHU_ID)
+    )
+    recipient_names = tuple(
+        (character_id, _REGISTRATIONS[character_id].catalog.display_name)
+        for character_id in recipients
+        if character_id in _REGISTRATIONS
+    )
+    config = YinhuCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 6, strict),
+        additional_ability_eligible=_yinhu_additional_ability_eligibility(team_ids),
+        penetration_recipient_ids=recipients,
+        penetration_recipient_names=recipient_names,
+    )
+    return compile_yinhu(
+        config,
+        load_yinhu_raw_record(load_character_record(str(YINHU_ID))),
+    )
+
+
+def _manato_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != MANATO_ID
+        and _REGISTRATIONS[character_id].role
+        in {CharacterRole.SUPPORT, CharacterRole.STUN}
+        for character_id in team_ids
+    )
+
+
+def _compile_manato(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_manato(
+        ManatoCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 6, strict),
+            additional_ability_eligible=(
+                _manato_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_manato_raw_record(load_character_record(str(MANATO_ID))),
+    )
+
+
+def _banyue_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != BANYUE_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.SUPPORT, CharacterRole.STUN}
+        for character_id in team_ids
+    )
+
+
+def _compile_banyue(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = BanYueCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        additional_ability_eligible=_banyue_additional_ability_eligibility(team_ids),
+    )
+    return compile_banyue(
+        config,
+        load_banyue_raw_record(load_character_record(str(BANYUE_ID))),
+    )
+
+
+def _seed_attack_teammates(
+    team_ids: Sequence[CharacterId],
+) -> tuple[CharacterId, ...]:
+    return tuple(
+        dict.fromkeys(
+            character_id
+            for character_id in team_ids
+            if character_id != SEED_ID
+            and (registration := _REGISTRATIONS.get(character_id)) is not None
+            and registration.role is CharacterRole.ATTACK
+        )
+    )
+
+
+def seed_attack_teammates(
+    team_character_ids: Sequence[str | CharacterId],
+) -> tuple[CharacterId, ...]:
+    """Return Seed's other Attack teammates in stable team order."""
+
+    return _seed_attack_teammates(
+        tuple(CharacterId(str(item)) for item in team_character_ids)
+    )
+
+
+def _compile_seed_definition(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool,
+    *,
+    resolved_partner_id: CharacterId | None = None,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    candidates = _seed_attack_teammates(team_ids)
+    if resolved_partner_id is not None:
+        resolved_partner_id = CharacterId(str(resolved_partner_id))
+        if resolved_partner_id not in candidates:
+            raise ValueError(
+                "resolved Seed Core partner must be another Attack teammate"
+            )
+        partner_id = resolved_partner_id
+        unresolved = False
+    elif len(candidates) == 1:
+        partner_id = candidates[0]
+        unresolved = False
+    else:
+        partner_id = None
+        unresolved = len(candidates) > 1
+    return compile_seed(
+        SeedCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=bool(candidates),
+            partner_character_id=partner_id,
+            partner_selection_unresolved=unresolved,
+            partner_candidate_ids=candidates if unresolved else (),
+        ),
+        load_seed_raw_record(load_character_record(str(SEED_ID))),
+    )
+
+
+def _compile_seed(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    return _compile_seed_definition(values, team_ids, strict)
+
+
+def _compile_aria(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_aria(
+        AriaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _aria_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_aria_raw_record(load_character_record(str(ARIA_ID))),
+    )
+
+
+def _nangongyu_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "南宫羽核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "南宫羽影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级提升受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _nangongyu_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(NANGONGYU_ID)
+    return any(
+        character_id != NANGONGYU_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and (
+            registration.role is CharacterRole.ANOMALY
+            or bool(own_camps.intersection(_nanoka_camp_ids(character_id)))
+        )
+        for character_id in team_ids
+    )
+
+
+def _compile_nangongyu(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    aria_in_team = CharacterId("character:1501") in team_ids
+    return compile_nangongyu(
+        NangongYuCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _nangongyu_additional_ability_eligibility(team_ids)
+            ),
+            aria_in_team=aria_in_team,
+        ),
+        load_nangongyu_raw_record(load_character_record(str(NANGONGYU_ID))),
+    )
+
+
+def _cissia_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "希希芙核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级。初始能量自动回复加成按连续数值计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "希希芙影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _cissia_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    """Cissia's Additional Ability accepts another Stun or Electric agent."""
+
+    return any(
+        character_id != CISSIA_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and (
+            registration.role is CharacterRole.STUN
+            or registration.base_element is Element.ELECTRIC
+        )
+        for character_id in team_ids
+    )
+
+
+def _compile_cissia(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_cissia(
+        CissiaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _cissia_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_cissia_raw_record(load_character_record(str(CISSIA_ID))),
+    )
+
+
+def _promeia_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "普罗米娅核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级；初始异常掌控按初始面板计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "普罗米娅影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _promeia_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != PROMEIA_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.ANOMALY, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_promeia(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_promeia(
+        PromeiaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _promeia_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_promeia_raw_record(load_character_record(str(PROMEIA_ID))),
+    )
+
+
+def _pyrois_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "佩洛伊斯核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "佩洛伊斯影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _pyrois_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != PYROIS_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.STUN, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_pyrois(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_pyrois(
+        PyroisCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _pyrois_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_pyrois_raw_record(load_character_record(str(PYROIS_ID))),
+    )
+
+
+def _norma_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "诺姆核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级；初始暴击率条件按初始面板计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "诺姆影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _norma_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(NORMA_ID)
+    for character_id in team_ids:
+        if character_id == NORMA_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role in {CharacterRole.ATTACK, CharacterRole.RUPTURE}:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _compile_norma(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_norma(
+        NormaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _norma_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_norma_raw_record(load_character_record(str(NORMA_ID))),
+    )
+
+
+def _starlight_billy_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "星徽·比利核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "星徽·比利影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _starlight_billy_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != STARLIGHT_BILLY_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role
+        in {CharacterRole.STUN, CharacterRole.DEFENSE, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_starlight_billy(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_starlight_billy(
+        StarlightBillyCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _starlight_billy_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_starlight_billy_raw_record(
+            load_character_record(str(STARLIGHT_BILLY_ID))
+        ),
+    )
+
+
+def _sigrid_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    cinema = int(values.get("cinema_level", 0))
+    fields: list[CompileConfigFieldView] = [
+        _slider_field(
+            "core_level",
+            "希格莉德核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级。暴击率增益与[巡空枪势]状态分别按当前状态选择。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "希格莉德影画",
+            cinema,
+            0,
+            6,
+            "S级代理人默认0影；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+    ]
+    fields.extend(_skill_level_fields(values, default_level=12))
+    return tuple(fields)
+
+
+def _sigrid_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != SIGRID_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.STUN, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_sigrid(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset(
+            {
+                "core_level",
+                "cinema_level",
+                "skill_levels",
+            }
+        ),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    cinema_level = _integer_with_default(values, "cinema_level", 0, strict)
+    return compile_sigrid(
+        SigridCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=cinema_level,
+            additional_ability_eligible=(
+                _sigrid_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_sigrid_raw_record(load_character_record(str(SIGRID_ID))),
+    )
+
+
+def _compile_seed_with_resolved_partner(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    resolved_partner_id: CharacterId,
+) -> CharacterCalculationDefinition:
+    """Recompile Seed after Initial panels uniquely resolve its Core partner."""
+
+    return _compile_seed_definition(
+        values,
+        team_ids,
+        False,
+        resolved_partner_id=resolved_partner_id,
+    )
+
+
+def compile_seed_with_resolved_partner(
+    values: Mapping[str, Any],
+    team_character_ids: Sequence[str | CharacterId],
+    resolved_partner_id: str | CharacterId,
+) -> CharacterCalculationDefinition:
+    """Compile Seed after a unique highest Initial ATK partner is known."""
+
+    return _compile_seed_with_resolved_partner(
+        values,
+        tuple(CharacterId(str(item)) for item in team_character_ids),
+        CharacterId(str(resolved_partner_id)),
+    )
+
+
 def _piper_additional_ability_eligibility(team_ids: Sequence[CharacterId]) -> bool:
     own_camps = {
         str(value)
@@ -2774,17 +3755,19 @@ def _alice_eligibility(team_ids: Sequence[CharacterId]) -> bool:
 
 
 def _yuzuha_eligibility(team_ids: Sequence[CharacterId]) -> bool:
-    # Yuzuha's raw faction is Camp11.  The only other Camp11 member in the
-    # current production roster is Alice; anomaly teammates also satisfy the
-    # alternate qualification in the source text.
-    return any(
-        character_id == CharacterId("character:1401")
-        or (
-            character_id != CharacterId("character:1411")
-            and _REGISTRATIONS[character_id].role is CharacterRole.ANOMALY
-        )
-        for character_id in team_ids
-    )
+    yuzuha_id = CharacterId("character:1411")
+    own_camps = _nanoka_camp_ids(yuzuha_id)
+    for character_id in team_ids:
+        if character_id == yuzuha_id:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role is CharacterRole.ANOMALY:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
 
 
 def _trigger_eligibility(team_ids: Sequence[CharacterId]) -> bool:
@@ -5066,6 +6049,517 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             mechanisms=frozenset({"yuzuha-tanuki-wish"}),
         ),
     ),
+    YINHU_ID: CharacterPresentationRegistration(
+        character_id=YINHU_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(YINHU_ID),
+            display_name="潘引壶",
+            rarity="A",
+            element="physical",
+            specialty="defense",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.DEFENSE,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_yinhu,
+        config_fields=_yinhu_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=YINHU_ID,
+            role=CharacterRole.DEFENSE,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            native_element=Element.PHYSICAL,
+            mechanisms=frozenset({"yinhu-tongqiao"}),
+        ),
+    ),
+    MANATO_ID: CharacterPresentationRegistration(
+        character_id=MANATO_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(MANATO_ID),
+            display_name="真斗",
+            rarity="A",
+            element="fire",
+            specialty="rupture",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.RUPTURE,
+        base_element=Element.FIRE,
+        compile_definition=_compile_manato,
+        config_fields=_manato_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=MANATO_ID,
+            role=CharacterRole.RUPTURE,
+            possible_elements=frozenset({Element.PHYSICAL, Element.FIRE}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                tag
+                for move in MANATO_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            mechanisms=frozenset({"manato-ember-heart"}),
+        ),
+    ),
+    BANYUE_ID: CharacterPresentationRegistration(
+        character_id=BANYUE_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(BANYUE_ID),
+            display_name="般岳",
+            rarity="S",
+            element="fire",
+            specialty="rupture",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.RUPTURE,
+        base_element=Element.FIRE,
+        compile_definition=_compile_banyue,
+        config_fields=_banyue_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=BANYUE_ID,
+            role=CharacterRole.RUPTURE,
+            possible_elements=frozenset(
+                move.element for move in BANYUE_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in BANYUE_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in BANYUE_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            mechanisms=frozenset({"rupture-vajra"}),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in BANYUE_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    SEED_ID: CharacterPresentationRegistration(
+        character_id=SEED_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(SEED_ID),
+            display_name="「席德」",
+            rarity="S",
+            element="electric",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_seed,
+        config_fields=_seed_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SEED_ID,
+            role=CharacterRole.ATTACK,
+            native_element=Element.ELECTRIC,
+            possible_elements=frozenset(
+                move.element for move in SEED_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in SEED_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in SEED_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+        ),
+    ),
+    SUNNA_ID: CharacterPresentationRegistration(
+        character_id=SUNNA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(SUNNA_ID),
+            display_name="千夏",
+            rarity="S",
+            element="physical",
+            specialty="support",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.SUPPORT,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_sunna,
+        config_fields=_sunna_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SUNNA_ID,
+            role=CharacterRole.SUPPORT,
+            native_element=Element.PHYSICAL,
+            possible_elements=frozenset(
+                move.element for move in SUNNA_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in SUNNA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in SUNNA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in SUNNA_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    ARIA_ID: CharacterPresentationRegistration(
+        character_id=ARIA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(ARIA_ID),
+            display_name="爱芮",
+            rarity="S",
+            element="ether",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.ETHER,
+        compile_definition=_compile_aria,
+        config_fields=_aria_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=ARIA_ID,
+            role=CharacterRole.ANOMALY,
+            native_element=Element.ETHER,
+            possible_elements=frozenset(
+                {
+                    Element.ETHER,
+                    Element.ELECTRIC,
+                    Element.FIRE,
+                    Element.PHYSICAL,
+                    Element.ICE,
+                    Element.WIND,
+                }
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in ARIA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in ARIA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            mechanisms=frozenset({"anomaly-soul-in-shell"}),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in ARIA_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    NANGONGYU_ID: CharacterPresentationRegistration(
+        character_id=NANGONGYU_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(NANGONGYU_ID),
+            display_name="南宫羽",
+            rarity="S",
+            element="ether",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.ETHER,
+        compile_definition=_compile_nangongyu,
+        config_fields=_nangongyu_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=NANGONGYU_ID,
+            role=CharacterRole.STUN,
+            native_element=Element.ETHER,
+            possible_elements=frozenset(
+                {
+                    Element.ETHER,
+                    Element.ELECTRIC,
+                    Element.FIRE,
+                    Element.PHYSICAL,
+                    Element.ICE,
+                    Element.WIND,
+                }
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in NANGONGYU_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in NANGONGYU_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in NANGONGYU_REVIEWED_MAPPING.moves
+            ),
+            mechanisms=frozenset({"nangongyu-voice-discharge", "nangongyu-polar-disorder"}),
+        ),
+    ),
+    CISSIA_ID: CharacterPresentationRegistration(
+        character_id=CISSIA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(CISSIA_ID),
+            display_name="希希芙",
+            rarity="S",
+            element="electric",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_cissia,
+        config_fields=_cissia_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CISSIA_ID,
+            role=CharacterRole.ATTACK,
+            native_element=Element.ELECTRIC,
+            possible_elements=frozenset(
+                move.element for move in CISSIA_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in CISSIA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in CISSIA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in CISSIA_REVIEWED_MAPPING.moves
+            ),
+            mechanisms=frozenset({"cissia-bone-erosion"}),
+        ),
+    ),
+    STARLIGHT_BILLY_ID: CharacterPresentationRegistration(
+        character_id=STARLIGHT_BILLY_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(STARLIGHT_BILLY_ID),
+            display_name="星徽·比利",
+            rarity="S",
+            element="physical",
+            specialty="rupture",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.RUPTURE,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_starlight_billy,
+        config_fields=_starlight_billy_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=STARLIGHT_BILLY_ID,
+            role=CharacterRole.RUPTURE,
+            native_element=Element.PHYSICAL,
+            possible_elements=frozenset(
+                move.element for move in STARLIGHT_BILLY_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in STARLIGHT_BILLY_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in STARLIGHT_BILLY_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in STARLIGHT_BILLY_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    SIGRID_ID: CharacterPresentationRegistration(
+        character_id=SIGRID_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(SIGRID_ID),
+            display_name="希格莉德",
+            rarity="S",
+            element="ice",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ICE,
+        compile_definition=_compile_sigrid,
+        config_fields=_sigrid_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SIGRID_ID,
+            role=CharacterRole.ATTACK,
+            native_element=Element.ICE,
+            possible_elements=frozenset(
+                move.element for move in SIGRID_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in SIGRID_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in SIGRID_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in SIGRID_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    PROMEIA_ID: CharacterPresentationRegistration(
+        character_id=PROMEIA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(PROMEIA_ID),
+            display_name="普罗米娅",
+            rarity="S",
+            element="ice",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.ICE,
+        compile_definition=_compile_promeia,
+        config_fields=_promeia_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=PROMEIA_ID,
+            role=CharacterRole.ANOMALY,
+            native_element=Element.ICE,
+            possible_elements=frozenset(
+                move.element for move in PROMEIA_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in PROMEIA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in PROMEIA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in PROMEIA_REVIEWED_MAPPING.moves
+            ),
+            mechanisms=frozenset({"promeia-frost-discharge"}),
+        ),
+    ),
+    PYROIS_ID: CharacterPresentationRegistration(
+        character_id=PYROIS_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(PYROIS_ID),
+            display_name="佩洛伊斯",
+            rarity="S",
+            element="ether",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ETHER,
+        compile_definition=_compile_pyrois,
+        config_fields=_pyrois_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=PYROIS_ID,
+            role=CharacterRole.ATTACK,
+            native_element=Element.ETHER,
+            possible_elements=frozenset(
+                move.element for move in PYROIS_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in PYROIS_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in PYROIS_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in PYROIS_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    NORMA_ID: CharacterPresentationRegistration(
+        character_id=NORMA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(NORMA_ID),
+            display_name="诺姆",
+            rarity="S",
+            element="fire",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.FIRE,
+        compile_definition=_compile_norma,
+        config_fields=_norma_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=NORMA_ID,
+            role=CharacterRole.STUN,
+            native_element=Element.FIRE,
+            possible_elements=frozenset(
+                move.element for move in NORMA_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in NORMA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in NORMA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(move.element, move.skill_group, move.damage_tags)
+                for move in NORMA_REVIEWED_MAPPING.moves
+            ),
+            mechanisms=frozenset({"norma-technical-gap", "norma-en-ni-barrage"}),
+        ),
+    ),
     CharacterId("character:1361"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1361"),
         catalog=CharacterCatalogItem(
@@ -6110,6 +7604,8 @@ def build_registered_editor_view(
                     entry_id=VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
                     move_id=None,
                     label="异放（薇薇安当前面板）",
+                    damage_type="disorder",
+                    element="ether",
                     skill_group=None,
                     damage_tags=(),
                     multiplier_relation="complete",
@@ -6122,6 +7618,7 @@ def build_registered_editor_view(
                             condition_ids=(),
                             repeat_count=None,
                             repeat_count_parameter_id=None,
+                            parameter_value_id=None,
                         ),
                     ),
                     condition_ids=(),

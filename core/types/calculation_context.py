@@ -77,3 +77,4 @@ class CalculationContext:
     vulnerability_policy: VulnerabilitySettlementPolicy = field(
         default_factory=StandardVulnerabilityPolicy
     )
+    initial_character_snapshots: tuple[InitialCharacterSnapshot, ...] = ()

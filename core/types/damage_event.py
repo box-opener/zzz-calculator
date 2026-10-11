@@ -37,6 +37,14 @@ class CurrentAttackValueSource:
 
 
 @dataclass(frozen=True, slots=True)
+class InitialAttackValueSource:
+    """An immutable build-time Initial ATK panel used as a damage basis."""
+
+    character_id: CharacterId
+    kind: Literal["initial-attack"] = field(default="initial-attack", init=False)
+
+
+@dataclass(frozen=True, slots=True)
 class CurrentDefenseValueSource:
     character_id: CharacterId
     kind: Literal["current-defense"] = field(default="current-defense", init=False)
@@ -107,6 +115,7 @@ class AnomalyRecordValueSource:
 
 BaseSettlementDataSource: TypeAlias = (
     CurrentAttackValueSource
+    | InitialAttackValueSource
     | CurrentDefenseValueSource
     | CurrentMaxHPValueSource
     | CurrentAnomalyProficiencyValueSource
@@ -206,6 +215,7 @@ class DirectDamageEvent:
     metadata: DamageEventMetadata
     base_settlement_data_source: (
         CurrentAttackValueSource
+        | InitialAttackValueSource
         | CurrentDefenseValueSource
         | CurrentMaxHPValueSource
         | CurrentAnomalyProficiencyValueSource

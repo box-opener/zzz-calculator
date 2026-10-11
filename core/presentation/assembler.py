@@ -559,6 +559,12 @@ def _move_view(entry) -> MoveView:
         entry_id=str(entry.entry_id),
         move_id=str(entry.move_id) if entry.move_id is not None else None,
         label=entry.display_name,
+        damage_type=entry.main_damage_event.damage_type.value,
+        element=(
+            entry.main_damage_event.element.value
+            if entry.main_damage_event.element is not None
+            else None
+        ),
         skill_group=entry.skill_group.value if entry.skill_group else None,
         damage_tags=tuple(sorted(item.value for item in entry.damage_tags)),
         multiplier_relation=entry.multiplier_relation.value,
@@ -578,6 +584,11 @@ def _move_view(entry) -> MoveView:
                 repeat_count_parameter_id=(
                     str(item.repeat_count_parameter_id)
                     if item.repeat_count_parameter_id is not None
+                    else None
+                ),
+                parameter_value_id=(
+                    str(item.parameter_value_id)
+                    if item.parameter_value_id is not None
                     else None
                 ),
             )

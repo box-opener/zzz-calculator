@@ -11,6 +11,8 @@ from core.types import (
     CurrentDefenseValueSource,
     CurrentMaxHPValueSource,
     CurrentPenetrationForceValueSource,
+    InitialAttackValueSource,
+    InitialCharacterSnapshot,
     CharacterId,
     CharacterSnapshot,
     DirectDamageEvent,
@@ -65,11 +67,15 @@ _SUPPORTED_MODIFIER_PATHS = frozenset(
 )
 
 
-def _node(node: CalculationNode, value: float) -> CalculationNodeValue:
+def _node(
+    node: CalculationNode,
+    value: float,
+    read_rule: SnapshotRule = SnapshotRule.SETTLEMENT,
+) -> CalculationNodeValue:
     return CalculationNodeValue(
         node=node,
         value=Resolved(value),
-        read_rule=SnapshotRule.SETTLEMENT,
+        read_rule=read_rule,
     )
 
 
@@ -81,6 +87,19 @@ def _snapshot_index(
         if snapshot.character_id in index:
             raise InvalidCalculationContextError(
                 f"duplicate character snapshot: {snapshot.character_id}"
+            )
+        index[snapshot.character_id] = snapshot
+    return index
+
+
+def _initial_snapshot_index(
+    snapshots: tuple[InitialCharacterSnapshot, ...],
+) -> dict[CharacterId, InitialCharacterSnapshot]:
+    index: dict[CharacterId, InitialCharacterSnapshot] = {}
+    for snapshot in snapshots:
+        if snapshot.character_id in index:
+            raise InvalidCalculationContextError(
+                f"duplicate initial character snapshot: {snapshot.character_id}"
             )
         index[snapshot.character_id] = snapshot
     return index
@@ -155,10 +174,18 @@ class DirectDamageCalculator:
             )
 
         snapshots = _snapshot_index(context.character_snapshots)
-        base_source = _required_snapshot(
-            snapshots,
-            event.base_settlement_data_source.character_id,
-            "base settlement source",
+        initial_source = isinstance(
+            event.base_settlement_data_source,
+            InitialAttackValueSource,
+        )
+        base_source = (
+            None
+            if initial_source
+            else _required_snapshot(
+                snapshots,
+                event.base_settlement_data_source.character_id,
+                "base settlement source",
+            )
         )
         damage_dealer = _required_snapshot(
             snapshots,
@@ -184,8 +211,45 @@ class DirectDamageCalculator:
         base_source_breakdown: tuple[CalculationNodeValue, ...]
         if isinstance(
             event.base_settlement_data_source,
+            InitialAttackValueSource,
+        ):
+            initial_snapshots = _initial_snapshot_index(
+                context.initial_character_snapshots
+            )
+            initial_source_snapshot = initial_snapshots.get(
+                event.base_settlement_data_source.character_id
+            )
+            if initial_source_snapshot is None:
+                unresolved.append(
+                    Unresolved(
+                        reason=UnresolvedReason.MISSING_DATA,
+                        notes=(
+                            "missing Initial ATK panel snapshot for damage basis: "
+                            f"{event.base_settlement_data_source.character_id}"
+                        ),
+                    )
+                )
+                base_value = None
+                base_source_breakdown = ()
+            else:
+                base_value = _resolved_number(
+                    initial_source_snapshot.initial_stats.attack,
+                    unresolved,
+                )
+                base_source_breakdown = (
+                    (_node(
+                        CalculationNode.CHARACTER_INITIAL_ATTACK,
+                        base_value,
+                        SnapshotRule.INITIAL,
+                    ),)
+                    if base_value is not None
+                    else ()
+                )
+        elif isinstance(
+            event.base_settlement_data_source,
             CurrentAnomalyProficiencyValueSource,
         ):
+            assert base_source is not None
             base_value = _resolved_number(
                 base_source.settlement_stats.anomaly_proficiency,
                 unresolved,
@@ -198,6 +262,7 @@ class DirectDamageCalculator:
             event.base_settlement_data_source,
             CurrentMaxHPValueSource,
         ):
+            assert base_source is not None
             base_value = _resolved_number(
                 base_source.settlement_stats.hp,
                 unresolved,
@@ -210,6 +275,7 @@ class DirectDamageCalculator:
             event.base_settlement_data_source,
             CurrentDefenseValueSource,
         ):
+            assert base_source is not None
             base_value = _resolved_number(
                 base_source.settlement_stats.defense,
                 unresolved,
@@ -222,6 +288,7 @@ class DirectDamageCalculator:
             event.base_settlement_data_source,
             CurrentPenetrationForceValueSource,
         ):
+            assert base_source is not None
             current_attack = _resolved_number(
                 base_source.settlement_stats.attack,
                 unresolved,
@@ -253,6 +320,7 @@ class DirectDamageCalculator:
                 base_value = force.value
                 base_source_breakdown = force.breakdown
         else:
+            assert base_source is not None
             base_value = _resolved_number(
                 base_source.settlement_stats.attack,
                 unresolved,

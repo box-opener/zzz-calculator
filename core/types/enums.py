@@ -218,6 +218,7 @@ class SnapshotRule(StrEnum):
     ANOMALY_TRIGGER = "anomaly-trigger"
     SETTLEMENT = "settlement"
     INHERITED = "inherited"
+    INITIAL = "initial"
 
 
 class FieldPosition(StrEnum):

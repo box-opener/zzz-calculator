@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from core.types import (
+    BattleEventKind,
     CharacterId,
     CharacterRole,
     Element,
@@ -32,7 +33,7 @@ from ..scenario import (
     ScenarioIntegerParameter,
     ParameterResolution,
 )
-from .templates import DamageEventTemplate
+from .templates import DamageEventTemplate, DirectDamageEventTemplate
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,14 +83,6 @@ class CharacterCalculationDefinition:
             (item.ref.semantic_id for item in self.damage_event_templates),
             "DamageEventSemanticId",
         )
-        if any(
-            item.damage_dealer != self.character_id
-            for item in self.damage_event_templates
-        ):
-            raise ValueError(
-                "typed event template damage dealer must match definition character"
-            )
-
         template_map = {
             item.ref.template_id: item
             for item in self.damage_event_templates
@@ -161,9 +154,22 @@ class CharacterCalculationDefinition:
                 required_template_ids.add(template_id)
             else:
                 self._assert_derived_source_rule(derived, rule_map)
+        for template in self.damage_event_templates:
+            if template.damage_dealer != self.character_id:
+                self._assert_external_derived_template(
+                    template,
+                    derived_refs_by_template,
+                    rule_map,
+                    definition_owner=self.character_id,
+                )
         for entry in self.move_entries:
             if entry.character_id != self.character_id:
                 raise ValueError("move entry character_id must match definition")
+            main_template = template_map.get(entry.main_damage_event.template_id)
+            if main_template is None or main_template.damage_dealer != self.character_id:
+                raise ValueError(
+                    "move main-damage event must be owned by its character definition"
+                )
             self._assert_condition_references(entry.condition_ids, condition_ids)
             if (
                 entry.multiplier_relation is MultiplierRelation.MUTUALLY_EXCLUSIVE_VARIANT
@@ -296,6 +302,68 @@ class CharacterCalculationDefinition:
             derived.template.template_id,
         ):
             raise ValueError("source rule item does not create its derived template")
+
+    @classmethod
+    def _assert_external_derived_template(
+        cls,
+        template: DamageEventTemplate,
+        derived_refs: dict[
+            EventTemplateId,
+            DerivedDamageEventTemplateRef,
+        ],
+        rule_map: dict,
+        *,
+        definition_owner: CharacterId,
+    ) -> None:
+        """Permit only source-rule-created neutral Direct child events to cross owners."""
+
+        if not isinstance(template, DirectDamageEventTemplate):
+            raise ValueError(
+                "cross-dealer templates are limited to explicitly created Direct events"
+            )
+        if (
+            template.move_id is not None
+            or template.ref.skill_group is not None
+            or template.ref.damage_tags
+        ):
+            raise ValueError(
+                "cross-dealer derived Direct events cannot invent a move identity"
+            )
+        if (
+            template.allow_external_base_source
+            or template.base_source.character_id != template.damage_dealer
+            or template.crit_rule.stat_owner != template.damage_dealer
+        ):
+            raise ValueError(
+                "cross-dealer derived Direct events must use the actual dealer's panels"
+            )
+        derived = derived_refs.get(template.ref.template_id)
+        if derived is None or derived.required:
+            raise ValueError(
+                "cross-dealer template requires an independent EventCreation-derived reference"
+            )
+        if derived.template != template.ref:
+            raise ValueError("cross-dealer derived reference must match its typed template")
+        source_rule_id = template.ref.source_rule_item_id
+        source_rule = rule_map.get(source_rule_id) if source_rule_id is not None else None
+        if source_rule is None or source_rule.owner != definition_owner:
+            raise ValueError(
+                "cross-dealer template requires a source rule owned by its definition"
+            )
+        if not cls._rule_creates_template(source_rule, template.ref.template_id):
+            raise ValueError(
+                "cross-dealer template must be explicitly referenced by its source EventCreation"
+            )
+        if not any(
+            isinstance(effect, EventCreationEffect)
+            and effect.result.event_kind is BattleEventKind.DAMAGE
+            and effect.result.event_template_id == template.ref.template_id
+            and effect.rule.owner == definition_owner
+            for effect in source_rule.effects
+        ):
+            raise ValueError(
+                "cross-dealer EventCreation effect must be owned by the definition"
+            )
 
     @staticmethod
     def _rule_creates_template(

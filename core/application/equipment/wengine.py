@@ -165,6 +165,7 @@ from .wengine_ids import (
     WENGINE_FOX_FURNACE_ID,
     WENGINE_MACHINERY_SEED_ID,
     WENGINE_VAJRA_ID,
+    WENGINE_SONG_OF_NOISE_ID,
     WENGINE_LAST_NIGHT_ID,
     WENGINE_SOUL_IN_SHELL_ID,
     WENGINE_NEON_FANTASY_ID,
@@ -213,6 +214,10 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1251"): WENGINE_JADE_TEA_ID,
     # The live detail for 14134 describes the engine as commissioned for Zhao.
     CharacterId("character:1341"): WENGINE_SWEETBUNNY_ID,
+    # Nanoka 3.2 engine 14152 has code_name/icon `Weapon_S_1521`, identifying Cissia.
+    CharacterId("character:1521"): WENGINE_SCALE_TOOTH_ID,
+    # Nanoka 3.2 engine 13144 identifies as Weapon_A_1441, matching Manato's source ID.
+    CharacterId("character:1441"): WENGINE_GRILL_O_WISP_ID,
     # The live 3.2 engine detail names both code_name and icon as Weapon_S_1581.
     CharacterId("character:1581"): WENGINE_RETURNING_FEATHER_ID,
     # The live 3.2 weapon catalog record uses `Weapon_S_1561` for Velina.
@@ -252,6 +257,29 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1271"): WENGINE_PEACEKEEPER_SPECIALIZED_ID,
     # Local Nanoka 3.2 13128 record is Weapon_A_1281 and explicitly names Piper.
     CharacterId("character:1281"): WENGINE_ROARING_RIDE_ID,
+    # Local Nanoka 3.2 record 13142 is Weapon_A_1421, Yinhu's reviewed signature.
+    CharacterId("character:1421"): WEngineId("wengine:13142"),
+    # Local Nanoka 3.2 record 14146 is Weapon_S_1461, Seed's reviewed signature.
+    CharacterId("character:1461"): WENGINE_MACHINERY_SEED_ID,
+    # Local Nanoka 3.2 record 14147 is Weapon_S_1471, BanYue's reviewed signature.
+    CharacterId("character:1471"): WENGINE_VAJRA_ID,
+    # Nanoka 3.2 `Weapon_S_1491` is Sunna's explicitly identified signature.
+    CharacterId("character:1491"): WENGINE_SONG_OF_NOISE_ID,
+    # The local 14150 raw record is `Weapon_S_1501`, matching Aria's source ID.
+    CharacterId("character:1501"): WENGINE_SOUL_IN_SHELL_ID,
+    # Nanoka 3.2 engine 14151 explicitly identifies Nangong Yu's Weapon_S_1511.
+    CharacterId("character:1511"): WENGINE_NEON_FANTASY_ID,
+    # Nanoka 3.2 engine 14153 uses Weapon_S_1531, identifying Starlight - Billy.
+    CharacterId("character:1531"): WENGINE_GLOWING_HELM_ID,
+    # Nanoka 3.2 engine 14159's talent identifies Sigrid as its intended wearer.
+    CharacterId("character:1591"): WENGINE_CAVALRY_PRAISE_ID,
+    # Nanoka 3.2 engine 14154 uses Weapon_S_1541, identifying Promeia.
+    CharacterId("character:1541"): WEngineId("wengine:14154"),
+    # Engine 14155's descriptions name Pyrois as its intended wearer; its generic
+    # Weapon_S_Common_04 code name is not treated as an identity mapping.
+    CharacterId("character:1551"): WENGINE_ECLIPSE_REMAINS_ID,
+    # Nanoka 3.2 weapon 14157 uses Weapon_S_1571, matching Norma's source ID.
+    CharacterId("character:1571"): WENGINE_HEAD_ATTENDANT_ID,
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
     # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).
@@ -741,10 +769,10 @@ def _wengine_result_diagnostics(
             "same-move limits are not replayed."
         ),
         WENGINE_ECLIPSE_REMAINS_ID: (
-            "The permanent Crit Rate is calculated. The timed Ether resistance-ignore "
-            "state is exclusive to the named agent 佩洛伊斯, whose identity is absent "
-            "from the current character registry. The state is retained as source data "
-            "and is not enabled for another Attack owner."
+            "The permanent Crit Rate is available to Attack owners. Ether resistance "
+            "ignore is enabled only for the reviewed owner 佩洛伊斯 and uses an explicit "
+            "current 日蚀 state; Ultimate/entry triggers and the 45-second duration are "
+            "not replayed."
         ),
         WENGINE_LUXURY_CORE_ID: (
             "The current 0–2 EX Special Wind stacks and full-stack TEAM Anomaly "
@@ -7035,6 +7063,37 @@ def _eclipse_remains_rules(
     eligibility: RuleEligibility,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
+    pellois_id = CharacterId("character:1551")
+    pellois_eligible = (
+        eligibility is RuleEligibility.ELIGIBLE and owner == pellois_id
+    )
+    eclipse_rule_eligibility = (
+        RuleEligibility.ELIGIBLE
+        if pellois_eligible
+        else RuleEligibility.INELIGIBLE
+    )
+    eclipse_condition_id = None
+    eclipse_condition = None
+    eclipse_effects: tuple[ModifierEffect, ...] = ()
+    if pellois_eligible:
+        eclipse_condition_id, eclipse_condition = _condition(
+            raw,
+            owner,
+            "pellois-eclipse-active",
+            f"{raw.name}：佩洛伊斯当前处于日蚀效果",
+            talent.text,
+        )
+        eclipse_effects = (
+            _owner_event_modifier(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="pellois-eclipse-ether-resistance-ignore",
+                path=CalculationNode.DAMAGE_RESISTANCE_IGNORE,
+                value=float(talent.numeric_values["ether_resistance_ignore"]),
+                filters=(element_scope_filter(Element.ETHER),),
+            ),
+        )
     return (
         _rule(
             raw=raw,
@@ -7058,13 +7117,16 @@ def _eclipse_remains_rules(
             raw=raw,
             owner=owner,
             source=source,
-            suffix="pellois-eclipse-ether-resistance-ignore-source-only",
+            suffix="pellois-eclipse-ether-resistance-ignore",
             label=f"{raw.name}·佩洛伊斯专属日蚀效果",
-            eligibility=RuleEligibility.INELIGIBLE,
-            effects=(),
+            eligibility=eclipse_rule_eligibility,
+            condition_ids=(
+                (eclipse_condition_id,) if eclipse_condition_id is not None else ()
+            ),
+            effects=eclipse_effects,
             diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
         ),
-    ), ()
+    ), ((eclipse_condition,) if eclipse_condition is not None else ())
 
 
 def _luxury_core_rules(

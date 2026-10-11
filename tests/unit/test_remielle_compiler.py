@@ -95,7 +95,9 @@ def test_remielle_live_raw_panel_signature_and_default_config_are_reviewed() -> 
     assert registration.catalog.image_path == "/characters/portrait-placeholder.svg"
     assert str(signature_wengine_id_for(REMIELLE_ID)) == "wengine:14158"
 
-    weapon_source = json.loads(Path("core/data/wengines/14158.json").read_text())
+    weapon_source = json.loads(
+        Path("core/data/wengines/14158.json").read_text(encoding="utf-8")
+    )
     assert weapon_source["id"] == "14158"
     assert weapon_source["raw_nanoka_detail"]["code_name"] == "Weapon_S_1581"
     assert weapon_source["raw_nanoka_detail"]["icon"].endswith("Weapon_S_1581.png")

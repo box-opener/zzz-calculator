@@ -10,12 +10,14 @@ from core.types import (
     CalculationNode,
     DamageSubtype,
     DischargeDamageEvent,
+    EffectOperation,
     IndependentAnomalyCrit,
     IndependentAnomalyCritRule,
     NoCritRule,
     RecordedAnomalyCritRule,
     Resolved,
     Unresolved,
+    UnresolvedReason,
 )
 
 from ..regions import (
@@ -104,6 +106,71 @@ def _crit_values(
     )
 
 
+def _crit_values_with_override(
+    context: CalculationContext,
+    event: DischargeDamageEvent,
+    record_capability: AnomalyCritCapability,
+    record_id: AnomalyRecordId,
+    unresolved: list[Unresolved],
+) -> tuple[float | None, float | None, bool]:
+    overrides = {
+        CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE: tuple(
+            item
+            for item in context.modifiers
+            if item.modifier_path is CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE
+        ),
+        CalculationNode.DISCHARGE_CRIT_DAMAGE_OVERRIDE: tuple(
+            item
+            for item in context.modifiers
+            if item.modifier_path is CalculationNode.DISCHARGE_CRIT_DAMAGE_OVERRIDE
+        ),
+    }
+    has_override = any(overrides.values())
+    if not has_override:
+        rate, damage = _crit_values(
+            context,
+            event,
+            record_capability,
+            record_id,
+            unresolved,
+        )
+        return rate, damage, False
+
+    if any(len(items) != 1 for items in overrides.values()):
+        unresolved.append(
+            Unresolved(
+                reason=UnresolvedReason.MISSING_SPEC_RULE,
+                notes=(
+                    "Discharge crit overrides require exactly one rate and one damage value; "
+                    "an incomplete or duplicate override cannot fall back to record crit."
+                ),
+            )
+        )
+        return None, None, True
+
+    values: dict[CalculationNode, float | None] = {}
+    for node, items in overrides.items():
+        modifier = items[0]
+        if modifier.operation is not EffectOperation.OVERRIDE:
+            unresolved.append(
+                Unresolved(
+                    reason=UnresolvedReason.MISSING_SPEC_RULE,
+                    notes=(
+                        f"Discharge crit override {node.value} from {modifier.effect_id} "
+                        "requires the override operation."
+                    ),
+                )
+            )
+            values[node] = None
+            continue
+        values[node] = resolved_number(modifier.value, unresolved)
+    return (
+        values[CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE],
+        values[CalculationNode.DISCHARGE_CRIT_DAMAGE_OVERRIDE],
+        True,
+    )
+
+
 class DischargeDamageCalculator:
     def calculate(self, context: CalculationContext) -> CalculationResult:
         event, record, damage_dealer = require_historical_context(
@@ -126,7 +193,7 @@ class DischargeDamageCalculator:
             unresolved,
         )
         source_anomaly_multiplier = multiplier
-        crit_rate, crit_damage = _crit_values(
+        crit_rate, crit_damage, crit_override = _crit_values_with_override(
             context,
             event,
             record.crit_capability,
@@ -274,6 +341,20 @@ class DischargeDamageCalculator:
                     proficiency_ratio,
                 ),
                 node_value(CalculationNode.DISCHARGE_TOTAL_MULTIPLIER, multiplier),
+                *(
+                    (
+                        node_value(
+                            CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE,
+                            crit_rate,
+                        ),
+                        node_value(
+                            CalculationNode.DISCHARGE_CRIT_DAMAGE_OVERRIDE,
+                            crit_damage,
+                        ),
+                    )
+                    if crit_override
+                    else ()
+                ),
                 node_value(CalculationNode.DAMAGE_BASE_VALUE, base_damage),
                 node_value(
                     CalculationNode.ANOMALY_DAMAGE_BONUS_REGION,

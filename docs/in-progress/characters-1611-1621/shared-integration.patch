@@ -1,0 +1,337 @@
+diff --git a/core/application/characters/templates.py b/core/application/characters/templates.py
+index cf57ebd..56cf042 100644
+--- a/core/application/characters/templates.py
++++ b/core/application/characters/templates.py
+@@ -334,6 +334,30 @@ class UnresolvedDamageEventTemplate:
+             raise ValueError("unresolved direct template must not guess an element")
+ 
+ 
++@dataclass(frozen=True, slots=True)
++class UnresolvedSharpenedDamageEventTemplate:
++    """Typed, Electric Sharp Damage source awaiting its settlement formula."""
++
++    ref: DamageEventTemplateRef
++    damage_dealer: CharacterId
++    element: Element
++    base_source: CurrentDefenseValueSource
++    move_id: MoveId | None
++    unresolved: Unresolved
++
++    def __post_init__(self) -> None:
++        if self.ref.damage_type is not DamageType.SHARPENED:
++            raise ValueError("UnresolvedSharpenedDamageEventTemplate requires sharpened damage")
++        if self.ref.damage_subtype is not None:
++            raise ValueError("sharpened damage template has no reviewed subtype")
++        if self.ref.element is not self.element:
++            raise ValueError("template ref element must match typed template element")
++        if self.base_source.character_id != self.damage_dealer:
++            raise ValueError("sharp-damage defense source must match the damage dealer")
++        if self.ref.skill_group is None and self.move_id is not None:
++            raise ValueError("a template with a move_id must have an explicit skill_group")
++
++
+ DamageEventTemplate = (
+     DirectDamageEventTemplate
+     | PenetrationDamageEventTemplate
+@@ -346,6 +370,7 @@ DamageEventTemplate = (
+     | LuminanceFlareDamageEventTemplate
+     | SettledAnomalyDamageEventTemplate
+     | UnresolvedDamageEventTemplate
++    | UnresolvedSharpenedDamageEventTemplate
+ )
+ 
+ 
+@@ -362,4 +387,5 @@ __all__ = [
+     "LuminanceFlareDamageEventTemplate",
+     "SettledAnomalyDamageEventTemplate",
+     "UnresolvedDamageEventTemplate",
++    "UnresolvedSharpenedDamageEventTemplate",
+ ]
+diff --git a/core/application/execution/event_factory.py b/core/application/execution/event_factory.py
+index e419e9d..bc01b1a 100644
+--- a/core/application/execution/event_factory.py
++++ b/core/application/execution/event_factory.py
+@@ -37,6 +37,7 @@ from core.types import (
+     EffectId,
+     EnemyId,
+     TurbulenceDamageEvent,
++    UnresolvedSharpenedDamageEvent,
+     BASE_ELEMENT_BY_ELEMENT,
+     Resolved,
+ )
+@@ -54,6 +55,7 @@ from ..characters.templates import (
+     SettledAnomalyDamageEventTemplate,
+     TurbulenceDamageEventTemplate,
+     UnresolvedDamageEventTemplate,
++    UnresolvedSharpenedDamageEventTemplate,
+ )
+ from ..ids import DamageEventSemanticId, RuleItemId
+ from .contracts import InstantiatedDamageEvent
+@@ -126,6 +128,31 @@ def instantiate_damage_event(
+ 
+     if isinstance(template, UnresolvedDamageEventTemplate):
+         raise ValueError("unresolved direct template cannot be instantiated")
++    if isinstance(template, UnresolvedSharpenedDamageEventTemplate):
++        event = UnresolvedSharpenedDamageEvent(
++            metadata=template_metadata(
++                template,
++                battle_state_id=battle_state_id,
++                target_enemy=target_enemy,
++                created_at=created_at,
++            ),
++            base_settlement_data_source=template.base_source,
++            multiplier=multiplier,
++            unresolved=template.unresolved,
++        )
++        return InstantiatedDamageEvent(
++            template_id=template.ref.template_id,
++            semantic_id=template.ref.semantic_id,
++            label=template.ref.label,
++            event=event,
++            source_rule_item_id=(
++                source_rule_item_id
++                if source_rule_item_id is not None
++                else template.ref.source_rule_item_id
++            ),
++            created_by_effect_id=created_by_effect_id,
++            repeat_count=repeat_count,
++        )
+     if isinstance(template, DirectDamageEventTemplate):
+         return instantiate_direct_damage_event(
+             template,
+diff --git a/core/application/execution/modifiers.py b/core/application/execution/modifiers.py
+index 6d14cc6..5368c13 100644
+--- a/core/application/execution/modifiers.py
++++ b/core/application/execution/modifiers.py
+@@ -36,6 +36,7 @@ from core.types import (
+     StandardCritRule,
+     StandardVulnerabilityPolicy,
+     Unresolved,
++    UnresolvedSharpenedDamageEvent,
+     VeilVulnerabilityPolicy,
+     VulnerabilitySettlementPolicy,
+ )
+@@ -1705,6 +1706,9 @@ def _resolve_effect_value(
+         elif value.source_node is CalculationNode.CHARACTER_INITIAL_CRIT_RATE:
+             source_panel_value = source.initial_stats.crit_rate
+             source_stat_label = "initial crit rate"
++        elif value.source_node is CalculationNode.CHARACTER_INITIAL_CRIT_DAMAGE:
++            source_panel_value = source.initial_stats.crit_damage
++            source_stat_label = "initial crit damage"
+         elif value.source_node is CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY:
+             source_panel_value = source.initial_stats.anomaly_mastery
+             source_stat_label = "initial anomaly mastery"
+@@ -1727,6 +1731,7 @@ def _resolve_effect_value(
+         if value.source_node in {
+             CalculationNode.CHARACTER_INITIAL_HP,
+             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
++            CalculationNode.CHARACTER_INITIAL_CRIT_DAMAGE,
+             CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
+             CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
+         }:
+@@ -1862,9 +1867,13 @@ def _event_stat_modifier(
+     stack_count: int,
+     diagnostics: list[CalculationDiagnostic],
+ ) -> EventStatModifier | None:
+-    if not isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)) or not isinstance(
++    if isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)) and isinstance(
+         event.crit_rule, StandardCritRule
+     ):
++        event_recipient = event.crit_rule.stat_owner
++    elif isinstance(event, UnresolvedSharpenedDamageEvent):
++        event_recipient = event.metadata.damage_dealer
++    else:
+         diagnostics.append(
+             _diagnostic(
+                 str(effect.rule.effect_id),
+@@ -1910,7 +1919,7 @@ def _event_stat_modifier(
+         return None
+     return EventStatModifier(
+         effect_id=effect.rule.effect_id,
+-        recipient=event.crit_rule.stat_owner,
++        recipient=event_recipient,
+         modifier_path=effect.result.modifier_path,
+         operation=effect.result.operation,
+         value=Resolved(value.value * stack_count),
+diff --git a/core/application/execution/service.py b/core/application/execution/service.py
+index cddc746..1aec4f4 100644
+--- a/core/application/execution/service.py
++++ b/core/application/execution/service.py
+@@ -56,6 +56,7 @@ from core.types import (
+     SnapshotRule,
+     TurbulenceDamageEvent,
+     Unresolved,
++    UnresolvedSharpenedDamageEvent,
+     UnresolvedReason,
+ )
+ 
+@@ -2788,7 +2789,10 @@ def _apply_event_multiplier_modifiers(
+         # the source AP contribution, which preserves Remielle's explicit
+         # (base + AP) * Cinema-4 order.
+         return event
+-    if not isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)):
++    if not isinstance(
++        event,
++        (DirectDamageEvent, PenetrationDamageEvent, UnresolvedSharpenedDamageEvent),
++    ):
+         diagnostics.append(
+             _diagnostic(
+                 "event-multiplier",
+diff --git a/core/presentation/registry.py b/core/presentation/registry.py
+index 1326ca7..ffae246 100644
+--- a/core/presentation/registry.py
++++ b/core/presentation/registry.py
+@@ -254,6 +254,12 @@ from core.application.characters.norma import (
+     compile_norma,
+     load_raw_record as load_norma_raw_record,
+ )
++from core.application.characters.claret import (
++    CLARET_ID,
++    ClaretCompileConfig,
++    compile_claret_definition,
++    load_raw_record as load_claret_raw_record,
++)
+ from core.application.characters.seed import (
+     SEED_ID,
+     SEED_REVIEWED_MAPPING,
+@@ -1820,6 +1826,31 @@ def _remielle_fields(
+     )
+ 
+ 
++def _claret_fields(
++    values: Mapping[str, Any],
++    _team_ids: Sequence[CharacterId],
++) -> tuple[CompileConfigFieldView, ...]:
++    return (
++        _slider_field(
++            "core_level",
++            "克拉蕾核心被动等级",
++            int(values.get("core_level", 7)),
++            1,
++            7,
++            "角色核心被动等级；克拉蕾初始暴击率转换读取装备汇总后的初始暴击伤害。",
++        ),
++        _slider_field(
++            "cinema_level",
++            "克拉蕾影画",
++            int(values.get("cinema_level", 0)),
++            0,
++            6,
++            "A级代理人的默认影画为6；3影与5影技能等级增加受16级上限约束。",
++        ),
++        *_skill_level_fields(values, default_level=12),
++    )
++
++
+ def _velina_fields(
+     values: Mapping[str, Any],
+     _team_ids: Sequence[CharacterId],
+@@ -3462,6 +3493,27 @@ def _compile_remielle(
+     )
+ 
+ 
++def _compile_claret(
++    values: Mapping[str, Any],
++    _team_ids: Sequence[CharacterId],
++    strict: bool = True,
++) -> CharacterCalculationDefinition:
++    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
++    if strict:
++        _required(values, frozenset({"core_level", "cinema_level"}))
++    config = ClaretCompileConfig(
++        skill_levels=_skill_levels(values),
++        core_level=_integer_with_default(values, "core_level", 7, strict),
++        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
++    )
++    data = load_character_record(str(CLARET_ID))
++    return compile_claret_definition(
++        config,
++        load_claret_raw_record(data),
++        data,
++    )
++
++
+ def _velina_additional_ability_eligibility(
+     team_ids: Sequence[CharacterId],
+ ) -> bool:
+diff --git a/core/types/__init__.py b/core/types/__init__.py
+index 0725957..875da9d 100644
+--- a/core/types/__init__.py
++++ b/core/types/__init__.py
+@@ -116,6 +116,7 @@ from .damage_event import (
+     StandardCritRule,
+     TurbulenceDamageEvent,
+     UnresolvedSharpExplosionDamageEvent,
++    UnresolvedSharpenedDamageEvent,
+ )
+ from .luminance_source import (
+     LuminanceSourceChoice,
+diff --git a/core/types/damage_event.py b/core/types/damage_event.py
+index c0ba2f7..9de60b2 100644
+--- a/core/types/damage_event.py
++++ b/core/types/damage_event.py
+@@ -420,6 +420,24 @@ class PenetrationDamageEvent:
+     damage_subtype: None = field(default=None, init=False)
+ 
+ 
++@dataclass(frozen=True, slots=True)
++class UnresolvedSharpenedDamageEvent:
++    """Typed Sharp Damage event whose settlement contract is not implemented."""
++
++    metadata: DamageEventMetadata
++    base_settlement_data_source: CurrentDefenseValueSource
++    multiplier: DamageMultiplier
++    unresolved: Unresolved
++    damage_type: Literal[DamageType.SHARPENED] = field(
++        default=DamageType.SHARPENED, init=False
++    )
++    damage_subtype: None = field(default=None, init=False)
++
++    def __post_init__(self) -> None:
++        if self.base_settlement_data_source.character_id != self.metadata.damage_dealer:
++            raise ValueError("sharp-damage defense source must match the damage dealer")
++
++
+ @dataclass(frozen=True, slots=True)
+ class UnresolvedSharpExplosionDamageEvent:
+     metadata: DamageEventMetadata
+@@ -442,5 +460,6 @@ DamageEvent: TypeAlias = (
+     | DisorderDamageEvent
+     | PolarDisorderDamageEvent
+     | PenetrationDamageEvent
++    | UnresolvedSharpenedDamageEvent
+     | UnresolvedSharpExplosionDamageEvent
+ )
+diff --git a/core/types/effect.py b/core/types/effect.py
+index 37e635b..389dc53 100644
+--- a/core/types/effect.py
++++ b/core/types/effect.py
+@@ -363,6 +363,7 @@ class PanelStatDerivedValue:
+             CalculationNode.CHARACTER_INITIAL_DEFENSE,
+             CalculationNode.CHARACTER_INITIAL_HP,
+             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
++            CalculationNode.CHARACTER_INITIAL_CRIT_DAMAGE,
+             CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
+             CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
+             CalculationNode.CHARACTER_CURRENT_MAX_HP,
+@@ -373,7 +374,7 @@ class PanelStatDerivedValue:
+             CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE,
+         }:
+             raise ValueError(
+-                "panel derived values only support initial attack/defense/HP/crit rate/anomaly mastery/energy regen, "
++                "panel derived values only support initial attack/defense/HP/crit rate/crit damage/anomaly mastery/energy regen, "
+                 "current maximum HP/crit rate/impact/penetration rate, anomaly mastery, or "
+                 "anomaly proficiency"
+             )
+diff --git a/core/types/enums.py b/core/types/enums.py
+index b7092b2..7e9717f 100644
+--- a/core/types/enums.py
++++ b/core/types/enums.py
+@@ -65,6 +65,7 @@ class DamageType(StrEnum):
+     DISORDER = "disorder"
+     PENETRATION = "penetration"
+     SHARP_EXPLOSION = "sharp-explosion"  # 锐爆，规范注明未实装
++    SHARPENED = "sharpened"  # 锐化伤害，独立事件类型；结算公式未定义
+ 
+ 
+ class DamageSubtype(StrEnum):

@@ -118,6 +118,80 @@ def test_discharge_own_independent_crit_and_record_inherited_crit() -> None:
     assert inherited_result.value == own_result.value
 
 
+def test_discharge_explicit_crit_overrides_replace_inherited_record_once() -> None:
+    inherited_capability = IndependentAnomalyCrit(
+        Resolved(1.0),
+        Resolved(0.5),
+        inherited_by=(DamageSubtype.DISCHARGE,),
+    )
+    history = record(crit_capability=inherited_capability)
+    event = _event(
+        history,
+        crit_rule=RecordedAnomalyCritRule(
+            history.record_id,
+            inherited_capability,
+        ),
+    )
+    base = context(event, records=(history,))
+    inherited_result = DischargeDamageCalculator().calculate(base)
+    override_result = DischargeDamageCalculator().calculate(
+        replace(
+            base,
+            modifiers=(
+                modifier(
+                    CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE,
+                    0.25,
+                    operation=EffectOperation.OVERRIDE,
+                ),
+                modifier(
+                    CalculationNode.DISCHARGE_CRIT_DAMAGE_OVERRIDE,
+                    0.25,
+                    operation=EffectOperation.OVERRIDE,
+                ),
+            ),
+        )
+    )
+    values = breakdown(override_result)
+
+    assert breakdown(inherited_result)[CalculationNode.DISCHARGE_CRIT_REGION] == 1.5
+    assert values[CalculationNode.DISCHARGE_CRIT_REGION] == pytest.approx(1.0625)
+    assert values[CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE] == 0.25
+    assert values[CalculationNode.DISCHARGE_CRIT_DAMAGE_OVERRIDE] == 0.25
+    assert override_result.value == pytest.approx(inherited_result.value * 1.0625 / 1.5)
+
+
+def test_discharge_partial_crit_override_does_not_fall_back_to_record() -> None:
+    inherited_capability = IndependentAnomalyCrit(
+        Resolved(1.0),
+        Resolved(0.5),
+        inherited_by=(DamageSubtype.DISCHARGE,),
+    )
+    history = record(crit_capability=inherited_capability)
+    event = _event(
+        history,
+        crit_rule=RecordedAnomalyCritRule(
+            history.record_id,
+            inherited_capability,
+        ),
+    )
+    result = DischargeDamageCalculator().calculate(
+        context(
+            event,
+            records=(history,),
+            modifiers=(
+                modifier(
+                    CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE,
+                    0.25,
+                    operation=EffectOperation.OVERRIDE,
+                ),
+            ),
+        )
+    )
+
+    assert result.value is None
+    assert any("exactly one rate and one damage" in item.notes for item in result.unresolved)
+
+
 def test_discharge_rejects_invalid_crit_inheritance_and_missing_owner() -> None:
     non_inheritable = IndependentAnomalyCrit(Resolved(1.0), Resolved(0.5))
     history = record(crit_capability=non_inheritable)

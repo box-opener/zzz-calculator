@@ -23,11 +23,13 @@ from core.application import (
 )
 from core.application.characters.dialyn import DIALYN_ID
 from core.application.characters.remielle import REMIELLE_ID
+from core.application.characters.seed import SEED_ID
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.templates import (
     AttributeAnomalyDamageEventTemplate,
     DamageEventTemplate,
     LuminanceFlareDamageEventTemplate,
+    PolarDisorderDamageEventTemplate,
 )
 from core.application.characters.vivian.reviewed import (
     DIRECT_BLOSSOM_MUTATION_SOURCE_EFFECT_ID,
@@ -70,6 +72,12 @@ from core.types import (
     ANOMALY_ELEMENTS,
     DamageSubtype,
     DamageType,
+    DamageTag,
+    DamageTagFilter,
+    DamageDealerIdentityFilter,
+    DynamicIdentity,
+    EventCreationEffect,
+    EventTemplateIdFilter,
     BuildMode,
     BuildStatContribution,
     CharacterBuildDefinition,
@@ -123,7 +131,9 @@ from core.presentation.registry import (
     VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
     VIVIAN_PROPHECY_TICK_SELECTION_ENTRY_ID,
     equipment_capabilities_for_definition,
+    compile_seed_with_resolved_partner,
     registration_for,
+    seed_attack_teammates,
     compile_registered_definition,
     effective_character_damage_element,
     element_enables_frostbite_crit_damage,
@@ -147,6 +157,14 @@ REMIELLE_FLARE_PARENT_TO_ENTRY = {
     "move-entry:character:1581:special-assist-feather-dance": "move-entry:character:1581:flare:support-flower-dance",
 }
 
+NANGONGYU_VOICE_DISCHARGE_ENTRY_ID = (
+    "move-entry:character:1511:core:voice-discharge"
+)
+NANGONGYU_VOICE_READY_CONDITION_ID = "condition:character:1511:voice-discharge-ready"
+NANGONGYU_VOICE_CHANGED_CONDITION_ID = "condition:character:1511:voice-changed-mode"
+NANGONGYU_ACTIVE_ANOMALY_CONDITION_ID = "condition:character:1511:target-has-active-anomaly"
+NANGONGYU_VOICE_STACK_PARAMETER_ID = "parameter:character:1511:voice-stacks"
+
 
 @dataclass(frozen=True, slots=True)
 class _BuiltCharacterRecord:
@@ -161,6 +179,8 @@ class _BuiltCharacterRecord:
 
 def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Execute the three display modes and return one presentation response."""
+
+    payload = _normalize_nangongyu_discharge_conditions(payload)
 
     requested_move_entry_id = str(payload.get("move_entry_id", ""))
     vivian_discharge_selected = (
@@ -214,6 +234,10 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         reviewed_anomaly_source_elements=_reviewed_anomaly_source_element_options(
             definitions
         ),
+        nangong_polar_source_available=_nangong_polar_source_available(
+            definitions,
+            requested_move_entry_id,
+        ),
     )
     if vivian_discharge_selected and primary.character_id != VIVIAN_ID:
         raise ValueError("Vivian Discharge selection requires Vivian as current operator")
@@ -251,6 +275,13 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("current_operator must be a team member")
 
     build_records = _build_records(view_request.character_builds, definitions)
+    definitions = _resolve_seed_core_partner(
+        definitions,
+        team_ids,
+        build_records,
+        payload.get("compile_configs", {}),
+    )
+    primary = definitions[0]
     additional_rule_items = tuple(
         rule for record in build_records for rule in record.rule_items
     )
@@ -371,6 +402,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 ),
                 grace_anomaly_source_choice=(
                     view_request.grace_anomaly_source_choice
+                ),
+                discharge_anomaly_source_choice=(
+                    view_request.discharge_anomaly_source_choice
                 ),
                 crit_display_mode=mode,
             )
@@ -522,6 +556,142 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             ),
         )
     return to_jsonable(replace(view, panel_source_results=panel_source_results))
+
+
+def _normalize_nangongyu_discharge_conditions(
+    payload: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Keep impossible voice-mode/proc selections local to this query."""
+
+    if (
+        str(payload.get("primary_character_id", "")) != "character:1511"
+        or str(payload.get("move_entry_id", ""))
+        != NANGONGYU_VOICE_DISCHARGE_ENTRY_ID
+    ):
+        return payload
+    raw_conditions = payload.get("condition_values", {})
+    if not isinstance(raw_conditions, Mapping):
+        return payload
+    conditions = dict(raw_conditions)
+    changed_mode_selected = conditions.get(NANGONGYU_VOICE_CHANGED_CONDITION_ID) is True
+    raw_configs = payload.get("compile_configs", {})
+    primary_config = (
+        raw_configs.get("character:1511", {})
+        if isinstance(raw_configs, Mapping)
+        else {}
+    )
+    cinema_level = (
+        primary_config.get("cinema_level", 0)
+        if isinstance(primary_config, Mapping)
+        else 0
+    )
+    enemy = payload.get("enemy", {})
+    is_stunned = enemy.get("is_stunned") is True if isinstance(enemy, Mapping) else False
+    ready_selected = conditions.get(NANGONGYU_VOICE_READY_CONDITION_ID) is True
+    raw_enabled_rules = payload.get("enabled_rule_item_ids")
+    if ready_selected and isinstance(raw_enabled_rules, (list, tuple, set, frozenset)):
+        required_rule_id = (
+            "rule:character:1511:cinema6:changed-voice-discharge"
+            if changed_mode_selected
+            else "rule:character:1511:core:voice-discharge"
+        )
+        if required_rule_id not in {str(item) for item in raw_enabled_rules}:
+            # The disabled-guard rule is optional too, so it cannot be the sole
+            # protection against treating a rule-disabled selection as complete.
+            conditions[NANGONGYU_VOICE_READY_CONDITION_ID] = None
+            ready_selected = False
+    if changed_mode_selected:
+        if isinstance(cinema_level, int) and not isinstance(cinema_level, bool) and cinema_level < 6:
+            # Cinema 6 is a static lock. Leave its static condition untouched
+            # and block this selected query through the existing entry gate.
+            conditions.pop(NANGONGYU_VOICE_CHANGED_CONDITION_ID, None)
+            conditions[NANGONGYU_VOICE_READY_CONDITION_ID] = None
+        elif not is_stunned and ready_selected:
+            # Changed Voice clears when the enemy enters Stun. Do not reinterpret
+            # a contradictory selected proc as normal Voice.
+            conditions[NANGONGYU_VOICE_READY_CONDITION_ID] = None
+    elif ready_selected and is_stunned:
+        raw_parameters = payload.get("parameter_values", {})
+        raw_stacks = (
+            raw_parameters.get(NANGONGYU_VOICE_STACK_PARAMETER_ID, 4)
+            if isinstance(raw_parameters, Mapping)
+            else 4
+        )
+        if (
+            isinstance(raw_stacks, int)
+            and not isinstance(raw_stacks, bool)
+            and raw_stacks < 4
+        ):
+            # Normal Voice is available at four layers on a stunned target,
+            # or at one to four layers after leaving Stun.
+            conditions[NANGONGYU_VOICE_READY_CONDITION_ID] = None
+    if conditions == dict(raw_conditions):
+        return payload
+    normalized = dict(payload)
+    normalized["condition_values"] = conditions
+    return normalized
+
+
+def _nested_effect_filters(filters):
+    for item in filters:
+        yield item
+        nested = getattr(item, "filters", ())
+        if nested:
+            yield from _nested_effect_filters(nested)
+
+
+def _nangong_polar_source_available(
+    definitions: tuple[CharacterCalculationDefinition, ...],
+    move_entry_id: str,
+) -> bool:
+    """Return whether this compiled team's Polar rules can match the selected direct hit."""
+
+    if not any(str(item.character_id) == "character:1511" for item in definitions):
+        return False
+    primary = definitions[0]
+    entry = next(
+        (item for item in primary.move_entries if str(item.entry_id) == move_entry_id),
+        None,
+    )
+    if entry is None or entry.main_damage_event.damage_type is not DamageType.DIRECT:
+        return False
+    polar_template_ids = {
+        item.ref.template_id
+        for definition in definitions
+        for item in definition.damage_event_templates
+        if isinstance(item, PolarDisorderDamageEventTemplate)
+    }
+    if not polar_template_ids:
+        return False
+    is_current_operator_chain = (
+        DamageTag.CHAIN_ATTACK in entry.damage_tags
+        and entry.main_damage_event.damage_type is DamageType.DIRECT
+    )
+    for definition in definitions:
+        for rule in definition.rule_items:
+            for effect in rule.effects:
+                if not isinstance(effect, EventCreationEffect):
+                    continue
+                if effect.result.event_template_id not in polar_template_ids:
+                    continue
+                filters = tuple(_nested_effect_filters(effect.rule.filters))
+                if any(
+                    isinstance(item, EventTemplateIdFilter)
+                    and item.template_id == entry.main_damage_event.template_id
+                    for item in filters
+                ):
+                    return True
+                if is_current_operator_chain and any(
+                    isinstance(item, DamageTagFilter)
+                    and item.damage_tag is DamageTag.CHAIN_ATTACK
+                    for item in filters
+                ) and any(
+                    isinstance(item, DamageDealerIdentityFilter)
+                    and item.identity is DynamicIdentity.CURRENT_OPERATOR
+                    for item in filters
+                ):
+                    return True
+    return False
 
 
 def _merge_source_slot_executions(executions, *, move_entry_id, crit_display_mode):
@@ -1091,6 +1261,59 @@ def _normal_source_element_options(definitions):
     return result
 
 
+def _resolve_seed_core_partner(
+    definitions: tuple[CharacterCalculationDefinition, ...],
+    team_ids: tuple[CharacterId, ...],
+    build_records: tuple[_BuiltCharacterRecord, ...],
+    raw_compile_configs: Any,
+) -> tuple[CharacterCalculationDefinition, ...]:
+    """Resolve Seed's Core recipient from the other Attack agents' Initial ATK.
+
+    This deliberately runs after panel assembly and reads only Initial snapshots.
+    If panels are missing or the maximum is tied, the first-pass placeholder
+    definition remains in place with its local diagnostic and stable rule IDs.
+    """
+
+    seed_index = next(
+        (index for index, item in enumerate(definitions) if item.character_id == SEED_ID),
+        None,
+    )
+    if seed_index is None:
+        return definitions
+    candidates = seed_attack_teammates(team_ids)
+    if len(candidates) <= 1:
+        return definitions
+
+    initial_by_id = {
+        record.initial_snapshot.character_id: record.initial_snapshot
+        for record in build_records
+    }
+    attack_values = []
+    for character_id in candidates:
+        snapshot = initial_by_id.get(character_id)
+        attack = None if snapshot is None else snapshot.initial_stats.attack
+        if not isinstance(attack, Resolved):
+            return definitions
+        attack_values.append((character_id, float(attack.value)))
+
+    maximum = max(value for _, value in attack_values)
+    winners = tuple(character_id for character_id, value in attack_values if value == maximum)
+    if len(winners) != 1:
+        return definitions
+
+    configs = raw_compile_configs if isinstance(raw_compile_configs, Mapping) else {}
+    raw_seed_values = configs.get(str(SEED_ID), {})
+    seed_values = raw_seed_values if isinstance(raw_seed_values, Mapping) else {}
+    resolved = compile_seed_with_resolved_partner(
+        seed_values,
+        team_ids,
+        winners[0],
+    )
+    updated = list(definitions)
+    updated[seed_index] = resolved
+    return tuple(updated)
+
+
 def _reviewed_anomaly_source_element_options(definitions):
     """Return only typed ordinary-anomaly elements with reviewed templates."""
 
@@ -1116,6 +1339,7 @@ def _presentation_request(
     luminance_flow_element: Element | None = None,
     normal_source_elements: Mapping[str, tuple[Element, ...]] | None = None,
     reviewed_anomaly_source_elements: Mapping[str, tuple[Element, ...]] | None = None,
+    nangong_polar_source_available: bool = False,
 ) -> MoveCalculationViewRequest:
     """Validate the browser-shaped request before domain assembly."""
 
@@ -1370,10 +1594,16 @@ def _presentation_request(
         raise ValueError("Luminance source slots require Remielle as current operator")
     raw_polar_source = payload.get("polarity_anomaly_source")
     polarity_source_choice: AnomalySourceChoice | None = None
-    if primary_id == "character:1221":
+    if primary_id == "character:1221" or nangong_polar_source_available:
         source_spec = raw_polar_source
         if source_spec is None:
-            source_spec = {"source_character_id": primary_id}
+            source_spec = {
+                "source_character_id": (
+                    "character:1511"
+                    if nangong_polar_source_available
+                    else primary_id
+                )
+            }
         if not isinstance(source_spec, Mapping):
             raise ValueError("polarity_anomaly_source must be an object")
         source_character_id = str(source_spec.get("source_character_id", ""))
@@ -1404,7 +1634,9 @@ def _presentation_request(
             element=source_element,
         )
     elif raw_polar_source not in (None, {}, ()):
-        raise ValueError("polarity_anomaly_source requires Yanagi as current operator")
+        raise ValueError(
+            "polarity_anomaly_source is only valid for Yanagi or a direct hit that can trigger Nangong Yu's Polar Disorder"
+        )
     raw_burnice_source = payload.get("burnice_anomaly_source")
     burnice_source_choice: AnomalySourceChoice | None = None
     burnice_throw_entry = "move-entry:character:1171:special-throw"
@@ -1486,6 +1718,97 @@ def _presentation_request(
         raise ValueError(
             "grace_anomaly_source is only valid for Grace's Potential 1 grenade entries"
         )
+    raw_discharge_source = payload.get("discharge_anomaly_source")
+    discharge_source_choice: AnomalySourceChoice | None = None
+    aria_third_charge_entries = {
+        "move-entry:character:1501:basic-absolute-pitch-charge-3",
+        "move-entry:character:1501:basic-absolute-pitch-charge-3-cooperative",
+    }
+    aria_discharge_triggered = (
+        primary_id == "character:1501"
+        and move_entry_id in aria_third_charge_entries
+        and selected_conditions.get(
+            "condition:aria:third-charge-anomaly-hit"
+        )
+        is True
+    )
+    nangong_discharge_triggered = (
+        primary_id == "character:1511"
+        and move_entry_id == NANGONGYU_VOICE_DISCHARGE_ENTRY_ID
+        and selected_conditions.get(NANGONGYU_VOICE_READY_CONDITION_ID) is True
+        and selected_conditions.get(NANGONGYU_ACTIVE_ANOMALY_CONDITION_ID) is True
+    )
+    promeia_core_entry = "move-entry:character:1541:ex-judgment"
+    promeia_target_anomaly = selected_conditions.get(
+        "condition:character:1541:target-has-anomaly"
+    ) is True
+    promeia_frost_consumed = selected_conditions.get(
+        "condition:character:1541:current-action-consumes-frost-punishment"
+    ) is True
+    promeia_discharge_triggered = (
+        primary_id == "character:1541"
+        and promeia_target_anomaly
+        and (
+            (
+                move_entry_id == promeia_core_entry
+                and promeia_frost_consumed
+            )
+            or move_entry_id
+            in {
+                "move-entry:character:1541:chain-hanging-reckoning",
+                "move-entry:character:1541:ultimate-bone-punishment",
+            }
+        )
+    )
+    if aria_discharge_triggered or nangong_discharge_triggered or promeia_discharge_triggered:
+        source_spec = raw_discharge_source
+        if source_spec is None:
+            source_spec = {"source_character_id": primary_id}
+        if not isinstance(source_spec, Mapping):
+            raise ValueError("discharge_anomaly_source must be an object")
+        source_character_id = str(source_spec.get("source_character_id", ""))
+        if source_character_id not in team_ids:
+            raise ValueError("Discharge anomaly source must be an active teammate")
+        source_options = tuple(
+            element
+            for element in (reviewed_anomaly_source_elements or {}).get(
+                source_character_id, ()
+            )
+            if element in ANOMALY_ELEMENTS
+        )
+        if not source_options:
+            raise ValueError(
+                f"no reviewed ordinary anomaly source is available for {source_character_id}"
+            )
+        native_element = registration_for(source_character_id).base_element
+        default_element = (
+            native_element
+            if native_element in source_options
+            else source_options[0]
+        )
+        raw_source_element = source_spec.get("element")
+        source_element = (
+            default_element
+            if raw_source_element is None
+            else _element(str(raw_source_element))
+        )
+        if source_element not in source_options:
+            raise ValueError(
+                f"Discharge source element {source_element.value} is not available for {source_character_id}"
+            )
+        discharge_source_choice = AnomalySourceChoice(
+            source_character_id=CharacterId(source_character_id),
+            element=source_element,
+        )
+    elif raw_discharge_source not in (None, {}, ()):
+        nangong_voice_entry = (
+            primary_id == "character:1511"
+            and move_entry_id == NANGONGYU_VOICE_DISCHARGE_ENTRY_ID
+        )
+        if not nangong_voice_entry:
+            raise ValueError(
+                "discharge_anomaly_source requires a triggered Aria, Nangong Yu, or Promeia Discharge"
+            )
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
         supporting_character_ids=supporting_ids,
@@ -1510,6 +1833,7 @@ def _presentation_request(
         polarity_anomaly_source_choice=polarity_source_choice,
         burnice_anomaly_source_choice=burnice_source_choice,
         grace_anomaly_source_choice=grace_source_choice,
+        discharge_anomaly_source_choice=discharge_source_choice,
     )
 
 
@@ -1876,6 +2200,74 @@ def _scenario(
         )
     conditions = []
     parameters = []
+    raw_enabled_rules = payload.get("enabled_rule_item_ids")
+    enabled_rule_ids_for_defaults = (
+        None
+        if raw_enabled_rules is None
+        else {str(item) for item in raw_enabled_rules}
+        if isinstance(raw_enabled_rules, (list, tuple, set, frozenset))
+        else set()
+    )
+    duration_extra_rule_ids = {
+        Element.ETHER: "rule:character:1501:extra-ability:ether-corrosion-duration",
+        Element.XUANMO: "rule:character:1501:extra-ability:ether-corrosion-duration",
+        Element.ICE: "rule:character:1541:extra-ability:frost-chill-duration",
+        Element.LIESHUANG: "rule:character:1541:extra-ability:frost-chill-duration",
+    }
+    selected_entry_id = str(payload.get("move_entry_id", ""))
+    selected_disorder_variant = next(
+        (
+            variant
+            for definition in definitions
+            for entry in definition.move_entries
+            if str(entry.entry_id) == selected_entry_id
+            and entry.main_damage_event.damage_type is DamageType.DISORDER
+            and entry.main_damage_event.element
+            in {Element.ETHER, Element.XUANMO, Element.ICE, Element.LIESHUANG}
+            and len(entry.multiplier_variants) == 1
+            for variant in entry.multiplier_variants
+            if variant.parameter_value_id is not None
+        ),
+        None,
+    )
+    duration_parameter_id = (
+        selected_disorder_variant.parameter_value_id
+        if selected_disorder_variant is not None
+        else None
+    )
+    selected_duration_element = next(
+        (
+            entry.main_damage_event.element
+            for definition in definitions
+            for entry in definition.move_entries
+            if str(entry.entry_id) == selected_entry_id
+            and entry.main_damage_event.damage_type is DamageType.DISORDER
+            and entry.main_damage_event.element in duration_extra_rule_ids
+        ),
+        None,
+    )
+    selected_duration_extra_rule_id = (
+        duration_extra_rule_ids.get(selected_duration_element)
+        if selected_duration_element is not None
+        else None
+    )
+    selected_duration_extra_rule = next(
+        (
+            rule
+            for definition in definitions
+            for rule in definition.rule_items
+            if str(rule.rule_id) == selected_duration_extra_rule_id
+        ),
+        None,
+    )
+    selected_duration_extra_enabled = bool(
+        selected_duration_extra_rule is not None
+        and selected_duration_extra_rule.eligibility.value != "ineligible"
+        and (
+            enabled_rule_ids_for_defaults is None
+            or selected_duration_extra_rule_id in enabled_rule_ids_for_defaults
+        )
+    )
     for definition in definitions:
         for condition in definition.scenario_conditions:
             if any(item.condition_id == condition.condition_id for item in conditions):
@@ -1894,11 +2286,83 @@ def _scenario(
         for parameter in definition.scenario_parameters:
             if any(item.parameter_id == parameter.parameter_id for item in parameters):
                 continue
+            default_value = parameter.value
+            resolved_parameter = parameter
+            if (
+                duration_parameter_id is not None
+                and parameter.parameter_id == duration_parameter_id
+            ):
+                parameter_wording = f"{parameter.label} {parameter.original_text}".lower()
+                duration_units_per_second = (
+                    2
+                    if "半秒" in parameter_wording
+                    or "half-second" in parameter_wording
+                    or "half second" in parameter_wording
+                    else 1
+                    if "秒" in parameter_wording or "second" in parameter_wording
+                    else None
+                )
+                if duration_units_per_second is not None:
+                    base_duration_seconds = (
+                        20
+                        if selected_duration_element is Element.LIESHUANG
+                        else 10
+                    )
+                    duration_seconds = base_duration_seconds + (
+                        3 if selected_duration_extra_enabled else 0
+                    )
+                    maximum = duration_seconds * duration_units_per_second
+                    parameter_key = str(parameter.parameter_id)
+                    requested_value = parameter_values.get(
+                        parameter_key,
+                        duration_seconds * duration_units_per_second,
+                    )
+                    # Keep an explicitly supplied value available to the
+                    # execution layer so it can diagnose a value longer than
+                    # the actual record. The UI still presents the active
+                    # record duration as its maximum.
+                    resolved_maximum = maximum
+                    if (
+                        parameter_key in parameter_values
+                        and isinstance(requested_value, int)
+                        and not isinstance(requested_value, bool)
+                    ):
+                        resolved_maximum = max(maximum, requested_value)
+                    resolved_parameter = replace(
+                        parameter,
+                        maximum=resolved_maximum,
+                        value=requested_value,
+                    )
+                    default_value = requested_value
+            if (
+                str(parameter.parameter_id) == "parameter:aria:ether-disorder-remaining-half-seconds"
+                and duration_parameter_id is None
+                and str(parameter.parameter_id) not in parameter_values
+            ):
+                aria_duration_rule_id = duration_extra_rule_ids[Element.ETHER]
+                aria_duration_rule = next(
+                    (
+                        rule
+                        for definition in definitions
+                        for rule in definition.rule_items
+                        if str(rule.rule_id) == aria_duration_rule_id
+                    ),
+                    None,
+                )
+                aria_extra_enabled = bool(
+                    aria_duration_rule is not None
+                    and aria_duration_rule.eligibility.value != "ineligible"
+                    and (
+                        enabled_rule_ids_for_defaults is None
+                        or aria_duration_rule_id in enabled_rule_ids_for_defaults
+                    )
+                )
+                default_value = 26 if aria_extra_enabled else 20
             parameters.append(
                 replace(
-                    parameter,
+                    resolved_parameter,
                     value=parameter_values.get(
-                        str(parameter.parameter_id), parameter.value
+                        str(parameter.parameter_id), default_value
                     ),
                 )
             )

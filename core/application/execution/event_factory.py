@@ -37,6 +37,7 @@ from core.types import (
     EffectId,
     EnemyId,
     TurbulenceDamageEvent,
+    BASE_ELEMENT_BY_ELEMENT,
     Resolved,
 )
 
@@ -119,6 +120,7 @@ def instantiate_damage_event(
     polarity_anomaly_source_choice: AnomalySourceChoice | None = None,
     burnice_anomaly_source_choice: AnomalySourceChoice | None = None,
     grace_anomaly_source_choice: AnomalySourceChoice | None = None,
+    discharge_anomaly_source_choice: AnomalySourceChoice | None = None,
 ) -> InstantiatedDamageEvent:
     """Instantiate any typed template without collapsing anomaly identity."""
 
@@ -267,10 +269,12 @@ def instantiate_damage_event(
     elif isinstance(template, DischargeDamageEventTemplate):
         selected_dynamic_source = None
         if template.source_multiplier_by_element:
+            if discharge_anomaly_source_choice is not None:
+                selected_dynamic_source = discharge_anomaly_source_choice
             owner_id = str(template.damage_dealer)
-            if owner_id == "character:1171":
+            if selected_dynamic_source is None and owner_id == "character:1171":
                 selected_dynamic_source = burnice_anomaly_source_choice
-            elif owner_id == "character:1181":
+            elif selected_dynamic_source is None and owner_id == "character:1181":
                 selected_dynamic_source = grace_anomaly_source_choice
         record_id = (
             anomaly_source_record_id(selected_dynamic_source)
@@ -287,7 +291,7 @@ def instantiate_damage_event(
             if not isinstance(multiplier, FixedMultiplier) or not isinstance(
                 multiplier.value, Resolved
             ):
-                raise ValueError("Burnice Discharge requires a resolved selected multiplier")
+                raise ValueError("dynamic Discharge requires a resolved selected multiplier")
             source_ratio = next(
                 (
                     value
@@ -297,6 +301,16 @@ def instantiate_damage_event(
                 None,
             )
             if source_ratio is None:
+                selected_base_element = BASE_ELEMENT_BY_ELEMENT[choice.element]
+                source_ratio = next(
+                    (
+                        value
+                        for element, value in template.source_multiplier_by_element
+                        if BASE_ELEMENT_BY_ELEMENT[element] is selected_base_element
+                    ),
+                    None,
+                )
+            if source_ratio is None:
                 raise ValueError(
                     "Selected Discharge source element has no reviewed multiplier"
                 )
@@ -304,7 +318,11 @@ def instantiate_damage_event(
                 Resolved(
                     multiplier.value.value
                     * source_ratio
-                    * anomaly_source_tick_multiplier(choice.element)
+                    * (
+                        anomaly_source_tick_multiplier(choice.element)
+                        if template.source_multiplier_uses_tick_profile
+                        else 1.0
+                    )
                 )
             )
         event = DischargeDamageEvent(

@@ -50,6 +50,14 @@ from .piper import PiperCompileConfig, compile_piper
 from .hugo import HugoCompileConfig, compile_hugo
 from .orphie_magus import OrphieMagusCompileConfig, compile_orphie_magus
 from .evelyn import EvelynCompileConfig, compile_evelyn
+from .aria import AriaCompileConfig, compile_aria
+from .nangongyu import NangongYuCompileConfig, compile_nangongyu
+from .cissia import CissiaCompileConfig, compile_cissia
+from .starlight_billy import StarlightBillyCompileConfig, compile_starlight_billy
+from .promeia import PromeiaCompileConfig, compile_promeia
+from .pyrois import PyroisCompileConfig, compile_pyrois
+from .norma import NormaCompileConfig, compile_norma
+from .sigrid import SigridCompileConfig, compile_sigrid
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -137,4 +145,20 @@ __all__ = [
     "compile_orphie_magus",
     "EvelynCompileConfig",
     "compile_evelyn",
+    "AriaCompileConfig",
+    "compile_aria",
+    "NangongYuCompileConfig",
+    "compile_nangongyu",
+    "CissiaCompileConfig",
+    "compile_cissia",
+    "StarlightBillyCompileConfig",
+    "compile_starlight_billy",
+    "PromeiaCompileConfig",
+    "compile_promeia",
+    "PyroisCompileConfig",
+    "compile_pyrois",
+    "NormaCompileConfig",
+    "compile_norma",
+    "SigridCompileConfig",
+    "compile_sigrid",
 ]

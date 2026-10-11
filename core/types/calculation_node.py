@@ -77,6 +77,7 @@ class CalculationNode(StrEnum):
     ATTRIBUTE_ANOMALY_MULTIPLIER = "anomaly.attribute.multiplier"
     ANOMALY_CRIT_RATE = "anomaly.attribute.crit-rate"
     ANOMALY_CRIT_DAMAGE = "anomaly.attribute.crit-damage"
+    ANOMALY_DURATION_BONUS = "anomaly.attribute.duration-bonus"
     ANOMALY_CRIT_REGION = "anomaly.attribute.crit-region"
     ANOMALY_DAMAGE_BONUS = "anomaly.attribute.damage-bonus"
     ANOMALY_DAMAGE_BONUS_REGION = "anomaly.attribute.damage-bonus-region"
@@ -88,6 +89,8 @@ class CalculationNode(StrEnum):
     DISCHARGE_MULTIPLIER = "anomaly.discharge.multiplier"
     DISCHARGE_TOTAL_MULTIPLIER = "anomaly.discharge.total-multiplier"
     DISCHARGE_CRIT_REGION = "anomaly.discharge.crit-region"
+    DISCHARGE_CRIT_RATE_OVERRIDE = "anomaly.discharge.crit-rate-override"
+    DISCHARGE_CRIT_DAMAGE_OVERRIDE = "anomaly.discharge.crit-damage-override"
     DISCHARGE_DAMAGE_BONUS = "anomaly.discharge.damage-bonus"
     DISCHARGE_DAMAGE_BONUS_REGION = "anomaly.discharge.damage-bonus-region"
 
