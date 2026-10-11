@@ -2774,17 +2774,19 @@ def _alice_eligibility(team_ids: Sequence[CharacterId]) -> bool:
 
 
 def _yuzuha_eligibility(team_ids: Sequence[CharacterId]) -> bool:
-    # Yuzuha's raw faction is Camp11.  The only other Camp11 member in the
-    # current production roster is Alice; anomaly teammates also satisfy the
-    # alternate qualification in the source text.
-    return any(
-        character_id == CharacterId("character:1401")
-        or (
-            character_id != CharacterId("character:1411")
-            and _REGISTRATIONS[character_id].role is CharacterRole.ANOMALY
-        )
-        for character_id in team_ids
-    )
+    yuzuha_id = CharacterId("character:1411")
+    own_camps = _nanoka_camp_ids(yuzuha_id)
+    for character_id in team_ids:
+        if character_id == yuzuha_id:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role is CharacterRole.ANOMALY:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
 
 
 def _trigger_eligibility(team_ids: Sequence[CharacterId]) -> bool:
