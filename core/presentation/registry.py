@@ -226,6 +226,13 @@ from core.application.characters.starlight_billy import (
     compile_starlight_billy,
     load_raw_record as load_starlight_billy_raw_record,
 )
+from core.application.characters.promeia import (
+    PROMEIA_ID,
+    PROMEIA_REVIEWED_MAPPING,
+    PromeiaCompileConfig,
+    compile_promeia,
+    load_raw_record as load_promeia_raw_record,
+)
 from core.application.characters.seed import (
     SEED_ID,
     SEED_REVIEWED_MAPPING,
@@ -2617,6 +2624,63 @@ def _compile_cissia(
             ),
         ),
         load_cissia_raw_record(load_character_record(str(CISSIA_ID))),
+    )
+
+
+def _promeia_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "普罗米娅核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级；初始异常掌控按初始面板计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "普罗米娅影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _promeia_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != PROMEIA_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.ANOMALY, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_promeia(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_promeia(
+        PromeiaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _promeia_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_promeia_raw_record(load_character_record(str(PROMEIA_ID))),
     )
 
 
@@ -6126,6 +6190,47 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 )
                 for move in STARLIGHT_BILLY_REVIEWED_MAPPING.moves
             ),
+        ),
+    ),
+    PROMEIA_ID: CharacterPresentationRegistration(
+        character_id=PROMEIA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(PROMEIA_ID),
+            display_name="普罗米娅",
+            rarity="S",
+            element="ice",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.ICE,
+        compile_definition=_compile_promeia,
+        config_fields=_promeia_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=PROMEIA_ID,
+            role=CharacterRole.ANOMALY,
+            native_element=Element.ICE,
+            possible_elements=frozenset(
+                move.element for move in PROMEIA_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in PROMEIA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in PROMEIA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in PROMEIA_REVIEWED_MAPPING.moves
+            ),
+            mechanisms=frozenset({"promeia-frost-discharge"}),
         ),
     ),
     CharacterId("character:1361"): CharacterPresentationRegistration(

@@ -52,6 +52,7 @@ import { aggregateEditorViews } from "./state/editorAggregation";
 import { calculationNodeLabel, formatMultiplierPercent } from "./state/calculationDisplay";
 import {
   disorderDurationControl,
+  disorderDurationExtraRuleId,
   isDisorderDurationParameter,
   retainKnownParameterIds,
 } from "./state/disorderDuration";
@@ -530,7 +531,9 @@ function App() {
   const dischargeAnomalySources = burniceAnomalySourceOptions(teamIds, editorViews);
   const dischargeSourceDefaultCharacterId = currentOperatorId === "character:1511"
     ? "character:1511"
-    : "character:1501";
+    : currentOperatorId === "character:1541"
+      ? "character:1541"
+      : "character:1501";
   const effectiveDischargeAnomalySource = selectedBurniceAnomalySource(
     dischargeAnomalySources,
     dischargeAnomalySourceKey,
@@ -552,6 +555,14 @@ function App() {
     && conditionValuesRef.current["condition:character:1511:voice-discharge-ready"] === true
     && conditionValuesRef.current["condition:character:1511:target-has-active-anomaly"] === true
     && (!nangongChangedVoiceSelected || Number(configs[currentOperatorId]?.cinema_level ?? 0) >= 6 && enemyIsStunned)
+    && dischargeAnomalySources.length > 0;
+  const promeiaCoreHit = moveEntryId === "move-entry:character:1541:ex-judgment";
+  const promeiaChainOrUltimateHit = moveEntryId === "move-entry:character:1541:chain-hanging-reckoning"
+    || moveEntryId === "move-entry:character:1541:ultimate-bone-punishment";
+  const showPromeiaDischargeSource = currentOperatorId === "character:1541"
+    && conditionValuesRef.current["condition:character:1541:target-has-anomaly"] === true
+    && (promeiaChainOrUltimateHit || promeiaCoreHit
+      && conditionValuesRef.current["condition:character:1541:current-action-consumes-frost-punishment"] === true)
     && dischargeAnomalySources.length > 0;
   useEffect(() => {
     if (
@@ -584,9 +595,11 @@ function App() {
       && isDisorderDurationParameter(selectedMove, parameter)
     )))
     .find((parameter): parameter is Parameter => parameter !== undefined);
-  const ariaExtraRuleId = "rule:character:1501:extra-ability:ether-corrosion-duration";
+  const activeDisorderDurationExtraRuleId = disorderDurationExtraRuleId(
+    selectedMove?.element ?? null,
+  );
   const disorderDurationExtraEnabled = allRules.some((rule) => (
-    rule.rule_id === ariaExtraRuleId
+    rule.rule_id === activeDisorderDurationExtraRuleId
     && rule.availability === "available"
     && enabledRules.has(rule.rule_id)
   ));
@@ -1314,7 +1327,7 @@ function App() {
               element: effectiveGraceAnomalySource.element,
             },
           } : {}),
-          ...((showAriaDischargeSource || showNangongDischargeSource) && effectiveDischargeAnomalySource ? {
+          ...((showAriaDischargeSource || showNangongDischargeSource || showPromeiaDischargeSource) && effectiveDischargeAnomalySource ? {
             discharge_anomaly_source: {
               source_character_id: effectiveDischargeAnomalySource.characterId,
               element: effectiveDischargeAnomalySource.element,
@@ -1637,8 +1650,8 @@ function App() {
               </option>)}
             </select></label>
           </div>}
-          {(showAriaDischargeSource || showNangongDischargeSource) && <div className="control-list yanagi-polar-source">
-            <div className="section-heading compact"><div><p className="eyebrow">DISCHARGE SOURCE</p><h2>异放原异常来源</h2><p className="control-section-hint">选择当前队伍已有的普通异常记录；南宫羽默认使用自身以太异常，爱芮默认使用自身以太异常。来源按当前面板结算，不切换操作角色。</p></div></div>
+          {(showAriaDischargeSource || showNangongDischargeSource || showPromeiaDischargeSource) && <div className="control-list yanagi-polar-source">
+            <div className="section-heading compact"><div><p className="eyebrow">DISCHARGE SOURCE</p><h2>异放原异常来源</h2><p className="control-section-hint">选择当前队伍已有的普通异常记录；南宫羽默认使用自身以太异常，爱芮默认使用自身以太异常，普罗米娅默认使用自身冰异常。来源按当前面板结算，不切换操作角色。</p></div></div>
             <label className="select-field"><span>原异常来源</span><select value={effectiveDischargeAnomalySource?.key ?? ""} onChange={(event) => setDischargeAnomalySourceKey(event.target.value || null)}>
               {dischargeAnomalySources.map((option) => <option key={option.key} value={option.key}>
                 {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
@@ -1655,6 +1668,7 @@ function App() {
                 parameterValues[parameter.parameter_id] !== undefined
                   ? parameterValues[parameter.parameter_id]
                   : parameter.value,
+                selectedMove?.element === "ice:lieshuang" ? 20 : 10,
               )
               : null;
             const currentValue = durationControl

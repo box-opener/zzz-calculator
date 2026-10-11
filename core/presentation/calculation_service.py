@@ -1738,47 +1738,29 @@ def _presentation_request(
         and selected_conditions.get(NANGONGYU_VOICE_READY_CONDITION_ID) is True
         and selected_conditions.get(NANGONGYU_ACTIVE_ANOMALY_CONDITION_ID) is True
     )
-    if aria_discharge_triggered:
-        source_spec = raw_discharge_source
-        if source_spec is None:
-            source_spec = {"source_character_id": primary_id}
-        if not isinstance(source_spec, Mapping):
-            raise ValueError("discharge_anomaly_source must be an object")
-        source_character_id = str(source_spec.get("source_character_id", ""))
-        if source_character_id not in team_ids:
-            raise ValueError("Discharge anomaly source must be an active teammate")
-        source_options = tuple(
-            element
-            for element in (reviewed_anomaly_source_elements or {}).get(
-                source_character_id, ()
+    promeia_core_entry = "move-entry:character:1541:ex-judgment"
+    promeia_target_anomaly = selected_conditions.get(
+        "condition:character:1541:target-has-anomaly"
+    ) is True
+    promeia_frost_consumed = selected_conditions.get(
+        "condition:character:1541:current-action-consumes-frost-punishment"
+    ) is True
+    promeia_discharge_triggered = (
+        primary_id == "character:1541"
+        and promeia_target_anomaly
+        and (
+            (
+                move_entry_id == promeia_core_entry
+                and promeia_frost_consumed
             )
-            if element in ANOMALY_ELEMENTS
+            or move_entry_id
+            in {
+                "move-entry:character:1541:chain-hanging-reckoning",
+                "move-entry:character:1541:ultimate-bone-punishment",
+            }
         )
-        if not source_options:
-            raise ValueError(
-                f"no reviewed ordinary anomaly source is available for {source_character_id}"
-            )
-        native_element = registration_for(source_character_id).base_element
-        default_element = (
-            native_element
-            if native_element in source_options
-            else source_options[0]
-        )
-        raw_source_element = source_spec.get("element")
-        source_element = (
-            default_element
-            if raw_source_element is None
-            else _element(str(raw_source_element))
-        )
-        if source_element not in source_options:
-            raise ValueError(
-                f"Discharge source element {source_element.value} is not available for {source_character_id}"
-            )
-        discharge_source_choice = AnomalySourceChoice(
-            source_character_id=CharacterId(source_character_id),
-            element=source_element,
-        )
-    elif nangong_discharge_triggered:
+    )
+    if aria_discharge_triggered or nangong_discharge_triggered or promeia_discharge_triggered:
         source_spec = raw_discharge_source
         if source_spec is None:
             source_spec = {"source_character_id": primary_id}
@@ -1819,12 +1801,13 @@ def _presentation_request(
             element=source_element,
         )
     elif raw_discharge_source not in (None, {}, ()):
-        if (
-            primary_id != "character:1511"
-            or move_entry_id != NANGONGYU_VOICE_DISCHARGE_ENTRY_ID
-        ):
+        nangong_voice_entry = (
+            primary_id == "character:1511"
+            and move_entry_id == NANGONGYU_VOICE_DISCHARGE_ENTRY_ID
+        )
+        if not nangong_voice_entry:
             raise ValueError(
-                "discharge_anomaly_source is only valid for Aria's third-charge or Nangong Yu's triggered Core Discharge"
+                "discharge_anomaly_source requires a triggered Aria, Nangong Yu, or Promeia Discharge"
             )
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
@@ -2225,24 +2208,12 @@ def _scenario(
         if isinstance(raw_enabled_rules, (list, tuple, set, frozenset))
         else set()
     )
-    aria_extra_rule_id = "rule:character:1501:extra-ability:ether-corrosion-duration"
-    aria_extra_rule = next(
-        (
-            rule
-            for definition in definitions
-            for rule in definition.rule_items
-            if str(rule.rule_id) == aria_extra_rule_id
-        ),
-        None,
-    )
-    aria_extra_enabled = bool(
-        aria_extra_rule is not None
-        and aria_extra_rule.eligibility.value != "ineligible"
-        and (
-            enabled_rule_ids_for_defaults is None
-            or aria_extra_rule_id in enabled_rule_ids_for_defaults
-        )
-    )
+    duration_extra_rule_ids = {
+        Element.ETHER: "rule:character:1501:extra-ability:ether-corrosion-duration",
+        Element.XUANMO: "rule:character:1501:extra-ability:ether-corrosion-duration",
+        Element.ICE: "rule:character:1541:extra-ability:frost-chill-duration",
+        Element.LIESHUANG: "rule:character:1541:extra-ability:frost-chill-duration",
+    }
     selected_entry_id = str(payload.get("move_entry_id", ""))
     selected_disorder_variant = next(
         (
@@ -2251,7 +2222,8 @@ def _scenario(
             for entry in definition.move_entries
             if str(entry.entry_id) == selected_entry_id
             and entry.main_damage_event.damage_type is DamageType.DISORDER
-            and entry.main_damage_event.element in {Element.ETHER, Element.XUANMO}
+            and entry.main_damage_event.element
+            in {Element.ETHER, Element.XUANMO, Element.ICE, Element.LIESHUANG}
             and len(entry.multiplier_variants) == 1
             for variant in entry.multiplier_variants
             if variant.parameter_value_id is not None
@@ -2262,6 +2234,39 @@ def _scenario(
         selected_disorder_variant.parameter_value_id
         if selected_disorder_variant is not None
         else None
+    )
+    selected_duration_element = next(
+        (
+            entry.main_damage_event.element
+            for definition in definitions
+            for entry in definition.move_entries
+            if str(entry.entry_id) == selected_entry_id
+            and entry.main_damage_event.damage_type is DamageType.DISORDER
+            and entry.main_damage_event.element in duration_extra_rule_ids
+        ),
+        None,
+    )
+    selected_duration_extra_rule_id = (
+        duration_extra_rule_ids.get(selected_duration_element)
+        if selected_duration_element is not None
+        else None
+    )
+    selected_duration_extra_rule = next(
+        (
+            rule
+            for definition in definitions
+            for rule in definition.rule_items
+            if str(rule.rule_id) == selected_duration_extra_rule_id
+        ),
+        None,
+    )
+    selected_duration_extra_enabled = bool(
+        selected_duration_extra_rule is not None
+        and selected_duration_extra_rule.eligibility.value != "ineligible"
+        and (
+            enabled_rule_ids_for_defaults is None
+            or selected_duration_extra_rule_id in enabled_rule_ids_for_defaults
+        )
     )
     for definition in definitions:
         for condition in definition.scenario_conditions:
@@ -2298,16 +2303,60 @@ def _scenario(
                     else None
                 )
                 if duration_units_per_second is not None:
-                    duration_seconds = 13 if aria_extra_enabled else 10
-                    maximum = 13 * duration_units_per_second
-                    resolved_parameter = replace(parameter, maximum=maximum)
-                    if str(parameter.parameter_id) not in parameter_values:
-                        default_value = duration_seconds * duration_units_per_second
+                    base_duration_seconds = (
+                        20
+                        if selected_duration_element is Element.LIESHUANG
+                        else 10
+                    )
+                    duration_seconds = base_duration_seconds + (
+                        3 if selected_duration_extra_enabled else 0
+                    )
+                    maximum = duration_seconds * duration_units_per_second
+                    parameter_key = str(parameter.parameter_id)
+                    requested_value = parameter_values.get(
+                        parameter_key,
+                        duration_seconds * duration_units_per_second,
+                    )
+                    # Keep an explicitly supplied value available to the
+                    # execution layer so it can diagnose a value longer than
+                    # the actual record. The UI still presents the active
+                    # record duration as its maximum.
+                    resolved_maximum = maximum
+                    if (
+                        parameter_key in parameter_values
+                        and isinstance(requested_value, int)
+                        and not isinstance(requested_value, bool)
+                    ):
+                        resolved_maximum = max(maximum, requested_value)
+                    resolved_parameter = replace(
+                        parameter,
+                        maximum=resolved_maximum,
+                        value=requested_value,
+                    )
+                    default_value = requested_value
             if (
                 str(parameter.parameter_id) == "parameter:aria:ether-disorder-remaining-half-seconds"
                 and duration_parameter_id is None
                 and str(parameter.parameter_id) not in parameter_values
             ):
+                aria_duration_rule_id = duration_extra_rule_ids[Element.ETHER]
+                aria_duration_rule = next(
+                    (
+                        rule
+                        for definition in definitions
+                        for rule in definition.rule_items
+                        if str(rule.rule_id) == aria_duration_rule_id
+                    ),
+                    None,
+                )
+                aria_extra_enabled = bool(
+                    aria_duration_rule is not None
+                    and aria_duration_rule.eligibility.value != "ineligible"
+                    and (
+                        enabled_rule_ids_for_defaults is None
+                        or aria_duration_rule_id in enabled_rule_ids_for_defaults
+                    )
+                )
                 default_value = 26 if aria_extra_enabled else 20
             parameters.append(
                 replace(

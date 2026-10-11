@@ -679,6 +679,26 @@ def test_voice_discharge_api_does_not_bypass_disabled_selected_mode_rule(
     assert result["totals"]["expected"]["complete"] is False
 
 
+def test_disabled_voice_rule_keeps_stale_source_selection_local_partial():
+    result = calculate_payload(
+        _api_payload(
+            "move-entry:character:1511:core:voice-discharge",
+            conditions={
+                "condition:character:1511:voice-discharge-ready": True,
+                "condition:character:1511:target-has-active-anomaly": True,
+            },
+            parameters={"parameter:character:1511:voice-stacks": 4},
+            enabled_rules=(),
+            enemy_stunned=True,
+            discharge_source={
+                "source_character_id": "character:1261",
+                "element": "physical",
+            },
+        )
+    )
+    assert result["totals"]["expected"]["complete"] is False
+
+
 def test_polar_source_api_accepts_only_matching_team_direct_triggers() -> None:
     active_anomaly = {"condition:character:1511:target-has-active-anomaly": True}
     extra = calculate_payload(

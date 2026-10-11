@@ -468,6 +468,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1511",
         "character:1521",
         "character:1531",
+        "character:1541",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -732,6 +733,17 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert cissia_raw["rarity"] == 4
     assert cissia_raw["source_version"] == "3.2"
     assert cissia_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1521.json"
+    promeia = next(item for item in payload if item["character_id"] == "character:1541")
+    assert promeia["display_name"] == "普罗米娅"
+    assert promeia["code_name"] == "Promeia"
+    assert promeia["rarity"] == "S"
+    assert promeia["specialty"] == "anomaly"
+    assert promeia["element"] == "ice"
+    assert promeia["image_path"] == "/characters/portrait-placeholder.svg"
+    promeia_raw = load_character_record("character:1541")
+    assert promeia_raw["rarity"] == 4
+    assert promeia_raw["source_version"] == "3.2"
+    assert promeia_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1541.json"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
     assert (asset_root / "IconRole46.webp").is_file()

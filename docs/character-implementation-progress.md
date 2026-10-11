@@ -58,7 +58,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1511` | NangongYu | 南宫羽 | 4 | 2 | 部分实现（live 3.2 raw + S-rank Ether Stun panel + 15 reviewed Direct moves + Ether Anomaly/Disorder + six-family Core Discharge with normal/C6 source selection and C2/Cinema rules + Polar Disorder for current eligible hits + `Weapon_S_1511` signature mapping; current stack/proc and source records are selected inputs, not timeline replay） |
 | `1521` | Cissia | 希希芙 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 Electric Attack panel + 13 reviewed Electric Direct entries + Core Initial ER defense-ignore/Bone curve + Extra and Cinema current-state rules + `Weapon_S_1521` signature mapping; `IconRole60` is not packaged locally, so the catalog uses the portrait placeholder; poison/energy, mark timing, and resource history are not replayed） |
 | `1531` | Starlight - Billy | 星徽·比利 | 4 | 6 | 部分实现（live 3.2 raw + S-rank Physical Rupture panel + 17 reviewed Physical Penetration entries + Core/Additional Ability/Cinema current-state rules + `Weapon_S_1531` signature mapping; Starshine, proc, resource and Daze history are not replayed） |
-| `1541` | Promeia | 普罗米娅 | 4 | 3 | 待实现 |
+| `1541` | Promeia | 普罗米娅 | 4 | 3 | 部分实现（live 3.2 raw + S-rank Ice Anomaly panel + 17 Direct entries + standard Ice Anomaly/Disorder + Core/Chain/Ultimate fixed-ratio Discharge source selection + Extra duration and Cinema rules + `Weapon_S_1541` signature mapping; Cinema 2's Frost-consuming Discharge +120% interpretation remains local; resource and timing replay remain outside the current contract） |
 | `1551` | Pyrois | 佩洛伊斯 | 4 | 1 | 待实现 |
 | `1561` | Velina | 维琳娜 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct/cyclone curves + static Weathering + Wind-triggered Turbulence/Discharge; Daze, buildup, resource and timing outputs remain outside the result contract） |
 | `1571` | Norma | 诺姆 | 4 | 2 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Promeia 1541 follows Starlight - Billy 1531.
+Current item: Pyrois 1551 follows Promeia 1541.
 
 ## Manato (`character:1441`)
 
@@ -348,3 +348,11 @@ The complete Nanoka live 3.2 source is retained at `core/data/characters/starlig
 Seventeen reviewed Physical Penetration entries use their individual source curves: four separate sequential Basic stages, High Mileage, Dash, two Dodge Counters, two Special attacks, three EX attacks, Chain, Ultimate, Quick Assist, and Assist Strike. The three parry-assist entries are Daze-only and are not damage entries. S-rank skills default to level 12 and Core to level 7; Cinema 3/5 raise all skill groups including Ultimate under the shared level-16 cap. Core adds 10% of current Max HP as Penetration Force and provides a separately selected current Crit Damage state for Motor Suppression. The Extra Ability's current 0–2 Starshine stacks add 20% per stack to its six named moves and is eligible with another Stun, Defense, or Support agent.
 
 Cinema 1's current Physical resistance ignore, Cinema 2's +50% normal damage for High Mileage/Lone Wheel/Ultimate and Turbo Crit Damage for Lone Wheel, and Cinema 4's current Motor Suppression stack Crit Damage remain separately scoped. Cinema 6 adds 18% Penetration Damage Bonus to High Mileage and Ultimate, and its selected 0–2 consumed Starshine count adds that many whole-move Penetration Force ratios to those two entries. Cinema 3/5 and Cinema 6 effects retain the source's distinct skill and move scopes. Starshine stacks, Turbo, Motor Suppression, resistance-ignore state, and consumed layers are current inputs; the calculation does not replay resources, Daze, combat timing, or state history. No source-defined damage ratio or event identity remains unresolved.
+
+## Promeia (`character:1541`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/promeia.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1541.json` and source version `3.2`. It identifies Promeia / 普罗米娅 as an S-rank Ice Anomaly agent; the registry maps raw rarity value 4 to S. Her explicit signature mapping is `wengine:14154` (`Weapon_S_1541`, 月裁霜刑), while the shared editor continues to initialize new W-Engine selections unequipped.
+
+Seventeen reviewed Ice Direct entries, the separately queried cape-per-second and heavy-frost-dart curves, standard Ice Anomaly, and Ice Disorder are compiled. S-rank skills default to level 12 and Core to level 7. Core's level-dependent fixed type-2 Discharge ratio uses the selected source record's strength and element, but does not multiply its tick profile. The Core proc is limited to the selected EX finisher with current target-anomaly and Frost-consumption inputs; Chain and Ultimate use their own target-anomaly hit. The source selector uses a real teammate's compiled ordinary-anomaly template and preserves its actual variant.
+
+The Core's Initial Anomaly Mastery threshold provides Anomaly Proficiency and team Discharge damage bonus. Extra Ability adds three seconds to eligible Ice/Lieshuang Frost Chill records; default Disorder duration follows the active record (10/13 seconds for Ice, 20/23 seconds for Lieshuang). Verdict defense ignore is 40%, with Cinema 1 adding 20%; Cinema 2's 120% Frost-consuming Discharge multiplier wording remains a localized ambiguity for the Core and separate Cinema 6 event only. It does not affect Chain or Ultimate. Resource costs, anomaly buildup timing, and the 30-second Verdict refresh are not replayed.

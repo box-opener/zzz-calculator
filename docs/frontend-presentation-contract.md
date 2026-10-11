@@ -47,9 +47,12 @@ duration rules.
 
 Source-record selectors are shown only for the compiled current entry and
 eligible team effects that consume a real anomaly record. For Nangong Yu's Core
-Discharge and Polar Disorder, the browser sends the selected teammate and
-element variant as named selector input; the server verifies that the teammate
-is present and has the required compiled source template. These selectors do
+Discharge and Polar Disorder, and Promeia's current Core EX, Chain, or Ultimate
+Discharge, the browser sends the selected teammate and element variant as named
+selector input; the server verifies that the teammate is present and has the
+required compiled source template. Promeia's Core selector is exposed only when
+the current target-anomaly and Frost-consumed inputs are selected; her Chain
+and Ultimate selectors require the target-anomaly input. These selectors do
 not imply a new anomaly, trigger effects on an ordinary anomaly query, or
 replay combat history. Yanagi's source selector remains scoped to her own Polar
 Disorder rules.
@@ -72,6 +75,20 @@ Starshine, and Cinema 6 consumed-stack values are named state inputs. The UI
 does not infer them from resources, Daze, action history, or timing. The
 signature mapping is available to the W-Engine picker under the shared
 unequipped default.
+
+Promeia's catalog rank is mapped from Nanoka's raw rank value, and her compiled
+editor defaults are Core 7, Cinema 0, and skill level 12 for an S-rank agent.
+Cinema 3/5 also raise Ultimate and obey the shared level-16 cap. Her source
+selector consumes a teammate's real ordinary anomaly record only for the
+current eligible Core/Chain/Ultimate entry; it preserves that entry's element
+variant while using the fixed-ratio (non-tick-profile) Discharge contract.
+Extra Ability duration defaults follow the selected ordinary Ice or Lieshuang
+record (10/20 seconds, or 13/23 while the eligible Extra rule is enabled).
+Duration inputs remain server-owned; an untouched default is omitted so the
+server can resolve it from current rule eligibility. Frost consumption, target
+anomaly, verdict, and Cinema 6 current states are explicit selections, not
+reconstructed from combat history. Her signature is available to the W-Engine
+picker under the shared unequipped default.
 
 ## Output ownership
 

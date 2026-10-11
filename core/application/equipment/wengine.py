@@ -271,6 +271,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1511"): WENGINE_NEON_FANTASY_ID,
     # Nanoka 3.2 engine 14153 uses Weapon_S_1531, identifying Starlight - Billy.
     CharacterId("character:1531"): WENGINE_GLOWING_HELM_ID,
+    # Nanoka 3.2 engine 14154 uses Weapon_S_1541, identifying Promeia.
+    CharacterId("character:1541"): WEngineId("wengine:14154"),
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
     # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).
