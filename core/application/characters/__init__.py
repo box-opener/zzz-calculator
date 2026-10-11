@@ -55,6 +55,7 @@ from .nangongyu import NangongYuCompileConfig, compile_nangongyu
 from .cissia import CissiaCompileConfig, compile_cissia
 from .starlight_billy import StarlightBillyCompileConfig, compile_starlight_billy
 from .promeia import PromeiaCompileConfig, compile_promeia
+from .pyrois import PyroisCompileConfig, compile_pyrois
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -152,4 +153,6 @@ __all__ = [
     "compile_starlight_billy",
     "PromeiaCompileConfig",
     "compile_promeia",
+    "PyroisCompileConfig",
+    "compile_pyrois",
 ]

@@ -59,7 +59,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1521` | Cissia | 希希芙 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 Electric Attack panel + 13 reviewed Electric Direct entries + Core Initial ER defense-ignore/Bone curve + Extra and Cinema current-state rules + `Weapon_S_1521` signature mapping; `IconRole60` is not packaged locally, so the catalog uses the portrait placeholder; poison/energy, mark timing, and resource history are not replayed） |
 | `1531` | Starlight - Billy | 星徽·比利 | 4 | 6 | 部分实现（live 3.2 raw + S-rank Physical Rupture panel + 17 reviewed Physical Penetration entries + Core/Additional Ability/Cinema current-state rules + `Weapon_S_1531` signature mapping; Starshine, proc, resource and Daze history are not replayed） |
 | `1541` | Promeia | 普罗米娅 | 4 | 3 | 部分实现（live 3.2 raw + S-rank Ice Anomaly panel + 17 Direct entries + standard Ice Anomaly/Disorder + Core/Chain/Ultimate fixed-ratio Discharge source selection + Extra duration and Cinema rules + `Weapon_S_1541` signature mapping; Cinema 2's Frost-consuming Discharge +120% interpretation remains local; resource and timing replay remain outside the current contract） |
-| `1551` | Pyrois | 佩洛伊斯 | 4 | 1 | 待实现 |
+| `1551` | Pyrois | 佩洛伊斯 | 4 | 1 | 部分实现（live 3.2 raw + S-rank Ether Attack panel + 18 reviewed Ether Direct entries + current-state Core/Extra/Cinema rules + description/talent-reviewed `wengine:14155` signature mapping; left/right Core extra-event identity and Special Battle Order actor inputs remain localized partials; resources, Daze, and timing are not replayed） |
 | `1561` | Velina | 维琳娜 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct/cyclone curves + static Weathering + Wind-triggered Turbulence/Discharge; Daze, buildup, resource and timing outputs remain outside the result contract） |
 | `1571` | Norma | 诺姆 | 4 | 2 | 待实现 |
 | `1581` | Remielle | 蕾米埃尔 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + 17 Luminance Direct entries + stable formation Flow + selectable ordinary/special virtual-void source slots + typed Flare/penetration snapshots + switchable AP/C4/C6 rules; Daze/resource results remain outside the current calculation output） |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Pyrois 1551 follows Promeia 1541.
+Current item: 1561 documentation audit follows Pyrois 1551; the next unimplemented character is Norma 1571.
 
 ## Manato (`character:1441`)
 
@@ -356,3 +356,11 @@ The complete Nanoka live 3.2 record is retained at `core/data/characters/promeia
 Seventeen reviewed Ice Direct entries, the separately queried cape-per-second and heavy-frost-dart curves, standard Ice Anomaly, and Ice Disorder are compiled. S-rank skills default to level 12 and Core to level 7. Core's level-dependent fixed type-2 Discharge ratio uses the selected source record's strength and element, but does not multiply its tick profile. The Core proc is limited to the selected EX finisher with current target-anomaly and Frost-consumption inputs; Chain and Ultimate use their own target-anomaly hit. The source selector uses a real teammate's compiled ordinary-anomaly template and preserves its actual variant.
 
 The Core's Initial Anomaly Mastery threshold provides Anomaly Proficiency and team Discharge damage bonus. Extra Ability adds three seconds to eligible Ice/Lieshuang Frost Chill records; default Disorder duration follows the active record (10/13 seconds for Ice, 20/23 seconds for Lieshuang). Verdict defense ignore is 40%, with Cinema 1 adding 20%; Cinema 2's 120% Frost-consuming Discharge multiplier wording remains a localized ambiguity for the Core and separate Cinema 6 event only. It does not affect Chain or Ultimate. Resource costs, anomaly buildup timing, and the 30-second Verdict refresh are not replayed.
+
+## Pyrois (`character:1551`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/pyrois.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1551.json`. It identifies Pyrois / 佩洛伊斯 as an S-rank Ether Attack agent of 法厄同. The source portrait is not packaged locally, so the catalog uses the neutral portrait placeholder. Eighteen source-backed Ether Direct entries are selectable; the three Parry Assist records contain only Daze values and do not create damage entries. S-rank skills default to level 12 and Core to level 7; Cinema 3/5 add two levels including Ultimate under the shared level-16 cap.
+
+Core, Extra Ability, and Cinema damage/panel effects use their named moves and current-state conditions. The left/right Core additions retain their known ATK ratios and trigger conditions, but the source does not identify the extra event's element, move, skill group, or tags; those child results remain local partials while each parent move still calculates. Special: Battle Order `1551022` has a known independent Ether curve and EX/Ultimate trigger, but does not identify an actor whose panel should supply its damage; only that child event remains unresolved. Core resources, shield, Daze, Cinema 6, action order, duration, and timeline behavior are not invented.
+
+The explicitly reviewed signature mapping is `wengine:14155` (日冕遗蜕). The raw W-Engine uses a shared code name; Pyrois ownership is established by its description and wearer text. Its permanent 20% Crit Rate applies under the engine's Attack eligibility. The Ether Resistance Ignore is available only to Pyrois and requires a selected current eclipse state; the 45-second duration, battle-entry transition, and Ultimate timing are not replayed. The shared editor currently initializes a mapped S-rank engine unequipped.

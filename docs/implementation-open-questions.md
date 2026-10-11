@@ -1091,6 +1091,10 @@ The Core's current Constraint state grants its level-specific Crit Rate bonus, i
 
 The current Evelyn entries have resolved damage elements. A separate shared contract limitation remains: selecting a future entry whose main template is `UnresolvedDamageEventTemplate` currently cannot produce a no-event partial API response and may return an invalid-request error. No Evelyn entry relies on that path; this is recorded for a later shared contract update and does not create a synthetic Direct event.
 
+## Pyrois (`character:1551`)
+
+The source gives the left/right Core extra ATK ratios and trigger conditions but does not identify those packets' element, move, skill group, or damage tags. Their parent move continues to calculate; only the generated child packet remains local partial. Special: Battle Order (`1551022`) has an independently named Ether curve and known EX/Ultimate trigger, but the source names Phaethon as its actor without a registered character identity or panel inheritance rule; only that child result is unresolved. The source states that Cinema 6's effect is not revealed, so no effect is invented. The explicit W-Engine `14155` ownership mapping is supported by the weapon's Pyrois description and wearer text despite its shared raw code name; this is a reviewed identity mapping, not an unresolved association.
+
 ## Yinhu (`character:1421`)
 
 The character implementation specification says an A-rank agent's mapped signature W-Engine is equipped at refinement 5 by default. The current presentation contract creates new W-Engine selections unequipped. Yinhu's signature is explicitly mapped to `wengine:13142` (`Weapon_A_1421`, 震元奇枢), but remains unequipped by default to preserve the current shared presentation behavior. Resolve this default-equipment contract difference in a coordinated shared change; no Yinhu damage rule depends on assuming the engine is equipped.

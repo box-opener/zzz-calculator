@@ -469,6 +469,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1521",
         "character:1531",
         "character:1541",
+        "character:1551",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -6160,4 +6161,34 @@ def test_stale_frostbite_state_is_ignored_when_active_team_has_no_ice_element() 
     assert not any(
         item["effect_id"] == "effect:enemy:frostbite-crit-damage:primary:character:1431"
         for item in result["events"][0]["common_application_trace"]["event_stat_modifiers"]
+    )
+
+
+def test_pyrois_eclipse_remains_ether_ignore_is_current_and_owner_scoped() -> None:
+    payload = _single_wengine_payload(
+        "character:1551",
+        "move-entry:character:1551:basic-afterglow-stage-1",
+        "wengine:14155",
+        1,
+        element="ether",
+    )
+    eclipse_rule = "rule:wengine:14155:owner:1551:pellois-eclipse-ether-resistance-ignore"
+    eclipse_condition = "condition:wengine:14155:owner:1551:pellois-eclipse-active"
+    payload["enabled_rule_item_ids"] = [eclipse_rule]
+
+    payload["condition_values"] = {eclipse_condition: True}
+    active = client.post("/api/v1/moves/calculate", json=payload)
+    assert active.status_code == 200, active.text
+    active_result = active.json()
+    assert active_result["totals"]["expected"]["complete"] is True
+
+    payload["condition_values"] = {eclipse_condition: False}
+    inactive = client.post("/api/v1/moves/calculate", json=payload)
+    assert inactive.status_code == 200, inactive.text
+    inactive_result = inactive.json()
+    assert inactive_result["totals"]["expected"]["complete"] is True
+
+    # R1 ignores 16 percentage points of the source Ether resistance, from 20% to 4%.
+    assert active_result["totals"]["expected"]["value"] == pytest.approx(
+        inactive_result["totals"]["expected"]["value"] * 1.2
     )

@@ -90,6 +90,18 @@ anomaly, verdict, and Cinema 6 current states are explicit selections, not
 reconstructed from combat history. Her signature is available to the W-Engine
 picker under the shared unequipped default.
 
+Pyrois's editor defaults are Core 7, Cinema 0, and skill level 12; Cinema 3/5
+include Ultimate under the shared level-16 cap. Extra Ability eligibility is
+derived from the actual team when another Stun or Support agent is present.
+Sunflame/Sunflare and the named Core/Cinema proc states are explicit current
+inputs. The left/right Core child packets retain a local partial result because
+their source does not define event identity, and Special: Battle Order retains
+a local partial because its actor has no registered panel identity. The
+14155 signature is available in the picker; its Pyrois-only Ether Resistance
+Ignore is a separate current eclipse-state input, with no 45-second or battle
+entry/Ultimate timing replay. The editor's current default leaves mapped W-
+Engines unequipped.
+
 ## Output ownership
 
 Presentation output is versioned as `presentation-v1`. Three crit-display

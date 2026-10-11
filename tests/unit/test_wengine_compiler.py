@@ -7,6 +7,7 @@ import pytest
 
 from core.application import CalculationScenario, assemble_build
 from core.application.equipment import compile_wengine, load_wengine_raw_record
+from core.application.equipment import WENGINE_ECLIPSE_REMAINS_ID
 from core.application.equipment.wengine import (
     ASTRA_DAMAGE_BUFF_CONDITION_ID,
     WENGINE_ALICE_ID,
@@ -54,6 +55,7 @@ from core.application.matching import (
 )
 from core.application.rules import RuleEligibility
 from core.types import (
+    AnyFilter,
     BuildContributionLayer,
     BuildMode,
     BuildSource,
@@ -2301,3 +2303,47 @@ def test_final_nanoka_wengine_batch_compiles_both_endpoint_refinements_and_exact
     )
     assert team_rule.effects[0].rule.target.value == "team"
     assert team_rule.effects[0].rule.condition is None
+
+
+def test_eclipse_remains_ether_ignore_is_pellois_only_and_refinement_scoped() -> None:
+    pyrois = registration_for("character:1551").equipment_capabilities
+    assert SIGNATURE_WENGINE_BY_CHARACTER[pyrois.character_id] == WENGINE_ECLIPSE_REMAINS_ID
+    expected = (0.16, 0.175, 0.19, 0.205, 0.22)
+    for refinement, resistance_ignore in enumerate(expected, start=1):
+        result = compile_wengine(
+            WEngineBuildInput(
+                WENGINE_ECLIPSE_REMAINS_ID,
+                pyrois.character_id,
+                refinement=refinement,
+            ),
+            owner_capabilities=pyrois,
+        )
+        crit_rule, eclipse_rule = result.rule_items
+        assert crit_rule.eligibility is RuleEligibility.ELIGIBLE
+        assert crit_rule.effects[0].result.value == Resolved(0.2)
+        assert eclipse_rule.eligibility is RuleEligibility.ELIGIBLE
+        assert len(eclipse_rule.effects) == 1
+        assert eclipse_rule.condition_ids == (
+            result.scenario_conditions[0].condition_id,
+        )
+        assert result.scenario_conditions[0].value is False
+        effect = eclipse_rule.effects[0]
+        assert effect.result.modifier_path is CalculationNode.DAMAGE_RESISTANCE_IGNORE
+        assert effect.result.value == Resolved(resistance_ignore)
+        element_filter = effect.rule.filters[0]
+        elements = (
+            element_filter.filters
+            if isinstance(element_filter, AnyFilter)
+            else (element_filter,)
+        )
+        assert {item.element for item in elements} == {Element.ETHER, Element.XUANMO}
+
+    other_attack = registration_for("character:1521").equipment_capabilities
+    wrong_owner = compile_wengine(
+        WEngineBuildInput(WENGINE_ECLIPSE_REMAINS_ID, other_attack.character_id),
+        owner_capabilities=other_attack,
+    )
+    assert wrong_owner.rule_items[0].eligibility is RuleEligibility.ELIGIBLE
+    assert wrong_owner.rule_items[1].eligibility is RuleEligibility.INELIGIBLE
+    assert wrong_owner.rule_items[1].effects == ()
+    assert wrong_owner.scenario_conditions == ()

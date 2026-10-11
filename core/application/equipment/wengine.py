@@ -273,6 +273,9 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1531"): WENGINE_GLOWING_HELM_ID,
     # Nanoka 3.2 engine 14154 uses Weapon_S_1541, identifying Promeia.
     CharacterId("character:1541"): WEngineId("wengine:14154"),
+    # Engine 14155's descriptions name Pyrois as its intended wearer; its generic
+    # Weapon_S_Common_04 code name is not treated as an identity mapping.
+    CharacterId("character:1551"): WENGINE_ECLIPSE_REMAINS_ID,
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
     # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).
@@ -762,10 +765,10 @@ def _wengine_result_diagnostics(
             "same-move limits are not replayed."
         ),
         WENGINE_ECLIPSE_REMAINS_ID: (
-            "The permanent Crit Rate is calculated. The timed Ether resistance-ignore "
-            "state is exclusive to the named agent 佩洛伊斯, whose identity is absent "
-            "from the current character registry. The state is retained as source data "
-            "and is not enabled for another Attack owner."
+            "The permanent Crit Rate is available to Attack owners. Ether resistance "
+            "ignore is enabled only for the reviewed owner 佩洛伊斯 and uses an explicit "
+            "current 日蚀 state; Ultimate/entry triggers and the 45-second duration are "
+            "not replayed."
         ),
         WENGINE_LUXURY_CORE_ID: (
             "The current 0–2 EX Special Wind stacks and full-stack TEAM Anomaly "
@@ -7056,6 +7059,37 @@ def _eclipse_remains_rules(
     eligibility: RuleEligibility,
 ) -> tuple[tuple[CalculationRuleItem, ...], tuple[ScenarioCondition, ...]]:
     owner = build_input.equipped_character_id
+    pellois_id = CharacterId("character:1551")
+    pellois_eligible = (
+        eligibility is RuleEligibility.ELIGIBLE and owner == pellois_id
+    )
+    eclipse_rule_eligibility = (
+        RuleEligibility.ELIGIBLE
+        if pellois_eligible
+        else RuleEligibility.INELIGIBLE
+    )
+    eclipse_condition_id = None
+    eclipse_condition = None
+    eclipse_effects: tuple[ModifierEffect, ...] = ()
+    if pellois_eligible:
+        eclipse_condition_id, eclipse_condition = _condition(
+            raw,
+            owner,
+            "pellois-eclipse-active",
+            f"{raw.name}：佩洛伊斯当前处于日蚀效果",
+            talent.text,
+        )
+        eclipse_effects = (
+            _owner_event_modifier(
+                raw=raw,
+                owner=owner,
+                source=source,
+                suffix="pellois-eclipse-ether-resistance-ignore",
+                path=CalculationNode.DAMAGE_RESISTANCE_IGNORE,
+                value=float(talent.numeric_values["ether_resistance_ignore"]),
+                filters=(element_scope_filter(Element.ETHER),),
+            ),
+        )
     return (
         _rule(
             raw=raw,
@@ -7079,13 +7113,16 @@ def _eclipse_remains_rules(
             raw=raw,
             owner=owner,
             source=source,
-            suffix="pellois-eclipse-ether-resistance-ignore-source-only",
+            suffix="pellois-eclipse-ether-resistance-ignore",
             label=f"{raw.name}·佩洛伊斯专属日蚀效果",
-            eligibility=RuleEligibility.INELIGIBLE,
-            effects=(),
+            eligibility=eclipse_rule_eligibility,
+            condition_ids=(
+                (eclipse_condition_id,) if eclipse_condition_id is not None else ()
+            ),
+            effects=eclipse_effects,
             diagnostics=_wengine_result_diagnostics(raw, build_input.refinement),
         ),
-    ), ()
+    ), ((eclipse_condition,) if eclipse_condition is not None else ())
 
 
 def _luxury_core_rules(
