@@ -723,9 +723,10 @@ when the owner lacks the event capability required to trigger their timed state.
 Their activation requires Ice damage, Fire Follow-up Attack damage, and Fire
 Chain/Ultimate damage respectively. The current Attack roster has no such Ice or
 Fire trigger source, so those specific RuleItems are ineligible rather than
-checkbox-enabled on an incompatible owner. `14138` likewise keeps its Crit Damage
-and stack panel while its full-stack Electric branch is ineligible for the
-registered Attack owner.
+checkbox-enabled on an incompatible owner. `14138` keeps its Crit Damage and stack
+panel independently; its full-stack Electric branch is now eligible for the
+registered Soldier 0 - Anby Electric Attack profile and scopes to that profile's
+reviewed Electric entries.
 
 `14133` separates the general wearer Anomaly Buildup Efficiency effect from the
 Ether-hit AP stacks, which are eligible only when the owner can produce Ether
@@ -1188,3 +1189,7 @@ The reviewed Direct curves, element identities, panel scopes, Core/Cinema ratios
 The complete Nanoka live 3.2 source is retained at `core/data/characters/pulchra.json` with its source URL/version. All 14 damage curves are mapped by their source parameter IDs, including the separate Nightmare ordinary and finisher curves; the displayed `skill_list` action ID is not used as a curve ID. Nightmare's selected count means additional hits after its initial hit. At the base cap of five, the fifth packet uses the finisher curve; Cinema 6 can add up to two more, with the selected final packet using the same finisher curve. The application does not replay EX-hit triggers, hit cadence, expiry, or other timing.
 
 Pursuit Mark, Hunter Step, and Nightmare counts are independent current-scene inputs. The Extra Ability's team eligibility derives from another Attack/Rupture teammate or a teammate with Pulchra's stable Nanoka camp ID; the mark itself does not turn that ability on. Cinema 6's non-Follow-up extension requires both an unlocked Cinema 6 and an eligible, enabled Extra Ability, so an ineligible team cannot activate it by supplying a rule ID directly. Core Daze/trigger behavior, Cinema 4 Energy cost reduction, and Daze-only support values remain source-only because the current result contract has no Daze, Energy, or timeline output. The signature is mapped to `wengine:13135` (`Weapon_A_1351`), while the existing shared W-Engine editor continues to initialize selections unequipped.
+
+## Soldier 0 - Anby (`character:1381`) localized source limits
+
+Potential 1 adds Follow-up to Chain and Ultimate's existing source tags when the Additional Ability is eligible and enabled; it does not assign a Special tag. The Basic III main and the independently identified finisher use separate source curves, and the source does not define an aggregate relation between them, so they remain separate entries rather than an inferred complete III. The Basic IV parameter supplies one complete curve but does not state a per-hit unit; the calculator retains that curve once and does not multiply it by a hit count inferred from the prose. White Thunder and the Cangguang third/sixth-proc selections are current inputs; the implementation does not reconstruct timeline, Daze, or Energy behavior. The signature `wengine:14138` is mapped, while the shared editor's unequipped default remains a documented presentation-contract difference.

@@ -88,7 +88,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 076 | `14134` | 半糖雪兔 | S | 防护 | 已实现（HP%Build + 单独Energy flat + TEAM ATK/HP + Zhao帷幕CritDamage状态） |
 | 077 | `14136` | 索魂影眸 | S | 击破 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 078 | `14137` | 青溟笼舍 | S | 命破 | 已实现（CritRate + Ether普通伤/EX或ULT贯穿独立层 + HP%Build + R1–R5） |
-| 079 | `14138` | 牺牲洁纯 | S | 强攻 | 部分实现（CritDamage Build/当前层 + 满层Electric伤；当前强攻角色无电伤能力） |
+| 079 | `14138` | 牺牲洁纯 | S | 强攻 | 部分实现（CritDamage Build/当前层 + 三层Electric伤；零号·安比提供已审Electric Attack范围并经API验证） |
 | 080 | `14139` | 福虓炉炉 | S | 击破 | 部分实现（EX/Chain/ULT Daze + TEAM伤害当前层；Daze非阻断、当前击破角色无火伤能力） |
 | 081 | `14140` | 十方锻星 | S | 异常 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 082 | `14141` | 狸法七变化 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
@@ -156,8 +156,11 @@ second (+0.46 to +0.74). The team Attack/HP passive is a unique current panel gr
 the 60-second team Crit Damage state is separately gated by the registered Zhao
 Ether Curtain mechanism. `14137` uses separate ordinary Ether and EX/Ultimate Ether
 Penetration lanes under the current 0–2 stack count. `14138` applies its current
-0–3 stack Crit Damage to the panel; the additional Electric damage effect requires
-an Electric-capable Attack owner, absent from the current registry. `14139` keeps
+0–3 stack Crit Damage to the panel; its additional Electric damage effect requires
+an Electric-capable Attack owner and is scoped to that owner's reviewed Electric
+damage entries. Soldier 0 - Anby (`character:1381`) is an eligible owner, and API
+coverage confirms the three-stack bonus and its absence when the stack rule is
+disabled or below the source threshold. `14139` keeps
 EX Special/Chain/Ultimate Daze in the Daze node, and its team damage stack applies
 to current team damage after an eligible Fire Chain/Ultimate trigger. Daze has no
 result lane, and no current Stun owner can produce that Fire trigger.

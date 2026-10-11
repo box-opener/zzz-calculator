@@ -42,7 +42,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1351` | Pulchra | 波可娜 | 3 | 2 | 部分实现（live 3.2 raw/provenance + A-rank level-60 Stun panel + 13 reviewed Physical Direct entries + 14 exact Nightmare child packets + Core/Extra/Cinema current-state scopes + `wengine:13135` signature mapping; mark/count states are selected inputs, while Daze, Energy, and trigger timing remain outside the result contract） |
 | `1361` | Trigger | 「扳机」 | 4 | 2 | 已实现（已有registry/compiler） |
 | `1371` | YiXuan | 仪玄 | 4 | 6 | 已实现（已有registry/compiler） |
-| `1381` | Soldier 0 - Anby | 零号·安比 | 4 | 1 | 待实现 |
+| `1381` | Soldier 0 - Anby | 零号·安比 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 Electric Attack panel + Potential 0–6 + reviewed Direct entries and neutral White Thunder packet + Core/Extra/Cinema current-state scopes + `wengine:14138`; White Thunder, third-proc, and sixth-proc choices are current inputs, while timeline/Daze/Energy replay remains outside the result contract） |
 | `1391` | Ju Fufu | 橘福福 | 4 | 2 | 待实现 |
 | `1401` | Alice | 爱丽丝 | 4 | 3 | 已实现（已有registry/compiler） |
 | `1411` | Yuzuha | 柚叶 | 4 | 4 | 已实现（已有registry/compiler；同阵营资格按Nanoka稳定camp ID判断，不使用硬编码角色名单） |
@@ -70,6 +70,18 @@ New live records should retain the complete source JSON and the verified live-3.
 ## Current queue
 
 The earlier queue snapshot was stopped at the user's request on 2026-10-12. A later task resumes work for characters 1351, 1381, and 1391 in that order; 1611/1621 remain unregistered drafts and are outside that task. The shared signature-default UI change is also unfinished.
+
+## Soldier 0 - Anby (`character:1381`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/soldier0_anby.json` with its source version and URL. Soldier 0 - Anby is an S-rank Electric Attack agent of the New Eridu Defense Force. Her registered panel uses the source level-60 stats; S-rank skills default to level 12, Core to level 7, Cinema to 0, and Potential to 0. The reviewed signature mapping is `wengine:14138` (牺牲洁纯).
+
+Reviewed Basic, Dodge, Special/EX, Chain, Ultimate, and Assist damage entries use their exact source parameter curves. Basic III selects curve `1381003` at Potential 0 and `1381022` at Potential 1–6 before loading the matching raw record. C3 and C5 each add two skill levels to every group, including Ultimate, with the effective level capped at 16. The standalone White Thunder query uses the `[白雷]伤害倍率` parameter from the Cangguang raw source at curve `1381007`; its official event template has no SkillGroup or MoveId and carries only the Follow-up tag. The selected white packet remains a one-hit query, not a reconstructed action sequence.
+
+Core's Silver Star damage increase and owner-current Crit Damage effect have separate scopes: the latter uses Anby's final current Crit Damage as its source and applies to Direct Follow-up damage on a marked target. At Potential 1, an eligible and enabled Additional Ability adds Follow-up to Chain and Ultimate's existing source tags; it does not add a Special tag. The Additional Ability's Critical Rate panel and Follow-up bonus remain separate; the Follow-up bonus selects 25%, 25%, 34%, 38%, 42%, 46%, or 50% for Potential 0–6 without stacking those values. Extra eligibility is derived from another registered Stun or Support role, excluding Anby herself.
+
+The Cangguang third-White-Thunder input controls its Thunderclap child and Potential 1 Critical Cangguang child. Cinema 1's EX action represents the source's three White Thunder packets as one event with `repeat_count=3`; its Thunderclap and Potential 1 Critical remain separately identified source children. Cinema 6 adds one Electromagnetic Vortex only when the current-sixth-White-Thunder input is active, with parent scopes for EX+C1, Cangguang+its enabled White Thunder rule, and the standalone neutral White Thunder query. White Thunder/third-proc/sixth-proc states are current inputs; prior-target history is not replayed.
+
+The 14138 Electric bonus is capability-gated and applies at its selected three-stack threshold, verified against Anby's Electric entries; its permanent and current Crit Damage layers are independent. Final Manual Panel values are consumed as supplied. The source's Daze and Energy/cost effects remain source-only because the current result contract has no corresponding output lane. The signature mapping is available for selection, while the existing shared editor's unequipped default remains a separate compatibility difference from the implementation-spec recommendation.
 
 ## Manato (`character:1441`)
 

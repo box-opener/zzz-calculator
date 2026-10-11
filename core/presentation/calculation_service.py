@@ -41,6 +41,15 @@ from core.application.characters.nekomata.reviewed import (
     NEKOMATA_C1_STUN_BACK_HIT_RULE_ID,
     NEKOMATA_ID,
 )
+from core.application.characters.soldier0_anby.reviewed import (
+    SOLDIER0_ANBY_CANGGUANG_THIRD_WHITE_THUNDER,
+    SOLDIER0_ANBY_EXTRA_ABILITY_RULE_ID,
+    SOLDIER0_ANBY_ID,
+    SOLDIER0_ANBY_SILVER_STAR_ACTIVE,
+    SOLDIER0_ANBY_SILVER_STAR_STATE,
+    SOLDIER0_ANBY_WHITE_THUNDER_ACTIVE,
+    SOLDIER0_ANBY_WHITE_THUNDER_STATE,
+)
 from core.application.equipment.wengine_ids import (
     NEKOMATA_C1_STUN_BACK_HIT_MECHANISM,
 )
@@ -102,6 +111,7 @@ from core.types import (
     EventTemplateId,
     SnapshotRule,
     StateId,
+    SkillGroup,
     Unresolved,
     UnresolvedReason,
     WEngineBuildInput,
@@ -214,9 +224,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 },
             }
 
-    definitions = _without_static_vivian_blossom_placeholder(
-        _compile_definitions(payload)
-    )
+    definitions = _compile_definitions(payload)
+    definitions = _apply_soldier0_anby_potential_identity(definitions, payload)
+    definitions = _without_static_vivian_blossom_placeholder(definitions)
     primary = definitions[0]
     rem_flow_element = primary.base_element
     if primary.character_id == REMIELLE_ID:
@@ -318,7 +328,6 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 if rule.eligibility is not RuleEligibility.INELIGIBLE
             ),
         }
-    enemy_snapshot, enemy_profile, base_modifiers = _enemy_inputs(view_request.enemy)
     scenario = _scenario(
         payload,
         definitions,
@@ -326,6 +335,10 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         team_ids,
         additional_rule_items=additional_rule_items,
         additional_scenario_conditions=additional_scenario_conditions,
+    )
+    enemy_snapshot, enemy_profile, base_modifiers = _enemy_inputs(
+        view_request.enemy,
+        scenario,
     )
     move_entry_id = (
         "move-entry:character:1331:ether-corrosion"
@@ -1244,6 +1257,75 @@ def _compile_definitions(
     return tuple(definitions)
 
 
+def _apply_soldier0_anby_potential_identity(
+    definitions: tuple[CharacterCalculationDefinition, ...],
+    payload: Mapping[str, Any],
+) -> tuple[CharacterCalculationDefinition, ...]:
+    """Apply Potential 1's Chain/Ultimate identity only for the active rule selection."""
+
+    if not definitions or definitions[0].character_id != SOLDIER0_ANBY_ID:
+        return definitions
+    configs = payload.get("compile_configs", {})
+    config = configs.get(str(SOLDIER0_ANBY_ID), {}) if isinstance(configs, Mapping) else {}
+    if not isinstance(config, Mapping):
+        return definitions
+    potential_level = config.get("potential_level", 0)
+    if isinstance(potential_level, bool) or not isinstance(potential_level, int):
+        return definitions
+    if potential_level < 1 or "enabled_rule_item_ids" not in payload:
+        return definitions
+    requested_rules = payload.get("enabled_rule_item_ids")
+    if requested_rules is None:
+        additional_ability_enabled = True
+    elif isinstance(requested_rules, (list, tuple, set, frozenset)):
+        additional_ability_enabled = str(SOLDIER0_ANBY_EXTRA_ABILITY_RULE_ID) in {
+            str(item) for item in requested_rules
+        }
+    else:
+        return definitions
+    if not additional_ability_enabled:
+        return definitions
+
+    primary = definitions[0]
+    extra = next(
+        (
+            item
+            for item in primary.rule_items
+            if item.rule_id == SOLDIER0_ANBY_EXTRA_ABILITY_RULE_ID
+        ),
+        None,
+    )
+    if extra is None or extra.eligibility is RuleEligibility.INELIGIBLE:
+        return definitions
+
+    ref_updates = {}
+    updated_entries = []
+    for entry in primary.move_entries:
+        if entry.skill_group not in {SkillGroup.CHAIN_ATTACK, SkillGroup.ULTIMATE}:
+            updated_entries.append(entry)
+            continue
+        tags = entry.damage_tags | frozenset({DamageTag.FOLLOW_UP_ATTACK})
+        ref = replace(entry.main_damage_event, damage_tags=tags)
+        ref_updates[ref.template_id] = ref
+        updated_entries.append(
+            replace(entry, damage_tags=tags, main_damage_event=ref)
+        )
+    if not ref_updates:
+        return definitions
+    templates = tuple(
+        replace(template, ref=ref_updates[template.ref.template_id])
+        if template.ref.template_id in ref_updates
+        else template
+        for template in primary.damage_event_templates
+    )
+    updated = replace(
+        primary,
+        move_entries=tuple(updated_entries),
+        damage_event_templates=templates,
+    )
+    return (updated, *definitions[1:])
+
+
 def _normal_source_element_options(definitions):
     result: dict[str, tuple[Element, ...]] = {}
     for definition in definitions:
@@ -2069,7 +2151,7 @@ def _stats_mapping(stats: CharacterStats) -> dict[str, object]:
     }
 
 
-def _enemy_inputs(enemy: EnemyInput):
+def _enemy_inputs(enemy: EnemyInput, scenario: CalculationScenario | None = None):
     enemy_id = EnemyId(enemy.enemy_id)
     specified_resistances: dict[Element, float] = {}
     for key, value in enemy.damage_resistance.items():
@@ -2105,14 +2187,19 @@ def _enemy_inputs(enemy: EnemyInput):
         damage_reduction=Resolved(enemy.damage_reduction),
         is_stunned=enemy.is_stunned,
     )
-    profile = EnemyMatchProfile(
-        enemy_id=enemy_id,
-        states=(
-            frozenset({StateId("state:enemy:stunned")})
-            if enemy.is_stunned
-            else frozenset()
-        ),
+    enemy_states = (
+        {StateId("state:enemy:stunned")} if enemy.is_stunned else set()
     )
+    if scenario is not None:
+        condition_values = {
+            condition.condition_id: condition.value
+            for condition in scenario.conditions
+        }
+        if condition_values.get(SOLDIER0_ANBY_SILVER_STAR_ACTIVE) is True:
+            enemy_states.add(SOLDIER0_ANBY_SILVER_STAR_STATE)
+        if condition_values.get(SOLDIER0_ANBY_WHITE_THUNDER_ACTIVE) is True:
+            enemy_states.add(SOLDIER0_ANBY_WHITE_THUNDER_STATE)
+    profile = EnemyMatchProfile(enemy_id=enemy_id, states=frozenset(enemy_states))
     base = Modifier(
         effect_id=EffectId("base:ui:enemy-stun-vulnerability"),
         modifier_path=CalculationNode.ENEMY_STUN_VULNERABILITY,

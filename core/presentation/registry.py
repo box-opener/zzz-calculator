@@ -22,6 +22,13 @@ from core.application.characters.anby import (
     compile_anby,
     load_raw_record as load_anby_raw_record,
 )
+from core.application.characters.soldier0_anby import (
+    SOLDIER0_ANBY_ID,
+    SOLDIER0_ANBY_REVIEWED_MAPPING,
+    Soldier0AnbyCompileConfig,
+    compile_soldier0_anby,
+    load_raw_record as load_soldier0_anby_raw_record,
+)
 from core.application.characters.yuzuha import (
     YuzuhaCompileConfig,
     compile_yuzuha,
@@ -3634,6 +3641,79 @@ def _compile_anby(
     )
 
 
+def _soldier0_anby_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != SOLDIER0_ANBY_ID
+        and character_id in _REGISTRATIONS
+        and _REGISTRATIONS[character_id].role
+        in {CharacterRole.STUN, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_soldier0_anby(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    potential_level = _integer_with_default(values, "potential_level", 0, strict)
+    config = Soldier0AnbyCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=potential_level,
+        additional_ability_eligible=(
+            _soldier0_anby_additional_ability_eligibility(team_ids)
+        ),
+    )
+    raw = load_soldier0_anby_raw_record(
+        load_character_record(str(SOLDIER0_ANBY_ID)),
+        potential_level=potential_level,
+    )
+    return compile_soldier0_anby(config, raw)
+
+
+def _soldier0_anby_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "零号·安比核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级；来源未支持的能量与触发时序不在计算面板中。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "零号·安比影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁影画等级。",
+        ),
+        _slider_field(
+            "potential_level",
+            "零号·安比潜能",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "潜能0使用基础技能曲线；潜能1–6按Nanoka逐级筛选技能参数和核心描述。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
 _SKILL_GROUP_LABELS = {
     SkillGroup.BASIC_ATTACK: "普通攻击",
     SkillGroup.DODGE: "闪避",
@@ -6061,6 +6141,42 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             ),
         ),
     ),
+    SOLDIER0_ANBY_ID: CharacterPresentationRegistration(
+        character_id=SOLDIER0_ANBY_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(SOLDIER0_ANBY_ID),
+            display_name="零号·安比",
+            rarity="S",
+            element="electric",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_soldier0_anby,
+        config_fields=_soldier0_anby_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SOLDIER0_ANBY_ID,
+            role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.ELECTRIC}),
+            skill_groups=frozenset(
+                spec.skill_group for spec in SOLDIER0_ANBY_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for spec in SOLDIER0_ANBY_REVIEWED_MAPPING.moves
+                for tag in spec.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    spec.element,
+                    spec.skill_group,
+                    spec.damage_tags,
+                )
+                for spec in SOLDIER0_ANBY_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
     CharacterId("character:1311"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1311"),
         catalog=CharacterCatalogItem(
@@ -7522,6 +7638,27 @@ def equipment_capabilities_for_definition(
 
     registration = registration_for(definition.character_id)
     capabilities = registration.equipment_capabilities
+    if definition.character_id == SOLDIER0_ANBY_ID:
+        scopes = frozenset(
+            EquipmentDamageScope(
+                template.ref.element,
+                template.ref.skill_group,
+                template.ref.damage_tags,
+            )
+            for template in definition.damage_event_templates
+            if template.ref.element is not None
+        )
+        return replace(
+            capabilities,
+            possible_elements=frozenset(item.element for item in scopes),
+            skill_groups=frozenset(
+                item.skill_group for item in scopes if item.skill_group is not None
+            ),
+            damage_tags=frozenset(
+                tag for item in scopes for tag in item.damage_tags
+            ),
+            damage_scopes=scopes,
+        )
     if definition.character_id != REMIELLE_ID or not capabilities.damage_scopes:
         return capabilities
     flow_elements = frozenset(
