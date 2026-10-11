@@ -222,6 +222,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1441"): WENGINE_GRILL_O_WISP_ID,
     # The live 3.2 engine detail names both code_name and icon as Weapon_S_1581.
     CharacterId("character:1581"): WENGINE_RETURNING_FEATHER_ID,
+    # Nanoka 3.2 Weapon_S_1391 identifies Ju Fufu's 福虓炉炉.
+    CharacterId("character:1391"): WENGINE_FOX_FURNACE_ID,
     # The live 3.2 weapon catalog record uses `Weapon_S_1561` for Velina.
     CharacterId("character:1561"): WENGINE_LUXURY_CORE_ID,
     # Nanoka 3.2 `Weapon_A_1061` and the 13106 description identify Corin's

@@ -89,7 +89,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 077 | `14136` | 索魂影眸 | S | 击破 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 078 | `14137` | 青溟笼舍 | S | 命破 | 已实现（CritRate + Ether普通伤/EX或ULT贯穿独立层 + HP%Build + R1–R5） |
 | 079 | `14138` | 牺牲洁纯 | S | 强攻 | 部分实现（CritDamage Build/当前层 + 三层Electric伤；零号·安比提供已审Electric Attack范围并经API验证） |
-| 080 | `14139` | 福虓炉炉 | S | 击破 | 部分实现（EX/Chain/ULT Daze + TEAM伤害当前层；Daze非阻断、当前击破角色无火伤能力） |
+| 080 | `14139` | 福虓炉炉 | S | 击破 | 部分实现（EX/Chain/ULT Daze + TEAM伤害当前层；Ju Fufu提供已审Fire Chain/ULT能力，Daze结果仍无输出） |
 | 081 | `14140` | 十方锻星 | S | 异常 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 082 | `14141` | 狸法七变化 | S | 支援 | 已实现（raw + reviewed + level-60 Build/Rule） |
 | 083 | `14143` | 云霓孤光 | S | 强攻 | 已实现（raw + reviewed + level-60 Build/Rule） |
@@ -162,8 +162,9 @@ damage entries. Soldier 0 - Anby (`character:1381`) is an eligible owner, and AP
 coverage confirms the three-stack bonus and its absence when the stack rule is
 disabled or below the source threshold. `14139` keeps
 EX Special/Chain/Ultimate Daze in the Daze node, and its team damage stack applies
-to current team damage after an eligible Fire Chain/Ultimate trigger. Daze has no
-result lane, and no current Stun owner can produce that Fire trigger.
+to current team damage after an eligible Fire Chain/Ultimate trigger. Ju Fufu
+(`character:1391`) is a reviewed Fire-capable Stun owner for that trigger; Daze
+still has no result lane.
 
 ## W-Engine live 3.2 final batch (non-authoritative implementation notes)
 

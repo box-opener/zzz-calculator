@@ -736,11 +736,13 @@ Regeneration contribution. Its team Crit Damage state requires the registered
 `zhao-ether-curtain` mechanism; the permanent team Attack/HP panel effect is
 independent of that state.
 
-`14139`'s Daze modifier remains typed on EX Special, Chain, and Ultimate events,
-but the request has no Daze result; a non-blocking diagnostic preserves that
-limitation. Its unique team damage stacks are separate current state after an
-eligible Fire Chain/Ultimate trigger. The registered Stun roster has no Fire-capable
-owner, so that team-buff RuleItem is ineligible and does not invent a Fire event.
+`14139`'s Fire Chain/Ultimate team-damage rule is eligible for Ju Fufu
+(`character:1391`), whose reviewed Stun profile can produce Fire damage in both
+Chain and Ultimate groups.
+Its unique team damage effect uses the explicit current stack count; it does not
+replay trigger history. The EX Special/Chain/Ultimate Daze modifier remains typed,
+but the request has no Daze result, so a non-blocking diagnostic preserves that
+limitation.
 
 
 ## W-Engine live 3.2 fourth queue batch (non-authoritative implementation notes)
@@ -1193,3 +1195,9 @@ Pursuit Mark, Hunter Step, and Nightmare counts are independent current-scene in
 ## Soldier 0 - Anby (`character:1381`) localized source limits
 
 Potential 1 adds Follow-up to Chain and Ultimate's existing source tags when the Additional Ability is eligible and enabled; it does not assign a Special tag. The Basic III main and the independently identified finisher use separate source curves, and the source does not define an aggregate relation between them, so they remain separate entries rather than an inferred complete III. The Basic IV parameter supplies one complete curve but does not state a per-hit unit; the calculator retains that curve once and does not multiply it by a hit count inferred from the prose. White Thunder and the Cangguang third/sixth-proc selections are current inputs; the implementation does not reconstruct timeline, Daze, or Energy behavior. The signature `wengine:14138` is mapped, while the shared editor's unequipped default remains a documented presentation-contract difference.
+
+## Ju Fufu (`character:1391`) localized source limits
+
+The complete Nanoka live 3.2 source is retained at `core/data/characters/ju_fufu.json` with its source URL/version. Seventeen reviewed Direct entries use their own exact move names and curve IDs; in particular, the Physical spin (`1391009`), Fire 威势 spin (`1391010`), and Tiger Might throw (`1391022`) remain distinct. S-rank skills default to level 12, Core to level 7, and Cinema to level 0; Cinema 3/5 add two levels to every skill group including Ultimate, capped at 16. Signature `wengine:14139` is mapped to Ju Fufu, whose reviewed Fire Chain and Ultimate entries satisfy the engine's Fire capability check.
+
+Tiger Roar, its C2 team Crit Damage, and its C4 owner Crit Damage use a selected current state; the Core's extra Crit Damage reads immutable Initial ATK. Cinema 1's target mark is a separate current input and its Stun Vulnerability applies only while the actual target is stunned. Cinema 6's selected Fire 威势 spin retains its known parent damage and three 160%-ATK Ju Fufu Chain child packets, but the source does not state their element, so only those child results remain locally partial. The regular Physical spin, throw, and other moves do not trigger them. The separately selectable Chain follow-up is not reconstructed from 威风/威势 resource history. Parry Daze, Decibel/Energy resources, automatic spin continuation, durations, and action timing have no result path in this static contract. The shared editor still initializes mapped W-Engines unequipped.

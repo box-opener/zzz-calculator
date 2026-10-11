@@ -391,6 +391,7 @@ class PanelStatDerivedValue:
         if self.step_size is not None and (
             self.source_node
             not in {
+                CalculationNode.CHARACTER_INITIAL_ATTACK,
                 CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
                 CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
                 CalculationNode.CHARACTER_CURRENT_IMPACT,
@@ -398,7 +399,7 @@ class PanelStatDerivedValue:
             or (self.threshold is None and self.minimum is None)
         ):
             raise ValueError(
-                "interval-scaled panel values require an initial energy-regeneration/anomaly-mastery or current-impact threshold"
+                "interval-scaled panel values require an initial attack/energy-regeneration/anomaly-mastery or current-impact threshold"
             )
         if isinstance(self.minimum, Resolved) and self.minimum.value < 0:
             raise ValueError("derived panel value minimum must be non-negative")
@@ -408,14 +409,6 @@ class PanelStatDerivedValue:
             and self.threshold.value != self.minimum.value
         ):
             raise ValueError("derived panel value threshold and minimum must agree")
-        if self.source_node in {
-            CalculationNode.CHARACTER_INITIAL_ATTACK,
-        } and (
-            self.threshold is not None or self.minimum is not None
-        ):
-            raise ValueError(
-                "initial attack derived values cannot declare a panel threshold"
-            )
 
 
 @dataclass(frozen=True, slots=True)

@@ -58,6 +58,7 @@ from .promeia import PromeiaCompileConfig, compile_promeia
 from .pyrois import PyroisCompileConfig, compile_pyrois
 from .norma import NormaCompileConfig, compile_norma
 from .sigrid import SigridCompileConfig, compile_sigrid
+from .ju_fufu import JuFufuCompileConfig, compile_ju_fufu
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -161,4 +162,6 @@ __all__ = [
     "compile_norma",
     "SigridCompileConfig",
     "compile_sigrid",
+    "JuFufuCompileConfig",
+    "compile_ju_fufu",
 ]

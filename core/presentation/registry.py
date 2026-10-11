@@ -314,6 +314,13 @@ from core.application.characters.lucy import (
     compile_lucy,
     load_raw_record as load_lucy_raw_record,
 )
+from core.application.characters.ju_fufu import (
+    JU_FUFU_ID,
+    JU_FUFU_REVIEWED_MAPPING,
+    JuFufuCompileConfig,
+    compile_ju_fufu,
+    load_raw_record as load_ju_fufu_raw_record,
+)
 from core.application.characters.lighter import (
     LIGHTER_ID,
     LighterCompileConfig,
@@ -2950,6 +2957,48 @@ def _sigrid_fields(
     return tuple(fields)
 
 
+def _ju_fufu_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    cinema_level = int(values.get("cinema_level", 0))
+    fields: list[CompileConfigFieldView] = [
+        _slider_field(
+            "core_level",
+            "橘福福核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "虎啸基础暴伤、连携/终结伤害提升和福福冲击力按当前核心等级读取。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "橘福福影画",
+            cinema_level,
+            0,
+            6,
+            "S级代理人默认0影；3影与5影技能等级提升包括终结技并受16级上限约束。",
+        ),
+        _boolean_field(
+            "tiger_roar_active",
+            "虎啸增益当前生效",
+            bool(values.get("tiger_roar_active", False)),
+            "按当前虎啸状态计算团队暴伤、连携/终结伤害及福福冲击力；不模拟资源或持续时间。",
+        ),
+    ]
+    if cinema_level >= 1:
+        fields.append(
+            _boolean_field(
+                "c1_target_debuff_active",
+                "当前目标仍带有福福连携技施加的失衡易伤提升",
+                bool(values.get("c1_target_debuff_active", False)),
+                "仅当当前目标实际处于失衡状态时生效；不推断持续时间或目标切换。",
+            )
+        )
+    fields.extend(_skill_level_fields(values, default_level=12))
+    return tuple(fields)
+
+
 def _sigrid_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -2989,6 +3038,51 @@ def _compile_sigrid(
             ),
         ),
         load_sigrid_raw_record(load_character_record(str(SIGRID_ID))),
+    )
+
+
+def _ju_fufu_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != JU_FUFU_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.ATTACK, CharacterRole.RUPTURE}
+        for character_id in team_ids
+    )
+
+
+def _compile_ju_fufu(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset(
+            {
+                "core_level",
+                "cinema_level",
+                "skill_levels",
+                "tiger_roar_active",
+                "c1_target_debuff_active",
+            }
+        ),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_ju_fufu(
+        JuFufuCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _ju_fufu_additional_ability_eligibility(team_ids)
+            ),
+            tiger_roar_active=values.get("tiger_roar_active", False),
+            c1_target_debuff_active=values.get("c1_target_debuff_active", False),
+        ),
+        load_ju_fufu_raw_record(load_character_record(str(JU_FUFU_ID))),
     )
 
 
@@ -6663,6 +6757,46 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     move.damage_tags,
                 )
                 for move in SIGRID_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    JU_FUFU_ID: CharacterPresentationRegistration(
+        character_id=JU_FUFU_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(JU_FUFU_ID),
+            display_name="橘福福",
+            rarity="S",
+            element="fire",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.FIRE,
+        compile_definition=_compile_ju_fufu,
+        config_fields=_ju_fufu_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=JU_FUFU_ID,
+            role=CharacterRole.STUN,
+            native_element=Element.FIRE,
+            possible_elements=frozenset(
+                move.element for move in JU_FUFU_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in JU_FUFU_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in JU_FUFU_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in JU_FUFU_REVIEWED_MAPPING.moves
             ),
         ),
     ),

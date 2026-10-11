@@ -1730,6 +1730,7 @@ def _resolve_effect_value(
             )
             return None
         if value.source_node in {
+            CalculationNode.CHARACTER_INITIAL_ATTACK,
             CalculationNode.CHARACTER_INITIAL_HP,
             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
             CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
