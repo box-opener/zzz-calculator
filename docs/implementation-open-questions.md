@@ -917,6 +917,12 @@ choices unresolved; it does not block Wind or those five known infusion paths,
 and the source is not being interpreted as an explicit five-element
 restriction.
 
+The 2026-10-11 source-to-implementation audit found no additional explicitly
+specified damage behavior omitted from the current Velina implementation. The
+remaining element-choice uncertainty is limited to variants the source does
+not enumerate; the other listed gaps concern Daze, buildup, resources,
+durations, and timing, which have no result in the current static contract.
+
 ## Yanagi Polarity Disorder calculation decision
 
 The user clarified the final model: `紊乱伤害抛去防御、抗性、紊乱增伤、加减易伤之后存在一个数值，极性紊乱读取这个数值的*15%+3200%*柳的异常精通成为此极性紊乱的数值进入后续防御、抗性、紊乱增伤、加减易伤等等乘区` and confirmed `新的解释才是柳极性紊乱真正的作用方式。`

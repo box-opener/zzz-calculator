@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: 1561 documentation audit follows Pyrois 1551; the next unimplemented character is Norma 1571.
+Current item: Norma 1571. The 1561 source-to-implementation audit completed on 2026-10-11 and found no clearly specified omitted damage rule.
 
 ## Manato (`character:1441`)
 
@@ -240,6 +240,8 @@ The reviewed Direct list uses each basic, dodge, special, chain, ultimate, and a
 The Core's initial Energy Regeneration effect scales continuously above 1.2, capped independently at +35% damage and +84 Anomaly Mastery. Each 0.01 excess adds 0.21% damage and 0.5 Anomaly Mastery; 2.16 therefore adds 20.16% damage and 48 Anomaly Mastery. It reads the initial panel, including equipment advanced stats. Core Turbulence bonus and micro/broad Discharge rates use the compiled Core level. Extra Ability/Cinema damage scopes, C1 resistance ignore, C4 attack buff state, and C6 current Weathering remaining-time bonus have separate rules and owner/event filters. Winded-state +10% Wind Direct/Penetration damage uses the special-independent region; it does not enter the normal damage bonus region.
 
 The calculator retains Daze, buildup, resource gains, cooldowns, and durations as source data without replaying them. The source says an infused Cyclone deals the corresponding infused attribute, but does not enumerate whether Luminance or attribute variants can be infused; the current choice field exposes the five ordinary non-Wind attributes only. No ordinary Wind Disorder entry is created because the calculation specification says Wind Weathering does not enter ordinary Disorder.
+
+The 2026-10-11 audit compared the retained live-3.2 source and current implementation against the calculation, terminology, and presentation contracts. It found no additional explicitly specified damage rule omitted from the implementation. The existing limits remain the unenumerated Luminance/attribute infusion variants and Daze, buildup, resource, duration, and timing results outside the static damage contract.
 
 ## Anton (character:1111)
 
