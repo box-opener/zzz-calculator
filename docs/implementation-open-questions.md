@@ -1,5 +1,9 @@
 # Implementation notes and open questions
 
+## Stopped development checkpoint — 2026-10-12
+
+At the user's request, work stopped after the completed 1591 implementation. Unregistered 1611/1621 drafts and the unfinished shared integration patch are preserved outside the active package in [the checkpoint](in-progress/characters-1611-1621/README.md). That document distinguishes previously passed source checks from later unverified work and records the remaining typed-sharpened settlement, initial-panel conversion, Roxy rule/scope, signature, and UI tasks. These are unfinished implementation tasks, not newly inferred game semantics.
+
 This file records non-authoritative implementation limits. It does not change
 the terminology, calculation, or implementation specifications, and it does
 not decide game semantics.

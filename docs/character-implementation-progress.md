@@ -64,12 +64,12 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1571` | Norma | 诺姆 | 4 | 2 | 部分实现（live 3.2 raw + S-rank level-60 Fire Stun panel + 18 reviewed Fire Direct entries + Initial Crit Rate Core/Cinema rules + current Technical Gap and Term states + C1/C6 scopes + `Weapon_S_1571` signature mapping; Norma Direct Penetration Force conversion and autonomous turret actor stats remain localized limits） |
 | `1581` | Remielle | 蕾米埃尔 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + 17 Luminance Direct entries + stable formation Flow + selectable ordinary/special virtual-void source slots + typed Flare/penetration snapshots + switchable AP/C4/C6 rules; Daze/resource results remain outside the current calculation output） |
 | `1591` | Sigrid | 希格莉德 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 Ice Attack panel + 16 reviewed Ice/Physical Direct entries + Core/Extra/Cinema current-state rules + `wengine:14159` signature mapping; Daze, resources, and timing replay remain outside the static result contract） |
-| `1611` | Claret | 克拉蕾 | 4 | 7 | 待实现 |
-| `1621` | Roxy | 洛克茜 | 4 | 2 | 待实现 |
+| `1611` | Claret | 克拉蕾 | 4 | 7 | 未完成草稿（2026-10-12按用户要求停止；原始数据、25条曲线和未验证接入补丁归档于 `docs/in-progress/characters-1611-1621/`，未注册） |
+| `1621` | Roxy | 洛克茜 | 4 | 2 | 未完成草稿（2026-10-12按用户要求停止；原始数据、15条Direct入口及未验证Core改动归档于 `docs/in-progress/characters-1611-1621/`，未注册） |
 
 ## Current queue
 
-Current item: Claret 1611. Sigrid 1591 source-backed character support was added on 2026-10-11. The Remielle 1581 source-to-implementation audit completed on 2026-10-11 and found no additional explicitly specified damage rule omitted from the implementation. Norma 1571 source-backed character support was also added on 2026-10-11; the 1561 audit found no clearly specified omitted damage rule.
+The queue was stopped at the user's request on 2026-10-12. Thirteen previously unregistered characters from 1421 through 1591 were added and individually pushed; 1411 eligibility was fixed, and 1561/1581 were audited (1581 also received an explicit UTF-8 test fix). Sigrid 1591 is the last completed character, commit `5fe3417`. Claret 1611 and Roxy 1621 remain unregistered drafts. Their saved files, verification boundaries, and continuation tasks are recorded in [the checkpoint](in-progress/characters-1611-1621/README.md). The shared signature-default UI change is also unfinished.
 
 ## Manato (`character:1441`)
 
