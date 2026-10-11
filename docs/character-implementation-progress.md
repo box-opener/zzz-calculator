@@ -39,7 +39,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1321` | Evelyn | 伊芙琳 | 4 | 1 | 部分实现（live 3.2 raw/provenance + S-rank level-60 Fire Attack panel + reviewed Physical/Fire Direct moves + Fire Burn/Disorder + Core/Additional Ability/Cinema current-state effects + `Weapon_S_1321` signature mapping; Basic element groups use the named skill-list ranges, with the separate Fire third-stage cancel path selectable without modeling its preceding action） |
 | `1331` | Vivian | 薇薇安 | 4 | 3 | 已实现（已有registry/compiler；B5在当前上场角色面板下分组显示各自异放结果，不计入所选招式总计） |
 | `1341` | Zhao | 照 | 4 | 5 | 已实现（已有registry/compiler） |
-| `1351` | Pulchra | 波可娜 | 3 | 2 | 待实现 |
+| `1351` | Pulchra | 波可娜 | 3 | 2 | 部分实现（live 3.2 raw/provenance + A-rank level-60 Stun panel + 13 reviewed Physical Direct entries + 14 exact Nightmare child packets + Core/Extra/Cinema current-state scopes + `wengine:13135` signature mapping; mark/count states are selected inputs, while Daze, Energy, and trigger timing remain outside the result contract） |
 | `1361` | Trigger | 「扳机」 | 4 | 2 | 已实现（已有registry/compiler） |
 | `1371` | YiXuan | 仪玄 | 4 | 6 | 已实现（已有registry/compiler） |
 | `1381` | Soldier 0 - Anby | 零号·安比 | 4 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-The queue was stopped at the user's request on 2026-10-12. Thirteen previously unregistered characters from 1421 through 1591 were added and individually pushed; 1411 eligibility was fixed, and 1561/1581 were audited (1581 also received an explicit UTF-8 test fix). Sigrid 1591 is the last completed character, commit `5fe3417`. Claret 1611 and Roxy 1621 remain unregistered drafts. Their saved files, verification boundaries, and continuation tasks are recorded in [the checkpoint](in-progress/characters-1611-1621/README.md). The shared signature-default UI change is also unfinished.
+The earlier queue snapshot was stopped at the user's request on 2026-10-12. A later task resumes work for characters 1351, 1381, and 1391 in that order; 1611/1621 remain unregistered drafts and are outside that task. The shared signature-default UI change is also unfinished.
 
 ## Manato (`character:1441`)
 

@@ -180,6 +180,7 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1261",
         "character:1271",
         "character:1281",
+        "character:1351",
         "character:1291",
         "character:1301",
         "character:1321",
