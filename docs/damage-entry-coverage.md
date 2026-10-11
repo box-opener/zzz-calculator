@@ -31,5 +31,6 @@ This is a presentation-coverage record for the supported reviewed characters. It
 | 普罗米娅 Promeia | 17项reviewed Ice Direct招式、披风每秒曲线、重霜飞镖曲线、Ice Anomaly与Disorder可选择。 | Core异放只由当前绝裁末击创建；读取已选择真实普通异常来源，但保持固定type-2倍率，不乘来源tick profile。额外能力使普通Ice/Lieshuang霜寒记录分别从10/20秒延长到13/23秒，紊乱默认剩余时间随当前记录调整。资源消耗和30秒有罪推定刷新不回放。 |
 | 佩洛伊斯 Pyrois | 18项reviewed Ether Direct招式可选择；不展示自身Anomaly/Disorder。 | 左/右Core额外ATK事件保留已知倍率与触发条件，但元素和事件身份未知，因此仅子事件局部partial、父招式继续计算。Special: Battle Order 1551022保留已知独立Ether倍率及EX/Ultimate触发事实，但伤害代理人身份未定义，只有子事件未决。Core资源、Daze、护盾和时间轴不生成伤害入口。 |
 | 诺姆 Norma | 18项reviewed Fire Direct招式可选择；不展示自身Anomaly/Disorder。 | Penetration Force转换因当前Stun面板缺少该stat而仅令诺姆Direct结果局部partial；靶场/炮塔来源记录的独立操作者面板未定义，保留局部actor诊断。C6只结算所选当前单发高爆弹头，不推断自动攻击总次数。 |
+| 希格莉德 Sigrid | 16项reviewed Ice/Physical Direct招式可选择；不展示自身Anomaly/Disorder。 | Basic四段、Charge三段等保留独立source曲线。Core、额外能力和影画按真实招式与当前状态作用；C1溢出与C6末击ATK倍率在同一Charge事件中相加，不创建子事件。招架支援只有Daze值，不建立伤害入口。 |
 
 The Alice periodic selection is intentionally not reported as a complete damage calculation. The typed base source requires `event:alice:1401:periodic-source`, while the one-selected-move request contains no such settled result. A future request contract may supply that result; until then the entry shows the missing source diagnostic and preserves the known main calculation paths.

@@ -131,6 +131,19 @@ Penetration Force conversion is shown as a localized incomplete result while
 the Stun panel contract has no Force stat source; autonomous turret actor
 ownership remains a separate local diagnostic.
 
+## Sigrid (`character:1591`)
+
+Sigrid's editor defaults to Core 7, Cinema 0, and skill level 12; Cinema 3/5
+include Ultimate and obey the shared level-16 cap. The team derives her Extra
+Ability eligibility from another Stun or Support agent, and the level-60 ATK
+bonus is fixed at 840 rather than exposed as a character-level slider. Sky
+Rider state, its separate eight-second Crit Rate state, Chain/Cinema states,
+Winded target state, and current Charge/Cinema 6 inputs are submitted using
+their named conditions and parameters. The Core's Stun Vulnerability uses the
+enemy's shared `is_stunned` state. The signature mapping is available in the
+W-Engine picker; the shared editor continues to start mapped engines
+unequipped.
+
 Enemy `is_stunned` and `stun_vulnerability_bonus` are independent named inputs.
 The latter is supplied once by the enemy settlement environment; a character
 compiler must not carry a second copy. A veil-like mechanism is represented as

@@ -57,6 +57,7 @@ from .starlight_billy import StarlightBillyCompileConfig, compile_starlight_bill
 from .promeia import PromeiaCompileConfig, compile_promeia
 from .pyrois import PyroisCompileConfig, compile_pyrois
 from .norma import NormaCompileConfig, compile_norma
+from .sigrid import SigridCompileConfig, compile_sigrid
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -158,4 +159,6 @@ __all__ = [
     "compile_pyrois",
     "NormaCompileConfig",
     "compile_norma",
+    "SigridCompileConfig",
+    "compile_sigrid",
 ]

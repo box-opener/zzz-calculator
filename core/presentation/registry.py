@@ -226,6 +226,13 @@ from core.application.characters.starlight_billy import (
     compile_starlight_billy,
     load_raw_record as load_starlight_billy_raw_record,
 )
+from core.application.characters.sigrid import (
+    SIGRID_ID,
+    SIGRID_REVIEWED_MAPPING,
+    SigridCompileConfig,
+    compile_sigrid,
+    load_raw_record as load_sigrid_raw_record,
+)
 from core.application.characters.promeia import (
     PROMEIA_ID,
     PROMEIA_REVIEWED_MAPPING,
@@ -2875,6 +2882,75 @@ def _compile_starlight_billy(
         load_starlight_billy_raw_record(
             load_character_record(str(STARLIGHT_BILLY_ID))
         ),
+    )
+
+
+def _sigrid_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    cinema = int(values.get("cinema_level", 0))
+    fields: list[CompileConfigFieldView] = [
+        _slider_field(
+            "core_level",
+            "希格莉德核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级。暴击率增益与[巡空枪势]状态分别按当前状态选择。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "希格莉德影画",
+            cinema,
+            0,
+            6,
+            "S级代理人默认0影；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+    ]
+    fields.extend(_skill_level_fields(values, default_level=12))
+    return tuple(fields)
+
+
+def _sigrid_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != SIGRID_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.STUN, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_sigrid(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset(
+            {
+                "core_level",
+                "cinema_level",
+                "skill_levels",
+            }
+        ),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    cinema_level = _integer_with_default(values, "cinema_level", 0, strict)
+    return compile_sigrid(
+        SigridCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=cinema_level,
+            additional_ability_eligible=(
+                _sigrid_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_sigrid_raw_record(load_character_record(str(SIGRID_ID))),
     )
 
 
@@ -6323,6 +6399,46 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     move.damage_tags,
                 )
                 for move in STARLIGHT_BILLY_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    SIGRID_ID: CharacterPresentationRegistration(
+        character_id=SIGRID_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(SIGRID_ID),
+            display_name="希格莉德",
+            rarity="S",
+            element="ice",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ICE,
+        compile_definition=_compile_sigrid,
+        config_fields=_sigrid_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SIGRID_ID,
+            role=CharacterRole.ATTACK,
+            native_element=Element.ICE,
+            possible_elements=frozenset(
+                move.element for move in SIGRID_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in SIGRID_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in SIGRID_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in SIGRID_REVIEWED_MAPPING.moves
             ),
         ),
     ),

@@ -63,13 +63,13 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1561` | Velina | 维琳娜 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + reviewed Direct/cyclone curves + static Weathering + Wind-triggered Turbulence/Discharge; Daze, buildup, resource and timing outputs remain outside the result contract） |
 | `1571` | Norma | 诺姆 | 4 | 2 | 部分实现（live 3.2 raw + S-rank level-60 Fire Stun panel + 18 reviewed Fire Direct entries + Initial Crit Rate Core/Cinema rules + current Technical Gap and Term states + C1/C6 scopes + `Weapon_S_1571` signature mapping; Norma Direct Penetration Force conversion and autonomous turret actor stats remain localized limits） |
 | `1581` | Remielle | 蕾米埃尔 | 4 | 3 | 部分实现（live 3.2 raw + level-60 panel + 17 Luminance Direct entries + stable formation Flow + selectable ordinary/special virtual-void source slots + typed Flare/penetration snapshots + switchable AP/C4/C6 rules; Daze/resource results remain outside the current calculation output） |
-| `1591` | Sigrid | 希格莉德 | 4 | 1 | 待实现 |
+| `1591` | Sigrid | 希格莉德 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 Ice Attack panel + 16 reviewed Ice/Physical Direct entries + Core/Extra/Cinema current-state rules + `wengine:14159` signature mapping; Daze, resources, and timing replay remain outside the static result contract） |
 | `1611` | Claret | 克拉蕾 | 4 | 7 | 待实现 |
 | `1621` | Roxy | 洛克茜 | 4 | 2 | 待实现 |
 
 ## Current queue
 
-Current item: Sigrid 1591. The Remielle 1581 source-to-implementation audit completed on 2026-10-11 and found no additional explicitly specified damage rule omitted from the implementation. Norma 1571 source-backed character support was also added on 2026-10-11; the 1561 audit found no clearly specified omitted damage rule.
+Current item: Claret 1611. Sigrid 1591 source-backed character support was added on 2026-10-11. The Remielle 1581 source-to-implementation audit completed on 2026-10-11 and found no additional explicitly specified damage rule omitted from the implementation. Norma 1571 source-backed character support was also added on 2026-10-11; the 1561 audit found no clearly specified omitted damage rule.
 
 ## Manato (`character:1441`)
 
@@ -376,3 +376,11 @@ Eighteen reviewed Fire Direct entries cover Basic, Dash, Counter, Special/EX, Ch
 Core Crit Damage derives from immutable Initial Crit Rate, starting above 50% and using the Core-level source coefficient/cap. The source's Penetration Force-to-ATK conversion (+1.25 ATK per current Force, capped at 1200) remains a local partial only for Norma's own Direct hits because the Stun panel contract has no Penetration Force source; the Rupture-only formula is not reused. Extra Ability eligibility uses another Attack/Rupture agent or a teammate sharing Norma's raw camp ID. Current Technical Gap stacks are 0–10. Term `1000012` is a separate current-state input and uses its source level-60 cap of +870 ATK without exposing another character-level selector; En-Ni Barrage's 20% damage bonus targets the team. Cinema 1 reduces all enemy resistances by 15%; Cinema 2 raises eligible Technical Gap stacks from 3% to 6% each.
 
 Cinema 6's high-explosive +30% normal-damage bonus applies only to the named EX high-explosive packets. Its additional Fire missile is an explicitly selected single current packet at 200% ATK, classified as Ultimate; the source's firing interval is not expanded into a total count. Resource and timing histories are not replayed.
+
+## Sigrid (`character:1591`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/sigrid.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1591.json` and source version `3.2`. Sigrid is an S-rank Ice Attack agent. Her source portrait is not packaged locally, so the catalog uses the portrait placeholder. The signature mapping is `wengine:14159` (骁骑礼赞); the shared editor still starts a new W-Engine selection unequipped.
+
+Sixteen reviewed entries cover Basic's four separate stages, the three Charge stages, Dash, Dodge Counter, Special, two EX attacks, Chain, Ultimate, Quick Assist, and Assist Strike. The source's Parry Assist entries contain Daze only and are not damage entries. S-rank skills default to level 12 and Core to level 7; Cinema 3/5 add two levels including Ultimate, capped at 16. Sigrid's own Anomaly and Disorder are not displayed.
+
+Core Crit Rate, Sky Rider state, Extra Ability's target-Winded bonus, Chain follow-up bonus, Cinema 4 state, Cinema 1 overflow, and Cinema 6's current consumed charge are independent current inputs. Core's enemy Stun Vulnerability uses the actual target Stunned state. Extra Ability eligibility is derived from another Stun or Support teammate; its level-60 ATK increase is 840. Cinema 2 Penetration Rate is limited to the source-listed moves. Cinema 1 and Cinema 6 final-hit ATK additions are combined on the same Charge-stage event, so their contributions add without a cross term; selecting a locked Cinema 6 cannot suppress the Cinema 1 bonus. Current states are selected directly; the calculator does not replay Energy, charge acquisition, Daze, durations, or timing.
