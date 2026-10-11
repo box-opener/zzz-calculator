@@ -24,6 +24,7 @@ _CHARACTER_FILES = {
     "character:1431": "ye_shunguang.json",
     "character:1401": "alice.json",
     "character:1411": "yuzuha.json",
+    "character:1421": "yinhu.json",
     "character:1361": "trigger.json",
     "character:1091": "miyabi.json",
     "character:1371": "yixuan.json",

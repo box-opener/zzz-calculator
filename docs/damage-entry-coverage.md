@@ -19,5 +19,6 @@ This is a presentation-coverage record for the 15 characters currently supported
 | 琉音 Dialyn | 无新增独立入口。 | C6余音伤害由真实唯一持有人当前Direct/Penetration命中派生；无法从当前队伍操作顺序推定持有人。 |
 | 妮可 Nicole | 现有直接伤害、强击、紊乱条目可选；无额外独立伤害模板。 | 能量场总倍率按已确认静态组件相加；不由持续时间推断跳数。 |
 | 安比 Anby | 现有普通攻击、闪避反击、特殊/强化特殊、连携、终结和支援伤害可选；无独立派生伤害模板。 | C6的当前充能消耗一次增伤属于已选招式的倍率修正，不作为重复子事件。 |
+| 潘引壶 Yinhu | 无独立派生伤害入口；15项Physical Direct招式均可单独选择。 | Core贯穿力加成由每位队友自己的当前持有状态显式控制，且仅用于该队友的Penetration事件；C6按完整Core系数与总cap替换基础分支。气绝状态的20%普通增伤和C1额外10%作用于敌方；不创建Anomaly或Disorder伤害。 |
 
 The Alice periodic selection is intentionally not reported as a complete damage calculation. The typed base source requires `event:alice:1401:periodic-source`, while the one-selected-move request contains no such settled result. A future request contract may supply that result; until then the entry shows the missing source diagnostic and preserves the known main calculation paths.

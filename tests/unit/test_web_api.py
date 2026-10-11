@@ -405,6 +405,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1431",
         "character:1401",
         "character:1411",
+        "character:1421",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -611,6 +612,13 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert yidhari["element"] == "ice"
     assert yidhari["code_name"] == "Yidhari"
     assert yidhari["image_path"] == "/characters/portrait-placeholder.svg"
+    yinhu = next(item for item in payload if item["character_id"] == "character:1421")
+    assert yinhu["display_name"] == "潘引壶"
+    assert yinhu["code_name"] == "Yinhu"
+    assert yinhu["rarity"] == "A"
+    assert yinhu["specialty"] == "defense"
+    assert yinhu["element"] == "physical"
+    assert yinhu["image_path"] == "/characters/portrait-placeholder.svg"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
     assert (asset_root / "IconRole46.webp").is_file()

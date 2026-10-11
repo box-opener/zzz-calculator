@@ -252,6 +252,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1271"): WENGINE_PEACEKEEPER_SPECIALIZED_ID,
     # Local Nanoka 3.2 13128 record is Weapon_A_1281 and explicitly names Piper.
     CharacterId("character:1281"): WENGINE_ROARING_RIDE_ID,
+    # Local Nanoka 3.2 record 13142 is Weapon_A_1421, Yinhu's reviewed signature.
+    CharacterId("character:1421"): WEngineId("wengine:13142"),
     # Local Nanoka 3.2 14129 is Weapon_S_1291 (`千面日陨`).
     CharacterId("character:1291"): WENGINE_SUNFALL_EDGE_ID,
     # Local Nanoka 3.2 14130 is Weapon_S_1301 (`嚣枪喧焰`).

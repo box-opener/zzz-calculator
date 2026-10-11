@@ -178,6 +178,12 @@ from core.application.characters.seth import (
     compile_seth,
     load_raw_record as load_seth_raw_record,
 )
+from core.application.characters.yinhu import (
+    YINHU_ID,
+    YinhuCompileConfig,
+    compile_yinhu,
+    load_raw_record as load_yinhu_raw_record,
+)
 from core.application.characters.piper import (
     PIPER_ID,
     PiperCompileConfig,
@@ -1155,6 +1161,31 @@ def _seth_fields(
     )
 
 
+def _yinhu_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "潘引壶核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "通窍贯穿力按潘引壶初始攻击力和当前核心等级计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "潘引壶影画",
+            int(values.get("cinema_level", 6)),
+            0,
+            6,
+            "A级代理人的默认影画为6；3影与5影技能等级增加仍受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
 def _piper_fields(
     values: Mapping[str, Any],
     _team_ids: Sequence[CharacterId],
@@ -1999,6 +2030,50 @@ def _compile_seth(
     return compile_seth(
         config,
         load_seth_raw_record(load_character_record(str(SETH_ID))),
+    )
+
+
+def _yinhu_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(YINHU_ID)
+    for character_id in team_ids:
+        if character_id == YINHU_ID or character_id not in _REGISTRATIONS:
+            continue
+        if _REGISTRATIONS[character_id].role is CharacterRole.RUPTURE:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
+def _compile_yinhu(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    recipients = tuple(
+        dict.fromkeys(character_id for character_id in team_ids if character_id != YINHU_ID)
+    )
+    recipient_names = tuple(
+        (character_id, _REGISTRATIONS[character_id].catalog.display_name)
+        for character_id in recipients
+        if character_id in _REGISTRATIONS
+    )
+    config = YinhuCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 6, strict),
+        additional_ability_eligible=_yinhu_additional_ability_eligibility(team_ids),
+        penetration_recipient_ids=recipients,
+        penetration_recipient_names=recipient_names,
+    )
+    return compile_yinhu(
+        config,
+        load_yinhu_raw_record(load_character_record(str(YINHU_ID))),
     )
 
 
@@ -5066,6 +5141,42 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             skill_groups=frozenset(SkillGroup),
             damage_tags=frozenset(DamageTag),
             mechanisms=frozenset({"yuzuha-tanuki-wish"}),
+        ),
+    ),
+    YINHU_ID: CharacterPresentationRegistration(
+        character_id=YINHU_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(YINHU_ID),
+            display_name="潘引壶",
+            rarity="A",
+            element="physical",
+            specialty="defense",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.DEFENSE,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_yinhu,
+        config_fields=_yinhu_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=YINHU_ID,
+            role=CharacterRole.DEFENSE,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                }
+            ),
+            native_element=Element.PHYSICAL,
+            mechanisms=frozenset({"yinhu-tongqiao"}),
         ),
     ),
     CharacterId("character:1361"): CharacterPresentationRegistration(
