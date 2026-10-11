@@ -48,7 +48,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1411` | Yuzuha | 柚叶 | 4 | 4 | 已实现（已有registry/compiler；同阵营资格按Nanoka稳定camp ID判断，不使用硬编码角色名单） |
 | `1421` | Yinhu | 潘引壶 | 3 | 5 | 部分实现（live 3.2 raw + A-rank Defense panel + 15 reviewed Physical Direct entries + per-recipient Core Penetration Force and C6 branch + Qi-Jue normal-damage state; Daze/resource/time behavior is not calculated） |
 | `1431` | Ye Shunguang | 叶瞬光 | 4 | 1 | 已实现（已有registry/compiler） |
-| `1441` | Manato | 真斗 | 3 | 6 | 待实现 |
+| `1441` | Manato | 真斗 | 3 | 6 | 部分实现（live 3.2 raw + A-rank level-60 Fire Rupture panel + 19 reviewed Physical/Fire/Penetration entries + Core/Cinema current-state rules + `Weapon_A_1441` signature mapping; HP/resource/timing/Daze replay and unspecified intermediate continuous-slash ratios remain outside the current result） |
 | `1451` | Lucia | 卢西娅 | 4 | 4 | 已实现（已有registry/compiler） |
 | `1461` | Seed | 「席德」 | 4 | 1 | 待实现 |
 | `1471` | Banyue | 般岳 | 4 | 6 | 待实现 |
@@ -69,7 +69,15 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Manato 1441 follows Yinhu 1421 after this branch is reviewed and pushed.
+Current item: Seed 1461 follows Manato 1441 after this branch is reviewed and pushed.
+
+## Manato (`character:1441`)
+
+The complete Nanoka live 3.2 character record is retained at `core/data/characters/manato.json` with its original source URL/version. It identifies Manato / 真斗 as an A-rank Fire Rupture from 怪啖屋 (`IconRole51`). The level-60 panel is normalized from the source's level and extra-level records: HP 7724.8563, ATK 755.2106, DEF 443.56, Impact 95, CRIT 5%/50%, Anomaly Mastery 87, Anomaly Proficiency 90, and +18% out-of-combat HP. The explicit signature mapping is W-Engine `13144` 燔火胧夜; its live record declares `Weapon_A_1441`.
+
+Nineteen selectable entries cover the reviewed source curves. Basic 1–3 are Physical; 烬风 Basic 1–3 are mutually exclusive whole Fire variants formed from the source's explicit base and Fire parameter IDs. All Fire attacks use Penetration, while Physical attacks stay Direct. The maximum Support Follow-up is split into the 1441024 opening strike and the 1441025 continuous-slash aggregate; no intermediate slash count or ratio curve is inferred. HP-spend CRIT Damage applies only to the explicitly named empowered Basic and continuous Support Follow-up event. C1 uses a user-selected historical accumulated HP-loss percentage; it does not substitute current HP. C3/C5 add two skill levels, including Ultimate, subject to the level-16 cap. C6 is only the source's current Fire-damage stack bonus; no extra laser event is created.
+
+Core/Cinema static damage and panel effects are registered. Extra Ability resources, regeneration, durations, flashes, Energy, Daze, and C4's source-described fatal-damage recovery remain outside the static result contract. The source supplies only the maximum continuous-slash total, so unknown intermediate repetitions remain localized as a partial source limitation.
 
 ## Burnice (`character:1171`)
 

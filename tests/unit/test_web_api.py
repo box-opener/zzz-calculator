@@ -406,6 +406,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1401",
         "character:1411",
         "character:1421",
+        "character:1441",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -619,6 +620,16 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert yinhu["specialty"] == "defense"
     assert yinhu["element"] == "physical"
     assert yinhu["image_path"] == "/characters/portrait-placeholder.svg"
+    manato = next(item for item in payload if item["character_id"] == "character:1441")
+    assert manato["display_name"] == "真斗"
+    assert manato["code_name"] == "Manato"
+    assert manato["rarity"] == "A"
+    assert manato["specialty"] == "rupture"
+    assert manato["element"] == "fire"
+    assert manato["image_path"] == "/characters/portrait-placeholder.svg"
+    manato_raw = load_character_record("character:1441")
+    assert manato_raw["source_version"] == "3.2"
+    assert manato_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1441.json"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
     assert (asset_root / "IconRole46.webp").is_file()
@@ -666,6 +677,10 @@ def test_wengine_catalog_exposes_source_verified_signature_owners() -> None:
         "wengine:14134": {
             "name": "半糖雪兔",
             "owner": "character:1341",
+        },
+        "wengine:13144": {
+            "name": "燔火胧夜",
+            "owner": "character:1441",
         },
     }
     for wengine_id, values in expected.items():

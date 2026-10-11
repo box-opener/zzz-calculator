@@ -59,7 +59,7 @@ The rows marked “已实现” have a raw fixture, reviewed mapping, and compil
 | 047 | `13128` | 轰鸣座驾 | A | 异常 | 已实现（raw + ATK%Build + 三类独立随机结果current-state：攻击、AP、积蓄） |
 | 048 | `13135` | 裁纸刀 | A | 击破 | 部分实现（raw + Impact Build + 追击触发后的Physical/Daze增益；Daze结果非阻断诊断） |
 | 049 | `13142` | 震元奇枢 | A | 防护 | 部分实现（raw + ATK%Build + EX/ULT伤害标签范围；能量回复结果诊断） |
-| 050 | `13144` | 燔火胧夜 | A | 命破 | 部分实现（raw + HP%Build + Fire伤害能力门控 + HP下降后暴击状态；当前登记命破角色无Fire） |
+| 050 | `13144` | 燔火胧夜 | A | 命破 | 部分实现（raw + HP%Build + Fire伤害能力门控 + HP下降后暴击状态；显式登记为真斗 `Weapon_A_1441` 专武） |
 | 051 | `14001` | 加农转子 | A | 强攻 | 已实现（raw + CritRate Build + ATK%面板 + 当前命中暴击状态触发200%当前ATK Physical Direct子事件） |
 | 052 | `14002` | 逍遥游球 | A | 支援 | 已实现（raw + EnergyRegen Build + 属性克制后目标暴击率event-stat/non-stack） |
 | 053 | `14003` | 左轮转子 | A | 击破 | 部分实现（live raw + Impact Build + EX当前充能失衡修正；Daze结果缺口非阻断） |

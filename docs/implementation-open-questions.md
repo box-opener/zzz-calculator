@@ -1094,3 +1094,9 @@ The current Evelyn entries have resolved damage elements. A separate shared cont
 ## Yinhu (`character:1421`)
 
 The character implementation specification says an A-rank agent's mapped signature W-Engine is equipped at refinement 5 by default. The current presentation contract creates new W-Engine selections unequipped. Yinhu's signature is explicitly mapped to `wengine:13142` (`Weapon_A_1421`, 震元奇枢), but remains unequipped by default to preserve the current shared presentation behavior. Resolve this default-equipment contract difference in a coordinated shared change; no Yinhu damage rule depends on assuming the engine is equipped.
+
+## Manato (`character:1441`) localized source limits
+
+The source provides an ordinary Support Follow-up ratio and a separate maximum continuous-slash total, but no per-slash ratio for the 0–7 additional continuous slashes. The calculator retains the ordinary 1441024 curve and, for the explicit maximum variant, the 1441024 opening hit plus 1441025 continuous-slash aggregate. It does not divide the maximum total by seven or infer ratios for intermediate counts.
+
+The implementation specification says an A-rank agent's mapped signature W-Engine is equipped at refinement 5 by default. The shared presentation contract creates newly selected W-Engines unequipped. Manato's signature is explicitly mapped to `wengine:13144` (`Weapon_A_1441`, 燔火胧夜) and remains unequipped by default under the shared contract, as recorded for Yinhu. This default-equipment difference does not change Manato's known damage curves or assume that the signature's effects are active.

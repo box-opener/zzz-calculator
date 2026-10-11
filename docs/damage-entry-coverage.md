@@ -1,6 +1,6 @@
 # Damage entry coverage (non-authoritative)
 
-This is a presentation-coverage record for the 15 characters currently supported by this repository. It does not define game semantics. A selectable standalone entry is added only when the source gives a usable damage basis; damage that belongs to a selected move remains visible as an event under that move instead of being counted twice.
+This is a presentation-coverage record for the supported reviewed characters. It does not define game semantics. A selectable standalone entry is added only when the source gives a usable damage basis; damage that belongs to a selected move remains visible as an event under that move instead of being counted twice.
 
 | Character | Independently selectable damage | Damage kept under its source move or remaining source requirement |
 | --- | --- | --- |
@@ -20,5 +20,6 @@ This is a presentation-coverage record for the 15 characters currently supported
 | 妮可 Nicole | 现有直接伤害、强击、紊乱条目可选；无额外独立伤害模板。 | 能量场总倍率按已确认静态组件相加；不由持续时间推断跳数。 |
 | 安比 Anby | 现有普通攻击、闪避反击、特殊/强化特殊、连携、终结和支援伤害可选；无独立派生伤害模板。 | C6的当前充能消耗一次增伤属于已选招式的倍率修正，不作为重复子事件。 |
 | 潘引壶 Yinhu | 无独立派生伤害入口；15项Physical Direct招式均可单独选择。 | Core贯穿力加成由每位队友自己的当前持有状态显式控制，且仅用于该队友的Penetration事件；C6按完整Core系数与总cap替换基础分支。气绝状态的20%普通增伤和C1额外10%作用于敌方；不创建Anomaly或Disorder伤害。 |
+| 真斗 Manato | 19项source-backed Physical/Fire招式条目可选择；普通攻击的烬风作为显式互斥的整次Fire伤害倍率。 | 连打最大支援突击保留1441024起手与1441025连续斩击总倍率两个事件；中间连打次数与比例未提供，不推导。C1历史损失HP作用于Basic Fire与Support Follow-up；消耗HP暴伤只作用于炽风·胧切及连续斩击事件。资源、时间、Energy、Daze及C4致命伤害恢复不生成静态伤害事件。 |
 
 The Alice periodic selection is intentionally not reported as a complete damage calculation. The typed base source requires `event:alice:1401:periodic-source`, while the one-selected-move request contains no such settled result. A future request contract may supply that result; until then the entry shows the missing source diagnostic and preserves the known main calculation paths.
