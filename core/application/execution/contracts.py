@@ -25,6 +25,7 @@ from core.types import (
     LuminanceSourceKind,
     Element,
     ANOMALY_ELEMENTS,
+    BASE_ELEMENT_BY_ELEMENT,
     Resolvable,
     SnapshotRule,
     RuleStackCondition,
@@ -34,6 +35,7 @@ from ..characters.definition import CharacterCalculationDefinition
 from ..characters.templates import (
     AttributeAnomalyDamageEventTemplate,
     DamageEventTemplate,
+    DischargeDamageEventTemplate,
 )
 from ..diagnostics import CalculationDiagnostic
 from ..ids import DamageEventSemanticId, MoveEntryId, RuleItemId
@@ -88,6 +90,7 @@ class MoveCalculationRequest:
     polarity_anomaly_source_choice: AnomalySourceChoice | None = None
     burnice_anomaly_source_choice: AnomalySourceChoice | None = None
     grace_anomaly_source_choice: AnomalySourceChoice | None = None
+    discharge_anomaly_source_choice: AnomalySourceChoice | None = None
     additional_damage_event_templates: tuple[DamageEventTemplate, ...] = ()
     additional_derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
@@ -272,6 +275,51 @@ class MoveCalculationRequest:
             if choice.element not in source_elements:
                 raise ValueError(
                     "Grace Discharge source element is not backed by an active "
+                    f"ordinary anomaly template for {choice.source_character_id}"
+                )
+        if self.discharge_anomaly_source_choice is not None:
+            choice = self.discharge_anomaly_source_choice
+            dynamic_templates = tuple(
+                template
+                for definition in definitions
+                for template in definition.damage_event_templates
+                if isinstance(template, DischargeDamageEventTemplate)
+                and template.source_multiplier_by_element
+            )
+            if not dynamic_templates:
+                raise ValueError(
+                    "a Discharge anomaly source selection requires a dynamic Discharge template"
+                )
+            if choice.source_character_id not in set(profile_ids):
+                raise ValueError("Discharge anomaly source actor must be an active teammate")
+            if choice.element not in ANOMALY_ELEMENTS:
+                raise ValueError("Discharge anomaly source must use an ordinary anomaly element")
+            if not any(
+                any(
+                    element is choice.element
+                    or BASE_ELEMENT_BY_ELEMENT[element]
+                    is BASE_ELEMENT_BY_ELEMENT[choice.element]
+                    for element, _ in template.source_multiplier_by_element
+                )
+                for template in dynamic_templates
+            ):
+                raise ValueError(
+                    "selected anomaly element has no reviewed dynamic Discharge multiplier"
+                )
+            source_definition = next(
+                item
+                for item in definitions
+                if item.character_id == choice.source_character_id
+            )
+            source_elements = {
+                template.element
+                for template in source_definition.damage_event_templates
+                if isinstance(template, AttributeAnomalyDamageEventTemplate)
+                and template.element in ANOMALY_ELEMENTS
+            }
+            if choice.element not in source_elements:
+                raise ValueError(
+                    "selected Discharge source element is not backed by an active "
                     f"ordinary anomaly template for {choice.source_character_id}"
                 )
 

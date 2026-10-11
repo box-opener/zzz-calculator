@@ -363,6 +363,7 @@ class PanelStatDerivedValue:
             CalculationNode.CHARACTER_INITIAL_DEFENSE,
             CalculationNode.CHARACTER_INITIAL_HP,
             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
+            CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
             CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
             CalculationNode.CHARACTER_CURRENT_MAX_HP,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
@@ -372,7 +373,7 @@ class PanelStatDerivedValue:
             CalculationNode.CHARACTER_CURRENT_PENETRATION_RATE,
         }:
             raise ValueError(
-                "panel derived values only support initial attack/defense/HP/crit rate/energy regen, "
+                "panel derived values only support initial attack/defense/HP/crit rate/anomaly mastery/energy regen, "
                 "current maximum HP/crit rate/impact/penetration rate, anomaly mastery, or "
                 "anomaly proficiency"
             )
@@ -390,12 +391,13 @@ class PanelStatDerivedValue:
             self.source_node
             not in {
                 CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
+                CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
                 CalculationNode.CHARACTER_CURRENT_IMPACT,
             }
             or (self.threshold is None and self.minimum is None)
         ):
             raise ValueError(
-                "interval-scaled panel values require an initial energy-regeneration or current-impact threshold"
+                "interval-scaled panel values require an initial energy-regeneration/anomaly-mastery or current-impact threshold"
             )
         if isinstance(self.minimum, Resolved) and self.minimum.value < 0:
             raise ValueError("derived panel value minimum must be non-negative")

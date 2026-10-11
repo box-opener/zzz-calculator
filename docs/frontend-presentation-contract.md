@@ -38,6 +38,12 @@ Refreshing a Definition after a compile-config change reconciles existing user
 choices by stable ID. Valid condition values, parameter values, rule enable/
 disable choices, trigger actors, and stack counts are retained; newly exposed
 controls use server defaults; removed or out-of-bounds choices are pruned.
+Move projections expose their authored damage type and element plus each
+variant's `parameter_value_id`, so the browser can display only controls tied
+to the selected entry. Duration defaults and validation remain server-owned;
+for a selected Ether/Xuanmo Disorder duration parameter, the browser omits an
+untouched default so the server can resolve it against the currently enabled
+duration rules.
 
 ## Output ownership
 

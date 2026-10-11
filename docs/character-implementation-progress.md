@@ -54,7 +54,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1471` | Banyue | 般岳 | 4 | 6 | 部分实现（live 3.2 raw + S-rank level-60 Fire Rupture panel + 24 reviewed Penetration moves + Core/Cinema current-state rules + `Weapon_S_1471` signature mapping; Mingwang's C6-only base-bonus eligibility and event resource/timing remain local limits） |
 | `1481` | Dialyn | 琉音 | 4 | 2 | 已实现（已有registry/compiler） |
 | `1491` | Sunna | 千夏 | 4 | 4 | 部分实现（live 3.2 raw + S-rank level-60 Support panel + 14 reviewed Physical Direct entries + Initial ATK Bad Cat + Core/Cinema current-state rules + Cat's Gaze Direct children attributed to actual Attack/Anomaly triggerers + `Weapon_S_1491` signature mapping; timing, resources, and Daze remain outside the static result contract） |
-| `1501` | Aria | 爱芮 | 4 | 3 | 待实现 |
+| `1501` | Aria | 爱芮 | 4 | 3 | 部分实现（live 3.2 raw + S-rank level-60 Anomaly panel + 19 reviewed Ether Direct entries + static Ether Corrosion/Disorder + six Core Discharge ratios from Initial Anomaly Mastery + C1 independent Discharge crit + C2/C6 current-state rules + `Weapon_S_1501` signature mapping; current-state inputs do not replay resources or timing, and no registered ordinary Linren anomaly source is available to select） |
 | `1511` | NangongYu | 南宫羽 | 4 | 2 | 待实现 |
 | `1521` | Cissia | 希希芙 | 4 | 1 | 待实现 |
 | `1531` | Starlight - Billy | 星徽·比利 | 4 | 6 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Aria 1501 follows Sunna 1491 after this branch is reviewed and pushed.
+Current item: Nangong Yu 1511 follows Aria 1501 after this branch is reviewed and pushed.
 
 ## Manato (`character:1441`)
 
@@ -314,3 +314,11 @@ The reviewed move list contains 15 independently selectable Physical Direct entr
 Core Tongqiao adds 9–18% of Yinhu's Initial ATK as Penetration Force, capped at 540. The current holder is selected independently per teammate through its named condition; the effect applies only to that recipient's Penetration damage events and does not infer a switch order. Cinema 6 changes the total coefficient to the Core coefficient plus 6 percentage points and the total cap to 720; it selects between the full base and full enhanced formulas so lower Core levels retain the source's correct cap behavior. The Additional Ability is team-eligible when another Rupture agent or a same-faction agent is present. While the target is in Qi-Jue, it adds 20% normal damage for all teammates; Cinema 1 adds another 10% under the same condition. Cinema 3 and 5 add two effective skill levels, subject to the level-16 cap. Cinema 2/4 resource, duration, and healing changes have no current damage result and are omitted.
 
 The 1411 Yuzuha eligibility audit found and fixed its roster-specific Alice exception by using stable Nanoka faction IDs; the fix is in commit `177711c` on this branch.
+
+## Aria (`character:1501`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/aria.json` with its source URL/version. It identifies Aria / 爱芮 as an S-rank Ether Anomaly agent from 妄想天使 (`IconRole57`). The mapped signature is `wengine:14150` (`Weapon_S_1501`, 壳中之灵); it remains unequipped under the shared editor default.
+
+Nineteen reviewed Ether Direct entries, Ether Corrosion, and Ether Disorder use the source curves. S-rank skills default to level 12 and Core to level 7. The Core's +90 is Anomaly Proficiency; its six Discharge ratios and Cinema 1's Discharge crit override read immutable Initial Anomaly Mastery. Cinema 3/5 include Ultimate and respect the shared level-16 cap. Cinema 2 and 6 apply only to their source-named events/states. A Core Discharge is created only for the selected third charged Basic hit and selected ordinary anomaly source; its ratio follows the source element's base family while retaining the actual variant identity. The API requires an active teammate with a compiled ordinary-anomaly source template; it does not invent a Linren record from equipment-element capability alone.
+
+The Extra Ability adds three seconds to eligible Ether/Xuanmo current anomaly records. Full corrosion and Disorder calculations follow the resulting record duration (10 or 13 seconds); selected remaining-time values beyond that record are locally blocked. The request does not replay resource costs, tick timing, or action history.

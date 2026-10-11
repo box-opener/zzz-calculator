@@ -215,6 +215,11 @@ def static_attribute_anomaly_record(
         CalculationNode.ANOMALY_CRIT_DAMAGE,
         event,
     )
+    anomaly_duration_bonus, anomaly_duration_diagnostics = _modifier_total(
+        modifiers,
+        CalculationNode.ANOMALY_DURATION_BONUS,
+        event,
+    )
     if isinstance(anomaly_crit_rate, Resolved) and anomaly_crit_rate.value > 0.0:
         inherited_by = (
             (DamageSubtype.DISCHARGE, DamageSubtype.TURBULENCE)
@@ -248,14 +253,15 @@ def static_attribute_anomaly_record(
     )
     impact_strength = _impact_strength(level, impact)
     duration = _ANOMALY_DURATION_SECONDS.get(event.metadata.element)
-    duration_value = (
-        Resolved(duration)
-        if duration is not None
-        else _unresolved(
+    if duration is None:
+        duration_value = _unresolved(
             f"no static anomaly duration is defined for "
             f"{event.metadata.element.value}"
         )
-    )
+    elif isinstance(anomaly_duration_bonus, Resolved):
+        duration_value = Resolved(max(0.0, duration + anomaly_duration_bonus.value))
+    else:
+        duration_value = anomaly_duration_bonus
     contribution = AnomalyContribution(
         contributor=event.anomaly_triggerer,
         # The static assumption is one complete gauge.  The absolute gauge
@@ -293,6 +299,7 @@ def static_attribute_anomaly_record(
             *anomaly_diagnostics,
             *anomaly_crit_rate_diagnostics,
             *anomaly_crit_damage_diagnostics,
+            *anomaly_duration_diagnostics,
             *mutation_diagnostics,
         ),
     )

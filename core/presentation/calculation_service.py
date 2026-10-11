@@ -382,6 +382,9 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 grace_anomaly_source_choice=(
                     view_request.grace_anomaly_source_choice
                 ),
+                discharge_anomaly_source_choice=(
+                    view_request.discharge_anomaly_source_choice
+                ),
                 crit_display_mode=mode,
             )
 
@@ -1549,6 +1552,64 @@ def _presentation_request(
         raise ValueError(
             "grace_anomaly_source is only valid for Grace's Potential 1 grenade entries"
         )
+    raw_discharge_source = payload.get("discharge_anomaly_source")
+    discharge_source_choice: AnomalySourceChoice | None = None
+    aria_third_charge_entries = {
+        "move-entry:character:1501:basic-absolute-pitch-charge-3",
+        "move-entry:character:1501:basic-absolute-pitch-charge-3-cooperative",
+    }
+    aria_discharge_triggered = (
+        primary_id == "character:1501"
+        and move_entry_id in aria_third_charge_entries
+        and selected_conditions.get(
+            "condition:aria:third-charge-anomaly-hit"
+        )
+        is True
+    )
+    if aria_discharge_triggered:
+        source_spec = raw_discharge_source
+        if source_spec is None:
+            source_spec = {"source_character_id": primary_id}
+        if not isinstance(source_spec, Mapping):
+            raise ValueError("discharge_anomaly_source must be an object")
+        source_character_id = str(source_spec.get("source_character_id", ""))
+        if source_character_id not in team_ids:
+            raise ValueError("Discharge anomaly source must be an active teammate")
+        source_options = tuple(
+            element
+            for element in (reviewed_anomaly_source_elements or {}).get(
+                source_character_id, ()
+            )
+            if element in ANOMALY_ELEMENTS
+        )
+        if not source_options:
+            raise ValueError(
+                f"no reviewed ordinary anomaly source is available for {source_character_id}"
+            )
+        native_element = registration_for(source_character_id).base_element
+        default_element = (
+            native_element
+            if native_element in source_options
+            else source_options[0]
+        )
+        raw_source_element = source_spec.get("element")
+        source_element = (
+            default_element
+            if raw_source_element is None
+            else _element(str(raw_source_element))
+        )
+        if source_element not in source_options:
+            raise ValueError(
+                f"Discharge source element {source_element.value} is not available for {source_character_id}"
+            )
+        discharge_source_choice = AnomalySourceChoice(
+            source_character_id=CharacterId(source_character_id),
+            element=source_element,
+        )
+    elif raw_discharge_source not in (None, {}, ()):
+        raise ValueError(
+            "discharge_anomaly_source is only valid for Aria's third-charge Discharge trigger"
+        )
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
         supporting_character_ids=supporting_ids,
@@ -1573,6 +1634,7 @@ def _presentation_request(
         polarity_anomaly_source_choice=polarity_source_choice,
         burnice_anomaly_source_choice=burnice_source_choice,
         grace_anomaly_source_choice=grace_source_choice,
+        discharge_anomaly_source_choice=discharge_source_choice,
     )
 
 
@@ -1939,6 +2001,52 @@ def _scenario(
         )
     conditions = []
     parameters = []
+    raw_enabled_rules = payload.get("enabled_rule_item_ids")
+    enabled_rule_ids_for_defaults = (
+        None
+        if raw_enabled_rules is None
+        else {str(item) for item in raw_enabled_rules}
+        if isinstance(raw_enabled_rules, (list, tuple, set, frozenset))
+        else set()
+    )
+    aria_extra_rule_id = "rule:character:1501:extra-ability:ether-corrosion-duration"
+    aria_extra_rule = next(
+        (
+            rule
+            for definition in definitions
+            for rule in definition.rule_items
+            if str(rule.rule_id) == aria_extra_rule_id
+        ),
+        None,
+    )
+    aria_extra_enabled = bool(
+        aria_extra_rule is not None
+        and aria_extra_rule.eligibility.value != "ineligible"
+        and (
+            enabled_rule_ids_for_defaults is None
+            or aria_extra_rule_id in enabled_rule_ids_for_defaults
+        )
+    )
+    selected_entry_id = str(payload.get("move_entry_id", ""))
+    selected_disorder_variant = next(
+        (
+            variant
+            for definition in definitions
+            for entry in definition.move_entries
+            if str(entry.entry_id) == selected_entry_id
+            and entry.main_damage_event.damage_type is DamageType.DISORDER
+            and entry.main_damage_event.element in {Element.ETHER, Element.XUANMO}
+            and len(entry.multiplier_variants) == 1
+            for variant in entry.multiplier_variants
+            if variant.parameter_value_id is not None
+        ),
+        None,
+    )
+    duration_parameter_id = (
+        selected_disorder_variant.parameter_value_id
+        if selected_disorder_variant is not None
+        else None
+    )
     for definition in definitions:
         for condition in definition.scenario_conditions:
             if any(item.condition_id == condition.condition_id for item in conditions):
@@ -1957,11 +2065,39 @@ def _scenario(
         for parameter in definition.scenario_parameters:
             if any(item.parameter_id == parameter.parameter_id for item in parameters):
                 continue
+            default_value = parameter.value
+            resolved_parameter = parameter
+            if (
+                duration_parameter_id is not None
+                and parameter.parameter_id == duration_parameter_id
+            ):
+                parameter_wording = f"{parameter.label} {parameter.original_text}".lower()
+                duration_units_per_second = (
+                    2
+                    if "半秒" in parameter_wording
+                    or "half-second" in parameter_wording
+                    or "half second" in parameter_wording
+                    else 1
+                    if "秒" in parameter_wording or "second" in parameter_wording
+                    else None
+                )
+                if duration_units_per_second is not None:
+                    duration_seconds = 13 if aria_extra_enabled else 10
+                    maximum = 13 * duration_units_per_second
+                    resolved_parameter = replace(parameter, maximum=maximum)
+                    if str(parameter.parameter_id) not in parameter_values:
+                        default_value = duration_seconds * duration_units_per_second
+            if (
+                str(parameter.parameter_id) == "parameter:aria:ether-disorder-remaining-half-seconds"
+                and duration_parameter_id is None
+                and str(parameter.parameter_id) not in parameter_values
+            ):
+                default_value = 26 if aria_extra_enabled else 20
             parameters.append(
                 replace(
-                    parameter,
+                    resolved_parameter,
                     value=parameter_values.get(
-                        str(parameter.parameter_id), parameter.value
+                        str(parameter.parameter_id), default_value
                     ),
                 )
             )

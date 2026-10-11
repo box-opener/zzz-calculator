@@ -1705,6 +1705,9 @@ def _resolve_effect_value(
         elif value.source_node is CalculationNode.CHARACTER_INITIAL_CRIT_RATE:
             source_panel_value = source.initial_stats.crit_rate
             source_stat_label = "initial crit rate"
+        elif value.source_node is CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY:
+            source_panel_value = source.initial_stats.anomaly_mastery
+            source_stat_label = "initial anomaly mastery"
         elif value.source_node is CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN:
             source_panel_value = source.initial_stats.energy_regen
             source_stat_label = "initial energy regeneration"
@@ -1724,6 +1727,7 @@ def _resolve_effect_value(
         if value.source_node in {
             CalculationNode.CHARACTER_INITIAL_HP,
             CalculationNode.CHARACTER_INITIAL_CRIT_RATE,
+            CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
             CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
         }:
             threshold = value.threshold if value.threshold is not None else value.minimum
@@ -2408,7 +2412,17 @@ def _normalize_event_modifiers(
                     )
                 )
                 continue
-            normalized.append(replace(overrides[0], operation=EffectOperation.ADD))
+            if path in {
+                CalculationNode.DISCHARGE_CRIT_RATE_OVERRIDE,
+                CalculationNode.DISCHARGE_CRIT_DAMAGE_OVERRIDE,
+            }:
+                # Discharge has a dedicated pair resolver that distinguishes
+                # an authored independent crit zone from the record fallback.
+                # Preserve the operation so that resolver sees the typed
+                # override rather than an ordinary additive modifier.
+                normalized.append(overrides[0])
+            else:
+                normalized.append(replace(overrides[0], operation=EffectOperation.ADD))
             continue
         for modifier in modifiers:
             if modifier.operation is EffectOperation.ADD:

@@ -83,6 +83,7 @@ class MoveVariantView:
     condition_ids: tuple[str, ...]
     repeat_count: int | None
     repeat_count_parameter_id: str | None
+    parameter_value_id: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +91,8 @@ class MoveView:
     entry_id: str
     move_id: str | None
     label: str
+    damage_type: str
+    element: str | None
     skill_group: str | None
     damage_tags: tuple[str, ...]
     multiplier_relation: str

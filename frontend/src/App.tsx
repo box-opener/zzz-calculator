@@ -51,6 +51,11 @@ import { filterCharacterCatalog, isCharacterSelectable } from "./state/character
 import { aggregateEditorViews } from "./state/editorAggregation";
 import { calculationNodeLabel, formatMultiplierPercent } from "./state/calculationDisplay";
 import {
+  disorderDurationControl,
+  isDisorderDurationParameter,
+  retainKnownParameterIds,
+} from "./state/disorderDuration";
+import {
   defaultRemielleSourceSlots as remielleDefaultSourceSlots,
   remielleOrdinarySourceOptions as buildRemielleOrdinarySourceOptions,
   serializeRemielleSourceSlots,
@@ -112,6 +117,7 @@ type Parameter = {
   value: number | null;
   minimum: number;
   maximum: number | null;
+  original_text: string;
 };
 
 type CompileField = {
@@ -143,10 +149,12 @@ type Rule = {
 type Move = {
   entry_id: string;
   label: string;
+  damage_type: string;
+  element: string | null;
   skill_group: string | null;
   damage_tags: string[];
   multiplier_relation: string;
-  variants: { variant_id: string; label: string; multiplier: number | null; repeat_count: number | null; condition_ids: string[]; repeat_count_parameter_id: string | null }[];
+  variants: { variant_id: string; label: string; multiplier: number | null; repeat_count: number | null; condition_ids: string[]; repeat_count_parameter_id: string | null; parameter_value_id: string | null }[];
 };
 
 type EditorView = {
@@ -385,8 +393,10 @@ function App() {
   const [yanagiPolarSourceKey, setYanagiPolarSourceKey] = useState<string | null>(null);
   const [burniceAnomalySourceKey, setBurniceAnomalySourceKey] = useState<string | null>(null);
   const [graceAnomalySourceKey, setGraceAnomalySourceKey] = useState<string | null>(null);
+  const [dischargeAnomalySourceKey, setDischargeAnomalySourceKey] = useState<string | null>(null);
   const [conditionValues, setConditionValues] = useState<Record<string, boolean | null>>({});
   const [parameterValues, setParameterValues] = useState<Record<string, number | null>>({});
+  const [explicitParameterIds, setExplicitParameterIds] = useState<Set<string>>(new Set());
   const conditionValuesRef = useRef<Record<string, boolean | null>>({});
   const explicitConditionValuesRef = useRef<Record<string, boolean | null>>({});
   const [enabledRules, setEnabledRules] = useState<Set<string>>(new Set());
@@ -480,6 +490,28 @@ function App() {
     && (moveEntryId === "move-entry:character:1181:potential1-pulse-grenade"
       || moveEntryId === "move-entry:character:1181:potential1-cycle-single-throw")
     && graceAnomalySources.length > 0;
+  const dischargeAnomalySources = burniceAnomalySourceOptions(teamIds, editorViews);
+  const effectiveDischargeAnomalySource = selectedBurniceAnomalySource(
+    dischargeAnomalySources,
+    dischargeAnomalySourceKey,
+    "character:1501",
+  );
+  const ariaThirdChargeEntries = new Set([
+    "move-entry:character:1501:basic-absolute-pitch-charge-3",
+    "move-entry:character:1501:basic-absolute-pitch-charge-3-cooperative",
+  ]);
+  const showAriaDischargeSource = currentOperatorId === "character:1501"
+    && ariaThirdChargeEntries.has(moveEntryId)
+    && conditionValuesRef.current["condition:aria:third-charge-anomaly-hit"] === true
+    && dischargeAnomalySources.length > 0;
+  useEffect(() => {
+    if (
+      dischargeAnomalySourceKey !== null
+      && !dischargeAnomalySources.some((item) => item.key === dischargeAnomalySourceKey)
+    ) {
+      setDischargeAnomalySourceKey(null);
+    }
+  }, [dischargeAnomalySourceKey, dischargeAnomalySources]);
   const requestTeam = useMemo(() => calculationTeamOrder(teamIds, currentOperatorId), [teamIds, currentOperatorId]);
   const supportingIds = requestTeam.supportingCharacterIds;
   const aggregatedEditors = useMemo(
@@ -497,6 +529,18 @@ function App() {
     [operatorMoves],
   );
   const selectedMove = operatorMoves.find((move) => move.entry_id === moveEntryId);
+  const disorderDurationParameter = selectedMove?.variants
+    .map((variant) => allParameters.find((parameter) => (
+      variant.parameter_value_id === parameter.parameter_id
+      && isDisorderDurationParameter(selectedMove, parameter)
+    )))
+    .find((parameter): parameter is Parameter => parameter !== undefined);
+  const ariaExtraRuleId = "rule:character:1501:extra-ability:ether-corrosion-duration";
+  const disorderDurationExtraEnabled = allRules.some((rule) => (
+    rule.rule_id === ariaExtraRuleId
+    && rule.availability === "available"
+    && enabledRules.has(rule.rule_id)
+  ));
   const selectedMoveVariantIndexes = selectedMove
     ? matchingMoveVariantIndexes(selectedMove, conditionValues)
     : [];
@@ -573,6 +617,7 @@ function App() {
       commitConditionValues({});
       explicitConditionValuesRef.current = {};
       setParameterValues({});
+      setExplicitParameterIds(new Set());
       setEnabledRules(new Set());
       setDisabledRules(new Set());
       setTriggerActors({});
@@ -685,6 +730,10 @@ function App() {
         nextConfigs[owner] = next;
       });
       setConfigs(nextConfigs);
+      const nextParameters = [
+        ...nextEditorViews.flatMap((view) => view.scenario_parameters),
+        ...nextWengineViews.flatMap((view) => view?.scenario_parameters ?? []),
+      ];
       const reconciled = reconcileEditorState(
         {
           conditionValues: authoritativeConditionContext,
@@ -701,10 +750,7 @@ function App() {
               ...nextWengineViews.flatMap((view) => view?.scenario_conditions ?? []),
               ...nextDriveDiscViews.flatMap((view) => view?.scenario_conditions ?? []),
             ],
-            parameters: [
-              ...nextEditorViews.flatMap((view) => view.scenario_parameters),
-              ...nextWengineViews.flatMap((view) => view?.scenario_parameters ?? []),
-            ],
+            parameters: nextParameters,
             rules: [
               ...nextEditorViews.flatMap((view) => view.rule_items),
               ...nextWengineViews.flatMap((view) => view?.rule_items ?? []),
@@ -720,6 +766,8 @@ function App() {
       );
       commitConditionValues(reconciled.conditionValues);
       setParameterValues(reconciled.parameterValues);
+      const knownParameterIds = new Set(nextParameters.map((parameter) => parameter.parameter_id));
+      setExplicitParameterIds((current) => retainKnownParameterIds(current, knownParameterIds));
       setEnabledRules(reconciled.enabledRules);
       setDisabledRules(reconciled.disabledRules);
       setTriggerActors(reconciled.triggerActors);
@@ -1168,6 +1216,16 @@ function App() {
         conditionValuesRef.current,
         allConditions,
       );
+      const knownParameterIds = new Set(allParameters.map((item) => item.parameter_id));
+      const requestParameterValues = Object.fromEntries(
+        Object.entries(parameterValues).filter(([parameterId]) => (
+          knownParameterIds.has(parameterId)
+          && (
+            parameterId !== disorderDurationParameter?.parameter_id
+            || explicitParameterIds.has(parameterId)
+          )
+        )),
+      );
       const luminanceSourceSlots = serializeRemielleSourceSlots(
         effectiveRemielleSourceSlots,
         remielleOrdinarySourceOptions,
@@ -1207,13 +1265,19 @@ function App() {
               element: effectiveGraceAnomalySource.element,
             },
           } : {}),
+          ...(showAriaDischargeSource && effectiveDischargeAnomalySource ? {
+            discharge_anomaly_source: {
+              source_character_id: effectiveDischargeAnomalySource.characterId,
+              element: effectiveDischargeAnomalySource.element,
+            },
+          } : {}),
           compile_configs: Object.fromEntries(teamIds.map((id) => [id, {
             core_level: 7,
             cinema_level: 0,
             ...(configs[id] ?? {}),
           }])),
           condition_values: scenarioConditionValues,
-          parameter_values: parameterValues,
+          parameter_values: requestParameterValues,
           character_builds: buildPayloads(),
           enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: enemyResistances, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
           enabled_rule_item_ids: [...enabledRules],
@@ -1524,7 +1588,32 @@ function App() {
               </option>)}
             </select></label>
           </div>}
-          {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => { const currentValue = parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value; return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={parameter.maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value }))} />; })}</div></div>}
+          {showAriaDischargeSource && <div className="control-list yanagi-polar-source">
+            <div className="section-heading compact"><div><p className="eyebrow">ARIA DISCHARGE SOURCE</p><h2>异放原异常来源</h2><p className="control-section-hint">选择当前队伍已有的普通异常记录；默认使用爱芮自身以太异常。来源按当前面板结算，不切换操作角色。</p></div></div>
+            <label className="select-field"><span>原异常来源</span><select value={effectiveDischargeAnomalySource?.key ?? ""} onChange={(event) => setDischargeAnomalySourceKey(event.target.value || null)}>
+              {dischargeAnomalySources.map((option) => <option key={option.key} value={option.key}>
+                {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
+              </option>)}
+            </select></label>
+          </div>}
+          {allParameters.length > 0 && <div className="parameter-list"><div className="section-heading compact"><div><p className="eyebrow">SCENARIO PARAMETERS</p><h2>次数与数值输入</h2></div></div><div className="parameter-field-grid">{allParameters.map((parameter) => {
+            const isSelectedDisorderDuration = disorderDurationParameter?.parameter_id === parameter.parameter_id;
+            const durationControl = isSelectedDisorderDuration
+              ? disorderDurationControl(
+                parameter,
+                disorderDurationExtraEnabled,
+                explicitParameterIds.has(parameter.parameter_id),
+                parameterValues[parameter.parameter_id] !== undefined
+                  ? parameterValues[parameter.parameter_id]
+                  : parameter.value,
+              )
+              : null;
+            const currentValue = durationControl
+              ? durationControl.value
+              : (parameterValues[parameter.parameter_id] !== undefined ? parameterValues[parameter.parameter_id] : parameter.value);
+            const maximum = durationControl?.maximum ?? parameter.maximum;
+            return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => { setExplicitParameterIds((current) => new Set([...current, parameter.parameter_id])); setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value })); }} />;
+          })}</div></div>}
           <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.eligibility === "ineligible" ? "适用条件未满足" : rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stackValueForDisplay(stacks[rule.rule_id], rule.stack.default, rule.stack.minimum)} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>
           {allTriggers.length > 0 && <><div className="section-heading compact"><div><p className="eyebrow">TRIGGER FACTS</p><h2>场景触发</h2><p className="control-section-hint">需要明确入场角色的 Effect 会在这里显示；留空时计算 trace 会标记为 blocked。</p></div></div><div className="trigger-field-grid">{allTriggers.map((trigger) => { const selectedActor = triggerActors[trigger.input_id]; return <label className={`trigger-field ${selectedActor ? "trigger-field-selected" : "trigger-field-missing"}`} key={trigger.input_id}><span>{trigger.label}</span><select value={selectedActor ?? ""} onChange={(event) => setTriggerActors((current) => { const next = { ...current }; if (event.target.value) next[trigger.input_id] = event.target.value; else delete next[trigger.input_id]; return next; })}><option value="">未指定</option>{trigger.actor_options.map((actor) => <option key={actor} value={actor}>{characters.find((item) => item.character_id === actor)?.display_name ?? actor}</option>)}</select><small>{selectedActor ? `已指定：${characters.find((item) => item.character_id === selectedActor)?.display_name ?? selectedActor}` : "⚠ 需要指定入场角色"}</small></label>; })}</div></>}
         </section>

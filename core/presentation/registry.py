@@ -198,6 +198,13 @@ from core.application.characters.banyue import (
     compile_banyue,
     load_raw_record as load_banyue_raw_record,
 )
+from core.application.characters.aria import (
+    ARIA_ID,
+    ARIA_REVIEWED_MAPPING,
+    AriaCompileConfig,
+    compile_aria,
+    load_raw_record as load_aria_raw_record,
+)
 from core.application.characters.seed import (
     SEED_ID,
     SEED_REVIEWED_MAPPING,
@@ -1290,6 +1297,58 @@ def _seed_fields(
         ),
         *_skill_level_fields(values, default_level=12),
     )
+
+
+def _aria_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "爱芮核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级",
+        ),
+        _slider_field(
+            "cinema_level",
+            "爱芮影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人的默认影画为0；3影与5影技能等级增加受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _aria_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = {
+        str(value)
+        for value in load_character_record(str(ARIA_ID)).get("camp", {}).values()
+    }
+    for character_id in team_ids:
+        if character_id == ARIA_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role in {
+            CharacterRole.SUPPORT,
+            CharacterRole.STUN,
+            CharacterRole.ANOMALY,
+        }:
+            return True
+        teammate_camp = load_character_record(str(character_id)).get("camp", {})
+        if isinstance(teammate_camp, Mapping) and own_camps.intersection(
+            str(value) for value in teammate_camp.values()
+        ):
+            return True
+    return False
 
 
 def _sunna_fields(
@@ -2392,6 +2451,27 @@ def _compile_seed(
     strict: bool = True,
 ) -> CharacterCalculationDefinition:
     return _compile_seed_definition(values, team_ids, strict)
+
+
+def _compile_aria(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_aria(
+        AriaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _aria_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_aria_raw_record(load_character_record(str(ARIA_ID))),
+    )
 
 
 def _compile_seed_with_resolved_partner(
@@ -5665,6 +5745,54 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             ),
         ),
     ),
+    ARIA_ID: CharacterPresentationRegistration(
+        character_id=ARIA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(ARIA_ID),
+            display_name="爱芮",
+            rarity="S",
+            element="ether",
+            specialty="anomaly",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ANOMALY,
+        base_element=Element.ETHER,
+        compile_definition=_compile_aria,
+        config_fields=_aria_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=ARIA_ID,
+            role=CharacterRole.ANOMALY,
+            native_element=Element.ETHER,
+            possible_elements=frozenset(
+                {
+                    Element.ETHER,
+                    Element.ELECTRIC,
+                    Element.FIRE,
+                    Element.PHYSICAL,
+                    Element.ICE,
+                    Element.WIND,
+                }
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in ARIA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in ARIA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            mechanisms=frozenset({"anomaly-soul-in-shell"}),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in ARIA_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
     CharacterId("character:1361"): CharacterPresentationRegistration(
         character_id=CharacterId("character:1361"),
         catalog=CharacterCatalogItem(
@@ -6709,6 +6837,8 @@ def build_registered_editor_view(
                     entry_id=VIVIAN_DISCHARGE_SELECTION_ENTRY_ID,
                     move_id=None,
                     label="异放（薇薇安当前面板）",
+                    damage_type="disorder",
+                    element="ether",
                     skill_group=None,
                     damage_tags=(),
                     multiplier_relation="complete",
@@ -6721,6 +6851,7 @@ def build_registered_editor_view(
                             condition_ids=(),
                             repeat_count=None,
                             repeat_count_parameter_id=None,
+                            parameter_value_id=None,
                         ),
                     ),
                     condition_ids=(),

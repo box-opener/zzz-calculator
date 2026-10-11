@@ -116,6 +116,7 @@ class MoveCalculationViewRequest:
     polarity_anomaly_source_choice: AnomalySourceChoice | None = None
     burnice_anomaly_source_choice: AnomalySourceChoice | None = None
     grace_anomaly_source_choice: AnomalySourceChoice | None = None
+    discharge_anomaly_source_choice: AnomalySourceChoice | None = None
 
 
 __all__ = [

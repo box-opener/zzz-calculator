@@ -663,6 +663,57 @@ def test_panel_stat_derived_value_reads_initial_attack_and_applies_cap() -> None
     )
 
 
+@pytest.mark.parametrize(
+    ("initial_mastery", "settlement_mastery", "expected"),
+    (
+        (99.0, 900.0, 0.25),
+        (100.0, 900.0, 0.25),
+        (101.0, 0.0, 0.255),
+        (400.0, 0.0, 1.75),
+    ),
+)
+def test_panel_stat_derived_value_reads_thresholded_initial_anomaly_mastery(
+    initial_mastery: float,
+    settlement_mastery: float,
+    expected: float,
+) -> None:
+    owner = CharacterId("character:aria")
+    effect = ModifierEffect(
+        rule=EffectRule(
+            effect_id=EffectId("effect:stage16:initial-anomaly-mastery"),
+            source=_source("initial anomaly mastery effect"),
+            owner=owner,
+            target=EffectTarget.SELF,
+            snapshot_rule=SnapshotRule.SETTLEMENT,
+        ),
+        result=ModifierResult(
+            modifier_path=CalculationNode.DISCHARGE_PROFICIENCY_MULTIPLIER,
+            operation=EffectOperation.ADD,
+            value=PanelStatDerivedValue(
+                source_character_id=owner,
+                source_node=CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
+                coefficient=Resolved(0.005),
+                base=Resolved(0.25),
+                threshold=Resolved(100.0),
+            ),
+        ),
+    )
+    current_stats = replace(_stats(), anomaly_mastery=Resolved(settlement_mastery))
+    initial_stats = replace(_stats(), anomaly_mastery=Resolved(initial_mastery))
+    application = apply_matched_modifiers(
+        (CharacterSnapshot(owner, 60, current_stats),),
+        (),
+        (MatchedEffectApplication(effect=effect),),
+        owner,
+        initial_character_snapshots=(
+            InitialCharacterSnapshot(owner, 60, initial_stats),
+        ),
+    )
+
+    assert not application.diagnostics
+    assert application.event_modifiers[0].value == Resolved(expected)
+
+
 def test_panel_stat_derived_value_can_add_a_base_to_current_anomaly_proficiency() -> None:
     owner = CharacterId("character:remielle")
     effect = ModifierEffect(

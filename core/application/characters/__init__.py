@@ -50,6 +50,7 @@ from .piper import PiperCompileConfig, compile_piper
 from .hugo import HugoCompileConfig, compile_hugo
 from .orphie_magus import OrphieMagusCompileConfig, compile_orphie_magus
 from .evelyn import EvelynCompileConfig, compile_evelyn
+from .aria import AriaCompileConfig, compile_aria
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -137,4 +138,6 @@ __all__ = [
     "compile_orphie_magus",
     "EvelynCompileConfig",
     "compile_evelyn",
+    "AriaCompileConfig",
+    "compile_aria",
 ]
