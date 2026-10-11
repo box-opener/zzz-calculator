@@ -212,6 +212,13 @@ from core.application.characters.nangongyu import (
     compile_nangongyu,
     load_raw_record as load_nangongyu_raw_record,
 )
+from core.application.characters.cissia import (
+    CISSIA_ID,
+    CISSIA_REVIEWED_MAPPING,
+    CissiaCompileConfig,
+    compile_cissia,
+    load_raw_record as load_cissia_raw_record,
+)
 from core.application.characters.seed import (
     SEED_ID,
     SEED_REVIEWED_MAPPING,
@@ -2541,6 +2548,68 @@ def _compile_nangongyu(
             aria_in_team=aria_in_team,
         ),
         load_nangongyu_raw_record(load_character_record(str(NANGONGYU_ID))),
+    )
+
+
+def _cissia_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "希希芙核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心被动等级。初始能量自动回复加成按连续数值计算。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "希希芙影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+        ),
+        *_skill_level_fields(values, default_level=12),
+    )
+
+
+def _cissia_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    """Cissia's Additional Ability accepts another Stun or Electric agent."""
+
+    return any(
+        character_id != CISSIA_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and (
+            registration.role is CharacterRole.STUN
+            or registration.base_element is Element.ELECTRIC
+        )
+        for character_id in team_ids
+    )
+
+
+def _compile_cissia(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_cissia(
+        CissiaCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _cissia_additional_ability_eligibility(team_ids)
+            ),
+        ),
+        load_cissia_raw_record(load_character_record(str(CISSIA_ID))),
     )
 
 
@@ -5909,6 +5978,47 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                 for move in NANGONGYU_REVIEWED_MAPPING.moves
             ),
             mechanisms=frozenset({"nangongyu-voice-discharge", "nangongyu-polar-disorder"}),
+        ),
+    ),
+    CISSIA_ID: CharacterPresentationRegistration(
+        character_id=CISSIA_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(CISSIA_ID),
+            display_name="希希芙",
+            rarity="S",
+            element="electric",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_cissia,
+        config_fields=_cissia_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=CISSIA_ID,
+            role=CharacterRole.ATTACK,
+            native_element=Element.ELECTRIC,
+            possible_elements=frozenset(
+                move.element for move in CISSIA_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in CISSIA_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in CISSIA_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in CISSIA_REVIEWED_MAPPING.moves
+            ),
+            mechanisms=frozenset({"cissia-bone-erosion"}),
         ),
     ),
     CharacterId("character:1361"): CharacterPresentationRegistration(

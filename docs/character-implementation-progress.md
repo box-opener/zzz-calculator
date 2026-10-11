@@ -56,7 +56,7 @@ New live records should retain the complete source JSON and the verified live-3.
 | `1491` | Sunna | 千夏 | 4 | 4 | 部分实现（live 3.2 raw + S-rank level-60 Support panel + 14 reviewed Physical Direct entries + Initial ATK Bad Cat + Core/Cinema current-state rules + Cat's Gaze Direct children attributed to actual Attack/Anomaly triggerers + `Weapon_S_1491` signature mapping; timing, resources, and Daze remain outside the static result contract） |
 | `1501` | Aria | 爱芮 | 4 | 3 | 部分实现（live 3.2 raw + S-rank level-60 Anomaly panel + 19 reviewed Ether Direct entries + static Ether Corrosion/Disorder + six Core Discharge ratios from Initial Anomaly Mastery + C1 independent Discharge crit + C2/C6 current-state rules + `Weapon_S_1501` signature mapping; current-state inputs do not replay resources or timing, and no registered ordinary Linren anomaly source is available to select） |
 | `1511` | NangongYu | 南宫羽 | 4 | 2 | 部分实现（live 3.2 raw + S-rank Ether Stun panel + 15 reviewed Direct moves + Ether Anomaly/Disorder + six-family Core Discharge with normal/C6 source selection and C2/Cinema rules + Polar Disorder for current eligible hits + `Weapon_S_1511` signature mapping; current stack/proc and source records are selected inputs, not timeline replay） |
-| `1521` | Cissia | 希希芙 | 4 | 1 | 待实现 |
+| `1521` | Cissia | 希希芙 | 4 | 1 | 部分实现（live 3.2 raw + S-rank level-60 Electric Attack panel + 13 reviewed Electric Direct entries + Core Initial ER defense-ignore/Bone curve + Extra and Cinema current-state rules + `Weapon_S_1521` signature mapping; `IconRole60` is not packaged locally, so the catalog uses the portrait placeholder; poison/energy, mark timing, and resource history are not replayed） |
 | `1531` | Starlight - Billy | 星徽·比利 | 4 | 6 | 待实现 |
 | `1541` | Promeia | 普罗米娅 | 4 | 3 | 待实现 |
 | `1551` | Pyrois | 佩洛伊斯 | 4 | 1 | 待实现 |
@@ -69,7 +69,7 @@ New live records should retain the complete source JSON and the verified live-3.
 
 ## Current queue
 
-Current item: Cissia 1521 follows Nangong Yu 1511 after this branch is reviewed and pushed.
+Current item: Starlight - Billy 1531 follows Cissia 1521.
 
 ## Manato (`character:1441`)
 
@@ -332,3 +332,11 @@ Fifteen reviewed Ether Direct moves, Ether Anomaly, Ether Disorder, and the Core
 The ordinary Voice Discharge uses the source's six base ratios with the current pre-clear Voice stack count, then scales by `1 + 0.25 × stacks`; Cinema 2 adds `0.10 × stacks` to that normal-mode factor. Cinema 6's changed mode has its own six source ratios and scales by `1 + 0.25 × stacks`, without Cinema 2's normal-mode addition. The modes are mutually exclusive. The ordinary mode can clear on a four-stack Stun clear or on recovery from Stun with one to four stacks; the changed mode requires the current target to be stunned. A ready/proc selection is a current event fact, and the calculator does not replay stack acquisition, clear timing, or the preceding actions. When an explicit rule-selection list disables the selected mode's Core/Cinema rule, a ready selection is blocked locally even if that mode's optional disabled-guard rule was omitted. Invalid or unavailable mode/proc combinations remain local diagnostics rather than silently using another ratio.
 
 The Extra Ability's current polar-disorder effect is scoped to its reviewed Direct-hit trigger; it does not derive Polar Disorder merely from an ordinary anomaly record query. Cinema 2's Chain effect uses a separate current Chain proc condition and has no Dance-stack requirement. Aria's cooperation effect is scoped to its named current attack. The selected Polar source is an actual eligible teammate record; source variant, holder identity, and current anomaly strength are preserved. Anomaly Proficiency is not read for the 25% Polar record when its coefficient is zero. The calculator does not simulate Daze, Energy, resource consumption, duration, or combat timing.
+
+## Cissia (`character:1521`)
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/cissia.json` with source URL `https://static.nanoka.cc/zzz/3.2/zh/character/1521.json` and source version `3.2`. It identifies Cissia / 希希芙 as an S-rank Electric Attack agent of the New Eridu Public Security. The catalog maps Nanoka rank value 4 to S rank. Her explicit signature mapping is `wengine:14152` (`Weapon_S_1521`, 鳞齿寻踪); the shared editor continues to initialize new W-Engine selections unequipped.
+
+Thirteen reviewed Electric Direct entries use their own source curves; the calculator does not expose Cissia's own Anomaly or Disorder. The S-rank skill default is level 12 and Core defaults to level 7. Cinema 3/5 add two effective skill levels, including Ultimate, under the shared level-16 cap. The Core's defense ignore reads immutable Initial Energy Regeneration continuously above 1.4, in 0.12 steps, up to 25%; Cinema 1 scales that complete value by 1.4 (35% cap). Combat-current Energy Regeneration does not alter it. The Core's additional 335% ATK is added to the same 1521019 Bone Erosion curve. Cinema 1's team Electric resistance ignore and Bone Erosion Electric resistance ignore have their separate source scopes.
+
+The Extra Ability is eligible with another Stun or Electric teammate. Its team Crit Damage and Cissia's self bonus require the current poison-or-post-depletion state. The EX extra-hit count and Cinema 4 awareness stacks are explicit 0–3 static inputs; Cinema 6's mark proc is also a current input and creates one Bone Erosion only from an eligible main Direct/Penetration hit. Generated Bone events do not recursively trigger Cinema 6. The calculator does not replay poison consumption, energy costs, the 30-second interval, or action timing; the source-defined damage ratios and scopes have no remaining Cissia-specific ambiguity.

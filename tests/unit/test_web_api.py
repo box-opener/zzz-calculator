@@ -466,6 +466,7 @@ def test_catalog_uses_production_ids_and_assets() -> None:
         "character:1491",
         "character:1501",
         "character:1511",
+        "character:1521",
         "character:1361",
         "character:1091",
         "character:1371",
@@ -719,6 +720,17 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     aria_raw = load_character_record("character:1501")
     assert aria_raw["source_version"] == "3.2"
     assert aria_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1501.json"
+    cissia = next(item for item in payload if item["character_id"] == "character:1521")
+    assert cissia["display_name"] == "希希芙"
+    assert cissia["code_name"] == "Cissia"
+    assert cissia["rarity"] == "S"
+    assert cissia["specialty"] == "attack"
+    assert cissia["element"] == "electric"
+    assert cissia["image_path"] == "/characters/portrait-placeholder.svg"
+    cissia_raw = load_character_record("character:1521")
+    assert cissia_raw["rarity"] == 4
+    assert cissia_raw["source_version"] == "3.2"
+    assert cissia_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1521.json"
     assert (asset_root / "IconRole36.webp").is_file()
     assert (asset_root / "IconRole55.webp").is_file()
     assert (asset_root / "IconRole46.webp").is_file()
@@ -782,6 +794,10 @@ def test_wengine_catalog_exposes_source_verified_signature_owners() -> None:
         "wengine:14150": {
             "name": "壳中之灵",
             "owner": "character:1501",
+        },
+        "wengine:14152": {
+            "name": "鳞齿寻踪",
+            "owner": "character:1521",
         },
     }
     for wengine_id, values in expected.items():

@@ -52,6 +52,7 @@ from .orphie_magus import OrphieMagusCompileConfig, compile_orphie_magus
 from .evelyn import EvelynCompileConfig, compile_evelyn
 from .aria import AriaCompileConfig, compile_aria
 from .nangongyu import NangongYuCompileConfig, compile_nangongyu
+from .cissia import CissiaCompileConfig, compile_cissia
 
 __all__ = [
     "CharacterCalculationDefinition",
@@ -143,4 +144,6 @@ __all__ = [
     "compile_aria",
     "NangongYuCompileConfig",
     "compile_nangongyu",
+    "CissiaCompileConfig",
+    "compile_cissia",
 ]

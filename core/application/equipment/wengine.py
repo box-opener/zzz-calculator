@@ -214,6 +214,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1251"): WENGINE_JADE_TEA_ID,
     # The live detail for 14134 describes the engine as commissioned for Zhao.
     CharacterId("character:1341"): WENGINE_SWEETBUNNY_ID,
+    # Nanoka 3.2 engine 14152 has code_name/icon `Weapon_S_1521`, identifying Cissia.
+    CharacterId("character:1521"): WENGINE_SCALE_TOOTH_ID,
     # Nanoka 3.2 engine 13144 identifies as Weapon_A_1441, matching Manato's source ID.
     CharacterId("character:1441"): WENGINE_GRILL_O_WISP_ID,
     # The live 3.2 engine detail names both code_name and icon as Weapon_S_1581.

@@ -1138,3 +1138,11 @@ The Core trigger is a user-selected current fact that the third charged Basic hi
 The complete Nanoka live 3.2 source is retained at `core/data/characters/nangongyu.json`. Core Discharge requires an explicit eligible teammate's compiled ordinary anomaly source and the selected current proc/mode inputs. The selector does not synthesize an anomaly record from equipment capability or trigger a Discharge during an ordinary anomaly query. The chosen record's actual element variant, source identity, and current anomaly strength are used.
 
 Voice stacks, the ready/clear fact, changed-mode selection, the C2 Chain proc, and the Extra Ability/Aria Polar proc are current-scene inputs. The calculation does not reconstruct prior hits, clear timing, Daze, resource consumption, or durations. The source's normal and Cinema 6 modes, ratios, stack scaling, and Cinema 2 interaction are implemented; there is no unresolved ratio or element assignment for these entries. The signature engine is explicitly mapped to `wengine:14151`, but remains unequipped by default under the shared editor contract.
+
+## Cissia (`character:1521`) localized current-state limits
+
+The complete Nanoka live 3.2 record is retained at `core/data/characters/cissia.json`. The reviewed Direct damage curves, Core/Cinema ratios, Initial Energy Regeneration basis, and effect scopes are implemented; no source-defined damage ratio or event identity remains unresolved. Cissia is an Attack agent, so her own Anomaly and Disorder are not exposed.
+
+Poison or its post-depletion window, Snake Shadow, the EX extra-hit count, Cinema 4 awareness stacks, and Cinema 6's mark proc are explicit current-scene inputs. The 0–3 EX/Cinema 4 counts are static selections, not reconstructed Energy or stack histories. Cinema 6's current proc is limited to one eligible main Direct/Penetration hit and excludes neutral derived events and every Bone Erosion event. The calculator does not replay poison consumption, the 30-second window, energy costs, proc timing, or action order.
+
+The signature is explicitly mapped to `wengine:14152` (`Weapon_S_1521`, 鳞齿寻踪). As with other mapped S-rank engines, the current shared W-Engine editor starts the choice unequipped; this presentation default differs from the implementation specification's equipped-by-default rule and does not change Cissia's known source damage.

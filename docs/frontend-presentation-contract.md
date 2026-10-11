@@ -54,6 +54,16 @@ not imply a new anomaly, trigger effects on an ordinary anomaly query, or
 replay combat history. Yanagi's source selector remains scoped to her own Polar
 Disorder rules.
 
+Cissia's catalog rank is mapped from Nanoka's raw rank value by the registry,
+and her compiled editor defaults are Core 7, Cinema 0, and skill level 12 for
+an S-rank agent. Cinema 3/5 also raise Ultimate and obey the shared level-16
+cap. Her poison/recent-poison, Snake Shadow, and Cinema 6 proc inputs remain
+current-scene selections; EX extra hits and Cinema 4 awareness stacks are
+named 0–3 parameters. The browser does not infer poison, energy, stacks, or
+proc timing from a combat history. The signature mapping is available to the
+W-Engine picker, while the shared editor's unequipped default remains in
+effect.
+
 ## Output ownership
 
 Presentation output is versioned as `presentation-v1`. Three crit-display
