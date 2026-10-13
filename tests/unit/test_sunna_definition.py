@@ -254,6 +254,8 @@ def test_sunna_core_attack_percent_adds_with_disc_percent_before_flat_attack(eng
     assert preview.complete
     assert preview.base_stats['attack'] == pytest.approx(750.7503)
     assert preview.out_of_combat_stats['attack'] == pytest.approx(white_attack * (1 + .21 + .15) + 316)
+    assert preview.stat_breakdown['attack'].white_value == pytest.approx(white_attack)
+    assert preview.stat_breakdown['attack'].additional_value == pytest.approx(white_attack * (.21 + .15) + 316)
     assert sum(item.stat == 'attack' and item.source_type == 'character'
                and item.layer == 'out-of-combat-percent' for item in preview.provenance) == 1
 
