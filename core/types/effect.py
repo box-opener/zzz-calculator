@@ -330,7 +330,7 @@ class PanelStatDerivedValue:
 
     Reviewed character effects can read a character's immutable initial
     attack, defense, HP, crit rate, or energy regeneration, the final settlement maximum HP,
-    impact, anomaly mastery, proficiency, crit rate, or penetration rate. ``threshold`` (and its
+    impact, anomaly mastery, proficiency, crit rate, crit damage, or penetration rate. ``threshold`` (and its
     compatibility alias ``minimum``) expresses ``max(source - threshold, 0)``
     before applying the coefficient. ``step_size`` is the source interval for
     a continuous proportional coefficient on the excess; fractional intervals
@@ -367,6 +367,7 @@ class PanelStatDerivedValue:
             CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
             CalculationNode.CHARACTER_CURRENT_MAX_HP,
             CalculationNode.CHARACTER_CURRENT_CRIT_RATE,
+            CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE,
             CalculationNode.CHARACTER_CURRENT_IMPACT,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_MASTERY,
             CalculationNode.CHARACTER_CURRENT_ANOMALY_PROFICIENCY,
@@ -374,7 +375,7 @@ class PanelStatDerivedValue:
         }:
             raise ValueError(
                 "panel derived values only support initial attack/defense/HP/crit rate/anomaly mastery/energy regen, "
-                "current maximum HP/crit rate/impact/penetration rate, anomaly mastery, or "
+                "current maximum HP/crit rate/crit damage/impact/penetration rate, anomaly mastery, or "
                 "anomaly proficiency"
             )
         if isinstance(self.coefficient, Resolved) and self.coefficient.value < 0:
@@ -390,6 +391,7 @@ class PanelStatDerivedValue:
         if self.step_size is not None and (
             self.source_node
             not in {
+                CalculationNode.CHARACTER_INITIAL_ATTACK,
                 CalculationNode.CHARACTER_INITIAL_ENERGY_REGEN,
                 CalculationNode.CHARACTER_INITIAL_ANOMALY_MASTERY,
                 CalculationNode.CHARACTER_CURRENT_IMPACT,
@@ -397,7 +399,7 @@ class PanelStatDerivedValue:
             or (self.threshold is None and self.minimum is None)
         ):
             raise ValueError(
-                "interval-scaled panel values require an initial energy-regeneration/anomaly-mastery or current-impact threshold"
+                "interval-scaled panel values require an initial attack/energy-regeneration/anomaly-mastery or current-impact threshold"
             )
         if isinstance(self.minimum, Resolved) and self.minimum.value < 0:
             raise ValueError("derived panel value minimum must be non-negative")
@@ -407,14 +409,6 @@ class PanelStatDerivedValue:
             and self.threshold.value != self.minimum.value
         ):
             raise ValueError("derived panel value threshold and minimum must agree")
-        if self.source_node in {
-            CalculationNode.CHARACTER_INITIAL_ATTACK,
-        } and (
-            self.threshold is not None or self.minimum is not None
-        ):
-            raise ValueError(
-                "initial attack derived values cannot declare a panel threshold"
-            )
 
 
 @dataclass(frozen=True, slots=True)

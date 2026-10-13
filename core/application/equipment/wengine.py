@@ -199,6 +199,7 @@ YE_VEIL_ACTIVE_CONDITION_ID = YE_MINGXIN_CONDITION_ID
 
 SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     ANBY_ID: WENGINE_DEMARA_BATTERY_II_ID,
+    CharacterId("character:1351"): WENGINE_BOX_CUTTER_ID,
     CharacterId("character:1031"): WENGINE_TREASURE_CHEST_ID,
     CharacterId("character:1021"): WENGINE_STEEL_CUSHION_ID,
     CharacterId("character:1041"): WENGINE_BRIMSTONE_ID,
@@ -206,6 +207,7 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1091"): WENGINE_HAILSTORM_SHRINE_ID,
     CharacterId("character:1331"): WENGINE_BIRD_DREAM_ID,
     CharacterId("character:1371"): WENGINE_CYAN_CAGE_ID,
+    CharacterId("character:1381"): WENGINE_FUYUAN_CLEAN_ID,
     # The live 3.2 weapon detail uses `Weapon_S_1221` for Yanagi.
     CharacterId("character:1221"): WEngineId("wengine:14122"),
     # Nanoka 3.2 detail 14145 explicitly identifies Lucia in its description.
@@ -220,6 +222,8 @@ SIGNATURE_WENGINE_BY_CHARACTER: Mapping[CharacterId, WEngineId] = {
     CharacterId("character:1441"): WENGINE_GRILL_O_WISP_ID,
     # The live 3.2 engine detail names both code_name and icon as Weapon_S_1581.
     CharacterId("character:1581"): WENGINE_RETURNING_FEATHER_ID,
+    # Nanoka 3.2 Weapon_S_1391 identifies Ju Fufu's 福虓炉炉.
+    CharacterId("character:1391"): WENGINE_FOX_FURNACE_ID,
     # The live 3.2 weapon catalog record uses `Weapon_S_1561` for Velina.
     CharacterId("character:1561"): WENGINE_LUXURY_CORE_ID,
     # Nanoka 3.2 `Weapon_A_1061` and the 13106 description identify Corin's

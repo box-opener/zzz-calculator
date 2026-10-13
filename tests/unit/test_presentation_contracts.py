@@ -180,6 +180,9 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
         "character:1261",
         "character:1271",
         "character:1281",
+        "character:1351",
+        "character:1381",
+        "character:1391",
         "character:1291",
         "character:1301",
         "character:1321",
@@ -198,6 +201,11 @@ def test_production_character_records_are_the_single_raw_data_source() -> None:
     assert load_character_record("character:1051")["name"] == "伊德海莉"
     assert load_character_record("character:1051")["source_version"] == "3.2"
     assert load_character_record("character:1051")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1051.json"
+    assert load_character_record("character:1381")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1381.json"
+    assert load_character_record("character:1391")["name"] == "橘福福"
+    assert load_character_record("character:1391")["code_name"] == "Ju Fufu"
+    assert load_character_record("character:1391")["source_version"] == "3.2"
+    assert load_character_record("character:1391")["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1391.json"
     assert load_character_record("character:1171")["name"] == "柏妮思"
     assert load_character_record("character:1171")["code_name"] == "Burnice"
     assert load_character_record("character:1171")["source_version"] == "3.2"

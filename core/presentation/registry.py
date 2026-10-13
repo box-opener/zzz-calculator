@@ -22,6 +22,13 @@ from core.application.characters.anby import (
     compile_anby,
     load_raw_record as load_anby_raw_record,
 )
+from core.application.characters.soldier0_anby import (
+    SOLDIER0_ANBY_ID,
+    SOLDIER0_ANBY_REVIEWED_MAPPING,
+    Soldier0AnbyCompileConfig,
+    compile_soldier0_anby,
+    load_raw_record as load_soldier0_anby_raw_record,
+)
 from core.application.characters.yuzuha import (
     YuzuhaCompileConfig,
     compile_yuzuha,
@@ -277,6 +284,12 @@ from core.application.characters.piper import (
     compile_piper,
     load_raw_record as load_piper_raw_record,
 )
+from core.application.characters.pulchra import (
+    PULCHRA_ID,
+    PulchraCompileConfig,
+    compile_pulchra,
+    load_raw_record as load_pulchra_raw_record,
+)
 from core.application.characters.hugo import (
     HUGO_ID,
     HugoCompileConfig,
@@ -300,6 +313,13 @@ from core.application.characters.lucy import (
     LucyCompileConfig,
     compile_lucy,
     load_raw_record as load_lucy_raw_record,
+)
+from core.application.characters.ju_fufu import (
+    JU_FUFU_ID,
+    JU_FUFU_REVIEWED_MAPPING,
+    JuFufuCompileConfig,
+    compile_ju_fufu,
+    load_raw_record as load_ju_fufu_raw_record,
 )
 from core.application.characters.lighter import (
     LIGHTER_ID,
@@ -1494,6 +1514,31 @@ def _piper_fields(
             "cinema_level",
             "派派影画",
             int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁的影画等级",
+        ),
+        *_skill_level_fields(values, default_level=16),
+    )
+
+
+def _pulchra_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "波可娜核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "核心等级；当前支持的伤害倍率不随该等级变化。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "波可娜影画",
+            int(values.get("cinema_level", 6)),
             0,
             6,
             "已解锁的影画等级",
@@ -2912,6 +2957,48 @@ def _sigrid_fields(
     return tuple(fields)
 
 
+def _ju_fufu_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    cinema_level = int(values.get("cinema_level", 0))
+    fields: list[CompileConfigFieldView] = [
+        _slider_field(
+            "core_level",
+            "橘福福核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "虎啸基础暴伤、连携/终结伤害提升和福福冲击力按当前核心等级读取。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "橘福福影画",
+            cinema_level,
+            0,
+            6,
+            "S级代理人默认0影；3影与5影技能等级提升包括终结技并受16级上限约束。",
+        ),
+        _boolean_field(
+            "tiger_roar_active",
+            "虎啸增益当前生效",
+            bool(values.get("tiger_roar_active", False)),
+            "按当前虎啸状态计算团队暴伤、连携/终结伤害及福福冲击力；不模拟资源或持续时间。",
+        ),
+    ]
+    if cinema_level >= 1:
+        fields.append(
+            _boolean_field(
+                "c1_target_debuff_active",
+                "当前目标仍带有福福连携技施加的失衡易伤提升",
+                bool(values.get("c1_target_debuff_active", False)),
+                "仅当当前目标实际处于失衡状态时生效；不推断持续时间或目标切换。",
+            )
+        )
+    fields.extend(_skill_level_fields(values, default_level=12))
+    return tuple(fields)
+
+
 def _sigrid_additional_ability_eligibility(
     team_ids: Sequence[CharacterId],
 ) -> bool:
@@ -2951,6 +3038,51 @@ def _compile_sigrid(
             ),
         ),
         load_sigrid_raw_record(load_character_record(str(SIGRID_ID))),
+    )
+
+
+def _ju_fufu_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != JU_FUFU_ID
+        and (registration := _REGISTRATIONS.get(character_id)) is not None
+        and registration.role in {CharacterRole.ATTACK, CharacterRole.RUPTURE}
+        for character_id in team_ids
+    )
+
+
+def _compile_ju_fufu(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset(
+            {
+                "core_level",
+                "cinema_level",
+                "skill_levels",
+                "tiger_roar_active",
+                "c1_target_debuff_active",
+            }
+        ),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    return compile_ju_fufu(
+        JuFufuCompileConfig(
+            skill_levels=_skill_levels(values),
+            core_level=_integer_with_default(values, "core_level", 7, strict),
+            cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+            additional_ability_eligible=(
+                _ju_fufu_additional_ability_eligibility(team_ids)
+            ),
+            tiger_roar_active=values.get("tiger_roar_active", False),
+            c1_target_debuff_active=values.get("c1_target_debuff_active", False),
+        ),
+        load_ju_fufu_raw_record(load_character_record(str(JU_FUFU_ID))),
     )
 
 
@@ -3022,6 +3154,26 @@ def _piper_additional_ability_eligibility(team_ids: Sequence[CharacterId]) -> bo
     return False
 
 
+def _pulchra_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    own_camps = _nanoka_camp_ids(PULCHRA_ID)
+    for character_id in team_ids:
+        if character_id == PULCHRA_ID:
+            continue
+        registration = _REGISTRATIONS.get(character_id)
+        if registration is None:
+            continue
+        if registration.role in {
+            CharacterRole.ATTACK,
+            CharacterRole.RUPTURE,
+        }:
+            return True
+        if own_camps.intersection(_nanoka_camp_ids(character_id)):
+            return True
+    return False
+
+
 def _compile_piper(
     values: Mapping[str, Any],
     team_ids: Sequence[CharacterId],
@@ -3039,6 +3191,26 @@ def _compile_piper(
     return compile_piper(
         config,
         load_piper_raw_record(load_character_record(str(PIPER_ID))),
+    )
+
+
+def _compile_pulchra(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    config = PulchraCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 6, strict),
+        additional_ability_eligible=_pulchra_additional_ability_eligibility(team_ids),
+    )
+    return compile_pulchra(
+        config,
+        load_pulchra_raw_record(load_character_record(str(PULCHRA_ID))),
     )
 
 
@@ -3560,6 +3732,79 @@ def _compile_anby(
             ),
         ),
         load_anby_raw_record(load_character_record(str(ANBY_ID))),
+    )
+
+
+def _soldier0_anby_additional_ability_eligibility(
+    team_ids: Sequence[CharacterId],
+) -> bool:
+    return any(
+        character_id != SOLDIER0_ANBY_ID
+        and character_id in _REGISTRATIONS
+        and _REGISTRATIONS[character_id].role
+        in {CharacterRole.STUN, CharacterRole.SUPPORT}
+        for character_id in team_ids
+    )
+
+
+def _compile_soldier0_anby(
+    values: Mapping[str, Any],
+    team_ids: Sequence[CharacterId],
+    strict: bool = True,
+) -> CharacterCalculationDefinition:
+    _allowed(
+        values,
+        frozenset({"core_level", "cinema_level", "potential_level", "skill_levels"}),
+    )
+    if strict:
+        _required(values, frozenset({"core_level", "cinema_level"}))
+    potential_level = _integer_with_default(values, "potential_level", 0, strict)
+    config = Soldier0AnbyCompileConfig(
+        skill_levels=_skill_levels(values),
+        core_level=_integer_with_default(values, "core_level", 7, strict),
+        cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        potential_level=potential_level,
+        additional_ability_eligible=(
+            _soldier0_anby_additional_ability_eligibility(team_ids)
+        ),
+    )
+    raw = load_soldier0_anby_raw_record(
+        load_character_record(str(SOLDIER0_ANBY_ID)),
+        potential_level=potential_level,
+    )
+    return compile_soldier0_anby(config, raw)
+
+
+def _soldier0_anby_fields(
+    values: Mapping[str, Any],
+    _team_ids: Sequence[CharacterId],
+) -> tuple[CompileConfigFieldView, ...]:
+    return (
+        _slider_field(
+            "core_level",
+            "零号·安比核心被动等级",
+            int(values.get("core_level", 7)),
+            1,
+            7,
+            "角色核心被动等级；来源未支持的能量与触发时序不在计算面板中。",
+        ),
+        _slider_field(
+            "cinema_level",
+            "零号·安比影画",
+            int(values.get("cinema_level", 0)),
+            0,
+            6,
+            "已解锁影画等级。",
+        ),
+        _slider_field(
+            "potential_level",
+            "零号·安比潜能",
+            int(values.get("potential_level", 0)),
+            0,
+            6,
+            "潜能0使用基础技能曲线；潜能1–6按Nanoka逐级筛选技能参数和核心描述。",
+        ),
+        *_skill_level_fields(values, default_level=12),
     )
 
 
@@ -5599,6 +5844,43 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
             native_element=Element.PHYSICAL,
         ),
     ),
+    PULCHRA_ID: CharacterPresentationRegistration(
+        character_id=PULCHRA_ID,
+        catalog=CharacterCatalogItem(
+            character_id="character:1351",
+            display_name="波可娜",
+            code_name="Pulchra",
+            rarity="A",
+            element="physical",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.PHYSICAL,
+        compile_definition=_compile_pulchra,
+        config_fields=_pulchra_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=PULCHRA_ID,
+            role=CharacterRole.STUN,
+            possible_elements=frozenset({Element.PHYSICAL}),
+            skill_groups=frozenset(SkillGroup),
+            damage_tags=frozenset(
+                {
+                    DamageTag.BASIC_ATTACK,
+                    DamageTag.DASH_ATTACK,
+                    DamageTag.DODGE_COUNTER,
+                    DamageTag.SPECIAL_ATTACK,
+                    DamageTag.EX_SPECIAL_ATTACK,
+                    DamageTag.CHAIN_ATTACK,
+                    DamageTag.ULTIMATE,
+                    DamageTag.ASSIST,
+                    DamageTag.FOLLOW_UP_ATTACK,
+                }
+            ),
+            native_element=Element.PHYSICAL,
+        ),
+    ),
     HUGO_ID: CharacterPresentationRegistration(
         character_id=HUGO_ID,
         catalog=CharacterCatalogItem(
@@ -5950,6 +6232,42 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                         frozenset({DamageTag.ASSIST, DamageTag.FOLLOW_UP_ATTACK}),
                     ),
                 }
+            ),
+        ),
+    ),
+    SOLDIER0_ANBY_ID: CharacterPresentationRegistration(
+        character_id=SOLDIER0_ANBY_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(SOLDIER0_ANBY_ID),
+            display_name="零号·安比",
+            rarity="S",
+            element="electric",
+            specialty="attack",
+            image_path="/characters/portrait-placeholder.svg",
+        ),
+        role=CharacterRole.ATTACK,
+        base_element=Element.ELECTRIC,
+        compile_definition=_compile_soldier0_anby,
+        config_fields=_soldier0_anby_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=SOLDIER0_ANBY_ID,
+            role=CharacterRole.ATTACK,
+            possible_elements=frozenset({Element.ELECTRIC}),
+            skill_groups=frozenset(
+                spec.skill_group for spec in SOLDIER0_ANBY_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for spec in SOLDIER0_ANBY_REVIEWED_MAPPING.moves
+                for tag in spec.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    spec.element,
+                    spec.skill_group,
+                    spec.damage_tags,
+                )
+                for spec in SOLDIER0_ANBY_REVIEWED_MAPPING.moves
             ),
         ),
     ),
@@ -6439,6 +6757,46 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     move.damage_tags,
                 )
                 for move in SIGRID_REVIEWED_MAPPING.moves
+            ),
+        ),
+    ),
+    JU_FUFU_ID: CharacterPresentationRegistration(
+        character_id=JU_FUFU_ID,
+        catalog=CharacterCatalogItem(
+            character_id=str(JU_FUFU_ID),
+            display_name="橘福福",
+            rarity="S",
+            element="fire",
+            specialty="stun",
+            image_path="/characters/portrait-placeholder.svg",
+            image_object_position="50% 18%",
+        ),
+        role=CharacterRole.STUN,
+        base_element=Element.FIRE,
+        compile_definition=_compile_ju_fufu,
+        config_fields=_ju_fufu_fields,
+        equipment_capabilities=EquipmentOwnerCapabilities(
+            character_id=JU_FUFU_ID,
+            role=CharacterRole.STUN,
+            native_element=Element.FIRE,
+            possible_elements=frozenset(
+                move.element for move in JU_FUFU_REVIEWED_MAPPING.moves
+            ),
+            skill_groups=frozenset(
+                move.skill_group for move in JU_FUFU_REVIEWED_MAPPING.moves
+            ),
+            damage_tags=frozenset(
+                tag
+                for move in JU_FUFU_REVIEWED_MAPPING.moves
+                for tag in move.damage_tags
+            ),
+            damage_scopes=frozenset(
+                EquipmentDamageScope(
+                    move.element,
+                    move.skill_group,
+                    move.damage_tags,
+                )
+                for move in JU_FUFU_REVIEWED_MAPPING.moves
             ),
         ),
     ),
@@ -7414,6 +7772,27 @@ def equipment_capabilities_for_definition(
 
     registration = registration_for(definition.character_id)
     capabilities = registration.equipment_capabilities
+    if definition.character_id == SOLDIER0_ANBY_ID:
+        scopes = frozenset(
+            EquipmentDamageScope(
+                template.ref.element,
+                template.ref.skill_group,
+                template.ref.damage_tags,
+            )
+            for template in definition.damage_event_templates
+            if template.ref.element is not None
+        )
+        return replace(
+            capabilities,
+            possible_elements=frozenset(item.element for item in scopes),
+            skill_groups=frozenset(
+                item.skill_group for item in scopes if item.skill_group is not None
+            ),
+            damage_tags=frozenset(
+                tag for item in scopes for tag in item.damage_tags
+            ),
+            damage_scopes=scopes,
+        )
     if definition.character_id != REMIELLE_ID or not capabilities.damage_scopes:
         return capabilities
     flow_elements = frozenset(

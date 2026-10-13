@@ -39,7 +39,7 @@ class EquipmentDamageScope:
     """One reviewed element/skill/tag combination an owner can produce."""
 
     element: Element
-    skill_group: SkillGroup
+    skill_group: SkillGroup | None
     damage_tags: frozenset[DamageTag]
 
 
