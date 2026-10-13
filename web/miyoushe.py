@@ -299,15 +299,31 @@ def source_summary(raw: Mapping[str, Any]) -> dict[str, Any]:
     def properties(items: object) -> list[dict[str, Any]]:
         if not isinstance(items, list):
             return []
-        return [fields(p, ("property_id", "base", "final", "add", "level"))
+        return [fields(p, ("property_id", "base", "final", "add", "level", "valid"))
                 for p in items[:30] if isinstance(p, Mapping)]
     weapon = raw.get("weapon")
     awakened = raw.get("skill_awaken")
+    plan = raw.get("equip_plan_info")
+    count = plan.get("valid_property_cnt") if isinstance(plan, Mapping) else None
+    valid_count = count if isinstance(count, int) and not isinstance(count, bool) and 0 <= count <= 2**53 - 1 else None
+    selected_stats = None
+    effective_list = plan.get("plan_effective_property_list") if isinstance(plan, Mapping) else None
+    if isinstance(effective_list, list):
+        short_ids = {1: "hp-percent", 2: "attack-percent", 3: "defense-percent", 5: "crit-rate", 6: "crit-damage", 8: "anomaly-proficiency-flat", 10: "penetration-flat"}
+        selected_stats = sorted({stat for row in items(effective_list, 30)
+            if row.get("is_select") is not False
+            and type(row.get("id")) is int
+            and (stat := PROPERTY_STATS.get(row["id"], short_ids.get(row["id"]))) in {s.value for s in DRIVE_DISC_SUBSTAT_VALUES}})
+    else:
+        flagged = [p for disc in items(raw.get("equip"), 6) for p in items(disc.get("properties"), 4) if type(p.get("valid")) is bool]
+        if flagged:
+            selected_stats = sorted({stat for p in flagged if p["valid"] and type(p.get("property_id")) is int and (stat := PROPERTY_STATS.get(p["property_id"])) in {s.value for s in DRIVE_DISC_SUBSTAT_VALUES}})
     return {
         **fields(raw, ("level", "rank")),
         "skills": [fields(s, ("skill_type", "level")) for s in items(raw.get("skills"), 7)],
         "skill_awaken": fields(awakened, ("awaken_level",)) if isinstance(awakened, Mapping) else None,
         "properties": properties(raw.get("properties")),
+        "equip_plan_info": {"valid_property_cnt": valid_count, "effective_substats": selected_stats} if valid_count is not None or selected_stats is not None else None,
         "weapon": fields(weapon, ("id", "name", "level", "star", "rarity")) if isinstance(weapon, Mapping) else None,
         "discs": [{**fields(d, ("equipment_type", "level", "rarity")),
                    "set": fields(d["equip_suit"], ("suit_id",)) if isinstance(d.get("equip_suit"), Mapping) else None,

@@ -380,9 +380,9 @@ def preview_definition(payload: dict[str, Any] = Body(default={})) -> JSONRespon
 @app.post("/api/v1/moves/calculate")
 def calculate_move(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
     try:
-        from core.presentation.calculation_service import calculate_payload
+        from core.presentation.substat_analysis import calculate_with_substat_gains
 
-        return JSONResponse(content=calculate_payload(payload))
+        return JSONResponse(content=calculate_with_substat_gains(payload))
     except (TypeError, ValueError, KeyError) as exc:
         return JSONResponse(
             status_code=400,
@@ -403,6 +403,40 @@ def calculate_move(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "schema_version": "presentation-v1"}
+
+
+@app.get("/api/v1/enemies")
+def list_enemies() -> JSONResponse:
+    from core.presentation.enemy_catalog import enemy_catalog
+    return JSONResponse(enemy_catalog())
+
+
+@app.get('/api/v1/endgame/seasons')
+def endgame_seasons(mode: str) -> JSONResponse:
+    from core.data.endgame.loader import seasons
+    try:
+        return JSONResponse(seasons(mode))
+    except ValueError as exc:
+        return JSONResponse({'diagnostics': [{'message': str(exc)}]}, status_code=400)
+
+
+@app.get('/api/v1/endgame/seasons/{mode}/{season_id}')
+def endgame_season(mode: str, season_id: str) -> JSONResponse:
+    from core.data.endgame.loader import season_detail
+    try:
+        return JSONResponse(season_detail(mode, season_id))
+    except ValueError as exc:
+        return JSONResponse({'diagnostics': [{'message': str(exc)}]}, status_code=400)
+
+
+@app.post('/api/v1/endgame/editor')
+def endgame_editor(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    from core.presentation.endgame import editor_payload
+    from core.presentation.calculation_service import _compile_definitions
+    try:
+        return JSONResponse(editor_payload(payload['endgame_selection'], _compile_definitions(payload)))
+    except (TypeError, ValueError, KeyError) as exc:
+        return JSONResponse({'diagnostics': [{'message': str(exc)}]}, status_code=400)
 
 
 # Keep the root static mount after all API routes. Starlette evaluates routes

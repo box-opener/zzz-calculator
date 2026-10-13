@@ -1,0 +1,1290 @@
+{
+  "id": 62030,
+  "name": "剧变节点",
+  "priority": 1,
+  "zone": {
+    "6203001": {
+      "name": "剧变节点第一防线",
+      "stage_num": 1,
+      "monster_level": 50,
+      "layer_buff": {
+        "62001301": {
+          "title": "机弦协律",
+          "desc": "· 代理人的<color=#2EB6FF>电属性伤害</color>和<color=#F0D12B>物理伤害</color>提升30%，属性异常造成的伤害提升30%。\n· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62030011": {
+          "monster_icon": "",
+          "monster_list": {
+            "11354": {
+              "id": 20017,
+              "name": "魁梧打手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ThugBulkyEnforcer.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1240038.4919999999,
+                "attack": 2186.5454545454545,
+                "defence": 592.0,
+                "stun": 5936.3,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11363": {
+              "id": 20015,
+              "name": "魁梧施虐者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ThugBulkyAbuser.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 932018.4719999998,
+                "attack": 1978.3030303030305,
+                "defence": 592.0,
+                "stun": 4498.06,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11344": {
+              "id": 10015,
+              "name": "掠夺者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugRaider.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 238015.47,
+                "attack": 1639.909090909091,
+                "defence": 473.6,
+                "stun": 1602.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11324": {
+              "id": 10018,
+              "name": "偷猎者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugPoacher.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 202349.99399999998,
+                "attack": 1405.6363636363637,
+                "defence": 473.6,
+                "stun": 1602.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "202": "冰属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        },
+        "62030012": {
+          "monster_icon": "",
+          "monster_list": {
+            "11441": {
+              "id": 200081,
+              "name": "「捷足巡游者Ⅱ型」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_LightfootRoverPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1045941.6659999999,
+                "attack": 2056.3939393939395,
+                "defence": 639.36,
+                "stun": 6233.56,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11261": {
+              "id": 200091,
+              "name": "突击炮手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_HeavyFirepowerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 978589.9199999999,
+                "attack": 2420.818181818182,
+                "defence": 639.36,
+                "stun": 4722.34,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11282": {
+              "id": 100081,
+              "name": "巡防猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_HeavyJaeger_Pro.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 202349.99399999998,
+                "attack": 1561.818181818182,
+                "defence": 544.64,
+                "stun": 1602.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11252": {
+              "id": 100061,
+              "name": "先锋猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_LightJaegerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 202349.99399999998,
+                "attack": 1718.0,
+                "defence": 473.6,
+                "stun": 1602.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "203": "电属性"
+          },
+          "monster_resistance": {},
+          "waves_num": 4
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203002": {
+      "name": "剧变节点第二防线",
+      "stage_num": 2,
+      "monster_level": 53,
+      "layer_buff": {
+        "62001301": {
+          "title": "机弦协律",
+          "desc": "· 代理人的<color=#2EB6FF>电属性伤害</color>和<color=#F0D12B>物理伤害</color>提升30%，属性异常造成的伤害提升30%。\n· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62030021": {
+          "monster_icon": "",
+          "monster_list": {
+            "11612": {
+              "id": 200251,
+              "name": "多佩冈亚·巴罗姆",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Doppelganger_Bellum.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1885530.3599999996,
+                "attack": 2755.5454545454545,
+                "defence": 649.0,
+                "stun": 11636.16,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11352": {
+              "id": 200171,
+              "name": "通缉打手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ThugBulkyEnforcerPro.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1547583.24,
+                "attack": 2593.4545454545455,
+                "defence": 649.0,
+                "stun": 7036.38,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11342": {
+              "id": 100151,
+              "name": "劫掠者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugRaiderPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 288774.92,
+                "attack": 1701.9545454545455,
+                "defence": 519.2,
+                "stun": 1674.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11322": {
+              "id": 100181,
+              "name": "盗猎客",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugPoacherPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 245503.38399999996,
+                "attack": 1458.8181818181818,
+                "defence": 519.2,
+                "stun": 1674.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 4
+        },
+        "62030022": {
+          "monster_icon": "",
+          "monster_list": {
+            "11381": {
+              "id": 20010,
+              "name": "泰拉斯奎祸车",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_TarasqueMixer.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1579768.68,
+                "attack": 2377.3333333333335,
+                "defence": 700.9200000000001,
+                "stun": 6513.72,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11371": {
+              "id": 10029,
+              "name": "眼魔引擎",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_BeholderEngine.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 200801.38399999996,
+                "attack": 1458.8181818181818,
+                "defence": 558.14,
+                "stun": 1116.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "203": "电属性",
+            "205": "以太"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203003": {
+      "name": "剧变节点第三防线",
+      "stage_num": 3,
+      "monster_level": 55,
+      "layer_buff": {
+        "62001301": {
+          "title": "机弦协律",
+          "desc": "· 代理人的<color=#2EB6FF>电属性伤害</color>和<color=#F0D12B>物理伤害</color>提升30%，属性异常造成的伤害提升30%。\n· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62030031": {
+          "monster_icon": "",
+          "monster_list": {
+            "11354": {
+              "id": 20017,
+              "name": "魁梧打手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ThugBulkyEnforcer.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2240976.346,
+                "attack": 2324.0,
+                "defence": 689.0,
+                "stun": 6403.2,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11363": {
+              "id": 20015,
+              "name": "魁梧施虐者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ThugBulkyAbuser.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1684327.8359999997,
+                "attack": 2102.666666666667,
+                "defence": 689.0,
+                "stun": 4851.84,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11324": {
+              "id": 10018,
+              "name": "偷猎者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugPoacher.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 365683.447,
+                "attack": 1494.0,
+                "defence": 551.1999999999999,
+                "stun": 1728.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11344": {
+              "id": 10015,
+              "name": "掠夺者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugRaider.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 430137.485,
+                "attack": 1743.0,
+                "defence": 551.1999999999999,
+                "stun": 1728.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "202": "冰属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 4
+        },
+        "62030032": {
+          "monster_icon": "",
+          "monster_list": {
+            "11052": {
+              "id": 300021,
+              "name": "「卫士Ⅱ型」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_GuardianPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2326737.5039999997,
+                "attack": 2932.666666666667,
+                "defence": 744.12,
+                "stun": 9125.76,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11046": {
+              "id": 20020,
+              "name": "「怒汉」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_RagingGuy.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": -1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1800185.3009999997,
+                "attack": 2324.0,
+                "defence": 744.12,
+                "stun": 6403.2,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11282": {
+              "id": 100081,
+              "name": "巡防猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_HeavyJaeger_Pro.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 365683.447,
+                "attack": 1660.0,
+                "defence": 633.88,
+                "stun": 1728.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11252": {
+              "id": 100061,
+              "name": "先锋猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_LightJaegerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 365683.447,
+                "attack": 1826.0,
+                "defence": 551.1999999999999,
+                "stun": 1728.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11162": {
+              "id": 100051,
+              "name": "袭扰猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_StrikeJaegerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 430137.485,
+                "attack": 1826.0,
+                "defence": 551.1999999999999,
+                "stun": 1728.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "203": "电属性"
+          },
+          "monster_resistance": {},
+          "waves_num": 4
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203004": {
+      "name": "剧变节点第四防线",
+      "stage_num": 4,
+      "monster_level": 58,
+      "layer_buff": {
+        "62001301": {
+          "title": "机弦协律",
+          "desc": "· 代理人的<color=#2EB6FF>电属性伤害</color>和<color=#F0D12B>物理伤害</color>提升30%，属性异常造成的伤害提升30%。\n· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62030041": {
+          "monster_icon": "",
+          "monster_list": {
+            "11623": {
+              "id": 200241,
+              "name": "多佩冈亚·波可娜",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Doppelganger_Pulchra.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2875918.22,
+                "attack": 3323.5757575757575,
+                "defence": 751.0,
+                "stun": 11916.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11603": {
+              "id": 200231,
+              "name": "多佩冈亚·莫尔斯",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Doppelganger_Mors.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2875918.22,
+                "attack": 2721.8939393939395,
+                "defence": 751.0,
+                "stun": 11916.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11613": {
+              "id": 200251,
+              "name": "多佩冈亚·巴罗姆",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Doppelganger_Bellum.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 3079933.945,
+                "attack": 3323.5757575757575,
+                "defence": 751.0,
+                "stun": 14292.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11322": {
+              "id": 100181,
+              "name": "盗猎客",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugPoacherPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 386363.573,
+                "attack": 1547.1818181818182,
+                "defence": 600.8,
+                "stun": 1800.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11342": {
+              "id": 100151,
+              "name": "劫掠者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugRaiderPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 454462.615,
+                "attack": 1805.0454545454545,
+                "defence": 600.8,
+                "stun": 1800.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        },
+        "62030042": {
+          "monster_icon": "",
+          "monster_list": {
+            "11452": {
+              "id": 200071,
+              "name": "「重装侵袭者Ⅱ型」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_HeavyStrikerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2557372.288,
+                "attack": 3180.318181818182,
+                "defence": 811.0799999999999,
+                "stun": 7944.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11261": {
+              "id": 200091,
+              "name": "突击炮手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_HeavyFirepowerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1868502.64,
+                "attack": 2664.590909090909,
+                "defence": 811.0799999999999,
+                "stun": 5306.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11442": {
+              "id": 200081,
+              "name": "「捷足巡游者Ⅱ型」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_LightfootRoverPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2068578.751,
+                "attack": 2607.287878787879,
+                "defence": 811.0799999999999,
+                "stun": 7944.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11161": {
+              "id": 100051,
+              "name": "袭扰猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_StrikeJaegerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 348937.24,
+                "attack": 1891.0,
+                "defence": 600.8,
+                "stun": 1200.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11761": {
+              "id": 100091,
+              "name": "轰击猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_GrenadierJaegerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 347530.235,
+                "attack": 1690.439393939394,
+                "defence": 600.8,
+                "stun": 1260.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "203": "电属性"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203005": {
+      "name": "剧变节点第五防线",
+      "stage_num": 5,
+      "monster_level": 60,
+      "layer_buff": {
+        "62001301": {
+          "title": "机弦协律",
+          "desc": "· 代理人的<color=#2EB6FF>电属性伤害</color>和<color=#F0D12B>物理伤害</color>提升30%，属性异常造成的伤害提升30%。\n· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62030051": {
+          "monster_icon": "",
+          "monster_list": {
+            "11613": {
+              "id": 200251,
+              "name": "多佩冈亚·巴罗姆",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Doppelganger_Bellum.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 7427441.175,
+                "attack": 3400.9090909090905,
+                "defence": 794.0,
+                "stun": 14720.76,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11623": {
+              "id": 200241,
+              "name": "多佩冈亚·波可娜",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Doppelganger_Pulchra.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 6935445.3,
+                "attack": 3400.9090909090905,
+                "defence": 794.0,
+                "stun": 12273.48,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11603": {
+              "id": 200231,
+              "name": "多佩冈亚·莫尔斯",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Doppelganger_Mors.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 6935445.3,
+                "attack": 2785.2272727272725,
+                "defence": 794.0,
+                "stun": 12273.48,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11322": {
+              "id": 100181,
+              "name": "盗猎客",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugPoacherPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 931738.3949999999,
+                "attack": 1583.181818181818,
+                "defence": 635.2,
+                "stun": 1854.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11312": {
+              "id": 100191,
+              "name": "偷袭者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugAssaulterPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 931738.3949999999,
+                "attack": 1847.0454545454545,
+                "defence": 635.2,
+                "stun": 1854.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        },
+        "62030052": {
+          "monster_icon": "",
+          "monster_list": {
+            "11052": {
+              "id": 300021,
+              "name": "「卫士Ⅱ型」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_GuardianPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 5928380.64,
+                "attack": 3107.7272727272725,
+                "defence": 857.5200000000001,
+                "stun": 9791.18,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11442": {
+              "id": 200081,
+              "name": "「捷足巡游者Ⅱ型」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_LightfootRoverPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 4988498.864999999,
+                "attack": 2667.9545454545455,
+                "defence": 857.5200000000001,
+                "stun": 8182.320000000001,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11262": {
+              "id": 200091,
+              "name": "突击炮手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_HeavyFirepowerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 4643762.444999999,
+                "attack": 3107.7272727272725,
+                "defence": 857.5200000000001,
+                "stun": 6241.8,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11161": {
+              "id": 100051,
+              "name": "袭扰猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_StrikeJaegerPro.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 841482.6,
+                "attack": 1935.0,
+                "defence": 635.2,
+                "stun": 1236.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "203": "电属性"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203006": {
+      "name": "剧变节点第六防线",
+      "stage_num": 6,
+      "monster_level": 65,
+      "layer_buff": {
+        "62001301": {
+          "title": "机弦协律",
+          "desc": "· 代理人的<color=#2EB6FF>电属性伤害</color>和<color=#F0D12B>物理伤害</color>提升30%，属性异常造成的伤害提升30%。\n· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62030061": {
+          "monster_icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/IconBossGeneral/UnPacker/IconMonster_Harvester.png",
+          "monster_list": {
+            "11791": {
+              "id": 30027,
+              "name": "伐木机",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_Harvester.png",
+              "element": {
+                "ice": -1,
+                "fire": 0,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 14855569.89,
+                "attack": 4457.454545454545,
+                "defence": 952.8000000000001,
+                "stun": 13413.400000000001,
+                "attribute_infliction": 0.0
+              }
+            },
+            "31152": {
+              "id": 10033,
+              "name": "秽息残兵·盾卫",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_MiasmaWalkerGuardJaeger.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1469029.485,
+                "attack": 2228.7272727272725,
+                "defence": 730.48,
+                "stun": 2178.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "203": "电属性"
+          },
+          "monster_resistance": {},
+          "waves_num": 2
+        },
+        "62030062": {
+          "monster_icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/IconBossGeneral/UnPacker/IconMonster_HeavyStrike.png",
+          "monster_list": {
+            "11456": {
+              "id": 200072,
+              "name": "「护戍盾卫」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_HeavyStrikerBoss.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": -1,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 15161033.58,
+                "attack": 3714.5454545454545,
+                "defence": 952.8000000000001,
+                "stun": 12194.6,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11444": {
+              "id": 20008,
+              "name": "「捷足巡游者」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_LightfootRover.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": -1,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 5423825.085,
+                "attack": 2816.863636363636,
+                "defence": 857.5200000000001,
+                "stun": 8738.400000000001,
+                "attribute_infliction": 0.0
+              }
+            },
+            "31162": {
+              "id": 10034,
+              "name": "秽息残兵·炮手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_MiasmaWalkerGrenadierJaeger.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1469029.485,
+                "attack": 2012.0454545454545,
+                "defence": 635.2,
+                "stun": 2178.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 2
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203007": {
+      "name": "剧变节点第七防线",
+      "stage_num": 7,
+      "monster_level": 70,
+      "layer_buff": {
+        "62001301": {
+          "title": "机弦协律",
+          "desc": "· 代理人的<color=#2EB6FF>电属性伤害</color>和<color=#F0D12B>物理伤害</color>提升30%，属性异常造成的伤害提升30%。\n· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62030071": {
+          "monster_icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/IconBossGeneral/UnPacker/IconMonster_TacticalAssaultGunner.png",
+          "monster_list": {
+            "11971": {
+              "id": 200092,
+              "name": "特战强袭轰击者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_TacticalAssaultGunner.png",
+              "element": {
+                "ice": 0,
+                "fire": -1,
+                "electric": 1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 16155430.2,
+                "attack": 4695.272727272728,
+                "defence": 952.8000000000001,
+                "stun": 14327.95,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11372": {
+              "id": 10029,
+              "name": "眼魔引擎",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_BeholderEngine.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 1,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1191523.7249999999,
+                "attack": 1760.727272727273,
+                "defence": 682.84,
+                "stun": 2115.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "203": "电属性"
+          },
+          "monster_resistance": {},
+          "waves_num": 2
+        },
+        "62030072": {
+          "monster_icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/IconBossGeneral/UnPacker/IconMonster_MiasmaHugoSlime.png",
+          "monster_list": {
+            "31132": {
+              "id": 930176,
+              "name": "秽蚀·暗渊惩戒者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_MiasmaHugoSlime.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 0,
+                "ether": -1,
+                "physical": 1,
+                "wind": 1
+              },
+              "stats": {
+                "hp": 23964045.165,
+                "attack": 3521.454545454546,
+                "defence": 952.8000000000001,
+                "stun": 14327.95,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "200": "物理",
+            "204": "风属性"
+          },
+          "monster_resistance": {},
+          "waves_num": 1
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    }
+  },
+  "begin_time": "2025-09-12 04:00:00",
+  "end_time": "2025-09-26 03:59:59"
+}

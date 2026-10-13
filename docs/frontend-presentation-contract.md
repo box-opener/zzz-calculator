@@ -104,6 +104,22 @@ Engines unequipped.
 
 ## Output ownership
 
+The v2 browser may request `substat_analysis` for up to three unique active
+teammates. The server selects the S-rank increment from the existing Drive Disc
+stat table and runs the same calculation pipeline with one additional typed
+Build contribution. The browser never supplies a free-form contribution or
+damage multiplier. Baseline and comparison use the same scene, equipment,
+selected rules and target. Incomplete modes retain null gains, and a zero
+baseline has no percentage ratio. Raw panel Crit Rate is preserved for
+conversions; only event Crit probability is bounded during Crit-region evaluation.
+
+Effective-stat selections are display/config metadata. They do not exclude
+unselected equipment stats from damage, and flat companion/penetration rolls
+remain damage inputs while being excluded from the effective-stat total.
+Real enemy choices retain the sourced identity, variant, version and growth
+curve; manual overrides are explicit. Missing source resistance values are
+identified in the UI rather than described as sourced neutral resistance.
+
 Presentation output is versioned as `presentation-v1`. Three crit-display
 executions are kept separately. Each mode owns its own value, known value,
 status, diagnostics, and calculation breakdown. Events are aligned only by
@@ -149,3 +165,21 @@ The latter is supplied once by the enemy settlement environment; a character
 compiler must not carry a second copy. A veil-like mechanism is represented as
 an explicit vulnerability settlement policy for the current event, not as a
 replacement of the enemy's base stun-vulnerability value.
+
+## Endgame scenes
+
+The offline season endpoints expose pinned formal `3.2` snapshots for `boss`
+and `shiyu`. `endgame_selection` names a season, stage, room, target, optional
+buff, current integer states, excluded field rules, HP tier and explicit
+enemy overrides. The server validates membership and compiles reviewed
+clauses; the browser never supplies field Effect objects or multipliers.
+Field rules have `environment` provenance and no character owner. Personal
+states and role-specific panel effects use explicit team recipients. Global
+anomaly source panels and every extra-substat query use that same scene.
+`scenario_provenance` records source version/hash, target, buffs, current
+facts, overrides and unresolved clauses. Missing resistance values remain
+unresolved in endgame calculation until explicitly supplied. HP tier changes
+the sourced maximum HP metadata, never the combat level coefficient.
+`zzz-scene-config-v1` files store the field/target scene separately from
+character equipment files, and reject a different snapshot hash on import.
+The team and equipment remain the user's currently loaded configuration.

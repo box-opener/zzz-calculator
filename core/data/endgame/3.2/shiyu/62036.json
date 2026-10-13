@@ -1,0 +1,1233 @@
+{
+  "id": 62036,
+  "name": "剧变节点",
+  "priority": 1,
+  "zone": {
+    "6203601": {
+      "name": "剧变节点第一防线",
+      "stage_num": 1,
+      "monster_level": 50,
+      "layer_buff": {
+        "62001361": {
+          "title": "迷声诡步",
+          "desc": "· <color=#FFFFFF>[击破]</color>特性的代理人命中失衡状态中的敌人后，其失衡易伤倍率提升50%。\n· 代理人的强化特殊技和终结技造成的伤害提升60%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62036011": {
+          "monster_icon": "",
+          "monster_list": {
+            "11751": {
+              "id": 300004,
+              "name": "离子体·杜拉罕",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_DurahanEnergy.png",
+              "element": {
+                "ice": -1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1045941.6659999999,
+                "attack": 2524.939393939394,
+                "defence": 686.72,
+                "stun": 6233.56,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11731": {
+              "id": 200004,
+              "name": "离子体·法布提",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_GiantEnergy.png",
+              "element": {
+                "ice": -1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1240480.626,
+                "attack": 2394.787878787879,
+                "defence": 532.8,
+                "stun": 7406.58,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11771": {
+              "id": 30017,
+              "name": "离子体·瑟托迪亚",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Cyrtoidea.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 165505.49399999998,
+                "attack": 1561.818181818182,
+                "defence": 426.24,
+                "stun": 1068.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11781": {
+              "id": 30018,
+              "name": "离子体·纳塞勒亚",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Nassellaria.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 165505.49399999998,
+                "attack": 1561.818181818182,
+                "defence": 426.24,
+                "stun": 1068.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "205": "以太"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        },
+        "62036012": {
+          "monster_icon": "",
+          "monster_list": {
+            "11354": {
+              "id": 20017,
+              "name": "魁梧打手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ThugBulkyEnforcer.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1240038.4919999999,
+                "attack": 2186.5454545454545,
+                "defence": 592.0,
+                "stun": 5936.3,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11363": {
+              "id": 20015,
+              "name": "魁梧施虐者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ThugBulkyAbuser.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 932018.4719999998,
+                "attack": 1978.3030303030305,
+                "defence": 592.0,
+                "stun": 4498.06,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11344": {
+              "id": 10015,
+              "name": "掠夺者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugRaider.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 238015.47,
+                "attack": 1639.909090909091,
+                "defence": 473.6,
+                "stun": 1602.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11324": {
+              "id": 10018,
+              "name": "偷猎者",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_ThugPoacher.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 202349.99399999998,
+                "attack": 1405.6363636363637,
+                "defence": 473.6,
+                "stun": 1602.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "202": "冰属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203602": {
+      "name": "剧变节点第二防线",
+      "stage_num": 2,
+      "monster_level": 53,
+      "layer_buff": {
+        "62001361": {
+          "title": "迷声诡步",
+          "desc": "· <color=#FFFFFF>[击破]</color>特性的代理人命中失衡状态中的敌人后，其失衡易伤倍率提升50%。\n· 代理人的强化特殊技和终结技造成的伤害提升60%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62036021": {
+          "monster_icon": "",
+          "monster_list": {
+            "11114": {
+              "id": 20000,
+              "name": "法布提",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_GiantGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1505026.936,
+                "attack": 2485.3939393939395,
+                "defence": 700.9200000000001,
+                "stun": 7739.46,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11213": {
+              "id": 20005,
+              "name": "阿劳恩",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ArlauneGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 877053.24,
+                "attack": 1431.8030303030303,
+                "defence": 584.1,
+                "stun": 4343.1,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11832": {
+              "id": 100004,
+              "name": "提尔锋（寄生态）",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_TyrfingInfested.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 338841.16,
+                "attack": 2134.1969696969695,
+                "defence": 467.28000000000003,
+                "stun": 1841.4,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11822": {
+              "id": 100014,
+              "name": "阿佩卡（寄生态）",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_AlpecaInfested.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 338841.16,
+                "attack": 2134.1969696969695,
+                "defence": 467.28000000000003,
+                "stun": 1841.4,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11851": {
+              "id": 30025,
+              "name": "刺椎原虫",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Hitchspiker.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 69198.696,
+                "attack": 1945.090909090909,
+                "defence": 467.28000000000003,
+                "stun": 1227.6000000000001,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "202": "冰属性",
+            "205": "以太"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        },
+        "62036022": {
+          "monster_icon": "",
+          "monster_list": {
+            "11058": {
+              "id": 30002,
+              "name": "「卫士」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_Guardian.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": -1,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1505026.936,
+                "attack": 2485.3939393939395,
+                "defence": 700.9200000000001,
+                "stun": 7739.46,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11454": {
+              "id": 20007,
+              "name": "「重装侵袭者」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_HeavyStriker.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": -1,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1504490.5119999999,
+                "attack": 2485.3939393939395,
+                "defence": 700.9200000000001,
+                "stun": 6203.1,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11164": {
+              "id": 10005,
+              "name": "掠袭猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_StrikeJaeger.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 288774.92,
+                "attack": 1783.0,
+                "defence": 519.2,
+                "stun": 1674.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11254": {
+              "id": 10006,
+              "name": "轻装猎兵",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_LightJaeger.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 245503.38399999996,
+                "attack": 1783.0,
+                "defence": 519.2,
+                "stun": 1674.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 4
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203603": {
+      "name": "剧变节点第三防线",
+      "stage_num": 3,
+      "monster_level": 55,
+      "layer_buff": {
+        "62001361": {
+          "title": "迷声诡步",
+          "desc": "· <color=#FFFFFF>[击破]</color>特性的代理人命中失衡状态中的敌人后，其失衡易伤倍率提升50%。\n· 代理人的强化特殊技和终结技造成的伤害提升60%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62036031": {
+          "monster_icon": "",
+          "monster_list": {
+            "11226": {
+              "id": 20002,
+              "name": "地精",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_GoblinGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1957857.9889999996,
+                "attack": 3071.0,
+                "defence": 620.1,
+                "stun": 7626.24,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11192": {
+              "id": 20003,
+              "name": "装甲哈提",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_HatiArmoredGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1728806.4489999998,
+                "attack": 3209.3333333333335,
+                "defence": 744.12,
+                "stun": 5084.16,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11294": {
+              "id": 10014,
+              "name": "曼德拉",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_Mandrake.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 307088.86699999997,
+                "attack": 1743.0,
+                "defence": 496.08,
+                "stun": 1814.3999999999999,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11682": {
+              "id": 10030,
+              "name": "弗瑟尔",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Fossor.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 403237.2459999999,
+                "attack": 2102.666666666667,
+                "defence": 551.1999999999999,
+                "stun": 1904.6399999999999,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11692": {
+              "id": 10031,
+              "name": "索迪代斯",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Sordidus.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 403237.2459999999,
+                "attack": 1909.0,
+                "defence": 551.1999999999999,
+                "stun": 1904.6399999999999,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11084": {
+              "id": 10004,
+              "name": "雷蛛",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_SpiderGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 143024.04299999998,
+                "attack": 1217.3333333333335,
+                "defence": 592.54,
+                "stun": 518.4,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "202": "冰属性",
+            "205": "以太"
+          },
+          "monster_resistance": {},
+          "waves_num": 4
+        },
+        "62036032": {
+          "monster_icon": "",
+          "monster_list": {
+            "11752": {
+              "id": 300004,
+              "name": "离子体·杜拉罕",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_DurahanEnergy.png",
+              "element": {
+                "ice": -1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1957857.9889999996,
+                "attack": 3071.0,
+                "defence": 799.24,
+                "stun": 7626.24,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11741": {
+              "id": 300014,
+              "name": "离子体·塔纳托斯",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_DeathXIIIEnergy.png",
+              "element": {
+                "ice": -1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2117661.3889999995,
+                "attack": 2683.666666666667,
+                "defence": 620.1,
+                "stun": 4705.92,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11771": {
+              "id": 30017,
+              "name": "离子体·瑟托迪亚",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Cyrtoidea.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 299098.697,
+                "attack": 1660.0,
+                "defence": 496.08,
+                "stun": 1152.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11781": {
+              "id": 30018,
+              "name": "离子体·纳塞勒亚",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Nassellaria.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 299098.697,
+                "attack": 1660.0,
+                "defence": 496.08,
+                "stun": 1152.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "205": "以太"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203604": {
+      "name": "剧变节点第四防线",
+      "stage_num": 4,
+      "monster_level": 58,
+      "layer_buff": {
+        "62001361": {
+          "title": "迷声诡步",
+          "desc": "· <color=#FFFFFF>[击破]</color>特性的代理人命中失衡状态中的敌人后，其失衡易伤倍率提升50%。\n· 代理人的强化特殊技和终结技造成的伤害提升60%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62036041": {
+          "monster_icon": "",
+          "monster_list": {
+            "11155": {
+              "id": 30000,
+              "name": "杜拉罕",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_DurahanGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2068578.751,
+                "attack": 3180.318181818182,
+                "defence": 871.16,
+                "stun": 7944.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11114": {
+              "id": 20000,
+              "name": "法布提",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_GiantGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2368552.217,
+                "attack": 2635.939393939394,
+                "defence": 811.0799999999999,
+                "stun": 8322.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "31052": {
+              "id": 930168,
+              "name": "班尼雷克",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_Banyrek.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2549493.06,
+                "attack": 3466.8333333333335,
+                "defence": 675.9,
+                "stun": 8738.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11294": {
+              "id": 10014,
+              "name": "曼德拉",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_Mandrake.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 324455.353,
+                "attack": 1805.0454545454545,
+                "defence": 540.72,
+                "stun": 1890.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11204": {
+              "id": 10003,
+              "name": "霍普利泰",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Golemgrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 386363.573,
+                "attack": 1719.0909090909092,
+                "defence": 690.92,
+                "stun": 1800.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11104": {
+              "id": 10001,
+              "name": "阿佩卡",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_CyclopsGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 386363.573,
+                "attack": 1547.1818181818182,
+                "defence": 540.72,
+                "stun": 1800.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "202": "冰属性",
+            "205": "以太"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        },
+        "62036042": {
+          "monster_icon": "",
+          "monster_list": {
+            "31172": {
+              "id": 20032,
+              "name": "离子体·普格努斯",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_IonizedPugnus.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 3810450.941,
+                "attack": 3638.7424242424245,
+                "defence": 811.0799999999999,
+                "stun": 12834.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11185": {
+              "id": 30001,
+              "name": "塔纳托斯",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_DeathXIIIGrey.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 2301578.779,
+                "attack": 2893.8030303030305,
+                "defence": 811.0799999999999,
+                "stun": 5562.0,
+                "attribute_infliction": 0.0
+              }
+            },
+            "31182": {
+              "id": 10032,
+              "name": "秽息原牲",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_MiasmaSpawn.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 672266.989,
+                "attack": 2062.909090909091,
+                "defence": 600.8,
+                "stun": 1980.0,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "202": "冰属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 3
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203605": {
+      "name": "剧变节点第五防线",
+      "stage_num": 5,
+      "monster_level": 60,
+      "layer_buff": {
+        "62001361": {
+          "title": "迷声诡步",
+          "desc": "· <color=#FFFFFF>[击破]</color>特性的代理人命中失衡状态中的敌人后，其失衡易伤倍率提升50%。\n· 代理人的强化特殊技和终结技造成的伤害提升60%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62036051": {
+          "monster_icon": "",
+          "monster_list": {
+            "31312": {
+              "id": 20027,
+              "name": "秽蚀·特里诺斯",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_MiasmaTrinox.png",
+              "element": {
+                "ice": 0,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": -1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 12229417.860000001,
+                "attack": 3899.3181818181815,
+                "defence": 857.5200000000001,
+                "stun": 11762.6,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11682": {
+              "id": 10030,
+              "name": "弗瑟尔",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Fossor.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1291617.624,
+                "attack": 2228.181818181818,
+                "defence": 635.2,
+                "stun": 2043.52,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11692": {
+              "id": 10031,
+              "name": "索迪代斯",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv01/Monster_Sordidus.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 1291617.624,
+                "attack": 2022.9545454545453,
+                "defence": 635.2,
+                "stun": 2043.52,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "205": "以太"
+          },
+          "monster_resistance": {},
+          "waves_num": 2
+        },
+        "62036052": {
+          "monster_icon": "",
+          "monster_list": {
+            "31322": {
+              "id": 20031,
+              "name": "秽蚀·盛怒恶霸",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_MiasmaWickedWraith.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": -1,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 14420219.748000002,
+                "attack": 3899.3181818181815,
+                "defence": 794.0,
+                "stun": 11045.720000000001,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11623": {
+              "id": 200241,
+              "name": "多佩冈亚·波可娜",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Doppelganger_Pulchra.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 8718845.52,
+                "attack": 3400.9090909090905,
+                "defence": 794.0,
+                "stun": 12273.48,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 2
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203606": {
+      "name": "剧变节点第六防线",
+      "stage_num": 6,
+      "monster_level": 65,
+      "layer_buff": {
+        "62001361": {
+          "title": "迷声诡步",
+          "desc": "· <color=#FFFFFF>[击破]</color>特性的代理人命中失衡状态中的敌人后，其失衡易伤倍率提升50%。\n· 代理人的强化特殊技和终结技造成的伤害提升60%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62036061": {
+          "monster_icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/IconBossGeneral/UnPacker/IconMonster_Tepes.png",
+          "monster_list": {
+            "11961": {
+              "id": 930166,
+              "name": "特佩什",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Tepes.png",
+              "element": {
+                "ice": 1,
+                "fire": 0,
+                "electric": 0,
+                "ether": 1,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 19754330.508,
+                "attack": 4457.454545454545,
+                "defence": 952.8000000000001,
+                "stun": 17437.2,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "202": "冰属性",
+            "205": "以太"
+          },
+          "monster_resistance": {},
+          "waves_num": 1
+        },
+        "62036062": {
+          "monster_icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/IconBossGeneral/UnPacker/IconMonster_DubiousHero.png",
+          "monster_list": {
+            "11671": {
+              "id": 30019,
+              "name": "蛮横力士",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_DubiousHero.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 20231098.404000003,
+                "attack": 4086.0,
+                "defence": 952.8000000000001,
+                "stun": 12194.6,
+                "attribute_infliction": 0.0
+              }
+            },
+            "11353": {
+              "id": 200172,
+              "name": "祸首·通缉打手",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_ThugBulkyEnforcerBoss.png",
+              "element": {
+                "ice": -1,
+                "fire": 1,
+                "electric": 0,
+                "ether": 0,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 19059585.072000004,
+                "attack": 3714.5454545454545,
+                "defence": 952.8000000000001,
+                "stun": 12194.6,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 1
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    },
+    "6203607": {
+      "name": "剧变节点第七防线",
+      "stage_num": 7,
+      "monster_level": 70,
+      "layer_buff": {
+        "62001361": {
+          "title": "迷声诡步",
+          "desc": "· <color=#FFFFFF>[击破]</color>特性的代理人命中失衡状态中的敌人后，其失衡易伤倍率提升50%。\n· 代理人的强化特殊技和终结技造成的伤害提升60%。"
+        }
+      },
+      "child": [],
+      "layer_room": {
+        "62036071": {
+          "monster_icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/IconBossGeneral/UnPacker/IconMonster_Hayyot.png",
+          "monster_list": {
+            "31192": {
+              "id": 30039,
+              "name": "赫由托",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_Hayyot.png",
+              "element": {
+                "ice": 1,
+                "fire": 1,
+                "electric": -1,
+                "ether": 0,
+                "physical": 0,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 28454742.0,
+                "attack": 3521.454545454546,
+                "defence": 1588.0,
+                "stun": 16283.150000000001,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "202": "冰属性"
+          },
+          "monster_resistance": {},
+          "waves_num": 1
+        },
+        "62036072": {
+          "monster_icon": "Assets/NapResources/UI/Sprite/A1DynamicLoad/IconBossGeneral/UnPacker/IconMonster_MiasmaIsoldeSlime.png",
+          "monster_list": {
+            "11059": {
+              "id": 30002,
+              "name": "「卫士」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv02/Monster_Guardian.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": -1,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 5631837.12,
+                "attack": 2592.1818181818185,
+                "defence": 857.5200000000001,
+                "stun": 11169.550000000001,
+                "attribute_infliction": 0.0
+              }
+            },
+            "31214": {
+              "id": 300372,
+              "name": "秽蚀·多佩冈亚·「变节者」",
+              "image": "UI/Sprite/A1DynamicLoad/BossCard/UnPacker/BossCardLv03/Monster_MiasmaIsoldeSlime.png",
+              "element": {
+                "ice": 0,
+                "fire": 1,
+                "electric": 0,
+                "ether": -1,
+                "physical": 1,
+                "wind": 0
+              },
+              "stats": {
+                "hp": 24416429.939999998,
+                "attack": 3521.454545454546,
+                "defence": 952.8000000000001,
+                "stun": 14327.95,
+                "attribute_infliction": 0.0
+              }
+            }
+          },
+          "monster_weakness": {
+            "201": "火属性",
+            "200": "物理"
+          },
+          "monster_resistance": {},
+          "waves_num": 2
+        }
+      },
+      "goal_type": 0,
+      "ss_rank_goal": 0,
+      "s_rank_goal": 300,
+      "a_rank_goal": 420,
+      "b_rank_goal": 600
+    }
+  },
+  "begin_time": "2025-12-05 04:00:00",
+  "end_time": "2025-12-19 03:59:59"
+}

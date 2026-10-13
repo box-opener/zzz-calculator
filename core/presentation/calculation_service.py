@@ -187,7 +187,9 @@ class _BuiltCharacterRecord:
     derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
 
 
-def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+def calculate_payload(
+    payload: Mapping[str, Any], *, substat_increment: tuple[str, DriveDiscStatKey] | None = None,
+) -> dict[str, Any]:
     """Execute the three display modes and return one presentation response."""
 
     payload = _normalize_nangongyu_discharge_conditions(payload)
@@ -227,6 +229,14 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     definitions = _compile_definitions(payload)
     definitions = _apply_soldier0_anby_potential_identity(definitions, payload)
     definitions = _without_static_vivian_blossom_placeholder(definitions)
+    endgame_scene = None
+    if payload.get('endgame_selection') is not None:
+        from core.presentation.endgame import resolve_selection
+        endgame_scene = resolve_selection(payload['endgame_selection'], definitions)
+        resolved_enemy = endgame_scene['enemy']
+        if any(resolved_enemy[key] is None for key in ('initial_defense', 'stun_vulnerability_bonus')):
+            raise ValueError('终局目标缺少防御或失衡倍率，请明确覆写缺失字段')
+        payload = {**payload, 'enemy': resolved_enemy}
     primary = definitions[0]
     rem_flow_element = primary.base_element
     if primary.character_id == REMIELLE_ID:
@@ -284,7 +294,11 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if current_operator not in set(team_ids):
         raise ValueError("current_operator must be a team member")
 
-    build_records = _build_records(view_request.character_builds, definitions)
+    build_records = (
+        _build_records(view_request.character_builds, definitions)
+        if substat_increment is None
+        else _build_records(view_request.character_builds, definitions, substat_increment=substat_increment)
+    )
     definitions = _resolve_seed_core_partner(
         definitions,
         team_ids,
@@ -300,6 +314,21 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         for record in build_records
         for condition in record.scenario_conditions
     )
+    if endgame_scene is not None:
+        compiled_scene = endgame_scene['compiled']
+        additional_rule_items += compiled_scene.rules
+        additional_scenario_conditions += compiled_scene.conditions
+        raw_enabled = payload.get('enabled_rule_item_ids')
+        if raw_enabled is not None and any(str(r).startswith('rule:endgame:') for r in raw_enabled):
+            raise ValueError('场地规则应通过当前终局选择排除，不能提交任意场地规则 ID')
+        if any(str(k).startswith('condition:endgame:') for k in payload.get('condition_values', {})) or any(str(k).startswith('rule:endgame:') for k in payload.get('rule_stack_counts', {})):
+            raise ValueError('场地状态应通过 endgame_selection.states 提交')
+        enabled = tuple(raw_enabled) if raw_enabled is not None else tuple(
+            str(r.rule_id) for r in (*tuple(r for d in definitions for r in d.rule_items), *additional_rule_items)
+            if r.eligibility is not RuleEligibility.INELIGIBLE and not str(r.rule_id).startswith('rule:endgame:'))
+        payload = {**payload, 'enabled_rule_item_ids': enabled + tuple(
+            str(r.rule_id) for r in compiled_scene.rules
+            if str(r.rule_id) not in endgame_scene['disabled'])}
     additional_damage_event_templates = tuple(
         template
         for record in build_records
@@ -340,6 +369,12 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         view_request.enemy,
         scenario,
     )
+    if endgame_scene is not None:
+        supplied = endgame_scene['enemy']['damage_resistance']
+        enemy_snapshot = replace(enemy_snapshot, damage_resistance={
+            element: value if BASE_ELEMENT_BY_ELEMENT[element].value in supplied else Unresolved(
+                UnresolvedReason.MISSING_DATA, notes=f'终局目标未提供 {BASE_ELEMENT_BY_ELEMENT[element].value} 伤害抗性，请显式覆写')
+            for element, value in enemy_snapshot.damage_resistance.items()})
     move_entry_id = (
         "move-entry:character:1331:ether-corrosion"
         if vivian_discharge_selected
@@ -568,7 +603,10 @@ def calculate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 (*view.diagnostics, *vivian_source_result.diagnostics)
             ),
         )
-    return to_jsonable(replace(view, panel_source_results=panel_source_results))
+    result = to_jsonable(replace(view, panel_source_results=panel_source_results))
+    if endgame_scene is not None:
+        result['scenario_provenance'] = endgame_scene['provenance']
+    return result
 
 
 def _normalize_nangongyu_discharge_conditions(
@@ -1963,6 +2001,7 @@ def _parse_drive_discs(raw_value: object) -> tuple[EquippedDriveDisc, ...]:
 def _build_records(
     builds: tuple[CharacterBuildInput, ...],
     definitions: tuple[CharacterCalculationDefinition, ...],
+    *, substat_increment: tuple[str, DriveDiscStatKey] | None = None,
 ) -> tuple[_BuiltCharacterRecord, ...]:
     records = []
     definitions_by_character = {
@@ -1984,6 +2023,8 @@ def _build_records(
         character_id = CharacterId(build.character_id)
         registration = registration_for(character_id)
         if build.build_mode is BuildMode.MANUAL_PANEL:
+            if substat_increment and substat_increment[0] == build.character_id:
+                raise ValueError("词条收益对比需要装备构筑")
             stats = _character_stats(build.out_of_combat_stats, character_id)
             resolved_build = assemble_build(
                 CharacterBuildDefinition(
@@ -2057,6 +2098,9 @@ def _build_records(
             contributions = (*contributions, *drive.contributions)
             rule_items = (*rule_items, *drive.rule_items)
             conditions = (*conditions, *drive.scenario_conditions)
+        if substat_increment and substat_increment[0] == build.character_id:
+            from core.application.equipment.drive_disc import compile_substat_increment
+            contributions = (*contributions, compile_substat_increment(*substat_increment))
         resolved_build = assemble_build(
             CharacterBuildDefinition(
                 character_id=character_id,

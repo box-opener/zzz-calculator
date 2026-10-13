@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIYOUSHE_STORAGE_KEY, readMiyousheProfiles, saveMiyousheProfile, validateMiyousheProfile } from "./miyousheProfiles";
+import { MIYOUSHE_STORAGE_KEY, readMiyousheProfiles, saveMiyousheProfile, validateMiyousheProfile, miyousheEffectiveStatCount } from "./miyousheProfiles";
 import { createCharacterConfig } from "./equipmentConfig";
 
 const catalog = { wengines: [], driveDiscSets: [] };
@@ -14,6 +14,18 @@ function snapshot(uid = "12345678") {
 }
 
 describe("saved Miyoushe profiles", () => {
+  it("retains the official drive-disc count offline, including zero, without inferring it from stats", () => {
+    const raw = snapshot();
+    raw.characters[0].source_data = { ...raw.characters[0].source_data, ...{ equip_plan_info: { valid_property_cnt: 37 } } };
+    const profile = validateMiyousheProfile(raw, catalog);
+    const saved = readMiyousheProfiles({ getItem: () => JSON.stringify([profile]) }, catalog);
+    expect(miyousheEffectiveStatCount(saved[0].characters[0].source_data)).toBe(37);
+    expect(miyousheEffectiveStatCount({ equip_plan_info: { valid_property_cnt: 0 } })).toBe(0);
+    expect(miyousheEffectiveStatCount({ properties: [{ final: 3500 }] })).toBeNull();
+    for (const invalid of [-1, 1.5, true, "37", Number.MAX_SAFE_INTEGER + 1]) {
+      expect(miyousheEffectiveStatCount({ equip_plan_info: { valid_property_cnt: invalid } })).toBeNull();
+    }
+  });
   it("reloads real configuration offline and excludes credentials", () => {
     const profile = validateMiyousheProfile(snapshot(), catalog);
     const text = JSON.stringify([profile]);

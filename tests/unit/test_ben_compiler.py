@@ -242,7 +242,7 @@ def test_ben_raw_identity_panel_rank_and_signature_are_registered() -> None:
     assert engines["wengine:13112"].signature_character_id == str(BEN_ID)
     catalog = {item.character_id: item for item in supported_character_catalog()}
     assert catalog[str(BEN_ID)].code_name == "Ben"
-    assert catalog[str(BEN_ID)].image_path == "/characters/portrait-placeholder.svg"
+    assert catalog[str(BEN_ID)].image_path == "/characters/1121.png"
     assert (Path(__file__).parents[2] / "frontend/public/characters/portrait-placeholder.svg").is_file()
     registration = registration_for(BEN_ID)
     assert registration.role.value == "defense"

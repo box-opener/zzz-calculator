@@ -4,16 +4,17 @@ import MiyousheVerification from "./MiyousheVerification";
 import { parseRecordVerification, type RecordVerification } from "../state/miyousheVerification";
 import type { QrAuthentication } from "../state/miyousheQr";
 import type { CharacterConfig, EquipmentValidationCatalog } from "../state/equipmentConfig";
+import { sortCharactersById } from "../state/characterLibrary";
 import {
   MIYOUSHE_STORAGE_KEY, readMiyousheProfiles, saveMiyousheProfile, validateMiyousheProfile,
-  type MiyousheProfile,
+  type MiyousheProfile, type MiyousheCharacter,
 } from "../state/miyousheProfiles";
 
 type Props = {
   catalog: EquipmentValidationCatalog;
   ready: boolean;
   supportedCharacterIds: string[];
-  onLoad: (configuration: CharacterConfig) => void;
+  onLoad: (configuration: CharacterConfig, character: MiyousheCharacter) => void;
 };
 
 export default function MiyoushePanel({ catalog, ready, supportedCharacterIds, onLoad }: Props) {
@@ -148,13 +149,13 @@ export default function MiyoushePanel({ catalog, ready, supportedCharacterIds, o
         <p className="roster-hint">获取时间：{new Date(active.fetched_at).toLocaleString("zh-CN")}</p>
         {active.characters.length === 0 && <p className="muted">此账号未返回角色，请检查 UID 与战绩设置。</p>}
         <div className="miyoushe-characters">
-          {active.characters.map((c) => <article key={c.character_id}>
+          {sortCharactersById(active.characters).map((c) => <article key={c.character_id}>
             <div><strong>{c.display_name}</strong><small>{c.level ?? "?"}级 · {c.cinema ?? "?"}影</small>
               {c.issues.map((issue, i) => <p key={i} className="roster-hint">{issue}</p>)}
               {!supportedCharacterIds.includes(c.character_id) && <p className="roster-hint">此版本尚未支持该角色。</p>}
             </div>
             <button className="secondary-button" type="button" disabled={!ready || busy || !c.configuration || !supportedCharacterIds.includes(c.character_id)} onClick={() => {
-              if (c.configuration) { onLoad(c.configuration); setFailed(false); setMessage(`已加载 ${c.display_name} 的真实配置。`); }
+              if (c.configuration) { onLoad(c.configuration, c); setFailed(false); setMessage(`已加载 ${c.display_name} 的真实配置。`); }
             }}>加载到当前槽位</button>
           </article>)}
         </div>

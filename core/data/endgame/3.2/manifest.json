@@ -1,0 +1,450 @@
+{
+  "version": "3.2",
+  "fetched_at": "2026-10-13T14:11:51.082470+00:00",
+  "sources": {
+    "shiyu-index.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/shiyu.json",
+      "sha256": "0d85b8016d460e72fda171658f223219d7bac59cbde9e875a2bd7aa6a07a818d"
+    },
+    "boss-index.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/boss.json",
+      "sha256": "e73f7ee20e80f95780e2b42dad1187fc479a18f0fc3befdb801872736ea64de1"
+    },
+    "shiyu/61001.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json",
+      "sha256": "89add932d08eee88a3863a96a923a89b2dc21005a18ccadec1fc994a0064acb3"
+    },
+    "shiyu/61002.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json",
+      "sha256": "96fcee32ec6b3b771800654b514dfb543c3f60d9c70315817127da9b964ae0f5"
+    },
+    "shiyu/61003.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61003.json",
+      "sha256": "82961b5792df18d2daf3d61e64592fb292823655898682fa42dba4b48eb039a3"
+    },
+    "shiyu/62001.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62001.json",
+      "sha256": "bd6e1ca1c2c61aae6ea26a4a06da5c5e5f8509e8abc671b50f68a332c13f3a8f"
+    },
+    "shiyu/62002.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62002.json",
+      "sha256": "bd7ebcbba08cf283bbfd3c22d9bfe39694ea576bd25c92d6f9313873209dd8cf"
+    },
+    "shiyu/62003.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62003.json",
+      "sha256": "0cce09d74336121c07289bd7bc1fd3c8dfb76caf4fb9f057cce409855311e7b5"
+    },
+    "shiyu/62004.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62004.json",
+      "sha256": "61100b110d2ff73dbe94176602ecd961a2ba275b294935bda461fd46a3daec37"
+    },
+    "shiyu/62005.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62005.json",
+      "sha256": "45888e1f6234d6faafb961476ce67a9e0d7bafdae873aa91b5b687924b6d2891"
+    },
+    "shiyu/62006.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62006.json",
+      "sha256": "40e8f173f050318a50df62e718854c130baf28a3ed141ec76eb88ccbf5af6768"
+    },
+    "shiyu/62007.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62007.json",
+      "sha256": "0291870bd0ec8ae8365c1d9db75f341739d31a5064a1cf54604805626ac2e4ac"
+    },
+    "shiyu/62008.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62008.json",
+      "sha256": "beacc9a1412d83934cd13b538e44fdbb357005034edcce52ac4f7f5d6fd2fc81"
+    },
+    "shiyu/62009.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62009.json",
+      "sha256": "a1b9497f57603978c3f330e27c6ed5e8435f5e4257ccdb33f1c805daee0303d4"
+    },
+    "shiyu/62010.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62010.json",
+      "sha256": "a240bae3300442d98cb0b863273731c5e3f574ebed7983237a4340e5aa1ebcae"
+    },
+    "shiyu/62011.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62011.json",
+      "sha256": "107b1c61b86590bc6f9d84c1cda957871c74d2ee9d9e6f0af5c4502c5bfc2db8"
+    },
+    "shiyu/62012.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62012.json",
+      "sha256": "3b99e8046be162df0006f1e6cca83ce64030cf6f1f79a8432066208967527ea4"
+    },
+    "shiyu/62013.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62013.json",
+      "sha256": "be971074d8e39e2d395364c195da3f0245b83e9e55a29010b2839f5dabb56fce"
+    },
+    "shiyu/62014.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62014.json",
+      "sha256": "c97b55b223cd2a2bcfdcb3549bd91c26291112cd2755787902c14efa37439573"
+    },
+    "shiyu/62015.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62015.json",
+      "sha256": "a825e131cc918f912d0cffa0013b3217016938a532e258124ae90a311482674c"
+    },
+    "shiyu/62016.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62016.json",
+      "sha256": "dd7f54a4e462e71599faef48d708a099de1bacf73bfdba9e237ff27917274c64"
+    },
+    "shiyu/62017.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62017.json",
+      "sha256": "34cac3f20bf68dd4e54a4ae781833481a296fc21691aab03f1a860baf6b7b9c3"
+    },
+    "shiyu/62018.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62018.json",
+      "sha256": "99499738bbc285a9350e52eaed93e7db3ffe65917160f0c91b25192a83dfaac8"
+    },
+    "shiyu/62019.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62019.json",
+      "sha256": "a15189b0d67a10c4ce43c85b9746ad6edeef7498ab64c11a7e7b10700aa37b17"
+    },
+    "shiyu/62020.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62020.json",
+      "sha256": "7c7224a4263d81e0d5d2442b5d802a5b3056f5de1d92b9ed479bbc7568920df7"
+    },
+    "shiyu/62021.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62021.json",
+      "sha256": "82b47f306f1523b26c429f70d3c8c7d3f14f3f0a3541190ef2abb9b7a8b6a92e"
+    },
+    "shiyu/62022.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62022.json",
+      "sha256": "63fdf629448a4e2f42c1071889c38eef37305d95023a30314e04299e1de97379"
+    },
+    "shiyu/62023.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62023.json",
+      "sha256": "61b44084991f7b53d694f2c9117d58f552e0976b4a49ad38c22e356de9dc16da"
+    },
+    "shiyu/62024.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62024.json",
+      "sha256": "34899354089b6643d034b71112103ad348be36309a20e98fff82c0b8404bb809"
+    },
+    "shiyu/62025.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62025.json",
+      "sha256": "044e51955f92f5156c281c66ccdf711756b5138b6d42ac9b347756248c7bd449"
+    },
+    "shiyu/62026.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62026.json",
+      "sha256": "efb19a3c246ebf2a3fd2026ed6388a1c256c4083c48a5a8964f572b5696e546f"
+    },
+    "shiyu/62027.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62027.json",
+      "sha256": "71248e5e637fb50be52adb3b26539027fd98d656b4a1d603b9e9d37797bd6b5d"
+    },
+    "shiyu/62028.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62028.json",
+      "sha256": "1435158af0a2dc92b15a7f36e8b1b35db62b4ca10d6f7dff3b18b20806eb93b9"
+    },
+    "shiyu/62029.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62029.json",
+      "sha256": "35942a26058727eed4fd7bf43ab4abbcc7432cb77fa2f0f1b8b1d57c0e0e1f67"
+    },
+    "shiyu/62030.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62030.json",
+      "sha256": "fd861afb741feb0797b61c6dcdfce27fca08693898382b3259c6068ee3a1eb66"
+    },
+    "shiyu/62031.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62031.json",
+      "sha256": "c40acf2f1ad01a9b2df996733c830414078026bbe99290d4d96b74f7bd85bf10"
+    },
+    "shiyu/62032.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62032.json",
+      "sha256": "b6c5071e0f8cab8a3591eba8c2ac254053a00a00c03ae25446cd91eb4b032a08"
+    },
+    "shiyu/62033.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62033.json",
+      "sha256": "49754c3c372b4731358f4daf7efaefdb09628e4f52034d6e7d0f61d581f56786"
+    },
+    "shiyu/62034.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62034.json",
+      "sha256": "3b57c4e4743d578bd60da5afcfd1f6aab688ffd59160ce8f029fd07ffaa38b34"
+    },
+    "shiyu/62035.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62035.json",
+      "sha256": "3a8edf1b403301b47baa8c26bb0763c49b3983354e020d73fd1ec41ee2a60935"
+    },
+    "shiyu/62036.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62036.json",
+      "sha256": "0415a527782ff059cfa0299648f0cfa5a82c32d5caf3c358ac9321917498bb4f"
+    },
+    "shiyu/62037.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62037.json",
+      "sha256": "e437ea93183d28acff7bb1ab1df0a2fe61ca82137af55c29ab22bc8ab2cb3a96"
+    },
+    "shiyu/62038.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62038.json",
+      "sha256": "a9e9dc2944dc7f27480f028b31e89b4ede108a26497c0da1d20842d071d9e800"
+    },
+    "shiyu/62039.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62039.json",
+      "sha256": "b54c6a3d79db161294de84239fb91836552fc4d461a6071f9dd52da383a5ccc4"
+    },
+    "shiyu/62040.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62040.json",
+      "sha256": "d0681ee05695ddf4c22c318dd6225ec5061cfbf1813b7a324fe55f7f1022573b"
+    },
+    "shiyu/62041.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62041.json",
+      "sha256": "29f54d7dbb3902f629415364c2f3eb698f19367774ef36b17519db6086ab33b7"
+    },
+    "shiyu/62042.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62042.json",
+      "sha256": "3cbe7121cbd9d19525497e9ff0e53584277d0d902aa553b11f21fce5c76a8534"
+    },
+    "shiyu/62043.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62043.json",
+      "sha256": "67d9cc135a9055509cc08d8e82ca30d29fa5ff9c3598d3d60dc32d6726f3ba1c"
+    },
+    "shiyu/62044.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62044.json",
+      "sha256": "2b2520c3b084db518c4fae75d9c9c5eae12274e30f825abedadaa6a390359dd3"
+    },
+    "shiyu/62045.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62045.json",
+      "sha256": "917b7aeae72d3db8fb97ff84297d318da6c416e49b8aed31c94a7df7db617ebb"
+    },
+    "shiyu/62046.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62046.json",
+      "sha256": "f0a0e1da09845b4d12ffabe3d9a52397bf435a3ff05318339ea5ebfd0beff6cd"
+    },
+    "shiyu/62047.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62047.json",
+      "sha256": "0ba0b971325fa88acfc87ff2f36e082832cca9829f870879a89586e2904b1f1e"
+    },
+    "shiyu/62048.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62048.json",
+      "sha256": "f942107667c9757cb7c3db55617f0755a3abcbba69d0520ba273cf50f4155d9d"
+    },
+    "shiyu/62049.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62049.json",
+      "sha256": "10a093aa3ce923e317e725104e678d5959585b0238d87f751e9b47c406855e4e"
+    },
+    "shiyu/62050.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62050.json",
+      "sha256": "5927d4271ed434f31110d77acfe0d66c87d32142aff5683056f267c1ccb6d6d8"
+    },
+    "shiyu/62051.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62051.json",
+      "sha256": "8d89a1239f12f7935191458a30d5c46052805b1fd5f0ee0cde25f5277907fa0a"
+    },
+    "shiyu/62052.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62052.json",
+      "sha256": "8d3124c35eb142c965a155cfeb5cff31fd35dc7bba2cd7fb6f6115a42d864ed3"
+    },
+    "shiyu/62053.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62053.json",
+      "sha256": "d6aa79b0da05b916f31e8c9912f3036cbad0d34b441d4fc44f770dbcc1b0e240"
+    },
+    "shiyu/62054.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62054.json",
+      "sha256": "c44834f8788955bd7387f9c6575c7f636122da101ecd882af91379b6d5c9f466"
+    },
+    "shiyu/62055.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62055.json",
+      "sha256": "71823ba43f79e38b628ac8ad4910e15337974c57b2d174eac1a2b0f070136c45"
+    },
+    "shiyu/62056.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62056.json",
+      "sha256": "d7419552e7ad364928453662c7f8adbc228980287f69a9eecdd891e72c867ba5"
+    },
+    "shiyu/62057.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62057.json",
+      "sha256": "2f204af095999206a6cf1d087cec7dab8d5d41bfc6188e24357413bbbf7f135f"
+    },
+    "shiyu/62058.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62058.json",
+      "sha256": "f4030d35757aeea25a13ea8c7f47f26b407743520630c979d79722bd67716a29"
+    },
+    "shiyu/62059.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62059.json",
+      "sha256": "23341551aec889401894f14793e3077833b35ccf6606163f1547c55b2d17de99"
+    },
+    "boss/69001.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json",
+      "sha256": "2633ff5165321b735d0760a43919a02104e3d31a309b5690f648a0140882de62"
+    },
+    "boss/69002.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json",
+      "sha256": "e7ea41f79d1a137c32270769bff7b691e105e5a53421284d7d1d632d34d27d8c"
+    },
+    "boss/69003.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json",
+      "sha256": "fa1a9f21d46f4e43033f7403fddd3b19089bf10093fba7e02d4c73f644aa7d40"
+    },
+    "boss/69004.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "sha256": "b50f7d8dd84fd57b5d81b2555cb72bd766c5aa5da3a0a3655ade84c5bf21cadc"
+    },
+    "boss/69005.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json",
+      "sha256": "84ee1a6abf7f43ada344933e9bf4b5ce168510a93047c9fa01c6fdee2617b286"
+    },
+    "boss/69006.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json",
+      "sha256": "6dcb7c3d9ea436f3a08853d50b687732d7c670efca63b68bf6d3e556eb4786fd"
+    },
+    "boss/69007.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "sha256": "277160d2ec93eaeed27533c2d6c65030357ffd9727ef4457144edbdbcd0fca91"
+    },
+    "boss/69008.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "sha256": "ed54760226f54eed5696288f96c78bd19dd627d341246500bd32f87e7f0fab4c"
+    },
+    "boss/69009.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json",
+      "sha256": "e4c4505fa3f38609f322fcf243dcd01c6bdac2c3120ff8ec81832dcf1c0ee03b"
+    },
+    "boss/69010.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "sha256": "7b7856ca168112ac8f28e69005a919218f730d56f3c6864243a2f727bb4d8641"
+    },
+    "boss/69011.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "sha256": "6d09ffb0b825db108ffa4d4814b00c1df334e90110bf5858026d523cbafcd0d5"
+    },
+    "boss/69012.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "sha256": "a53e592efc7bcf2145bd2db43b840458f497d1519cec3129ca593143824e5323"
+    },
+    "boss/69013.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "sha256": "b5a7a197144e995774e2e1f91f2c52e52e51203d3e0a71e55589b5ec4adab3a2"
+    },
+    "boss/69014.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "sha256": "e0626d32b8fa9a15c1a1b1b8604870463d003c81dd28f9bb4bf80f8af94e5e53"
+    },
+    "boss/69015.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json",
+      "sha256": "24e274b9606a930ce4f26e799944825ccdbf8d557bc72ec3c91c0006765b5626"
+    },
+    "boss/69016.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "sha256": "bb62c948a2fd8c2fc37b1530bba1219f539405cab409b0d79425f367c7b917ff"
+    },
+    "boss/69017.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json",
+      "sha256": "94f8172a682506d98926dbfdd3a0005835fae28eaf11dcbc09e5010ebc263b85"
+    },
+    "boss/69018.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "sha256": "70b806eb3d135ef75eca01c35cb96b46e43bf9e566f278264e27c57189ff68e8"
+    },
+    "boss/69019.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "sha256": "adfc38a3e7be05729be917cca82b56157450147283caf5a907d428be9d4026e3"
+    },
+    "boss/69020.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "sha256": "868e1e43d7e2963181ee9359c21745048a3dfc7745ce703243c5a35d66a8034a"
+    },
+    "boss/69021.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "sha256": "c9f2ad96f6f804201a73699c4e9857f1be80773a1f7c52559e169afb6bb16190"
+    },
+    "boss/69022.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "sha256": "bb883b7fc50e5a54801d57c7e9fad54f303105210981e559025311aa5b887c0c"
+    },
+    "boss/69023.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "sha256": "e4c0c08b137291955a073b03b76122208502d0d52f2455073efd502bfed20acb"
+    },
+    "boss/69024.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json",
+      "sha256": "feef75b2091407acd85518df919af31c9e0fa2a5832f47f9b19b7cfd38254541"
+    },
+    "boss/69025.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "sha256": "f7489ca3ca48b4a1ac30f4751d9fb696ced071bfb026dea9b251a5a75860b90a"
+    },
+    "boss/69026.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json",
+      "sha256": "5d9846da7bbab61f533995f44c0904982a9edb6335f69528ea7a3ed0d6795e4f"
+    },
+    "boss/69027.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "sha256": "cdd8647b3be47523c7ff57a60e48cb338510f2ce6f730add5a61d36afa6cf95a"
+    },
+    "boss/69028.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "sha256": "e2ef09c125fff3805951c0e1df094ce5d19de5343eda14eef0fc7b00aced8671"
+    },
+    "boss/69029.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "sha256": "f32660bb828017c28103b413c7b1c7461512b562ade473294eb127a6c76abbd0"
+    },
+    "boss/69030.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json",
+      "sha256": "7d785f153691c398b3cbe270dbd36dc4165a032f7432029424c0a73f1f74293c"
+    },
+    "boss/69031.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "sha256": "b1e21c1df963cdce755c07581af525cf323bbc6f85ea6d6e32655488851b687e"
+    },
+    "boss/69032.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "sha256": "dd62e3d4d30c37b31fa64327f4f1d8c2fbb4f861e5f6f386019fecd517eeaca6"
+    },
+    "boss/69033.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "sha256": "7e220dcee51468f465bbb9d6b6c4aff375883fef5f30d246b29b69dd86cf149f"
+    },
+    "boss/69034.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "sha256": "a5ed3d8866484b9c146bfbc10d2925f914cf81a30d321c8b28826ac17a88b74a"
+    },
+    "boss/69035.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "sha256": "f89a9498af7e82ac0b26c7397fb94b5dafa89da0e005274abb49057269073782"
+    },
+    "boss/69036.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "sha256": "6ffa429e984b4ff0bd2ab04c3830175913c1250349f1587ab54c0e651d0d40b8"
+    },
+    "boss/69037.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json",
+      "sha256": "7eab2de3dd7240b1cf4fb2281ff094bdcc195c6890cba1b402cab461b7bfbcc5"
+    },
+    "boss/69038.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "sha256": "5c87f1a130d8979d2aaee91986bc3e1f88eac68aa95fdf550647bf7c13d9d6ae"
+    },
+    "boss/69039.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json",
+      "sha256": "7b44afc07becebe6be13f83355f6838aa48edfc0a358c4e11a6674b3be24bfc5"
+    },
+    "boss/69040.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "sha256": "98b97a541864fcd5cac3884f79d47e731cf56c1987bd0b62948abb91d01dc618"
+    },
+    "boss/69041.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json",
+      "sha256": "a8d738e807db3eb3b95930567f58b6530fbe0b2113eb8696cb5640934ade02db"
+    },
+    "boss/690421.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json",
+      "sha256": "1e7d6c3ade96a8710de0a6b6a0b164028b45de3201331b9d8d06779e085f71a9"
+    },
+    "boss/690431.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "sha256": "7cc053f0eab2fa25b9326b2b759b79307e72bb62848cf4233a6bfaa088384b66"
+    },
+    "boss/690441.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json",
+      "sha256": "be56d6c7544d4c4c2cda4c5ad63f324ad1aaff447c0f6a46e74da9d69c5f3196"
+    },
+    "boss/690451.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "sha256": "a894e784a4f52c54d44cbf676dd805c616b896004c006ee419bacb2249204668"
+    },
+    "boss/690461.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json",
+      "sha256": "c5b92d85379bb236ac4de7de3c0791e93946c6923471573fb1fdb8e35c4b20e0"
+    },
+    "boss/690471.json": {
+      "url": "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json",
+      "sha256": "77cb5ae96a0cd805320fc6890c770406ff043c30eced1823fa60e78cd1c61ac0"
+    }
+  }
+}

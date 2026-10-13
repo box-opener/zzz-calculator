@@ -19,6 +19,7 @@ class CharacterCatalogItem:
     image_path: str
     image_object_position: str = "50% 50%"
     code_name: str | None = None
+    faction: str = ""
 
     def __post_init__(self) -> None:
         if not self.character_id.strip() or not self.display_name.strip():
@@ -92,13 +93,20 @@ def supported_character_catalog() -> tuple[CharacterCatalogItem, ...]:
     items = []
     for registration in supported_character_registrations():
         catalog_item = registration.catalog
-        code_name = load_character_record(catalog_item.character_id).get("code_name")
+        raw = load_character_record(catalog_item.character_id)
+        code_name = raw.get("code_name")
         if not isinstance(code_name, str) or not code_name.strip():
             raise ValueError(
                 f"character source is missing its English code_name: {catalog_item.character_id}"
             )
-        items.append(replace(catalog_item, code_name=code_name))
-    return tuple(items)
+        # These early source snapshots predate the camp metadata field.
+        faction = next(iter(raw.get("camp", {}).values()), "")
+        faction = faction or {"character:1311": "天琴座", "character:1431": "云岿山"}.get(catalog_item.character_id, "")
+        image_path = catalog_item.image_path
+        if "placeholder" in image_path:
+            image_path = f"/characters/{catalog_item.character_id.split(':')[-1]}.png"
+        items.append(replace(catalog_item, code_name=code_name, faction=faction, image_path=image_path))
+    return tuple(sorted(items, key=lambda item: int(item.character_id.split(":")[-1]), reverse=True))
 
 
 def supported_wengine_catalog() -> tuple[WEngineCatalogItem, ...]:

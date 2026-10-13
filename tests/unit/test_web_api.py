@@ -509,86 +509,80 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     }
     assert all(item["image_path"].startswith("/characters/") for item in payload)
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
-    assert (asset_root / "portrait-placeholder.svg").is_file()
+    assert all("placeholder" not in item["image_path"] for item in payload)
+    assert all((asset_root / item["image_path"].rsplit("/", 1)[-1]).is_file() for item in payload)
+    assert all(item["faction"] for item in payload)
+    assert next(item for item in payload if item["character_id"] == "character:1311")["faction"] == "天琴座"
+    assert next(item for item in payload if item["character_id"] == "character:1431")["faction"] == "云岿山"
+    ids = [int(item["character_id"].split(":")[-1]) for item in payload]
+    assert ids == sorted(ids, reverse=True)
     burnice = next(item for item in payload if item["character_id"] == "character:1171")
     assert burnice["display_name"] == "柏妮思"
     assert burnice["code_name"] == "Burnice"
     assert burnice["rarity"] == "S"
     assert burnice["specialty"] == "anomaly"
     assert burnice["element"] == "fire"
-    assert burnice["image_path"] == "/characters/portrait-placeholder.svg"
     grace = next(item for item in payload if item["character_id"] == "character:1181")
     assert grace["display_name"] == "格莉丝"
     assert grace["code_name"] == "Grace"
     assert grace["rarity"] == "S"
     assert grace["specialty"] == "anomaly"
     assert grace["element"] == "electric"
-    assert grace["image_path"] == "/characters/portrait-placeholder.svg"
     ellen = next(item for item in payload if item["character_id"] == "character:1191")
     assert ellen["display_name"] == "艾莲"
     assert ellen["code_name"] == "Ellen"
     assert ellen["rarity"] == "S"
     assert ellen["specialty"] == "attack"
     assert ellen["element"] == "ice"
-    assert ellen["image_path"] == "/characters/portrait-placeholder.svg"
     harumasa = next(item for item in payload if item["character_id"] == "character:1201")
     assert harumasa["display_name"] == "悠真"
     assert harumasa["code_name"] == "Harumasa"
     assert harumasa["rarity"] == "S"
     assert harumasa["specialty"] == "attack"
     assert harumasa["element"] == "electric"
-    assert harumasa["image_path"] == "/characters/portrait-placeholder.svg"
     rina = next(item for item in payload if item["character_id"] == "character:1211")
     assert rina["display_name"] == "丽娜"
     assert rina["code_name"] == "Rina"
     assert rina["rarity"] == "S"
     assert rina["specialty"] == "support"
     assert rina["element"] == "electric"
-    assert rina["image_path"] == "/characters/portrait-placeholder.svg"
     seth = next(item for item in payload if item["character_id"] == "character:1271")
     assert seth["display_name"] == "赛斯"
     assert seth["code_name"] == "Seth"
     assert seth["rarity"] == "A"
     assert seth["specialty"] == "defense"
     assert seth["element"] == "electric"
-    assert seth["image_path"] == "/characters/portrait-placeholder.svg"
     piper = next(item for item in payload if item["character_id"] == "character:1281")
     assert piper["display_name"] == "派派"
     assert piper["code_name"] == "Piper"
     assert piper["rarity"] == "A"
     assert piper["specialty"] == "anomaly"
     assert piper["element"] == "physical"
-    assert piper["image_path"] == "/characters/portrait-placeholder.svg"
     zhu_yuan = next(item for item in payload if item["character_id"] == "character:1241")
     assert zhu_yuan["display_name"] == "朱鸢"
     assert zhu_yuan["code_name"] == "Zhu Yuan"
     assert zhu_yuan["rarity"] == "S"
     assert zhu_yuan["specialty"] == "attack"
     assert zhu_yuan["element"] == "ether"
-    assert zhu_yuan["image_path"] == "/characters/portrait-placeholder.svg"
     jane = next(item for item in payload if item["character_id"] == "character:1261")
     assert jane["display_name"] == "简"
     assert jane["code_name"] == "Jane"
     assert jane["rarity"] == "S"
     assert jane["specialty"] == "anomaly"
     assert jane["element"] == "physical"
-    assert jane["image_path"] == "/characters/portrait-placeholder.svg"
     harumasa = next(item for item in payload if item["character_id"] == "character:1201")
     assert harumasa["display_name"] == "悠真"
     assert harumasa["code_name"] == "Harumasa"
     assert harumasa["rarity"] == "S"
     assert harumasa["specialty"] == "attack"
     assert harumasa["element"] == "electric"
-    assert harumasa["image_path"] == "/characters/portrait-placeholder.svg"
     anby = next(item for item in payload if item["character_id"] == "character:1011")
     assert anby["rarity"] == "A"
     assert anby["specialty"] == "stun"
-    assert anby["image_path"] == "/characters/portrait-placeholder.svg"
     nekomata = next(item for item in payload if item["character_id"] == "character:1021")
     assert nekomata["rarity"] == "S"
     assert nekomata["specialty"] == "attack"
     assert nekomata["element"] == "physical"
-    assert nekomata["image_path"] == "/characters/portrait-placeholder.svg"
     corin = next(item for item in payload if item["character_id"] == "character:1061")
     assert corin["display_name"] == "可琳"
     assert corin["code_name"] == "Corin"
@@ -609,92 +603,78 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert billy["rarity"] == "A"
     assert billy["specialty"] == "attack"
     assert billy["element"] == "physical"
-    assert billy["image_path"] == "/characters/portrait-placeholder.svg"
     koleda = next(item for item in payload if item["character_id"] == "character:1101")
     assert koleda["display_name"] == "珂蕾妲"
     assert koleda["code_name"] == "Koleda"
     assert koleda["rarity"] == "S"
     assert koleda["specialty"] == "stun"
     assert koleda["element"] == "fire"
-    assert koleda["image_path"] == "/characters/portrait-placeholder.svg"
     anton = next(item for item in payload if item["character_id"] == "character:1111")
     assert anton["display_name"] == "安东"
     assert anton["code_name"] == "Anton"
     assert anton["rarity"] == "A"
     assert anton["specialty"] == "attack"
     assert anton["element"] == "electric"
-    assert anton["image_path"] == "/characters/portrait-placeholder.svg"
     ben = next(item for item in payload if item["character_id"] == "character:1121")
     assert ben["display_name"] == "本"
     assert ben["code_name"] == "Ben"
     assert ben["rarity"] == "A"
     assert ben["specialty"] == "defense"
     assert ben["element"] == "fire"
-    assert ben["image_path"] == "/characters/portrait-placeholder.svg"
     soukaku = next(item for item in payload if item["character_id"] == "character:1131")
     assert soukaku["display_name"] == "苍角"
     assert soukaku["code_name"] == "Soukaku"
     assert soukaku["rarity"] == "A"
     assert soukaku["specialty"] == "support"
     assert soukaku["element"] == "ice"
-    assert soukaku["image_path"] == "/characters/portrait-placeholder.svg"
     lycaon = next(item for item in payload if item["character_id"] == "character:1141")
     assert lycaon["display_name"] == "莱卡恩"
     assert lycaon["code_name"] == "Lycaon"
     assert lycaon["rarity"] == "S"
     assert lycaon["specialty"] == "stun"
     assert lycaon["element"] == "ice"
-    assert lycaon["image_path"] == "/characters/portrait-placeholder.svg"
     lucy = next(item for item in payload if item["character_id"] == "character:1151")
     assert lucy["display_name"] == "露西"
     assert lucy["code_name"] == "Lucy"
     assert lucy["rarity"] == "A"
     assert lucy["specialty"] == "support"
     assert lucy["element"] == "fire"
-    assert lucy["image_path"] == "/characters/portrait-placeholder.svg"
     lighter = next(item for item in payload if item["character_id"] == "character:1161")
     assert lighter["display_name"] == "莱特"
     assert lighter["code_name"] == "Lighter"
     assert lighter["rarity"] == "S"
     assert lighter["specialty"] == "stun"
     assert lighter["element"] == "fire"
-    assert lighter["image_path"] == "/characters/portrait-placeholder.svg"
     nicole = next(item for item in payload if item["character_id"] == "character:1031")
     assert nicole["rarity"] == "A"
     assert nicole["specialty"] == "support"
     assert nicole["element"] == "ether"
-    assert nicole["image_path"] == "/characters/portrait-placeholder.svg"
     remielle = next(item for item in payload if item["character_id"] == "character:1581")
     assert remielle["display_name"] == "蕾米埃尔"
     assert remielle["rarity"] == "S"
     assert remielle["specialty"] == "anomaly"
     assert remielle["element"] == "luminance"
-    assert remielle["image_path"] == "/characters/portrait-placeholder.svg"
     soldier11 = next(item for item in payload if item["character_id"] == "character:1041")
     assert soldier11["rarity"] == "S"
     assert soldier11["specialty"] == "attack"
     assert soldier11["element"] == "fire"
-    assert soldier11["image_path"] == "/characters/portrait-placeholder.svg"
     yidhari = next(item for item in payload if item["character_id"] == "character:1051")
     assert yidhari["rarity"] == "S"
     assert yidhari["specialty"] == "rupture"
     assert yidhari["element"] == "ice"
     assert yidhari["code_name"] == "Yidhari"
-    assert yidhari["image_path"] == "/characters/portrait-placeholder.svg"
     yinhu = next(item for item in payload if item["character_id"] == "character:1421")
     assert yinhu["display_name"] == "潘引壶"
     assert yinhu["code_name"] == "Yinhu"
     assert yinhu["rarity"] == "A"
     assert yinhu["specialty"] == "defense"
     assert yinhu["element"] == "physical"
-    assert yinhu["image_path"] == "/characters/portrait-placeholder.svg"
     manato = next(item for item in payload if item["character_id"] == "character:1441")
     assert manato["display_name"] == "真斗"
     assert manato["code_name"] == "Manato"
     assert manato["rarity"] == "A"
     assert manato["specialty"] == "rupture"
     assert manato["element"] == "fire"
-    assert manato["image_path"] == "/characters/portrait-placeholder.svg"
     manato_raw = load_character_record("character:1441")
     assert manato_raw["source_version"] == "3.2"
     assert manato_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1441.json"
@@ -704,7 +684,6 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert seed["rarity"] == "S"
     assert seed["specialty"] == "attack"
     assert seed["element"] == "electric"
-    assert seed["image_path"] == "/characters/portrait-placeholder.svg"
     seed_raw = load_character_record("character:1461")
     assert seed_raw["source_version"] == "3.2"
     assert seed_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1461.json"
@@ -714,7 +693,6 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert banyue["rarity"] == "S"
     assert banyue["specialty"] == "rupture"
     assert banyue["element"] == "fire"
-    assert banyue["image_path"] == "/characters/portrait-placeholder.svg"
     banyue_raw = load_character_record("character:1471")
     assert banyue_raw["source_version"] == "3.2"
     assert banyue_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1471.json"
@@ -724,7 +702,6 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert aria["rarity"] == "S"
     assert aria["specialty"] == "anomaly"
     assert aria["element"] == "ether"
-    assert aria["image_path"] == "/characters/portrait-placeholder.svg"
     aria_raw = load_character_record("character:1501")
     assert aria_raw["source_version"] == "3.2"
     assert aria_raw["source_url"] == "https://static.nanoka.cc/zzz/3.2/zh/character/1501.json"
@@ -734,7 +711,6 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert cissia["rarity"] == "S"
     assert cissia["specialty"] == "attack"
     assert cissia["element"] == "electric"
-    assert cissia["image_path"] == "/characters/portrait-placeholder.svg"
     cissia_raw = load_character_record("character:1521")
     assert cissia_raw["rarity"] == 4
     assert cissia_raw["source_version"] == "3.2"
@@ -745,7 +721,6 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert promeia["rarity"] == "S"
     assert promeia["specialty"] == "anomaly"
     assert promeia["element"] == "ice"
-    assert promeia["image_path"] == "/characters/portrait-placeholder.svg"
     promeia_raw = load_character_record("character:1541")
     assert promeia_raw["rarity"] == 4
     assert promeia_raw["source_version"] == "3.2"
@@ -756,7 +731,6 @@ def test_catalog_uses_production_ids_and_assets() -> None:
     assert norma["rarity"] == "S"
     assert norma["specialty"] == "stun"
     assert norma["element"] == "fire"
-    assert norma["image_path"] == "/characters/portrait-placeholder.svg"
     norma_raw = load_character_record("character:1571")
     assert norma_raw["rarity"] == 4
     assert norma_raw["source_version"] == "3.2"
