@@ -27,6 +27,7 @@ from core.application.ids import RuleItemId
 from core.application.matching import CharacterMatchProfile, EnemyMatchProfile
 from core.application.output import CritDisplayMode
 from core.application.rules import RuleEligibility
+from core.presentation.registry import config_fields_for
 from core.application.scenario import CalculationScenario, ConditionResolution
 from core.types import (
     BattleStateId,
@@ -45,6 +46,7 @@ from core.types import (
     Element,
     EnemyStateFilter,
     EventCreationEffect,
+    EventTemplateId,
     EventTemplateIdFilter,
     FixedMultiplier,
     ModifierEffect,
@@ -178,7 +180,7 @@ def test_identity_provenance_raw_sentinel_and_reviewed_damage_entry_count() -> N
     assert len(raw.mindscapes) == 6
     assert len(PYROIS_REVIEWED_MAPPING.moves) == 18
     assert len(definition.move_entries) == 18
-    assert len(definition.damage_event_templates) == 18
+    assert len(definition.damage_event_templates) == 21
     assert all(item.ref.damage_type is DamageType.DIRECT for item in definition.damage_event_templates)
     assert all(item.ref.element is Element.ETHER for item in definition.damage_event_templates)
     assert not any(
@@ -270,11 +272,20 @@ def test_core_level_effects_retain_source_ratio_and_current_state_scopes(
         effect = rule.effects[0]
         assert isinstance(effect, EventCreationEffect)
         assert effect.result.event_kind is BattleEventKind.DAMAGE
-        assert effect.result.event_template_id is None
-        assert isinstance(effect.result.unresolved_template, Unresolved)
-        assert f"{ratio / 100.0:.4g}x" in effect.result.unresolved_template.notes
-        assert f"Core {core_level}" in effect.result.unresolved_template.notes
-        assert effect.result.unresolved_template.original_text == raw.core_levels[core_level - 1].description
+        assert effect.result.event_template_id is not None
+        assert effect.result.unresolved_template is None
+        child = next(
+            item for item in definition.damage_event_templates
+            if item.ref.template_id == effect.result.event_template_id
+        )
+        assert child.element is Element.ETHER
+        assert child.ref.skill_group is SkillGroup.ULTIMATE
+        assert child.ref.damage_tags == frozenset({DamageTag.ULTIMATE})
+        derived = next(
+            item for item in definition.independent_derived_damage_events
+            if item.template.template_id == child.ref.template_id
+        )
+        assert derived.multiplier.value.value == pytest.approx(ratio / 100.0)
         assert effect.result.unique_per_source_event is True
         assert any(isinstance(item, DamageTypeFilter) and item.damage_type is DamageType.DIRECT for item in effect.rule.filters)
 
@@ -404,7 +415,7 @@ def test_sunflame_ultimate_bonus_requires_its_state_stun_and_ultimate_identity()
     assert not_stunned.output.known_total == pytest.approx(base.output.known_total)
 
 
-def test_unknown_core_and_battle_order_children_are_partial_only_on_their_exact_trigger() -> None:
+def test_core_and_battle_order_children_are_typed_and_only_created_on_their_exact_trigger() -> None:
     _, definition = _definition(core_level=7)
     left_parent = _execute(definition, "ultimate-unbound-sword")
     left_child = _execute(
@@ -420,12 +431,8 @@ def test_unknown_core_and_battle_order_children_are_partial_only_on_their_exact_
         active_conditions=(PYROIS_LEFT_CORE_EXTRA_ACTIVE,),
     )
     assert left_parent.output.complete and left_parent.output.known_total
-    assert not left_child.output.complete
-    assert left_child.output.known_total == pytest.approx(left_parent.output.known_total)
-    assert any(
-        str(item.diagnostic_id).endswith(":unresolved-template")
-        for item in left_child.output.diagnostics
-    )
+    assert left_child.output.complete
+    assert left_child.output.known_total > left_parent.output.known_total
     assert unrelated.output.complete
 
     upper_ult = _execute(
@@ -433,12 +440,8 @@ def test_unknown_core_and_battle_order_children_are_partial_only_on_their_exact_
         "ultimate-military-execution",
         enabled_rule_suffixes=("skill:special-battle-order-ultimate-trigger",),
     )
-    assert not upper_ult.output.complete
+    assert upper_ult.output.complete
     assert upper_ult.output.known_total is not None and upper_ult.output.known_total > 0
-    assert any(
-        str(item.diagnostic_id).endswith(":unresolved-template")
-        for item in upper_ult.output.diagnostics
-    )
 
     ex_without_proc = _execute(
         definition,
@@ -452,8 +455,8 @@ def test_unknown_core_and_battle_order_children_are_partial_only_on_their_exact_
         active_conditions=(PYROIS_EX_ASSIST_ORDER_PROC_ACTIVE,),
     )
     assert ex_without_proc.output.complete
-    assert not ex_with_proc.output.complete
-    assert ex_with_proc.output.known_total is not None and ex_with_proc.output.known_total > 0
+    assert ex_with_proc.output.complete
+    assert ex_with_proc.output.known_total > ex_without_proc.output.known_total
 
 
 def test_c3_c5_include_ultimate_and_cap_at_skill_level_sixteen() -> None:
@@ -489,6 +492,14 @@ def test_c3_c5_include_ultimate_and_cap_at_skill_level_sixteen() -> None:
     assert multiplier(c3) == pytest.approx(source_parameter.value_for_level(c3_level, "1551014") / 100)
     assert multiplier(c5) == pytest.approx(source_parameter.value_for_level(c5_level, "1551014") / 100)
     assert multiplier(c0) < multiplier(c3) < multiplier(c5)
+
+
+def test_unpublished_cinema_six_is_not_selectable_or_accepted() -> None:
+    fields = config_fields_for(PYROIS_ID, {"core_level": 7, "cinema_level": 0}, (PYROIS_ID,))
+    cinema = next(item for item in fields if item.field_id == "cinema_level")
+    assert cinema.maximum == 5
+    with pytest.raises(ValueError, match="between 0 and 5"):
+        PyroisCompileConfig(cinema_level=6)
 
 
 def test_battle_order_keeps_known_curve_and_guaranteed_or_current_proc_triggers_local() -> None:
@@ -528,11 +539,19 @@ def test_battle_order_keeps_known_curve_and_guaranteed_or_current_proc_triggers_
     for effect in (*ultimate_rule.effects, *ex_rule.effects):
         assert isinstance(effect, EventCreationEffect)
         assert effect.result.event_kind is BattleEventKind.DAMAGE
-        assert effect.result.event_template_id is None
+        assert effect.result.event_template_id == EventTemplateId(
+            "template:character:1551:special-battle-order:ether"
+        )
         assert effect.result.unique_per_source_event is True
-        unresolved = effect.result.unresolved_template
-        assert isinstance(unresolved, Unresolved)
-        assert f"{float(ratio) / 100.0:.4g}x ATK" in unresolved.notes
-        assert "Ether damage" in unresolved.notes
-        assert "cannot be inferred" in unresolved.notes
-        assert unresolved.original_text == source.description
+        assert effect.result.unresolved_template is None
+    order_template = next(
+        item for item in definition.damage_event_templates
+        if item.ref.template_id
+        == EventTemplateId("template:character:1551:special-battle-order:ether")
+    )
+    assert order_template.damage_dealer == PYROIS_ID
+    assert order_template.element is Element.ETHER
+    assert order_template.ref.skill_group is SkillGroup.SPECIAL_ATTACK
+    assert order_template.ref.damage_tags == frozenset({DamageTag.SPECIAL_ATTACK})
+    with pytest.raises(ValueError, match="between 0 and 5"):
+        PyroisCompileConfig(cinema_level=6)

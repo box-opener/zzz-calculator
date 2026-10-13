@@ -348,14 +348,23 @@ def test_seed_additional_ability_and_cinema_scopes_are_exact(raw_record) -> None
 
     c6_laser = _rule(definition, "cinema6:heavy-strike-laser-child")
     assert c6_laser.condition_ids == (CINEMA6_LASER_PROC_ACTIVE,)
-    assert len(c6_laser.effects) == 1
-    assert isinstance(c6_laser.effects[0], TypedEventCreationEffect)
-    unresolved = c6_laser.effects[0].result.unresolved_template
-    assert isinstance(unresolved, Unresolved)
-    assert "count (3)" in unresolved.notes
-    assert "165% ATK each" in unresolved.notes
-    assert "element, damage tag" in unresolved.notes
-    assert "3道激光" in unresolved.original_text
+    assert len(c6_laser.effects) == 3
+    assert all(isinstance(effect, TypedEventCreationEffect) for effect in c6_laser.effects)
+    assert all(effect.result.unresolved_template is None for effect in c6_laser.effects)
+    laser_templates = [
+        item for item in definition.damage_event_templates
+        if ":cinema6:laser-" in str(item.ref.template_id)
+    ]
+    assert len(laser_templates) == 3
+    assert all(item.element is Element.ELECTRIC for item in laser_templates)
+    assert all(item.ref.skill_group is SkillGroup.BASIC_ATTACK for item in laser_templates)
+    assert all(item.ref.damage_tags == frozenset({DamageTag.BASIC_ATTACK}) for item in laser_templates)
+    assert all(
+        next(ref for ref in definition.independent_derived_damage_events
+             if ref.template.template_id == item.ref.template_id).multiplier.value.value
+        == pytest.approx(1.65)
+        for item in laser_templates
+    )
 
     locked = compile_seed(SeedCompileConfig(), raw_record)
     locked_cinema_rules = (

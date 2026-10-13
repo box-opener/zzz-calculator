@@ -367,56 +367,16 @@ def test_additional_ability_and_c6_mingwang_share_defaulted_current_stack_input(
     raw, c6 = _definition(
         BanYueCompileConfig(cinema_level=6, additional_ability_eligible=False)
     )
-    parameter = next(
-        item
-        for item in c6.scenario_parameters
-        if item.parameter_id == BANYUE_MINGWANG_STACK_COUNT
-    )
-    assert parameter.resolution is ParameterResolution.USER_SELECTED
-    assert parameter.value == 3
-    assert parameter.minimum == 0
-    assert parameter.maximum == 3
-    assert "提升5%" in parameter.original_text
-    assert len(c6.scenario_parameters) == 1
+    assert not c6.scenario_parameters
 
     extra = _rule(c6, "extra-ability:mingwang-fire-damage")
     assert extra.eligibility is RuleEligibility.INELIGIBLE
-    extra_modifier = extra.effects[0]
-    assert isinstance(extra_modifier.result.value, ScenarioParameterDerivedValue)
-    assert extra_modifier.result.value.parameter_id == str(BANYUE_MINGWANG_STACK_COUNT)
-    assert extra_modifier.result.value.coefficient.value == pytest.approx(0.05)
-    assert extra_modifier.result.value.cap_max.value == pytest.approx(0.15)
+    assert not extra.effects
     assert "提升5%" in extra.original_text
 
     c6_buff = _rule(c6, "cinema6:mingwang-fire-damage-increase")
-    assert c6_buff.eligibility is RuleEligibility.ELIGIBLE
-    c6_modifier = c6_buff.effects[0]
-    assert isinstance(c6_modifier.result.value, ScenarioParameterDerivedValue)
-    assert c6_modifier.result.value.parameter_id == str(BANYUE_MINGWANG_STACK_COUNT)
-    assert c6_modifier.result.value.coefficient.value == pytest.approx(0.08)
-    assert c6_modifier.result.value.cap_max.value == pytest.approx(0.24)
-    uncertain_base = next(
-        item for item in c6_buff.effects if isinstance(item, UnresolvedEffect)
-    )
-    assert uncertain_base.unresolved.reason.value == "ambiguous-text"
-    assert isinstance(
-        uncertain_base.rule.condition, ScenarioParameterRangeCondition
-    )
-    assert uncertain_base.rule.condition.parameter_id == str(BANYUE_MINGWANG_STACK_COUNT)
-    assert uncertain_base.rule.condition.minimum == 1
-    assert any(
-        isinstance(item, DamageDealerFilter) and item.character_id == BANYUE_ID
-        for item in uncertain_base.rule.filters
-    )
-    assert any(
-        isinstance(item, DamageTypeFilter)
-        and item.damage_type is DamageType.PENETRATION
-        for item in uncertain_base.rule.filters
-    )
-    assert any(
-        isinstance(item, ElementFilter) and item.element is Element.FIRE
-        for item in uncertain_base.rule.filters
-    )
+    assert c6_buff.eligibility is RuleEligibility.INELIGIBLE
+    assert not c6_buff.effects
     assert c6_buff.original_text == raw.mindscapes[5].description
 
     _, eligible_c6 = _definition(
@@ -453,8 +413,8 @@ def test_additional_ability_and_c6_mingwang_share_defaulted_current_stack_input(
         == EventTemplateId("template:character:1471:cinema6-cuiyue-fire-burst")
     )
     assert c6_event.move_id is None
-    assert c6_event.ref.skill_group is None
-    assert not c6_event.ref.damage_tags
+    assert c6_event.ref.skill_group is SkillGroup.BASIC_ATTACK
+    assert c6_event.ref.damage_tags == frozenset({DamageTag.BASIC_ATTACK})
     assert c6_event.element is Element.FIRE
     c6_ratio = next(
         item
@@ -630,7 +590,7 @@ def test_config_rejects_wrong_identity_and_out_of_range_levels() -> None:
         BanYueCompileConfig(cinema_level=7)
 
 
-def test_banyue_api_keeps_c6_only_mingwang_base_partial_and_known_c6_bonus() -> None:
+def test_banyue_api_disables_all_mingwang_without_additional_ability_eligibility() -> None:
     character = str(BANYUE_ID)
     preview = client.post(
         "/api/v1/definitions/preview",
@@ -652,7 +612,7 @@ def test_banyue_api_keeps_c6_only_mingwang_base_partial_and_known_c6_bonus() -> 
     ] == "ineligible"
     assert rules["rule:character:1471:cinema6:mingwang-fire-damage-increase"][
         "eligibility"
-    ] == "eligible"
+    ] == "ineligible"
 
     force_enabled = client.post(
         "/api/v1/definitions/preview",
@@ -678,9 +638,7 @@ def test_banyue_api_keeps_c6_only_mingwang_base_partial_and_known_c6_bonus() -> 
             "condition:banyue:core-enhanced-special-or-assist-buff-active": False,
             "condition:banyue:tremor-active": False,
         },
-        "parameter_values": {
-            "parameter:character:1471:mingwang-current-stacks": 3,
-        },
+        "parameter_values": {},
         "character_builds": {
             character: {
                 "level": 60,
@@ -719,16 +677,8 @@ def test_banyue_api_keeps_c6_only_mingwang_base_partial_and_known_c6_bonus() -> 
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200, response.text
     result = response.json()
-    assert result["events"][0]["modes"]["expected"]["status"] == "blocked"
-    assert result["totals"]["expected"]["complete"] is False
-    base_partial = next(
-        item
-        for item in result["diagnostics"]
-        if "character:1471:cinema6:mingwang-base-bonus-eligibility" in item[
-            "diagnostic_id"
-        ]
-    )
-    assert base_partial["blocking"] is True
+    assert result["events"][0]["modes"]["expected"]["status"] == "calculated"
+    assert result["totals"]["expected"]["complete"] is True
     fire_burst = next(
         (
             item
@@ -742,22 +692,12 @@ def test_banyue_api_keeps_c6_only_mingwang_base_partial_and_known_c6_bonus() -> 
     assert fire_burst is not None, [item["semantic_id"] for item in result["events"]]
     assert fire_burst["damage_type"] == "penetration"
     assert fire_burst["element"] == "fire"
-    assert fire_burst["modes"]["expected"]["status"] == "blocked"
-    assert any(
-        modifier["effect_id"]
-        == "effect:character:1471:cinema6:mingwang-fire-damage-increase"
-        and modifier["value"] == pytest.approx(0.24)
-        for modifier in fire_burst["common_application_trace"]["applied_modifiers"]
-    )
-    known_bonus_applications = [
-        modifier
+    assert fire_burst["modes"]["expected"]["status"] == "calculated"
+    assert not any(
+        modifier["effect_id"].startswith("effect:character:1471:cinema6:mingwang-")
         for event in result["events"]
         for modifier in event["common_application_trace"]["applied_modifiers"]
-        if modifier["effect_id"]
-        == "effect:character:1471:cinema6:mingwang-fire-damage-increase"
-    ]
-    assert known_bonus_applications
-    assert all(item["value"] == pytest.approx(0.24) for item in known_bonus_applications)
+    )
 
     disabled_payload = {
         **payload,
@@ -772,10 +712,7 @@ def test_banyue_api_keeps_c6_only_mingwang_base_partial_and_known_c6_bonus() -> 
     disabled_result = disabled_response.json()
     assert disabled_result["events"][0]["modes"]["expected"]["status"] == "calculated"
     assert disabled_result["totals"]["expected"]["complete"] is True
-    assert not any(
-        "cinema6:mingwang-base-bonus-eligibility" in item["diagnostic_id"]
-        for item in disabled_result["diagnostics"]
-    )
+    assert disabled_result["totals"]["expected"]["complete"] is True
     with pytest.raises(ValueError, match="unique"):
         BanYueCompileConfig(
             skill_levels=(

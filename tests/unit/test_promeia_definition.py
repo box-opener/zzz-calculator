@@ -18,6 +18,7 @@ from core.types import (
     CalculationNode,
     EnemyId,
     Element,
+    EffectOperation,
     SkillGroup,
 )
 from core.application.characters.nanoka_compiler import effective_skill_level
@@ -48,6 +49,7 @@ from core.types import (
     EffectId,
     EventCreationEffect,
     NoCritRule,
+    ModifierEffect,
     UnresolvedEffect,
 )
 
@@ -361,7 +363,7 @@ def test_c6_resistance_ignore_matches_attribute_anomaly_and_disorder_but_never_d
         )
 
 
-def test_c2_unresolved_scope_is_only_the_frost_consuming_core_and_c6_discharge():
+def test_c2_additive_multiplier_scope_is_only_frost_consuming_core_and_c6_discharge():
     definition = compile_promeia(PromeiaCompileConfig(cinema_level=6), _load_raw())
     c2_rule = next(
         rule
@@ -369,9 +371,10 @@ def test_c2_unresolved_scope_is_only_the_frost_consuming_core_and_c6_discharge()
         if str(rule.rule_id)
         == "rule:character:1541:cinema2:anomaly-proficiency-and-frost-discharge"
     )
-    unresolved = next(
-        effect for effect in c2_rule.effects if isinstance(effect, UnresolvedEffect)
-    )
+    effect = next(item for item in c2_rule.effects if isinstance(item, ModifierEffect)
+                  and item.result.modifier_path is CalculationNode.DAMAGE_SKILL_MULTIPLIER)
+    assert effect.result.operation is EffectOperation.ADD
+    assert effect.result.value == Resolved(1.2)
     creation_ids = {
         str(effect.rule.effect_id)
         for rule in definition.rule_items
@@ -386,7 +389,7 @@ def test_c2_unresolved_scope_is_only_the_frost_consuming_core_and_c6_discharge()
     for effect_id in (core_creation_id, c6_creation_id):
         assert (
             _matcher_status(
-                unresolved.rule.filters,
+                effect.rule.filters,
                 _anomaly_like_event("discharge", event_suffix=effect_id),
                 created_by_effect_id=EffectId(effect_id),
             )
@@ -395,7 +398,7 @@ def test_c2_unresolved_scope_is_only_the_frost_consuming_core_and_c6_discharge()
     for effect_id in (chain_creation_id, ultimate_creation_id):
         assert (
             _matcher_status(
-                unresolved.rule.filters,
+                effect.rule.filters,
                 _anomaly_like_event("discharge", event_suffix=effect_id),
                 created_by_effect_id=EffectId(effect_id),
             )
@@ -761,13 +764,13 @@ def test_verdict_discharge_defense_ignore_is_40_plus_c1_20_and_rule_scoped():
 @pytest.mark.parametrize(
     ("move_entry_id", "cinema", "enable_c2", "expected_complete", "expected_ratio"),
     (
-        ("move-entry:character:1541:ex-judgment", 2, True, False, None),
+        ("move-entry:character:1541:ex-judgment", 2, True, True, 7.55),
         ("move-entry:character:1541:ex-judgment", 2, False, True, 6.35),
         ("move-entry:character:1541:chain-hanging-reckoning", 2, True, True, 1.0),
         ("move-entry:character:1541:ultimate-bone-punishment", 2, True, True, 2.5),
     ),
 )
-def test_c2_ambiguity_blocks_only_enabled_frost_consuming_core_type2_event(
+def test_c2_adds_120_points_only_to_frost_consuming_core_type2_event(
     move_entry_id: str,
     cinema: int,
     enable_c2: bool,
@@ -796,12 +799,30 @@ def test_c2_ambiguity_blocks_only_enabled_frost_consuming_core_type2_event(
         (item for item in result["events"] if item["damage_subtype"] == "discharge"),
         None,
     )
-    if expected_ratio is None:
-        assert discharge is not None
-        assert discharge["modes"]["expected"]["status"] == "blocked"
-    else:
-        assert discharge is not None
-        assert discharge["modes"]["expected"]["status"] == "calculated"
-        assert _breakdown_value(
-            discharge, "anomaly.discharge.total-multiplier"
-        ) == pytest.approx(expected_ratio)
+    assert discharge is not None
+    assert discharge["modes"]["expected"]["status"] == "calculated"
+    assert _breakdown_value(
+        discharge, "anomaly.discharge.total-multiplier"
+    ) == pytest.approx(expected_ratio)
+
+
+def test_c2_adds_120_points_to_the_cinema6_frost_special_discharge():
+    entry = "move-entry:character:1541:ex-judgment"
+    result = calculate_payload(
+        _promeia_discharge_payload(
+            entry,
+            cinema=6,
+            enabled_rule_ids=(
+                "rule:character:1541:core:discharge",
+                "rule:character:1541:cinema2:anomaly-proficiency-and-frost-discharge",
+                "rule:character:1541:cinema6:extra-discharge",
+            ),
+        )
+    )
+    special = next(
+        item for item in result["events"]
+        if item["damage_subtype"] == "discharge"
+        and ":cinema6-frost-special-discharge" in item["semantic_id"]
+    )
+    assert special["modes"]["expected"]["status"] == "calculated"
+    assert _breakdown_value(special, "anomaly.discharge.total-multiplier") == pytest.approx(3.2)

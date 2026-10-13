@@ -9,6 +9,7 @@ from core.types import (
     BattleEventKind,
     CalculationNode,
     CharacterRole,
+    CurrentAttackValueSource,
     DamageDealerFilter,
     DamageTag,
     DamageTagFilter,
@@ -32,13 +33,14 @@ from core.types import (
     Resolved,
     RuleSource,
     SnapshotRule,
+    SkillGroup,
+    StandardCritRule,
     StateId,
-    Unresolved,
-    UnresolvedReason,
 )
 
 from ...diagnostics import CalculationDiagnostic, DiagnosticKind
-from ...ids import DiagnosticId, RuleItemId, ScenarioConditionId
+from ...ids import DamageEventSemanticId, DiagnosticId, RuleItemId, ScenarioConditionId
+from ...moves import DamageEventTemplateRef, DerivedDamageEventTemplateRef
 from ...moves import MultiplierRelation
 from ...rules import CalculationRuleItem, RuleEligibility
 from ...scenario import ConditionResolution, ScenarioCondition
@@ -51,6 +53,7 @@ from ..nanoka_compiler import (
     source_for,
 )
 from ..nanoka_source import load_nanoka_raw_record
+from ..templates import DirectDamageEventTemplate
 from .config import JU_FUFU_ID, JuFufuCompileConfig
 from .reviewed import JU_FUFU_REVIEWED_MAPPING
 
@@ -250,24 +253,51 @@ def _fire_spin_popcorn_effects(
     *,
     count: int,
     ratio: float,
-) -> tuple[EventCreationEffect, ...]:
+) -> tuple[
+    tuple[EventCreationEffect, ...],
+    tuple[DirectDamageEventTemplate, ...],
+    tuple[DerivedDamageEventTemplateRef, ...],
+]:
     effects = []
+    templates = []
+    derived_refs = []
+    source_rule_id = RuleItemId("rule:character:1391:cinema6:fire-spin-popcorn")
     for ordinal in range(1, count + 1):
-        unresolved = Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-            notes=(
-                f"The source requires popcorn packet {ordinal} of {count} for the selected 威势 spin. "
-                f"Its known amount is {ratio:.4g} × Ju Fufu ATK; it is Ju Fufu-owned Chain Attack damage with no MoveId. "
-                "The source does not specify the child packet's element."
+        template_id = EventTemplateId(
+            f"template:character:1391:cinema6:popcorn-{ordinal}"
+        )
+        ref = DamageEventTemplateRef(
+            template_id=template_id,
+            semantic_id=DamageEventSemanticId(
+                f"event:character:1391:cinema6:popcorn-{ordinal}"
             ),
-            original_text=original_text,
+            label=f"6影威势旋转爆米花（第{ordinal}枚）",
+            damage_type=DamageType.DIRECT,
+            skill_group=SkillGroup.CHAIN_ATTACK,
+            damage_tags=frozenset({DamageTag.CHAIN_ATTACK}),
+            element=Element.FIRE,
+            source_rule_item_id=source_rule_id,
+        )
+        templates.append(
+            DirectDamageEventTemplate(
+                ref=ref,
+                damage_dealer=JU_FUFU_ID,
+                element=Element.FIRE,
+                base_source=CurrentAttackValueSource(JU_FUFU_ID),
+                crit_rule=StandardCritRule(JU_FUFU_ID),
+                move_id=None,
+            )
+        )
+        derived_refs.append(
+            DerivedDamageEventTemplateRef(
+                template=ref,
+                multiplier=FixedMultiplier(Resolved(ratio)),
+            )
         )
         effects.append(
             EventCreationEffect(
                 rule=EffectRule(
-                    effect_id=EffectId(
-                        f"effect:character:1391:cinema6:popcorn-{ordinal}"
-                    ),
+                    effect_id=EffectId(f"effect:character:1391:cinema6:popcorn-{ordinal}"),
                     source=source,
                     owner=JU_FUFU_ID,
                     target=EffectTarget.TEAM,
@@ -280,12 +310,12 @@ def _fire_spin_popcorn_effects(
                 ),
                 result=EventCreationResult(
                     event_kind=BattleEventKind.DAMAGE,
-                    unresolved_template=unresolved,
+                    event_template_id=template_id,
                     unique_per_source_event=True,
                 ),
             )
         )
-    return tuple(effects)
+    return tuple(effects), tuple(templates), tuple(derived_refs)
 
 
 def compile_ju_fufu(
@@ -295,13 +325,15 @@ def compile_ju_fufu(
     """Compile selectable Direct entries and current state without replaying combat."""
 
     _validate_raw(raw_record, config)
-    entries, templates, move_diagnostics = compile_direct_moves(
+    entries, direct_templates, move_diagnostics = compile_direct_moves(
         character_id=JU_FUFU_ID,
         config=config,
         raw_record=raw_record,
         reviewed_mapping=JU_FUFU_REVIEWED_MAPPING,
         id_namespace="character:1391",
     )
+    templates = list(direct_templates)
+    independent_derived: list[DerivedDamageEventTemplateRef] = []
     raw_moves = raw_move_index(raw_record)
     core = raw_record.core_levels[config.core_level - 1]
     cinemas = {level: _cinema(raw_record, level) for level in range(1, 7)}
@@ -550,6 +582,17 @@ def compile_ju_fufu(
         "Ju Fufu Cinema 6 Chain damage bonus",
     ) / 100.0
     c6_unlocked = config.cinema_level >= 6
+    if c6_unlocked:
+        popcorn_effects, popcorn_templates, popcorn_refs = _fire_spin_popcorn_effects(
+            cinema_sources[6],
+            c6.description,
+            count=c6_count,
+            ratio=c6_popcorn_ratio,
+        )
+        templates.extend(popcorn_templates)
+        independent_derived.extend(popcorn_refs)
+    else:
+        popcorn_effects = ()
     rules.append(
         _rule(
             "cinema6:chain-damage",
@@ -577,18 +620,10 @@ def compile_ju_fufu(
         _rule(
             "cinema6:fire-spin-popcorn",
             cinema_sources[6],
-            f"6影：威势旋转命中后生成{c6_count}枚爆米花追加伤害（属性待明确）",
+            f"6影：威势旋转命中后生成{c6_count}枚火属性连携伤害爆米花",
             c6.description,
             RuleEligibility.ELIGIBLE if c6_unlocked else RuleEligibility.INELIGIBLE,
-            effects=(
-                _fire_spin_popcorn_effects(
-                    cinema_sources[6],
-                    c6.description,
-                    count=c6_count,
-                    ratio=c6_popcorn_ratio,
-                )
-                if c6_unlocked else ()
-            ),
+            effects=popcorn_effects if c6_unlocked else (),
         )
     )
 
@@ -619,6 +654,7 @@ def compile_ju_fufu(
         templates=templates,
         rules=rules,
         conditions=conditions,
+        independent_derived_damage_events=independent_derived,
         diagnostics=all_diagnostics,
     )
 

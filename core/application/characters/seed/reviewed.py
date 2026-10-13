@@ -231,7 +231,7 @@ SEED_REVIEWED_MAPPING = NanokaReviewedMapping(
     data_quality_notes=(
         "Seed is a non-Anomaly Attack agent; the source provides no authored Anomaly or Disorder move, so none is synthesized.",
         "Basic stages 1–2 are Physical and stages 3–4 Electric per their description; Falling Flower, dash, and dodge-counter entries retain their source-described elements.",
-        "The C6 source identifies a Heavy Strike trigger and 3 × 165% ATK, but does not identify the extra laser event's element, tag, or event identity. It remains an unresolved child event rather than inheriting fabricated classifications.",
+        "The C6 source identifies a Heavy Strike trigger and three 165% ATK lasers; the user confirmed these are Electric Basic Direct child events.",
         "Steel Energy, Energy, Decibel, Daze, and timing/cooldown are not modeled as standalone damage results. Core and cinema current states are user-selected static inputs; the implementation does not replay entry, switching, or durations.",
     ),
 )

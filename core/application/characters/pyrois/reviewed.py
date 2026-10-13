@@ -232,8 +232,8 @@ PYROIS_REVIEWED_MAPPING = NanokaReviewedMapping(
     data_quality_notes=(
         "All 18 reviewed selectable move entries map to source Ether damage curves. The three Parry Assist parameters are Daze-only and intentionally do not create damage entries.",
         "The four Ultimate branches use their own curves: upper 1551015, lower 1551014, left 1551013, and right 1551016.",
-        "Special: Battle Order 1551022 is a separate source-named Ether attack created by EX Special or Ultimate; it is compiled as a derived event, not added to a parent multiplier.",
-        "The Core's left/right branch extra ATK damage retains its source multiplier and trigger, but the source does not specify the child event's element or skill/tag identity.",
+        "Special: Battle Order 1551022 is a separate source-named Ether Special attack created by EX Special or Ultimate and uses Pyrois's current panel; it is not added to a parent multiplier.",
+        "The Core's left/right branch extra ATK damage uses typed Ether Ultimate Direct children and retains its source multiplier and trigger.",
     ),
 )
 

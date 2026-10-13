@@ -1352,8 +1352,8 @@ def _resolve_seed_core_partner(
     """Resolve Seed's Core recipient from the other Attack agents' Initial ATK.
 
     This deliberately runs after panel assembly and reads only Initial snapshots.
-    If panels are missing or the maximum is tied, the first-pass placeholder
-    definition remains in place with its local diagnostic and stable rule IDs.
+    Ties resolve to the lowest numeric character ID, independent of team order.
+    If a candidate panel is missing, the first-pass placeholder remains in place.
     """
 
     seed_index = next(
@@ -1380,8 +1380,7 @@ def _resolve_seed_core_partner(
 
     maximum = max(value for _, value in attack_values)
     winners = tuple(character_id for character_id, value in attack_values if value == maximum)
-    if len(winners) != 1:
-        return definitions
+    partner = min(winners, key=lambda character_id: int(str(character_id).rsplit(":", 1)[-1]))
 
     configs = raw_compile_configs if isinstance(raw_compile_configs, Mapping) else {}
     raw_seed_values = configs.get(str(SEED_ID), {})
@@ -1389,7 +1388,7 @@ def _resolve_seed_core_partner(
     resolved = compile_seed_with_resolved_partner(
         seed_values,
         team_ids,
-        winners[0],
+        partner,
     )
     updated = list(definitions)
     updated[seed_index] = resolved

@@ -35,8 +35,6 @@ from core.types import (
     SnapshotRule,
     StandardCritRule,
     Unresolved,
-    UnresolvedReason,
-    UnresolvedEffect,
 )
 
 from ...diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -197,31 +195,6 @@ def _validate_raw_record(raw: NanokaRawRecord, config: NormaCompileConfig) -> No
         raise ValueError("Norma compile config has an unexpected character ID")
 
 
-def _unresolved_pf_effect(source: RuleSource, source_text: str) -> UnresolvedEffect:
-    return UnresolvedEffect(
-        rule=EffectRule(
-            effect_id=EffectId("effect:character:1571:core:penetration-force-atk"),
-            source=source,
-            owner=NORMA_ID,
-            target=EffectTarget.SELF,
-            snapshot_rule=SnapshotRule.SETTLEMENT,
-            filters=(
-                DamageDealerFilter(NORMA_ID),
-                DamageTypeFilter(DamageType.DIRECT),
-            ),
-        ),
-        unresolved=Unresolved(
-            reason=UnresolvedReason.MISSING_DATA,
-            notes=(
-                "The source gives Norma +1.25 ATK per current Penetration Force, capped at 1200 ATK. "
-                "The current Stun panel/effect contract has no Penetration Force source node; the Rupture-only "
-                "derived Penetration Force formula cannot be applied to Norma."
-            ),
-            original_text=source_text,
-        ),
-    )
-
-
 def _core_effects(
     config: NormaCompileConfig,
     core_source: RuleSource,
@@ -262,10 +235,9 @@ def _core_effects(
     pf_rule = _rule(
         "core:penetration-force-atk",
         core_source,
-        "核心被动：贯穿力转攻击力（当前角色属性源缺失，局部未解）",
+        "核心被动：每点当前贯穿力转化为1.25攻击力，最多1200点攻击力",
         core_text,
         RuleEligibility.ELIGIBLE,
-        effects=(_unresolved_pf_effect(core_source, core_text),),
     )
     return crit_rule, pf_rule
 

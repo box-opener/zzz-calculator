@@ -10,7 +10,9 @@ from core.types import (
     CalculationNode,
     CharacterId,
     CharacterRole,
+    CurrentAttackValueSource,
     DamageDealerFilter,
+    DamageTag,
     DamageType,
     DamageTypeFilter,
     EffectId,
@@ -23,20 +25,23 @@ from core.types import (
     EventCreationResult,
     EventTemplateId,
     EventTemplateIdFilter,
+    FixedMultiplier,
     ModifierEffect,
     ModifierResult,
     Resolved,
     RuleSource,
     ScenarioParameterDerivedValue,
     SnapshotRule,
+    SkillGroup,
+    StandardCritRule,
     Unresolved,
     UnresolvedEffect,
     UnresolvedReason,
 )
 
 from ...diagnostics import CalculationDiagnostic, DiagnosticKind
-from ...ids import DiagnosticId, RuleItemId
-from ...moves import MoveCalculationEntry
+from ...ids import DamageEventSemanticId, DiagnosticId, RuleItemId
+from ...moves import DamageEventTemplateRef, DerivedDamageEventTemplateRef, MoveCalculationEntry
 from ...rules import CalculationRuleItem, RuleEligibility
 from ...scenario import (
     ConditionResolution,
@@ -52,6 +57,7 @@ from ..nanoka_compiler import (
     source_for,
 )
 from ..nanoka_source import load_nanoka_raw_record
+from ..templates import DirectDamageEventTemplate
 from .config import SEED_ID, SeedCompileConfig
 from .reviewed import (
     CINEMA2_ENERGY_INTERVALS_SPENT,
@@ -309,8 +315,8 @@ def compile_seed(
                 kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
                 message=(
                     "Seed's Core selects the other Attack teammate with the highest Initial ATK. "
-                    "The team has not resolved a unique partner from candidate Initial panels, "
-                    "so recipient effects are omitted instead of guessing a character or slot."
+                    "At least one candidate Initial panel is missing, so recipient effects are "
+                    "omitted instead of guessing a character or slot."
                 ),
                 blocking=False,
                 original_text=core.description,
@@ -800,27 +806,61 @@ def compile_seed(
         )
     )
 
-    laser_event_unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            "Cinema 6 gives the extra laser trigger (Heavy Strike), count (3), and ratio "
-            "(165% ATK each), but does not identify the child event's element, damage tag, "
-            "or independent move identity. Preserve the known 3 × 165% source inputs and "
-            "leave only that child unresolved; do not fabricate a Direct event classification."
-        ),
-        original_text=cinema6.description,
-    )
-    laser_diagnostic = CalculationDiagnostic(
-        diagnostic_id=DiagnosticId("ambiguous:character:1461:cinema6-laser-event-identity"),
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        message=(
-            "The current heavy-strike event remains calculated. The C6 laser child preserves "
-            "its source count and multiplier but lacks source-defined event identity, element, "
-            "and tag, so it remains local-unresolved."
-        ),
-        blocking=False,
-        original_text=cinema6.description,
-    )
+    laser_rule_id = RuleItemId("rule:character:1461:cinema6:heavy-strike-laser-child")
+    laser_templates = []
+    laser_refs = []
+    laser_effects = []
+    if config.cinema_level >= 6:
+        for ordinal in range(1, 4):
+            template_id = EventTemplateId(f"template:character:1461:cinema6:laser-{ordinal}")
+            template_ref = DamageEventTemplateRef(
+                template_id=template_id,
+                semantic_id=DamageEventSemanticId(f"event:character:1461:cinema6:laser-{ordinal}"),
+                label=f"6影重戮激光（第{ordinal}道）",
+                damage_type=DamageType.DIRECT,
+                skill_group=SkillGroup.BASIC_ATTACK,
+                damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
+                element=Element.ELECTRIC,
+                source_rule_item_id=laser_rule_id,
+            )
+            laser_templates.append(
+                DirectDamageEventTemplate(
+                    ref=template_ref,
+                    damage_dealer=SEED_ID,
+                    element=Element.ELECTRIC,
+                    base_source=CurrentAttackValueSource(SEED_ID),
+                    crit_rule=StandardCritRule(SEED_ID),
+                    move_id=None,
+                )
+            )
+            laser_refs.append(
+                DerivedDamageEventTemplateRef(
+                    template=template_ref,
+                    multiplier=FixedMultiplier(Resolved(1.65)),
+                )
+            )
+            laser_effects.append(
+                EventCreationEffect(
+                    rule=EffectRule(
+                        effect_id=EffectId(
+                            f"effect:character:1461:cinema6:laser-followup-{ordinal}"
+                        ),
+                        source=c6_source,
+                        owner=SEED_ID,
+                        target=EffectTarget.TEAM,
+                        snapshot_rule=SnapshotRule.SETTLEMENT,
+                        filters=(
+                            DamageDealerFilter(SEED_ID),
+                            _event_filter(entry_by_key["heavy-strike"]),
+                        ),
+                    ),
+                    result=EventCreationResult(
+                        event_kind=BattleEventKind.DAMAGE,
+                        event_template_id=template_id,
+                        unique_per_source_event=True,
+                    ),
+                )
+            )
     conditions.append(
         _condition(
             CINEMA6_LASER_PROC_ACTIVE,
@@ -829,40 +869,19 @@ def compile_seed(
             config.cinema6_laser_proc_active,
         )
     )
-    laser_trigger_rule = EffectRule(
-        effect_id=EffectId("effect:character:1461:cinema6:laser-followup"),
-        source=c6_source,
-        owner=SEED_ID,
-        target=EffectTarget.TEAM,
-        snapshot_rule=SnapshotRule.SETTLEMENT,
-        filters=(
-            DamageDealerFilter(SEED_ID),
-            _event_filter(entry_by_key["heavy-strike"]),
-        ),
-    )
     cinema_rules.append(
         _rule(
             "cinema6:heavy-strike-laser-child",
             c6_source,
-            "6影：重戮额外3道激光（每道165%攻击力；事件分类待源明确）",
+            "6影：重戮额外3道电属性普攻激光（每道165%攻击力）",
             cinema6.description,
             RuleEligibility.ELIGIBLE
             if config.cinema_level >= 6
             else RuleEligibility.INELIGIBLE,
-            effects=(
-                EventCreationEffect(
-                    rule=laser_trigger_rule,
-                    result=EventCreationResult(
-                        event_kind=BattleEventKind.DAMAGE,
-                        unresolved_template=laser_event_unresolved,
-                        unique_per_source_event=True,
-                    ),
-                ),
-            )
+            effects=tuple(laser_effects)
             if config.cinema_level >= 6
             else (),
             condition_ids=(CINEMA6_LASER_PROC_ACTIVE,),
-            diagnostics=(laser_diagnostic,) if config.cinema_level >= 6 else (),
         )
     )
 
@@ -880,10 +899,11 @@ def compile_seed(
             f"Nanoka {raw_record.source_version}: {raw_record.source_url}",
         ),
         entries=entries,
-        templates=templates,
         rules=(*rules, *cinema_rules),
         conditions=conditions,
         parameters=parameters,
+        templates=(*templates, *laser_templates),
+        independent_derived_damage_events=laser_refs,
         diagnostics=diagnostics,
     )
 

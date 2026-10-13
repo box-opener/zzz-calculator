@@ -1043,7 +1043,7 @@ def test_seed_partner_surround_hunt_targets_only_the_selected_dealer_off_field()
     )
 
 
-def test_seed_tied_initial_attack_keeps_local_diagnostic_and_api_result() -> None:
+def test_seed_tied_initial_attack_uses_lowest_numeric_id_independent_of_team_order() -> None:
     seed, anton, billy = "character:1461", "character:1111", "character:1081"
     payload = _seed_calculation_payload(
         seed,
@@ -1061,18 +1061,38 @@ def test_seed_tied_initial_attack_keeps_local_diagnostic_and_api_result() -> Non
 
     assert response.status_code == 200, response.text
     result = response.json()
-    tie_diagnostic = next(
-        item
-        for item in result["diagnostics"]
-        if item["diagnostic_id"] == "ambiguous:character:1461:core-partner-selection"
-    )
-    assert tie_diagnostic["blocking"] is False
-    # Seed's own result is independent of the unknown Core recipient.
     assert result["totals"]["expected"]["complete"] is True
     assert not any(
-        item["rule_item_id"] == "rule:character:1461:core:partner-bright-attack"
-        for item in result["panel_traces"]
+        item["diagnostic_id"] == "ambiguous:character:1461:core-partner-selection"
+        for item in result["diagnostics"]
     )
+    tie_traces = [
+        item for item in result["panel_traces"]
+        if item["rule_item_id"] == "rule:character:1461:core:partner-bright-attack"
+    ]
+    assert tie_traces
+    assert {item["recipient_character_id"] for item in tie_traces} == {billy}
+
+    reversed_response = client.post(
+        "/api/v1/moves/calculate",
+        json=_seed_calculation_payload(
+            seed,
+            [billy, anton],
+            {
+                seed: _seed_panel(1200.0),
+                anton: _seed_panel(1900.0),
+                billy: _seed_panel(1900.0, element="physical"),
+            },
+            conditions={"condition:seed:seed-ex-buff-active-on-partner": True},
+            enabled_rules=["rule:character:1461:core:partner-bright-attack"],
+        ),
+    )
+    assert reversed_response.status_code == 200, reversed_response.text
+    reversed_ties = [
+        item for item in reversed_response.json()["panel_traces"]
+        if item["rule_item_id"] == "rule:character:1461:core:partner-bright-attack"
+    ]
+    assert {item["recipient_character_id"] for item in reversed_ties} == {billy}
 
     candidate_payload = _seed_calculation_payload(
         anton,
@@ -1091,11 +1111,9 @@ def test_seed_tied_initial_attack_keeps_local_diagnostic_and_api_result() -> Non
     )
     assert candidate_response.status_code == 200, candidate_response.text
     candidate_result = candidate_response.json()
-    assert candidate_result["totals"]["expected"]["complete"] is False
-    assert any(
-        item["diagnostic_id"].startswith("effect:character:1461:core:partner-bright-attack")
-        and item["diagnostic_id"].endswith("unresolved-effect")
-        and item["blocking"]
+    assert candidate_result["totals"]["expected"]["complete"] is True
+    assert not any(
+        item["diagnostic_id"] == "ambiguous:character:1461:core-partner-selection"
         for item in candidate_result["diagnostics"]
     )
 
@@ -1115,8 +1133,8 @@ def test_seed_tied_initial_attack_keeps_local_diagnostic_and_api_result() -> Non
     hunt_response = client.post("/api/v1/moves/calculate", json=hunt_payload)
     assert hunt_response.status_code == 200, hunt_response.text
     hunt_result = hunt_response.json()
-    assert hunt_result["totals"]["expected"]["complete"] is False
-    assert any(
+    assert hunt_result["totals"]["expected"]["complete"] is True
+    assert not any(
         item["diagnostic_id"].startswith(
             "effect:character:1461:core:partner-surround-hunt-damage"
         )
@@ -1145,14 +1163,7 @@ def test_seed_tied_initial_attack_keeps_local_diagnostic_and_api_result() -> Non
     c2_response = client.post("/api/v1/moves/calculate", json=c2_payload)
     assert c2_response.status_code == 200, c2_response.text
     c2_result = c2_response.json()
-    assert c2_result["totals"]["expected"]["complete"] is False
-    assert any(
-        item["diagnostic_id"].startswith(
-            "effect:character:1461:cinema2:partner-defense-ignore"
-        )
-        and item["blocking"]
-        for item in c2_result["diagnostics"]
-    )
+    assert c2_result["totals"]["expected"]["complete"] is True
 
     no_attack_payload = _seed_calculation_payload(
         seed,
@@ -1166,7 +1177,7 @@ def test_seed_tied_initial_attack_keeps_local_diagnostic_and_api_result() -> Non
     assert no_attack_response.json()["totals"]["expected"]["complete"] is True
 
 
-def test_seed_cinema6_unknown_laser_is_local_partial_and_disabling_it_keeps_parent() -> None:
+def test_seed_cinema6_lasers_are_typed_electric_basic_children_and_disabling_keeps_parent() -> None:
     seed = "character:1461"
     payload = _seed_calculation_payload(
         seed,
@@ -1180,17 +1191,13 @@ def test_seed_cinema6_unknown_laser_is_local_partial_and_disabling_it_keeps_pare
     assert response.status_code == 200, response.text
     result = response.json()
     assert result["events"][0]["modes"]["expected"]["status"] == "calculated"
-    assert result["diagnostics"][0]["diagnostic_id"] == "ambiguous:character:1461:cinema6-laser-event-identity"
-    unresolved_laser = next(
-        item
-        for item in result["diagnostics"]
-        if item["diagnostic_id"]
-        == "application:effect:character:1461:cinema6:laser-followup:unresolved-template"
-    )
-    assert "count (3)" in unresolved_laser["message"]
-    assert "165% ATK each" in unresolved_laser["message"]
-    assert "3道激光" in unresolved_laser["original_text"]
-    assert "165%" in unresolved_laser["original_text"]
+    lasers = [item for item in result["events"] if ":cinema6:laser-" in item["semantic_id"]]
+    assert len(lasers) == 3
+    assert all(item["damage_type"] == "direct" for item in lasers)
+    assert all(item["element"] == "electric" for item in lasers)
+    assert all(item["modes"]["expected"]["status"] == "calculated" for item in lasers)
+    assert result["totals"]["expected"]["complete"] is True
+    assert not any("cinema6-laser" in item["diagnostic_id"] for item in result["diagnostics"])
 
     disabled_payload = _seed_calculation_payload(
         seed,
