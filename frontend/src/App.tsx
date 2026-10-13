@@ -3,6 +3,7 @@ import DriveDiscCard from "./components/DriveDiscCard";
 import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTraceDetails";
 import NumberField from "./components/NumberField";
 import WEnginePicker from "./components/WEnginePicker";
+import MiyousheImportDialog, { type MiyousheImportPreview } from "./components/MiyousheImportDialog";
 import {
   canAddToTeamSlot,
   calculationTeamOrder,
@@ -46,6 +47,7 @@ import {
   createCharacterConfig,
   parseCharacterConfig,
   serializeCharacterConfig,
+  type EquipmentWengineConfig,
 } from "./state/equipmentConfig";
 import { filterCharacterCatalog, isCharacterSelectable } from "./state/characterLibrary";
 import { aggregateEditorViews } from "./state/editorAggregation";
@@ -235,9 +237,9 @@ type BuildPreviewContribution = {
 type DriveDiscStatPreview = {
   stat_key: string;
   label: string;
-  value_per_roll: number;
-  display_value_per_roll: string;
-  roll_count: number;
+  value_per_roll: number | null;
+  display_value_per_roll: string | null;
+  roll_count: number | null;
   total_value: number;
   display_total_value: string;
 };
@@ -405,8 +407,9 @@ function App() {
   const [triggerActors, setTriggerActors] = useState<Record<string, string>>({});
   const [stacks, setStacks] = useState<Record<string, number>>({});
   const [characterLevels, setCharacterLevels] = useState<Record<string, number>>({});
-  const [wengineSelections, setWengineSelections] = useState<Record<string, { id: string; level: number; refinement: number }>>({});
+  const [wengineSelections, setWengineSelections] = useState<Record<string, EquipmentWengineConfig>>({});
   const [driveDiscSelections, setDriveDiscSelections] = useState<Record<string, DriveDiscConfig[]>>({});
+  const [miyousheImportOwner, setMiyousheImportOwner] = useState<string | null>(null);
   const [buildPreviews, setBuildPreviews] = useState<Record<string, BuildPreview | null>>({});
   const [enemyLevel, setEnemyLevel] = useState(70);
   const [enemyDamageReduction, setEnemyDamageReduction] = useState(0);
@@ -729,6 +732,8 @@ function App() {
               formation_character_ids: normalizedTeam,
               level: selection.level,
               refinement: selection.refinement,
+              source_base_value: selection.source_base_value,
+              source_advanced_stat_value: selection.source_advanced_stat_value,
               condition_context: authoritativeConditionContext,
             }),
             signal: abortController.signal,
@@ -764,6 +769,8 @@ function App() {
                 wengine_id: selection.id,
                 wengine_level: selection.level,
                 wengine_refinement: selection.refinement,
+                wengine_source_base_value: selection.source_base_value,
+                wengine_source_advanced_stat_value: selection.source_advanced_stat_value,
               } : {}),
               drive_discs: driveDiscSource[owner] ?? [],
             }),
@@ -1041,7 +1048,7 @@ function App() {
 
   const updateWengineSelection = (
     owner: string,
-    selection: { id: string; level: number; refinement: number },
+    selection: EquipmentWengineConfig,
   ) => {
     const nextSelections = { ...wengineSelections, [owner]: selection };
     setWengineSelections(nextSelections);
@@ -1056,10 +1063,10 @@ function App() {
       void loadEditors(teamIds, currentOperatorId, configs, conditionValuesRef.current, {}, nextSelections);
       return;
     }
-    updateWengineSelection(owner, {
-      ...(wengineSelections[owner] ?? { level: 60, refinement: 1 }),
-      id: wengineId,
-    });
+    const existing = wengineSelections[owner];
+    updateWengineSelection(owner, existing?.id === wengineId
+      ? { ...existing, id: wengineId }
+      : { id: wengineId, level: 60, refinement: 1 });
   };
 
   const updateEnemyResistance = (element: EnemyResistanceElement, value: number) => {
@@ -1082,7 +1089,13 @@ function App() {
       "equipment-build",
       compileConfig,
       selection?.id
-        ? { id: selection.id, level: selection.level, refinement: selection.refinement }
+        ? {
+          id: selection.id,
+          level: selection.level,
+          refinement: selection.refinement,
+          ...(selection.source_base_value === undefined ? {} : { source_base_value: selection.source_base_value }),
+          ...(selection.source_advanced_stat_value === undefined ? {} : { source_advanced_stat_value: selection.source_advanced_stat_value }),
+        }
         : null,
       driveDiscSelections[owner] ?? [],
       null,
@@ -1177,6 +1190,94 @@ function App() {
     }
   };
 
+  const applyMiyousheImport = (owner: string, preview: MiyousheImportPreview) => {
+    if (preview.character_id !== owner || !preview.can_apply) {
+      setEquipmentFeedback((current) => ({
+        ...current,
+        [owner]: { kind: "error", message: "米游社预览没有可应用的完整角色映射。" },
+      }));
+      return;
+    }
+
+    const currentConfig = configs[owner] ?? {};
+    const sourceCompileConfig = preview.compile_config;
+    const currentSkillLevels = currentConfig.skill_levels;
+    const sourceSkillLevels = sourceCompileConfig.skill_levels;
+    const nextConfig = {
+      ...currentConfig,
+      ...sourceCompileConfig,
+      ...(sourceSkillLevels && typeof sourceSkillLevels === "object" && !Array.isArray(sourceSkillLevels)
+        ? {
+          skill_levels: {
+            ...(currentSkillLevels && typeof currentSkillLevels === "object" && !Array.isArray(currentSkillLevels)
+              ? currentSkillLevels as Record<string, number>
+              : {}),
+            ...(sourceSkillLevels as Record<string, number>),
+          },
+        }
+        : {}),
+    };
+    const nextConfigs = { ...configs, [owner]: nextConfig };
+    const nextCharacterLevels = { ...characterLevels };
+    if (typeof preview.character_level === "number") {
+      nextCharacterLevels[owner] = preview.character_level;
+    }
+
+    const nextWengineSelections = { ...wengineSelections };
+    if (preview.wengine_explicit_null) {
+      delete nextWengineSelections[owner];
+    } else if (preview.wengine_present && preview.wengine) {
+      const existing = wengineSelections[owner];
+      const sameId = existing?.id === preview.wengine.id;
+      const sameLevel = sameId && existing?.level === preview.wengine.level;
+      const nextWengine: EquipmentWengineConfig = {
+        ...(sameId && existing ? existing : {
+          id: preview.wengine.id,
+          level: preview.wengine.level,
+          refinement: 1,
+        }),
+        ...preview.wengine,
+        ...(preview.wengine.refinement === undefined && sameId && existing
+          ? { refinement: existing.refinement }
+          : {}),
+      };
+      if (preview.wengine.source_base_value === undefined
+        || preview.wengine.source_advanced_stat_value === undefined) {
+        if (!sameLevel) {
+          delete nextWengine.source_base_value;
+          delete nextWengine.source_advanced_stat_value;
+        }
+      }
+      nextWengineSelections[owner] = nextWengine;
+    }
+
+    const nextDriveDiscSelections = preview.drive_discs_present || preview.drive_discs_explicit_null
+      ? { ...driveDiscSelections, [owner]: preview.drive_discs }
+      : driveDiscSelections;
+    setConfigs(nextConfigs);
+    setCharacterLevels(nextCharacterLevels);
+    setWengineSelections(nextWengineSelections);
+    setDriveDiscSelections(nextDriveDiscSelections);
+    setEquipmentFeedback((current) => ({
+      ...current,
+      [owner]: {
+        kind: "success",
+        message: `已应用 ${preview.display_name} 的可确认米游社数据；未确认字段见下方诊断。`,
+      },
+    }));
+    setDiagnostics(preview.diagnostics.map((item) => item.message));
+    void loadEditors(
+      teamIds,
+      currentOperatorId,
+      nextConfigs,
+      conditionValuesRef.current,
+      {},
+      nextWengineSelections,
+      nextDriveDiscSelections,
+      nextCharacterLevels,
+    );
+  };
+
   const updateDriveDisc = (owner: string, slot: number, nextDisc: DriveDiscConfig | null) => {
     const current = driveDiscSelections[owner] ?? [];
     const nextForOwner = nextDisc
@@ -1257,7 +1358,13 @@ function App() {
     return [id, {
       level: characterLevels[id] ?? 60,
       build_mode: "equipment-build",
-      ...(selection?.id ? { wengine_id: selection.id, wengine_level: selection.level, wengine_refinement: selection.refinement } : {}),
+      ...(selection?.id ? {
+        wengine_id: selection.id,
+        wengine_level: selection.level,
+        wengine_refinement: selection.refinement,
+        ...(selection.source_base_value === undefined ? {} : { wengine_source_base_value: selection.source_base_value }),
+        ...(selection.source_advanced_stat_value === undefined ? {} : { wengine_source_advanced_stat_value: selection.source_advanced_stat_value }),
+      } : {}),
       drive_discs: driveDiscSelections[id] ?? [],
     }];
   }));
@@ -1508,6 +1615,9 @@ function App() {
                     </div>
                     <div className="equipment-tools">
                       <span className="equipment-schema-note">JSON · 角色配置 v2</span>
+                      <button className="toolbar-button" type="button" onClick={() => setMiyousheImportOwner(id)}>
+                        <span aria-hidden="true">↻</span> 从米游社导入
+                      </button>
                       <button className="toolbar-button" type="button" onClick={() => equipmentImportInputRefs.current[id]?.click()}>
                         <span aria-hidden="true">↑</span> 导入配置
                       </button>
@@ -1553,7 +1663,7 @@ function App() {
                     <div className="subsection-heading"><div><span className="eyebrow">W-ENGINE</span><h3>音擎</h3></div><span className="subsection-badge">音擎构筑</span></div>
                     <div className="wengine-fields">
                       <div className="wengine-selection-field"><div className="select-field wengine-select"><span>音擎</span><WEnginePicker engines={wengines} characterId={id} specialty={character?.specialty} selectedId={wengineSelections[id]?.id} specialtyLabel={specialtyLabel} onSelect={(wengineId) => selectWengine(id, wengineId)} /></div>{selectedWengine && selectedWengine.specialty !== character?.specialty && <small className="wengine-specialty-warning">职业与音擎专精不匹配，仅基础攻击力和主词条生效。</small>}</div>
-                      <NumberField label="音擎等级" value={wengineSelections[id]?.level ?? 60} integer min={60} max={60} unit="级" helper="当前构筑等级上限" readOnly />
+                      <NumberField label="音擎等级" value={wengineSelections[id]?.level ?? 60} integer min={1} max={60} unit="级" helper="实装等级；非60级需提供对应实装属性值" onCommit={(value) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: selectedWengine?.wengine_id ?? "", level: 60, refinement: 1 }), level: value, source_base_value: undefined, source_advanced_stat_value: undefined })} />
                       <NumberField label="精炼" value={wengineSelections[id]?.refinement ?? 1} integer min={1} max={5} unit="阶" helper="范围 1–5 阶" onCommit={(value) => updateWengineSelection(id, { ...(wengineSelections[id] ?? { id: "", level: 60 }), refinement: value })} />
                     </div>
                   </div>
@@ -1777,6 +1887,11 @@ function App() {
       </section>
 
       {diagnostics.length > 0 && <section className="diagnostics glass-card"><p className="eyebrow">DIAGNOSTICS</p>{diagnostics.map((message) => <div className="diagnostic" key={message}><strong>API</strong><span>{message}</span></div>)}</section>}
+      {miyousheImportOwner && <MiyousheImportDialog
+        characterId={miyousheImportOwner}
+        onClose={() => setMiyousheImportOwner(null)}
+        onApply={(preview) => applyMiyousheImport(miyousheImportOwner, preview)}
+      />}
     </main>
   );
 }

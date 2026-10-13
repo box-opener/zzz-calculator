@@ -1514,6 +1514,16 @@ def _presentation_request(
                 ),
                 wengine_level=int(raw.get("wengine_level", 60)),
                 wengine_refinement=int(raw.get("wengine_refinement", 1)),
+                wengine_source_base_value=(
+                    float(raw["wengine_source_base_value"])
+                    if raw.get("wengine_source_base_value") is not None
+                    else None
+                ),
+                wengine_source_advanced_stat_value=(
+                    float(raw["wengine_source_advanced_stat_value"])
+                    if raw.get("wengine_source_advanced_stat_value") is not None
+                    else None
+                ),
                 drive_discs=_parse_drive_discs(raw.get("drive_discs", ())),
             )
         )
@@ -2011,7 +2021,7 @@ def _build_records(
         damage_event_templates: tuple[DamageEventTemplate, ...] = ()
         derived_damage_events: tuple[DerivedDamageEventTemplateRef, ...] = ()
         contributions: tuple[BuildStatContribution, ...] = (
-            character_base_stat_contributions(character_id)
+            character_base_stat_contributions(character_id, level=build.level)
         )
         if build.wengine_id is not None:
             owner_capabilities = equipment_capabilities_for_definition(
@@ -2033,6 +2043,10 @@ def _build_records(
                     character_id,
                     level=build.wengine_level,
                     refinement=build.wengine_refinement,
+                    source_base_value=build.wengine_source_base_value,
+                    source_advanced_stat_value=(
+                        build.wengine_source_advanced_stat_value
+                    ),
                 ),
                 owner_capabilities=owner_capabilities,
             )

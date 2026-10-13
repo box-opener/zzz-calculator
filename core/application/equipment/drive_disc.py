@@ -252,7 +252,11 @@ def compile_drive_discs(
                     source,
                     f"{source.source_id}:main:{disc.main_stat.value}",
                     disc.main_stat,
-                    DRIVE_DISC_MAIN_STAT_VALUES[disc.main_stat],
+                    (
+                        disc.main_stat_value
+                        if disc.main_stat_value is not None
+                        else DRIVE_DISC_MAIN_STAT_VALUES[disc.main_stat]
+                    ),
                 )
             )
         for substat in disc.substats:
@@ -261,7 +265,12 @@ def compile_drive_discs(
                     source,
                     f"{source.source_id}:sub:{substat.stat.value}",
                     substat.stat,
-                    DRIVE_DISC_SUBSTAT_VALUES[substat.stat] * substat.roll_count,
+                    (
+                        substat.value
+                        if substat.value is not None
+                        else DRIVE_DISC_SUBSTAT_VALUES[substat.stat]
+                        * (substat.roll_count or 0)
+                    ),
                 )
             )
         if not disc.complete:

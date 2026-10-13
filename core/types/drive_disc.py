@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum
+import math
 
 from .common import CharacterId, DriveDiscSetId
 
@@ -48,13 +49,26 @@ class DriveDiscStatKey(StrEnum):
 @dataclass(frozen=True, slots=True)
 class DriveDiscSubstatRoll:
     stat: DriveDiscStatKey
-    roll_count: int
+    roll_count: int | None = None
+    value: float | None = None
 
     def __post_init__(self) -> None:
         if self.stat not in DRIVE_DISC_SUBSTAT_VALUES:
             raise ValueError(f"unsupported Drive Disc substat: {self.stat.value}")
-        if not 1 <= self.roll_count <= 6:
+        if (self.roll_count is None) == (self.value is None):
+            raise ValueError("Drive Disc substat must define either roll_count or value")
+        if self.roll_count is not None and (
+            isinstance(self.roll_count, bool)
+            or not isinstance(self.roll_count, int)
+            or not 1 <= self.roll_count <= 6
+        ):
             raise ValueError("Drive Disc substat roll_count must be between 1 and 6")
+        if self.value is not None and (
+            isinstance(self.value, bool)
+            or not math.isfinite(self.value)
+            or self.value < 0
+        ):
+            raise ValueError("Drive Disc exact substat value must be finite and non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +77,8 @@ class EquippedDriveDisc:
     set_id: DriveDiscSetId
     main_stat: DriveDiscStatKey | None
     substats: tuple[DriveDiscSubstatRoll, ...] = ()
+    main_stat_value: float | None = None
+    level: int | None = None
 
     def __post_init__(self) -> None:
         if not str(self.set_id):
@@ -75,6 +91,20 @@ class EquippedDriveDisc:
             raise ValueError(
                 f"invalid main stat {self.main_stat.value} for slot {int(self.slot)}"
             )
+        if self.main_stat is None and self.main_stat_value is not None:
+            raise ValueError("Drive Disc main_stat_value requires main_stat")
+        if self.main_stat_value is not None and (
+            isinstance(self.main_stat_value, bool)
+            or not math.isfinite(self.main_stat_value)
+            or self.main_stat_value < 0
+        ):
+            raise ValueError("Drive Disc exact main stat value must be finite and non-negative")
+        if self.level is not None and (
+            isinstance(self.level, bool)
+            or not isinstance(self.level, int)
+            or not 0 <= self.level <= 15
+        ):
+            raise ValueError("Drive Disc level must be between 0 and 15")
         if len(self.substats) > 4:
             raise ValueError("a Drive Disc can have at most four substats")
         keys = tuple(item.stat for item in self.substats)
@@ -86,10 +116,17 @@ class EquippedDriveDisc:
 
     @property
     def total_roll_count(self) -> int:
-        return sum(item.roll_count for item in self.substats)
+        return sum(item.roll_count or 0 for item in self.substats)
 
     @property
     def complete(self) -> bool:
+        has_exact_stats = (
+            self.main_stat_value is not None
+            and len(self.substats) <= 4
+            and all(item.value is not None for item in self.substats)
+        )
+        if has_exact_stats:
+            return True
         return (
             self.main_stat is not None
             and len(self.substats) == 4

@@ -28,9 +28,9 @@ export type DriveDiscPreview = {
 export type DriveDiscStatPreview = {
   stat_key: string;
   label: string;
-  value_per_roll: number;
-  display_value_per_roll: string;
-  roll_count: number;
+  value_per_roll: number | null;
+  display_value_per_roll: string | null;
+  roll_count: number | null;
   total_value: number;
   display_total_value: string;
 };
@@ -73,7 +73,14 @@ export function DriveDiscCard({
   const availableSubstats = substatOptions.filter(
     (item) => item.stat_key !== disc?.main_stat && !usedSubstats.has(item.stat_key),
   );
-  const totalRolls = disc?.substats.reduce((sum, item) => sum + item.roll_count, 0) ?? 0;
+  const exactStats = Boolean(disc
+    && typeof disc.main_stat_value === "number"
+    && disc.substats.length <= 4
+    && disc.substats.every((item) => "value" in item));
+  const totalRolls = disc?.substats.reduce(
+    (sum, item) => sum + (typeof item.roll_count === "number" ? item.roll_count : 0),
+    0,
+  ) ?? 0;
 
   return (
     <article
@@ -151,11 +158,14 @@ export function DriveDiscCard({
                 );
                 const substatPreview = preview?.substats.find((item) => item.stat_key === substat.stat);
                 const substatOption = substatOptions.find((item) => item.stat_key === substat.stat);
+                const hasExactValue = "value" in substat;
+                const exactValue = hasExactValue ? substat.value : undefined;
+                const rollCount = typeof substat.roll_count === "number" ? substat.roll_count : undefined;
                 const valuePerRoll = substatPreview?.value_per_roll ?? substatOption?.value_per_roll ?? 0;
                 const singleValue = substatPreview?.display_value_per_roll
                   ?? formatValue(substat.stat, valuePerRoll);
                 const totalValue = substatPreview?.display_total_value
-                  ?? formatValue(substat.stat, valuePerRoll * substat.roll_count);
+                  ?? formatValue(substat.stat, hasExactValue ? exactValue ?? 0 : valuePerRoll * (rollCount ?? 0));
                 return (
                   <div className="drive-substat-row" key={`${schema.slot}-${index}-${substat.stat}`}>
                     <div className="drive-substat-topline">
@@ -164,7 +174,10 @@ export function DriveDiscCard({
                         <select
                           aria-label={`${schema.slot}号位副词条${index + 1}属性`}
                           value={substat.stat}
-                          onChange={(event) => onUpdateSubstat(index, { ...substat, stat: event.target.value })}
+                          onChange={(event) => onUpdateSubstat(index, {
+                            stat: event.target.value,
+                            ...(rollCount === undefined ? { roll_count: 1 } : { roll_count: rollCount }),
+                          })}
                         >
                           {rowOptions.map((item) => <option key={item.stat_key} value={item.stat_key}>{item.label}</option>)}
                         </select>
@@ -178,34 +191,41 @@ export function DriveDiscCard({
                         ×
                       </button>
                     </div>
-                    <div className="drive-substat-rollline">
-                      <span>单次 <strong>+{singleValue}</strong></span>
-                      <span aria-hidden="true">×</span>
-                      <div className="drive-roll-stepper" role="group" aria-label={`${schema.slot}号位副词条${index + 1}次数`}>
-                        <button
-                          className="stepper-button"
-                          type="button"
-                          aria-label="减少次数"
-                          title={substat.roll_count <= 1 ? "最少 1 次" : "减少次数"}
-                          disabled={substat.roll_count <= 1}
-                          onClick={() => onUpdateRoll(index, -1)}
-                        >
-                          −
-                        </button>
-                        <span aria-live="polite">{substat.roll_count}</span>
-                        <button
-                          className="stepper-button"
-                          type="button"
-                          aria-label="增加次数"
-                          title={substat.roll_count >= 6 ? "最多 6 次" : "增加次数"}
-                          disabled={substat.roll_count >= 6}
-                          onClick={() => onUpdateRoll(index, 1)}
-                        >
-                          +
-                        </button>
+                    {hasExactValue ? (
+                      <div className="drive-substat-rollline">
+                        <span>实装值 <strong>+{totalValue}</strong></span>
+                        <span className="drive-substat-total">精确词条数值</span>
                       </div>
-                      <span className="drive-substat-total">= 总计 <strong>+{totalValue}</strong></span>
-                    </div>
+                    ) : (
+                      <div className="drive-substat-rollline">
+                        <span>单次 <strong>+{singleValue}</strong></span>
+                        <span aria-hidden="true">×</span>
+                        <div className="drive-roll-stepper" role="group" aria-label={`${schema.slot}号位副词条${index + 1}次数`}>
+                          <button
+                            className="stepper-button"
+                            type="button"
+                            aria-label="减少次数"
+                            title={(rollCount ?? 1) <= 1 ? "最少 1 次" : "减少次数"}
+                            disabled={(rollCount ?? 1) <= 1}
+                            onClick={() => onUpdateRoll(index, -1)}
+                          >
+                            −
+                          </button>
+                          <span aria-live="polite">{rollCount}</span>
+                          <button
+                            className="stepper-button"
+                            type="button"
+                            aria-label="增加次数"
+                            title={(rollCount ?? 1) >= 6 ? "最多 6 次" : "增加次数"}
+                            disabled={(rollCount ?? 1) >= 6}
+                            onClick={() => onUpdateRoll(index, 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="drive-substat-total">= 总计 <strong>+{totalValue}</strong></span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -239,11 +259,15 @@ export function DriveDiscCard({
                 </button>
               </div>
             )}
-            <div className={`drive-roll-total ${isDriveDiscComplete(disc) ? "complete" : "incomplete"}`}>
-              <span>总词条次数</span>
-              <strong>{totalRolls}</strong>
-              <small>需要 8–9 次才能完整</small>
-            </div>
+            {exactStats ? (
+              <div className="drive-roll-total complete"><span>数据来源</span><strong>实装词条</strong><small>{disc.level === undefined ? "保留精确词条数值" : `驱动盘等级 ${disc.level}`}</small></div>
+            ) : (
+              <div className={`drive-roll-total ${isDriveDiscComplete(disc) ? "complete" : "incomplete"}`}>
+                <span>总词条次数</span>
+                <strong>{totalRolls}</strong>
+                <small>需要 8–9 次才能完整</small>
+              </div>
+            )}
           </div>
 
           {diagnostics

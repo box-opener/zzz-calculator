@@ -196,6 +196,21 @@ def test_first_nanoka_catalog_wengine_has_lossless_live_source_and_all_refinemen
     assert unsupported_level.contributions == ()
     assert unsupported_level.rule_items == ()
 
+    sourced_level = compile_wengine(
+        WEngineBuildInput(
+            WENGINE_LUNAR_PLENILUNA_ID,
+            owner,
+            level=50,
+            refinement=2,
+            source_base_value=321.0,
+            source_advanced_stat_value=0.123,
+        ),
+        owner_capabilities=capabilities,
+    )
+    assert sourced_level.complete is True
+    assert sourced_level.contributions[0].value == Resolved(321.0)
+    assert sourced_level.contributions[1].value == Resolved(0.123)
+
 
 def test_next_nanoka_catalog_wengine_batch_preserves_sources_build_stats_and_refinements() -> None:
     cases = (

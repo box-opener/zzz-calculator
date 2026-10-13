@@ -128,6 +128,30 @@ describe("equipment config JSON", () => {
     expect(config.schema_version).toBe(EQUIPMENT_CONFIG_SCHEMA_VERSION);
   });
 
+  it("round-trips exact source values for non-max engines and imported drive discs", () => {
+    const exactConfig = createEquipmentConfig("character:demo", {
+      id: "wengine:demo",
+      level: 50,
+      refinement: 3,
+      source_base_value: 321,
+      source_advanced_stat_value: 0.123,
+    }, [{
+      slot: 1,
+      set_id: "drive-disc:31000",
+      main_stat: "hp-flat",
+      main_stat_value: 2000,
+      level: 12,
+      substats: [
+        { stat: "attack-flat", value: 17.25 },
+        { stat: "crit-rate", value: 0.021 },
+        { stat: "crit-damage", value: 0.057 },
+      ],
+    }]);
+
+    const parsed = parseEquipmentConfig(serializeEquipmentConfig(exactConfig), "character:demo", catalog);
+    expect(parsed).toEqual({ ok: true, config: exactConfig });
+  });
+
   it("allows partial discs with a null main stat", () => {
     const partial = createEquipmentConfig("character:demo", null, [{
       ...config.drive_discs[0],

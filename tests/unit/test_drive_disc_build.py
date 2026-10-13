@@ -211,6 +211,40 @@ def test_flat_and_percent_attack_are_distinct_legal_stats() -> None:
     assert disc.complete is False
 
 
+def test_exact_source_drive_disc_values_are_used_without_inventing_roll_counts() -> None:
+    disc = EquippedDriveDisc(
+        slot=DriveDiscSlot.FOUR,
+        set_id=stable_set_id("31000"),
+        main_stat=DriveDiscStatKey.CRIT_RATE,
+        main_stat_value=0.15,
+        level=3,
+        substats=(
+            DriveDiscSubstatRoll(DriveDiscStatKey.ATTACK_FLAT, value=19.0),
+            DriveDiscSubstatRoll(DriveDiscStatKey.CRIT_DAMAGE, value=0.048),
+        ),
+    )
+
+    resolution = compile_drive_discs(
+        DriveDiscBuildInput(OWNER, (disc,)),
+        owner_capabilities=_capabilities(),
+    )
+    values = {item.contribution_id.split(":main:")[-1]: item.value for item in resolution.contributions if ":main:" in item.contribution_id}
+    exact_substats = {
+        item.contribution_id.split(":sub:")[-1]: item.value
+        for item in resolution.contributions
+        if ":sub:" in item.contribution_id
+    }
+
+    assert disc.complete is True
+    assert disc.total_roll_count == 0
+    assert values["crit-rate"] == Resolved(0.15)
+    assert exact_substats == {
+        "attack-flat": Resolved(19.0),
+        "crit-damage": Resolved(0.048),
+    }
+    assert resolution.complete is True
+
+
 def test_missing_main_stat_is_a_partial_disc_without_main_contribution() -> None:
     disc = EquippedDriveDisc(
         slot=DriveDiscSlot.FOUR,

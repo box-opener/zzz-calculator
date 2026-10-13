@@ -17,9 +17,9 @@ class DriveDiscStatPreviewView:
 
     stat_key: str
     label: str
-    value_per_roll: float
-    display_value_per_roll: str
-    roll_count: int
+    value_per_roll: float | None
+    display_value_per_roll: str | None
+    roll_count: int | None
     total_value: float
     display_total_value: str
 

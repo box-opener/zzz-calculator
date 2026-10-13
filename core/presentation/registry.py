@@ -7650,15 +7650,24 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
 
 def _drive_stat_preview(
     stat: DriveDiscStatKey,
-    value_per_roll: float,
-    roll_count: int,
+    value_per_roll: float | None,
+    roll_count: int | None,
+    exact_value: float | None = None,
 ) -> DriveDiscStatPreviewView:
-    total = value_per_roll * roll_count
+    total = (
+        exact_value
+        if exact_value is not None
+        else float(value_per_roll or 0.0) * int(roll_count or 0)
+    )
     return DriveDiscStatPreviewView(
         stat_key=stat.value,
         label=drive_disc_stat_label(stat),
         value_per_roll=value_per_roll,
-        display_value_per_roll=display_drive_disc_value(stat, value_per_roll),
+        display_value_per_roll=(
+            display_drive_disc_value(stat, value_per_roll)
+            if value_per_roll is not None
+            else None
+        ),
         roll_count=roll_count,
         total_value=total,
         display_total_value=display_drive_disc_value(stat, total),
@@ -7731,8 +7740,13 @@ def _drive_disc_preview_views(
         main = (
             _drive_stat_preview(
                 disc.main_stat,
-                DRIVE_DISC_MAIN_STAT_VALUES[disc.main_stat],
-                1,
+                (
+                    DRIVE_DISC_MAIN_STAT_VALUES[disc.main_stat]
+                    if disc.main_stat_value is None
+                    else None
+                ),
+                1 if disc.main_stat_value is None else None,
+                disc.main_stat_value,
             )
             if disc.main_stat is not None
             else None
@@ -7740,8 +7754,13 @@ def _drive_disc_preview_views(
         substats = tuple(
             _drive_stat_preview(
                 item.stat,
-                DRIVE_DISC_SUBSTAT_VALUES[item.stat],
+                (
+                    DRIVE_DISC_SUBSTAT_VALUES[item.stat]
+                    if item.value is None
+                    else None
+                ),
                 item.roll_count,
+                item.value,
             )
             for item in disc.substats
         )
@@ -8015,6 +8034,8 @@ def build_registered_wengine_editor_view(
     *,
     level: int = 60,
     refinement: int = 1,
+    source_base_value: float | None = None,
+    source_advanced_stat_value: float | None = None,
     condition_context: Mapping[str, bool | None] | None = None,
     condition_values: Mapping[str, bool | None] | None = None,
     formation_character_ids: Sequence[str | CharacterId] | None = None,
@@ -8046,6 +8067,8 @@ def build_registered_wengine_editor_view(
             owner,
             level=level,
             refinement=refinement,
+            source_base_value=source_base_value,
+            source_advanced_stat_value=source_advanced_stat_value,
         ),
         owner_capabilities=equipment_capabilities_for_scene(
             owner,
@@ -8155,6 +8178,8 @@ def build_registered_build_preview(
     wengine_id: str | None = None,
     wengine_level: int = 60,
     wengine_refinement: int = 1,
+    wengine_source_base_value: float | None = None,
+    wengine_source_advanced_stat_value: float | None = None,
     discs: Sequence[Mapping[str, object]] = (),
 ):
     """Assemble one live equipment panel through the production pipeline.
@@ -8171,7 +8196,7 @@ def build_registered_build_preview(
     team_ids = tuple(CharacterId(str(item)) for item in team_character_ids) or (owner,)
     base_stats = character_base_stats(owner, level=level)
     contributions: list[BuildStatContribution] = []
-    contributions.extend(character_base_stat_contributions(owner))
+    contributions.extend(character_base_stat_contributions(owner, level=level))
     diagnostics = []
     if wengine_id:
         wengine = compile_wengine(
@@ -8180,6 +8205,8 @@ def build_registered_build_preview(
                 owner,
                 level=int(wengine_level),
                 refinement=int(wengine_refinement),
+                source_base_value=wengine_source_base_value,
+                source_advanced_stat_value=wengine_source_advanced_stat_value,
             ),
             owner_capabilities=equipment_capabilities_for_scene(
                 owner,
@@ -8266,18 +8293,34 @@ def _parse_drive_disc_inputs(
         for item in raw_substats:
             if not isinstance(item, Mapping):
                 raise ValueError("Drive Disc substat must be an object")
-            substats.append(
-                DriveDiscSubstatRoll(
-                    DriveDiscStatKey(str(item.get("stat", ""))),
-                    int(str(item.get("roll_count", 0))),
-                )
-            )
+            stat = DriveDiscStatKey(str(item.get("stat", "")))
+            if "value" in item:
+                raw_value = item["value"]
+                if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+                    raise ValueError("Drive Disc exact substat value must be numeric")
+                substats.append(DriveDiscSubstatRoll(stat, value=float(raw_value)))
+            else:
+                raw_roll_count = item.get("roll_count")
+                if isinstance(raw_roll_count, bool) or not isinstance(raw_roll_count, int):
+                    raise ValueError("Drive Disc roll_count must be an integer")
+                substats.append(DriveDiscSubstatRoll(stat, raw_roll_count))
         raw_main_stat = raw.get("main_stat")
         main_stat = (
             None
             if raw_main_stat is None or str(raw_main_stat) == ""
             else DriveDiscStatKey(str(raw_main_stat))
         )
+        raw_main_value = raw.get("main_stat_value")
+        if raw_main_value is not None and (
+            isinstance(raw_main_value, bool)
+            or not isinstance(raw_main_value, (int, float))
+        ):
+            raise ValueError("Drive Disc exact main stat value must be numeric")
+        raw_level = raw.get("level")
+        if raw_level is not None and (
+            isinstance(raw_level, bool) or not isinstance(raw_level, int)
+        ):
+            raise ValueError("Drive Disc level must be an integer")
         parsed.append(
             EquippedDriveDisc(
                 slot=DriveDiscSlot(int(str(raw.get("slot", 0)))),
@@ -8286,6 +8329,10 @@ def _parse_drive_disc_inputs(
                 ),
                 main_stat=main_stat,
                 substats=tuple(substats),
+                main_stat_value=(
+                    None if raw_main_value is None else float(raw_main_value)
+                ),
+                level=raw_level,
             )
         )
     return tuple(parsed)

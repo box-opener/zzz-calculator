@@ -13,9 +13,9 @@ record:
 The resulting white values are kept in the same normalized shape as Astra's
 ``stats`` object. Nanoka out-of-combat percentage properties are returned
 separately by ``character_base_stat_contributions`` so equipment percentages
-add in the same layer. Only level 60 is currently reviewed in the packaged
-source records. A different level is rejected instead of silently using a
-level-60 panel.
+add in the same layer. Nanoka records retain progression tiers and growth
+curves, so their panel can be resolved at the selected level. Normalized
+Astra/Ye records remain level-60-only.
 """
 
 from __future__ import annotations
@@ -46,20 +46,22 @@ def character_base_stats(
 ) -> CharacterStats:
     """Return reviewed level-specific base stats for one supported character."""
 
-    if level != BASE_STATS_LEVEL:
-        raise ValueError(
-            f"reviewed character base stats are only available at level {BASE_STATS_LEVEL}"
-        )
+    if not 1 <= level <= BASE_STATS_LEVEL:
+        raise ValueError("character base-stat level must be between 1 and 60")
     raw = load_character_record(str(character_id))
     stats = raw.get("stats")
     if not isinstance(stats, Mapping):
         raise ValueError(f"character base stats are missing: {character_id}")
 
     # Astra/Ye use the already normalized review fixture.  New production
-    # records are lossless Nanoka detail payloads; normalize their level-60
-    # panel from the source's level-1 value, level-50→60 increment, growth
-    # curve, and level-60 extra-level values.
+    # records are lossless Nanoka detail payloads; normalize their panel from
+    # the source's level-1 values, level-band increment, growth curve, and
+    # reached extra-level property tier.
     if "atk" in stats:
+        if level != BASE_STATS_LEVEL:
+            raise ValueError(
+                f"reviewed character base stats are only available at level {BASE_STATS_LEVEL}"
+            )
         def number(key: str) -> float:
             value = stats.get(key)
             if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -92,24 +94,47 @@ def character_base_stats(
         level_values = raw.get("level")
         if not isinstance(level_values, Mapping):
             raise ValueError(f"character level data is missing: {character_id}")
-        level_60 = level_values.get("6")
-        if not isinstance(level_60, Mapping):
-            raise ValueError(f"character level-60 data is missing: {character_id}")
+        level_record = None
+        for candidate in level_values.values():
+            if not isinstance(candidate, Mapping):
+                continue
+            minimum = candidate.get("level_min")
+            maximum = candidate.get("level_max")
+            if (
+                isinstance(minimum, int)
+                and isinstance(maximum, int)
+                and minimum < level <= maximum
+            ):
+                level_record = candidate
+                break
+        if level_record is None:
+            raise ValueError(
+                f"character progression data is missing for level {level}: {character_id}"
+            )
         extra_values = raw.get("extra_level")
         if not isinstance(extra_values, Mapping):
             raise ValueError(f"character extra-level data is missing: {character_id}")
-        extra_60 = extra_values.get("6")
-        if not isinstance(extra_60, Mapping):
-            raise ValueError(f"character extra level-60 data is missing: {character_id}")
-        extra_map = extra_60.get("extra", {})
+        reached_extra_levels = []
+        for candidate in extra_values.values():
+            if not isinstance(candidate, Mapping):
+                continue
+            max_level = candidate.get("max_level")
+            if isinstance(max_level, int) and max_level <= level:
+                reached_extra_levels.append((max_level, candidate))
+        extra_record = max(
+            reached_extra_levels,
+            default=(0, {}),
+            key=lambda item: item[0],
+        )[1]
+        extra_map = extra_record.get("extra", {})
         if not isinstance(extra_map, Mapping):
             raise ValueError(f"character extra-level values are invalid: {character_id}")
 
         def level_number(key: str) -> float:
-            value = level_60.get(key)
+            value = level_record.get(key)
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise ValueError(
-                    f"character level-60 stat {key!r} is not numeric: {character_id}"
+                    f"character level stat {key!r} is not numeric: {character_id}"
                 )
             return float(value)
 
@@ -124,8 +149,8 @@ def character_base_stats(
                 )
             return float(result)
 
-        # Nanoka stores growth in 1/10000 units and level[6] is the
-        # level-50→60 increment.  Level 60 therefore has 59 growth steps.
+        # Nanoka stores growth in 1/10000 units; the selected level band and
+        # growth across ``level - 1`` steps both contribute to the base panel.
         growth = {
             "hp": source_number("hp_growth") / 10000.0,
             "attack": source_number("attack_growth") / 10000.0,
@@ -135,11 +160,16 @@ def character_base_stats(
             "hp": (
                 source_number("hp_max")
                 + level_number("hp_max")
-                + growth["hp"] * 59.0
+                + growth["hp"] * (level - 1)
                 + extra_number("11101")
             ),
-            "attack": source_number("attack") + level_number("attack") + growth["attack"] * 59.0 + extra_number("12101"),
-            "defense": source_number("defence") + level_number("defence") + growth["defense"] * 59.0,
+            "attack": source_number("attack") + level_number("attack") + growth["attack"] * (level - 1) + extra_number("12101"),
+            "defense": (
+                source_number("defence")
+                + level_number("defence")
+                + growth["defense"] * (level - 1)
+                + extra_number("13101")
+            ),
             "impact": source_number("break_stun") + extra_number("12201"),
             "crit_rate": source_number("crit") / 10000.0 + extra_number("20101") / 10000.0,
             "crit_damage": (
@@ -190,13 +220,17 @@ def character_base_stats(
 
 def character_base_stat_contributions(
     character_id: str | CharacterId,
+    *,
+    level: int = BASE_STATS_LEVEL,
 ) -> tuple[BuildStatContribution, ...]:
-    """Return level-60 character modifiers that belong in Build's percent layer.
+    """Return reached character modifiers that belong in Build's percent layer.
 
     Nanoka property 11102 is an out-of-combat HP percentage.  Keep it separate
     from the white HP value so equipment percentages add in the same layer.
     """
 
+    if not 1 <= level <= BASE_STATS_LEVEL:
+        raise ValueError("character base-stat level must be between 1 and 60")
     raw = load_character_record(str(character_id))
     stats = raw.get("stats")
     if not isinstance(stats, Mapping) or "atk" in stats:
@@ -204,10 +238,15 @@ def character_base_stat_contributions(
     extra_values = raw.get("extra_level")
     if not isinstance(extra_values, Mapping):
         return ()
-    extra_60 = extra_values.get("6")
-    if not isinstance(extra_60, Mapping):
-        return ()
-    extra_map = extra_60.get("extra", {})
+    reached = []
+    for candidate in extra_values.values():
+        if not isinstance(candidate, Mapping):
+            continue
+        max_level = candidate.get("max_level")
+        if isinstance(max_level, int) and max_level <= level:
+            reached.append((max_level, candidate))
+    extra_record = max(reached, default=(0, {}), key=lambda item: item[0])[1]
+    extra_map = extra_record.get("extra", {})
     if not isinstance(extra_map, Mapping):
         return ()
     raw_hp_percent = extra_map.get("11102", {})
@@ -220,8 +259,9 @@ def character_base_stat_contributions(
     if percentage == 0.0:
         return ()
     owner = CharacterId(str(character_id))
+    extra_level = extra_record.get("max_level", 0)
     source = BuildSource(
-        source_id=f"{owner}:extra-level-6:11102",
+        source_id=f"{owner}:extra-level-{extra_level}:11102",
         source_type=BuildSourceType.CHARACTER,
         label="角色额外等级·生命值百分比",
     )

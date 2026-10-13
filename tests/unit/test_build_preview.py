@@ -59,6 +59,47 @@ def test_live_build_preview_returns_real_base_and_current_panel() -> None:
     )
 
 
+def test_live_build_preview_preserves_exact_imported_equipment_values():
+    response = client.post(
+        "/api/v1/builds/preview",
+        json={
+            "character_id": "character:1431",
+            "level": 60,
+            "wengine_id": "wengine:14143",
+            "wengine_level": 50,
+            "wengine_refinement": 2,
+            "wengine_source_base_value": 321.0,
+            "wengine_source_advanced_stat_value": 0.123,
+            "drive_discs": [{
+                "slot": 1,
+                "set_id": "drive-disc:31000",
+                "main_stat": "hp-flat",
+                "main_stat_value": 2000.0,
+                "level": 12,
+                "substats": [
+                    {"stat": "attack-flat", "value": 17.25},
+                    {"stat": "crit-rate", "value": 0.021},
+                    {"stat": "crit-damage", "value": 0.057},
+                ],
+            }],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["complete"] is True
+    assert any(
+        item["source_type"] == "w-engine"
+        and item["stat"] == "attack"
+        and item["value"] == pytest.approx(321.0)
+        for item in payload["provenance"]
+    )
+    disc = payload["drive_discs"][0]
+    assert disc["main_stat"]["total_value"] == pytest.approx(2000.0)
+    assert disc["substats"][0]["total_value"] == pytest.approx(17.25)
+    assert disc["substats"][0]["roll_count"] is None
+
+
 def test_live_rupture_panel_displays_force_from_final_out_of_combat_stats() -> None:
     yixuan_response = client.post(
         "/api/v1/builds/preview",

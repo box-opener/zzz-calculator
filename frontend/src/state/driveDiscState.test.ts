@@ -89,4 +89,20 @@ describe("Drive Disc editor state", () => {
     expect(updateDriveDiscSubstatRollCount({ ...disc, substats: [{ stat: "crit-rate", roll_count: 6 }] }, 0, 1)).toEqual({ ...disc, substats: [{ stat: "crit-rate", roll_count: 6 }] });
     expect(updateDriveDiscSubstatRollCount({ ...disc, substats: [{ stat: "crit-rate", roll_count: 1 }] }, 0, -1)).toEqual({ ...disc, substats: [{ stat: "crit-rate", roll_count: 1 }] });
   });
+
+  it("accepts exact source values without synthesizing roll counts", () => {
+    const imported = {
+      slot: 1,
+      set_id: "drive-disc:31000",
+      main_stat: "hp-flat",
+      main_stat_value: 2000,
+      level: 12,
+      substats: [
+        { stat: "attack-flat", value: 17.25 },
+        { stat: "crit-rate", value: 0.021 },
+      ],
+    };
+    expect(isDriveDiscComplete(imported)).toBe(true);
+    expect(imported.substats.every((item) => "value" in item && !("roll_count" in item))).toBe(true);
+  });
 });

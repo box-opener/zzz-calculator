@@ -24,6 +24,8 @@ class CharacterBuildInput:
     wengine_id: str | None = None
     wengine_level: int = 60
     wengine_refinement: int = 1
+    wengine_source_base_value: float | None = None
+    wengine_source_advanced_stat_value: float | None = None
     drive_discs: tuple[EquippedDriveDisc, ...] = ()
 
     def __post_init__(self) -> None:
@@ -35,6 +37,21 @@ class CharacterBuildInput:
             raise ValueError("W-Engine level must be between 1 and 60")
         if not 1 <= self.wengine_refinement <= 5:
             raise ValueError("W-Engine refinement must be between 1 and 5")
+        if (self.wengine_source_base_value is None) != (
+            self.wengine_source_advanced_stat_value is None
+        ):
+            raise ValueError("W-Engine source values must include both static stats")
+        for value in (
+            self.wengine_source_base_value,
+            self.wengine_source_advanced_stat_value,
+        ):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+                or value < 0
+            ):
+                raise ValueError("W-Engine source stat values must be finite and non-negative")
         if self.build_mode is BuildMode.MANUAL_PANEL and (
             self.wengine_id is not None or self.drive_discs
         ):

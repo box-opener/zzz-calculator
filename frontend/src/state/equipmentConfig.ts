@@ -6,6 +6,8 @@ export type EquipmentWengineConfig = {
   id: string;
   level: number;
   refinement: number;
+  source_base_value?: number;
+  source_advanced_stat_value?: number;
 };
 
 export type EquipmentConfig = {
@@ -111,6 +113,16 @@ function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): 
     && Object.keys(value).every((key) => expected.has(key));
 }
 
+function hasRequiredAndAllowedKeys(
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[],
+): boolean {
+  const allowed = new Set([...required, ...optional]);
+  return required.every((key) => key in value)
+    && Object.keys(value).every((key) => allowed.has(key));
+}
+
 function invalid(message: string): never {
   throw new Error(message);
 }
@@ -118,6 +130,13 @@ function invalid(message: string): never {
 function integerInRange(value: unknown, min: number, max: number, label: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
     invalid(`${label} must be an integer between ${min} and ${max}`);
+  }
+  return value;
+}
+
+function nonNegativeFinite(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    invalid(`${label} must be a finite non-negative number`);
   }
   return value;
 }
@@ -162,16 +181,32 @@ function validateEquipmentObject(
 
   let wengine: EquipmentWengineConfig | null = null;
   if (raw.wengine !== null) {
-    if (!isRecord(raw.wengine) || !hasExactKeys(raw.wengine, ["id", "level", "refinement"])) {
+    if (!isRecord(raw.wengine) || !hasRequiredAndAllowedKeys(
+      raw.wengine,
+      ["id", "level", "refinement"],
+      ["source_base_value", "source_advanced_stat_value"],
+    )) {
       invalid("wengine must be null or an object with id, level, and refinement");
     }
     const id = stringValue(raw.wengine.id, "wengine.id");
     const catalogItem = catalog.wengines.find((item) => item.wengine_id === id);
     if (!catalogItem) invalid(`unknown W-Engine: ${id}`);
+    const sourceBaseValue = raw.wengine.source_base_value;
+    const sourceAdvancedValue = raw.wengine.source_advanced_stat_value;
+    if ((sourceBaseValue === undefined) !== (sourceAdvancedValue === undefined)) {
+      invalid("wengine source values must include both static stats");
+    }
+    const sourceStats = sourceBaseValue === undefined
+      ? {}
+      : {
+        source_base_value: nonNegativeFinite(sourceBaseValue, "wengine.source_base_value"),
+        source_advanced_stat_value: nonNegativeFinite(sourceAdvancedValue, "wengine.source_advanced_stat_value"),
+      };
     wengine = {
       id,
       level: integerInRange(raw.wengine.level, 1, 60, "wengine.level"),
       refinement: integerInRange(raw.wengine.refinement, 1, 5, "wengine.refinement"),
+      ...sourceStats,
     };
   }
 
@@ -180,7 +215,11 @@ function validateEquipmentObject(
   const slots = new Set<number>();
   const substatKeys = validSubstatKeys(catalog);
   const driveDiscs: DriveDiscConfig[] = raw.drive_discs.map((rawDisc, index) => {
-    if (!isRecord(rawDisc) || !hasExactKeys(rawDisc, ["slot", "set_id", "main_stat", "substats"])) {
+    if (!isRecord(rawDisc) || !hasRequiredAndAllowedKeys(
+      rawDisc,
+      ["slot", "set_id", "main_stat", "substats"],
+      ["main_stat_value", "level"],
+    )) {
       invalid(`drive_discs[${index}] has unexpected or missing fields`);
     }
     const slot = integerInRange(rawDisc.slot, 1, 6, `drive_discs[${index}].slot`);
@@ -197,12 +236,25 @@ function validateEquipmentObject(
     if (mainStat !== null && !validMainStatKeys(slot, catalog).has(mainStat)) {
       invalid(`invalid main stat ${mainStat} for Drive Disc slot ${slot}`);
     }
+    const mainStatValue = rawDisc.main_stat_value === undefined
+      ? undefined
+      : nonNegativeFinite(rawDisc.main_stat_value, `drive_discs[${index}].main_stat_value`);
+    if (mainStat === null && mainStatValue !== undefined) {
+      invalid(`drive_discs[${index}].main_stat_value requires main_stat`);
+    }
+    const level = rawDisc.level === undefined
+      ? undefined
+      : integerInRange(rawDisc.level, 0, 15, `drive_discs[${index}].level`);
     if (!Array.isArray(rawDisc.substats) || rawDisc.substats.length > 4) {
       invalid(`drive_discs[${index}].substats must contain at most four items`);
     }
     const seenSubstats = new Set<string>();
     const substats = rawDisc.substats.map((rawSubstat, substatIndex) => {
-      if (!isRecord(rawSubstat) || !hasExactKeys(rawSubstat, ["stat", "roll_count"])) {
+      if (!isRecord(rawSubstat) || !hasRequiredAndAllowedKeys(
+        rawSubstat,
+        ["stat"],
+        ["roll_count", "value"],
+      ) || ("roll_count" in rawSubstat) === ("value" in rawSubstat)) {
         invalid(`drive_discs[${index}].substats[${substatIndex}] has unexpected or missing fields`);
       }
       const stat = stringValue(rawSubstat.stat, `drive_discs[${index}].substats[${substatIndex}].stat`);
@@ -210,12 +262,24 @@ function validateEquipmentObject(
       if (stat === mainStat) invalid(`Drive Disc slot ${slot} main stat cannot also be a substat`);
       if (seenSubstats.has(stat)) invalid(`Drive Disc slot ${slot} substats must be unique`);
       seenSubstats.add(stat);
-      return {
-        stat,
-        roll_count: integerInRange(rawSubstat.roll_count, 1, 6, `drive_discs[${index}].substats[${substatIndex}].roll_count`),
-      };
+      return "value" in rawSubstat
+        ? {
+          stat,
+          value: nonNegativeFinite(rawSubstat.value, `drive_discs[${index}].substats[${substatIndex}].value`),
+        }
+        : {
+          stat,
+          roll_count: integerInRange(rawSubstat.roll_count, 1, 6, `drive_discs[${index}].substats[${substatIndex}].roll_count`),
+        };
     });
-    return { slot, set_id: setId, main_stat: mainStat, substats };
+    return {
+      slot,
+      set_id: setId,
+      main_stat: mainStat,
+      ...(mainStatValue === undefined ? {} : { main_stat_value: mainStatValue }),
+      ...(level === undefined ? {} : { level }),
+      substats,
+    };
   });
 
   return {

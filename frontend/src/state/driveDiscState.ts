@@ -1,8 +1,12 @@
-export type DriveDiscSubstat = { stat: string; roll_count: number };
+export type DriveDiscSubstat =
+  | { stat: string; roll_count: number; value?: never }
+  | { stat: string; value: number; roll_count?: never };
 export type DriveDiscConfig = {
   slot: number;
   set_id: string;
   main_stat: string | null;
+  main_stat_value?: number;
+  level?: number;
   substats: DriveDiscSubstat[];
 };
 
@@ -52,6 +56,7 @@ export function updateDriveDiscMainValue(
   return {
     ...current,
     main_stat: mainStat,
+    main_stat_value: undefined,
     substats: removeMainStatConflict(current.substats, mainStat),
   };
 }
@@ -102,15 +107,20 @@ export function updateDriveDiscSubstatRollCount(
   delta: number,
 ): DriveDiscConfig {
   const substat = current.substats[index];
-  if (!substat || !Number.isFinite(delta) || !Number.isInteger(delta)) return current;
+  if (!substat || typeof substat.roll_count !== "number" || !Number.isFinite(delta) || !Number.isInteger(delta)) return current;
   const rollCount = Math.min(6, Math.max(1, substat.roll_count + delta));
   if (rollCount === substat.roll_count) return current;
-  return replaceDriveDiscSubstat(current, index, { ...substat, roll_count: rollCount });
+  return replaceDriveDiscSubstat(current, index, { stat: substat.stat, roll_count: rollCount });
 }
 
 export function isDriveDiscComplete(current: DriveDiscConfig): boolean {
+  if (
+    typeof current.main_stat_value === "number"
+    && current.substats.length <= 4
+    && current.substats.every((item) => "value" in item)
+  ) return true;
   const totalRolls = current.substats.reduce(
-    (sum, item) => sum + item.roll_count,
+    (sum, item) => sum + (typeof item.roll_count === "number" ? item.roll_count : 0),
     0,
   );
   return current.main_stat !== null

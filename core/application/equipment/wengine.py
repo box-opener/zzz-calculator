@@ -457,7 +457,11 @@ def compile_wengine(
     raw = load_wengine_raw_record(str(build_input.wengine_id))
     if raw.wengine_id != build_input.wengine_id:
         raise ValueError("W-Engine build input and raw record IDs do not match")
-    if build_input.level != raw.max_level:
+    has_source_values = (
+        build_input.source_base_value is not None
+        and build_input.source_advanced_stat_value is not None
+    )
+    if build_input.level != raw.max_level and not has_source_values:
         diagnostic = _diagnostic(
             str(build_input.wengine_id),
             "level",
@@ -864,7 +868,11 @@ def _static_contributions(
             source=source,
             stat=raw.base_stat,
             layer=BuildContributionLayer.WHITE_VALUE,
-            value=Resolved(raw.static_base_value),
+            value=Resolved(
+                build_input.source_base_value
+                if build_input.source_base_value is not None
+                else raw.static_base_value
+            ),
         )
     ]
     stat, layer = _advanced_stat(raw)
@@ -877,7 +885,11 @@ def _static_contributions(
             source=source,
             stat=stat,
             layer=layer,
-            value=Resolved(raw.advanced_stat_value),
+            value=Resolved(
+                build_input.source_advanced_stat_value
+                if build_input.source_advanced_stat_value is not None
+                else raw.advanced_stat_value
+            ),
         )
     )
     return tuple(contributions)

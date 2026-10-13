@@ -395,3 +395,25 @@ select option { color: #151823; background: #f5f6fb; }
   .selection-summary { flex-wrap: wrap; }
   .selection-summary .muted { width: 100%; margin-left: 0; }
 }
+
+.miyoushe-modal-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; padding: 20px; background: rgba(8, 7, 13, .78); place-items: center; }
+.miyoushe-import-dialog { width: min(100%, 480px); max-height: min(86vh, 720px); overflow: auto; padding: 22px; color: var(--text); background: #17151f; border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 28px 90px rgba(0, 0, 0, .55); }
+.miyoushe-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.miyoushe-dialog-header h2 { margin: 4px 0 0; font-size: 20px; }
+.miyoushe-login-step, .miyoushe-role-step, .miyoushe-preview-step, .miyoushe-dialog-error { display: grid; justify-items: center; gap: 14px; text-align: center; }
+.miyoushe-login-qr { width: 224px; height: 224px; padding: 10px; background: #fff; border-radius: 10px; }
+.miyoushe-dialog-status { margin: 0; color: var(--text); font-size: 14px; font-weight: 700; }
+.miyoushe-login-step small, .miyoushe-preview-note { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.miyoushe-role-field { display: grid; width: 100%; gap: 7px; text-align: left; }
+.miyoushe-role-field > span { color: var(--muted); font-size: 12px; }
+.miyoushe-role-field select { width: 100%; min-height: 40px; padding: 8px 10px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 9px; }
+.miyoushe-preview-summary { display: grid; width: 100%; gap: 6px; padding: 12px; background: rgba(255, 255, 255, .035); border-radius: 10px; color: var(--text); font-size: 12px; text-align: left; }
+.miyoushe-preview-warnings { display: grid; width: 100%; gap: 7px; margin: 0; padding: 10px 10px 10px 28px; color: #ffd08a; background: rgba(255, 181, 71, .08); border: 1px solid rgba(255, 181, 71, .16); border-radius: 10px; font-size: 12px; line-height: 1.45; text-align: left; }
+.miyoushe-dialog-inline-error { width: 100%; margin: 0; color: #ff9eae; font-size: 12px; }
+.miyoushe-dialog-actions { display: flex; width: 100%; justify-content: space-between; gap: 10px; }
+.miyoushe-dialog-actions .primary-button, .miyoushe-dialog-actions .secondary-button { min-width: 130px; }
+@media (max-width: 540px) {
+  .miyoushe-import-dialog { padding: 17px; }
+  .miyoushe-dialog-actions { flex-direction: column-reverse; }
+  .miyoushe-dialog-actions .primary-button, .miyoushe-dialog-actions .secondary-button { width: 100%; }
+}

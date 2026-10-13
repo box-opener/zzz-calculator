@@ -8,6 +8,7 @@ engine.
 from __future__ import annotations
 
 from pathlib import Path
+import math
 from typing import Any
 
 from fastapi import Body, FastAPI
@@ -25,6 +26,8 @@ from core.presentation import (
 )
 from core.presentation.serialization import to_jsonable
 from core.types import CharacterId
+from .miyoushe_import import MiyousheImportError, MiyousheImportService
+from .miyoushe_mapper import map_miyoushe_avatar_detail
 
 
 app = FastAPI(
@@ -36,6 +39,123 @@ app = FastAPI(
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _FRONTEND_DIST = _PROJECT_ROOT / "frontend" / "dist"
+_MIYOUSHE_IMPORT = MiyousheImportService()
+
+
+def _optional_finite_number(payload: dict[str, Any], key: str) -> float | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{key} must be a finite number")
+    number = float(value)
+    if not math.isfinite(number) or number < 0:
+        raise ValueError(f"{key} must be a finite non-negative number")
+    return number
+
+
+def _miyoushe_error_response(error: MiyousheImportError) -> JSONResponse:
+    status_code = 404 if error.code in {"session-expired", "role-unknown"} else 502
+    return JSONResponse(
+        status_code=status_code,
+        content={"error": error.code, "message": str(error)},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/v1/miyoushe/login/start")
+async def start_miyoushe_login() -> JSONResponse:
+    try:
+        return JSONResponse(
+            await _MIYOUSHE_IMPORT.start_login(),
+            headers={"Cache-Control": "no-store"},
+        )
+    except MiyousheImportError as exc:
+        return _miyoushe_error_response(exc)
+
+
+@app.post("/api/v1/miyoushe/login/poll")
+async def poll_miyoushe_login(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    session_id = payload.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "session-id-required", "message": "登录会话无效，请重新开始扫码。"},
+        )
+    try:
+        return JSONResponse(
+            await _MIYOUSHE_IMPORT.poll_login(session_id),
+            headers={"Cache-Control": "no-store"},
+        )
+    except MiyousheImportError as exc:
+        return _miyoushe_error_response(exc)
+
+
+@app.post("/api/v1/miyoushe/roles")
+def list_miyoushe_roles(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    session_id = payload.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "session-id-required", "message": "登录会话无效，请重新开始扫码。"},
+        )
+    try:
+        return JSONResponse(
+            {"roles": _MIYOUSHE_IMPORT.roles(session_id)},
+            headers={"Cache-Control": "no-store"},
+        )
+    except MiyousheImportError as exc:
+        return _miyoushe_error_response(exc)
+
+
+@app.post("/api/v1/miyoushe/import/preview")
+async def preview_miyoushe_import(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    session_id = payload.get("session_id")
+    role_uid = payload.get("role_uid")
+    character_id = payload.get("character_id")
+    if not isinstance(session_id, str) or not session_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "session-id-required", "message": "请先完成米游社扫码登录。"},
+        )
+    if not isinstance(role_uid, str) or not role_uid:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "role-required", "message": "请选择绝区零游戏角色。"},
+        )
+    if not isinstance(character_id, str) or not character_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "character-required", "message": "请选择本地已注册角色。"},
+        )
+    try:
+        avatar_id = int(CharacterId(character_id).split(":", 1)[1])
+        detail = await _MIYOUSHE_IMPORT.fetch_avatar_details(
+            session_id,
+            role_uid,
+            avatar_id,
+        )
+        preview = map_miyoushe_avatar_detail(detail, character_id)
+        return JSONResponse(preview, headers={"Cache-Control": "no-store"})
+    except MiyousheImportError as exc:
+        return _miyoushe_error_response(exc)
+    except (IndexError, TypeError, ValueError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "import-mapping-failed", "message": str(exc)},
+        )
+
+
+@app.post("/api/v1/miyoushe/logout")
+def logout_miyoushe(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
+    session_id = payload.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "session-id-required", "message": "登录会话无效。"},
+        )
+    _MIYOUSHE_IMPORT.logout(session_id)
+    return JSONResponse({"status": "logged-out"}, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/v1/characters")
@@ -159,6 +279,12 @@ def preview_build(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
             wengine_id=str(wengine_id) if wengine_id is not None else None,
             wengine_level=int(payload.get("wengine_level", 60)),
             wengine_refinement=int(payload.get("wengine_refinement", 1)),
+            wengine_source_base_value=_optional_finite_number(
+                payload, "wengine_source_base_value"
+            ),
+            wengine_source_advanced_stat_value=_optional_finite_number(
+                payload, "wengine_source_advanced_stat_value"
+            ),
             discs=tuple(item for item in raw_discs if isinstance(item, dict)),
         )
         if len(view.drive_discs) != len(raw_discs):
@@ -233,6 +359,12 @@ def preview_wengine(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
             tuple(CharacterId(item) for item in team_ids),
             level=int(payload.get("level", 60)),
             refinement=int(payload.get("refinement", 1)),
+            source_base_value=_optional_finite_number(
+                payload, "source_base_value"
+            ),
+            source_advanced_stat_value=_optional_finite_number(
+                payload, "source_advanced_stat_value"
+            ),
             condition_context=condition_context,
             formation_character_ids=formation_ids,
         )

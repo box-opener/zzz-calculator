@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from .common import CharacterId, WEngineId
 from .enums import (
@@ -22,16 +23,40 @@ class WEngineBuildInput:
     equipped_character_id: CharacterId
     level: int = 60
     refinement: int = 1
+    source_base_value: float | None = None
+    source_advanced_stat_value: float | None = None
 
     def __post_init__(self) -> None:
         if not str(self.wengine_id):
             raise ValueError("wengine_id must not be empty")
         if not str(self.equipped_character_id):
             raise ValueError("equipped_character_id must not be empty")
-        if not 1 <= self.level <= 60:
+        if (
+            isinstance(self.level, bool)
+            or not isinstance(self.level, int)
+            or not 1 <= self.level <= 60
+        ):
             raise ValueError("W-Engine level must be between 1 and 60")
-        if not 1 <= self.refinement <= 5:
+        if (
+            isinstance(self.refinement, bool)
+            or not isinstance(self.refinement, int)
+            or not 1 <= self.refinement <= 5
+        ):
             raise ValueError("W-Engine refinement must be between 1 and 5")
+        if (self.source_base_value is None) != (
+            self.source_advanced_stat_value is None
+        ):
+            raise ValueError(
+                "W-Engine source values must include both base and advanced stats"
+            )
+        for value in (self.source_base_value, self.source_advanced_stat_value):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+            ):
+                raise ValueError("W-Engine source stat values must be finite and non-negative")
 
 
 @dataclass(frozen=True, slots=True)
