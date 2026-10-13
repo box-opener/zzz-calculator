@@ -1930,13 +1930,13 @@ def _event_multiplier_modifier(
     diagnostics: list[CalculationDiagnostic],
     stack_count: int,
 ) -> Modifier | None:
-    if effect.result.operation is not EffectOperation.MULTIPLY:
+    if effect.result.operation not in (EffectOperation.ADD, EffectOperation.MULTIPLY):
         diagnostics.append(
             _diagnostic(
                 str(effect.rule.effect_id),
                 "event-multiplier-operation",
                 DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                "event skill multipliers support MULTIPLY only",
+                "event skill multipliers support ADD and MULTIPLY only",
             )
         )
         return None

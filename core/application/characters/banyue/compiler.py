@@ -572,7 +572,7 @@ def compile_banyue(
         minimum=0,
         maximum=mingwang_max_stacks,
     )
-    mingwang_available = config.additional_ability_eligible or config.cinema_level >= 6
+    mingwang_available = config.additional_ability_eligible
     rules.append(
         _rule(
             "extra-ability:mingwang-fire-damage",
@@ -599,13 +599,13 @@ def compile_banyue(
                         ElementFilter(Element.FIRE),
                     ),
                 ),
-            ),
+            ) if config.additional_ability_eligible else (),
         )
     )
 
     c6_eligibility = (
         RuleEligibility.ELIGIBLE
-        if config.cinema_level >= 6
+        if config.cinema_level >= 6 and config.additional_ability_eligible
         else RuleEligibility.INELIGIBLE
     )
     cinema6_mingwang_effects = [
@@ -626,38 +626,8 @@ def compile_banyue(
             ),
         )
     ]
-    if config.cinema_level >= 6 and not config.additional_ability_eligible:
-        cinema6_mingwang_effects.append(
-            UnresolvedEffect(
-                rule=EffectRule(
-                    effect_id=EffectId(
-                        "effect:character:1471:cinema6:mingwang-base-bonus-eligibility"
-                    ),
-                    source=cinema_sources[6],
-                    owner=BANYUE_ID,
-                    target=EffectTarget.SELF,
-                    snapshot_rule=SnapshotRule.SETTLEMENT,
-                    condition=ScenarioParameterRangeCondition(
-                        str(BANYUE_MINGWANG_STACK_COUNT), minimum=1
-                    ),
-                    filters=(
-                        DamageDealerFilter(BANYUE_ID),
-                        DamageTypeFilter(DamageType.PENETRATION),
-                        ElementFilter(Element.FIRE),
-                    ),
-                ),
-                unresolved=Unresolved(
-                    reason=UnresolvedReason.AMBIGUOUS_TEXT,
-                    notes=(
-                        "Cinema 6 explicitly permits any-time EX to grant Mingwang and adds 8% Fire damage per stack. "
-                        "The 5% base bonus is described under Extra Ability, whose support/stun-team condition may still apply; "
-                        "the source does not state whether Cinema 6 bypasses that condition. Keep this base component unresolved "
-                        "for C6-only eligibility while retaining the explicit 8% C6 bonus."
-                    ),
-                    original_text=core.extra_ability_description + "\n" + cinema[6].description,
-                ),
-            )
-        )
+    if c6_eligibility is RuleEligibility.INELIGIBLE:
+        cinema6_mingwang_effects = []
     rules.append(
         _rule(
             "cinema6:mingwang-fire-damage-increase",
@@ -882,8 +852,8 @@ def compile_banyue(
         key="cinema6-cuiyue-fire-burst",
         label="6影：普通攻击·摧岳追加周身火属性伤害",
         move_id=None,
-        skill_group=None,
-        damage_tags=frozenset(),
+        skill_group=SkillGroup.BASIC_ATTACK,
+        damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
         source_rule_item_id=RuleItemId("rule:character:1471:cinema6:cuiyue-fire-burst"),
     )
     c6_derived = DerivedDamageEventTemplateRef(

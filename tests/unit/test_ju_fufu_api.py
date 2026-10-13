@@ -40,6 +40,7 @@ FIRE_SPIN_ENTRY = f"move-entry:{JU_FUFU}:dash-tiger-cauldron-fire"
 PHYSICAL_SPIN_ENTRY = f"move-entry:{JU_FUFU}:dash-tiger-cauldron-physical"
 TIGER_MIGHT_THROW_ENTRY = f"move-entry:{JU_FUFU}:dash-tiger-cauldron-tiger-might"
 CINEMA6_POPCORN_RULE = f"rule:{JU_FUFU}:cinema6:fire-spin-popcorn"
+CINEMA6_CHAIN_DAMAGE_RULE = f"rule:{JU_FUFU}:cinema6:chain-damage"
 
 
 def _stats(attack: float = 1000.0) -> dict[str, object]:
@@ -392,24 +393,31 @@ def test_cinema1_stun_vulnerability_requires_both_mark_and_actual_stun() -> None
             assert applied[effect_id] == pytest.approx(0.35)
 
 
-def test_cinema6_popcorn_is_local_to_enabled_fire_weshi_spin() -> None:
-    partial = _calculate(
+def test_cinema6_popcorn_are_fire_chain_children_of_enabled_fire_weshi_spin() -> None:
+    result = _calculate(
         _payload(
             FIRE_SPIN_ENTRY,
             cinema=6,
-            enabled_rules=(CINEMA6_POPCORN_RULE,),
+            enabled_rules=(CINEMA6_POPCORN_RULE, CINEMA6_CHAIN_DAMAGE_RULE),
         )
     )
-    assert partial["events"][0]["modes"]["expected"]["status"] == "calculated"
-    assert partial["events"][0]["modes"]["expected"]["known_value"] is not None
-    assert partial["totals"]["expected"]["complete"] is False
-    child_diagnostics = [
-        item
-        for item in partial["diagnostics"]
-        if item["diagnostic_id"].startswith(f"application:effect:{JU_FUFU}:cinema6:popcorn-")
+    assert result["totals"]["expected"]["complete"] is True
+    popcorn = [
+        item for item in result["events"]
+        if ":cinema6:popcorn-" in item["semantic_id"]
     ]
-    assert len(child_diagnostics) == 3
-    assert all("1.6" in item["message"] and "element" in item["message"].lower() for item in child_diagnostics)
+    assert len(popcorn) == 3
+    assert all(item["damage_type"] == "direct" for item in popcorn)
+    assert all(item["element"] == "fire" for item in popcorn)
+    assert all(item["modes"]["expected"]["status"] == "calculated" for item in popcorn)
+    assert all(
+        any(
+            modifier["effect_id"] == f"effect:{JU_FUFU}:cinema6:chain-damage"
+            and modifier["value"] == pytest.approx(0.30)
+            for modifier in item["common_application_trace"]["applied_modifiers"]
+        )
+        for item in popcorn
+    )
 
     for entry_id, cinema, enabled in (
         (FIRE_SPIN_ENTRY, 6, ()),
@@ -422,8 +430,8 @@ def test_cinema6_popcorn_is_local_to_enabled_fire_weshi_spin() -> None:
         assert result["events"][0]["modes"]["expected"]["status"] == "calculated"
         assert result["totals"]["expected"]["complete"] is True
         assert not any(
-            item["diagnostic_id"].startswith(f"application:effect:{JU_FUFU}:cinema6:popcorn-")
-            for item in result["diagnostics"]
+            ":cinema6:popcorn-" in item["semantic_id"]
+            for item in result["events"]
         )
 
 

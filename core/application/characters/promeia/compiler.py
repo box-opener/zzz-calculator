@@ -39,8 +39,6 @@ from core.types import (
     StandardCritRule,
     SkillGroup,
     Unresolved,
-    UnresolvedEffect,
-    UnresolvedReason,
 )
 
 from ...diagnostics import CalculationDiagnostic
@@ -872,42 +870,29 @@ def compile_promeia(
         "Promeia Cinema 2 Anomaly Proficiency increase",
     )
     c2_eligible = config.cinema_level >= 2
-    c2_ambiguous_effect = UnresolvedEffect(
-        rule=EffectRule(
-            effect_id=EffectId("effect:character:1541:cinema2:frost-discharge-ratio"),
-            source=c2_source,
-            owner=PROMEIA_ID,
-            target=EffectTarget.TEAM,
-            snapshot_rule=SnapshotRule.SETTLEMENT,
-            filters=(
-                DamageTypeFilter(DamageType.ANOMALY),
-                DamageSubtypeFilter(DamageSubtype.DISCHARGE),
-                AnyFilter(
-                    (
-                        CreatedByEffectFilter(_CORE_DISCHARGE_CREATION_ID),
-                        CreatedByEffectFilter(_C6_DISCHARGE_CREATION_ID),
-                    )
-                ),
+    c2_frost_discharge_bonus = _modifier(
+        "cinema2:frost-discharge-ratio",
+        c2_source,
+        CalculationNode.DAMAGE_SKILL_MULTIPLIER,
+        Resolved(1.2),
+        target=EffectTarget.TEAM,
+        filters=(
+            DamageTypeFilter(DamageType.ANOMALY),
+            DamageSubtypeFilter(DamageSubtype.DISCHARGE),
+            AnyFilter(
+                (
+                    CreatedByEffectFilter(_CORE_DISCHARGE_CREATION_ID),
+                    CreatedByEffectFilter(_C6_DISCHARGE_CREATION_ID),
+                )
             ),
         ),
-        unresolved=Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-            notes=(
-                "Cinema 2 says the multiplier of Frost-consuming Discharge is increased by 120%, "
-                "but does not say whether this is a +120-percentage-point addition or a relative "
-                "increase by 120% (×2.20 total). The source also does not establish whether the modifier "
-                "applies to Cinema 6's separate special 200% Discharge. Only the explicitly "
-                "Frost-consuming Core and C6 events are affected; Chain and Ultimate do not consume Frost."
-            ),
-            original_text=c2.description,
-            candidates=("add 120 percentage points", "increase the original multiplier by 120% (×2.20 total)"),
-        ),
+        operation=EffectOperation.ADD,
     )
     rules.append(
         _rule(
             "cinema2:anomaly-proficiency-and-frost-discharge",
             c2_source,
-            f"2影：异常精通+{c2_ap:g}；霜刑异放倍率文本待判定",
+                f"2影：异常精通+{c2_ap:g}；霜刑异放倍率+120个百分点",
             c2.description,
             RuleEligibility.ELIGIBLE if c2_eligible else RuleEligibility.INELIGIBLE,
             effects=(
@@ -918,7 +903,7 @@ def compile_promeia(
                     Resolved(c2_ap),
                     target=EffectTarget.SELF,
                 ),
-                c2_ambiguous_effect,
+                c2_frost_discharge_bonus,
             )
             if c2_eligible
             else (),

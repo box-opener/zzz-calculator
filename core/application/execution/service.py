@@ -43,6 +43,7 @@ from core.types import (
     IndependentAnomalyCritRule,
     NoAnomalyCrit,
     ModifierEffect,
+    ModifierResult,
     NoCritRule,
     LuminanceSourceChoice,
     LuminanceDamageEvent,
@@ -224,6 +225,11 @@ class DirectMoveApplicationService:
             rule_items,
             request.scenario,
             frozenset(profile.character_id for profile in request.team_profiles),
+        )
+        global_panel_application = self._apply_norma_external_force_conversion(
+            request,
+            global_panel_application,
+            rule_items,
         )
         source_diagnostics: tuple[CalculationDiagnostic, ...] = ()
         special_source = None
@@ -1112,6 +1118,181 @@ class DirectMoveApplicationService:
             ),
         )
         return child, (*ancestry, template_id)
+
+    def _apply_norma_external_force_conversion(
+        self,
+        request: MoveCalculationRequest,
+        panel_application: ModifierApplicationResult,
+        rule_items: tuple[CalculationRuleItem, ...],
+    ) -> ModifierApplicationResult:
+        """Apply Norma's Core conversion from active Lucia/Yinhu Force only.
+
+        The temporary Penetration event is an identity-only matching context;
+        it is never queued or sent to a damage calculator.
+        """
+
+        norma_id = CharacterId("character:1571")
+        if not any(
+            definition.character_id == norma_id for definition in _all_definitions(request)
+        ):
+            return panel_application
+        core_rule_id = next(
+            (
+                rule.rule_id
+                for rule in rule_items
+                if str(rule.rule_id) == "rule:character:1571:core:penetration-force-atk"
+            ),
+            None,
+        )
+        if (
+            core_rule_id is None
+            or core_rule_id not in request.scenario.enabled_rule_item_ids
+        ):
+            return panel_application
+        core_rule = next(rule for rule in rule_items if rule.rule_id == core_rule_id)
+        external_owners = frozenset(
+            {CharacterId("character:1451"), CharacterId("character:1421")}
+        )
+        force_rules = tuple(
+            rule
+            for rule in rule_items
+            if rule.owner in external_owners
+            and any(
+                isinstance(effect, ModifierEffect)
+                and effect.result.modifier_path is CalculationNode.PENETRATION_FORCE_BONUS
+                for effect in rule.effects
+            )
+        )
+        norma_definition = next(
+            item for item in _all_definitions(request) if item.character_id == norma_id
+        )
+        source_event = PenetrationDamageEvent(
+            metadata=DamageEventMetadata(
+                event_id=DamageEventId(
+                    f"event:{request.battle_state_id}:norma-external-force"
+                ),
+                battle_state_id=request.battle_state_id,
+                damage_dealer=norma_id,
+                target_enemy=request.target_snapshot.enemy_id,
+                element=norma_definition.base_element,
+                created_at=request.battle_time,
+            ),
+            base_settlement_data_source=CurrentPenetrationForceValueSource(norma_id),
+            multiplier=FixedMultiplier(Resolved(1.0)),
+            crit_rule=StandardCritRule(norma_id),
+        )
+        match_context = _match_context(
+            request,
+            source_event,
+            panel_application.character_snapshots,
+            (),
+        )
+        matches = self._matcher.match_rule_items(force_rules, match_context)
+        applications = tuple(
+            application
+            for application in _matched_effects(matches, force_rules, request.scenario)
+            if isinstance(application.effect, ModifierEffect)
+            and application.effect.result.modifier_path
+            is CalculationNode.PENETRATION_FORCE_BONUS
+        )
+        matched_effect_ids = tuple(
+            application.effect.rule.effect_id for application in applications
+        )
+        force_application = apply_matched_modifiers(
+            panel_application.character_snapshots,
+            (),
+            applications,
+            request.scenario.current_operator,
+            initial_character_snapshots=request.initial_character_snapshots,
+            scenario=request.scenario,
+            event=source_event,
+            apply_panel=False,
+        )
+        blocked_matches = tuple(
+            diagnostic
+            for match in matches
+            if match.status is EffectMatchStatus.BLOCKED
+            for diagnostic in match.diagnostics
+        )
+        value_diagnostics = tuple(
+            diagnostic
+            for diagnostic in force_application.diagnostics
+            if any(
+                str(effect_id) in str(diagnostic.diagnostic_id)
+                for effect_id in matched_effect_ids
+            )
+        )
+        force_values = tuple(
+            modifier.value
+            for modifier in force_application.event_modifiers
+            if modifier.modifier_path is CalculationNode.PENETRATION_FORCE_BONUS
+        )
+        if blocked_matches or value_diagnostics or any(
+            not isinstance(value, Resolved) for value in force_values
+        ):
+            diagnostic = CalculationDiagnostic(
+                diagnostic_id=DiagnosticId(
+                    "partial:character:1571:core:external-penetration-force"
+                ),
+                kind=DiagnosticKind.MISSING_DATA,
+                message=(
+                    "Norma's ATK conversion depends on active external Lucia/Yinhu Force, "
+                    "and at least one matched source value is unresolved."
+                ),
+                blocking=request.definition.character_id == norma_id,
+                original_text=core_rule.original_text,
+            )
+            return replace(
+                panel_application,
+                diagnostics=(
+                    *panel_application.diagnostics,
+                    *blocked_matches,
+                    *value_diagnostics,
+                    diagnostic,
+                ),
+            )
+
+        force_total = sum(
+            value.value for value in force_values if isinstance(value, Resolved)
+        )
+        attack_bonus = min(force_total * 1.25, 1200.0)
+
+        attack_effect = ModifierEffect(
+            rule=EffectRule(
+                effect_id=EffectId("effect:character:1571:core:penetration-force-atk"),
+                source=core_rule.source,
+                owner=norma_id,
+                target=EffectTarget.SELF,
+                snapshot_rule=SnapshotRule.SETTLEMENT,
+            ),
+            result=ModifierResult(
+                modifier_path=CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
+                operation=EffectOperation.ADD,
+                value=Resolved(attack_bonus),
+            ),
+        )
+        attack_application = apply_matched_modifiers(
+            panel_application.character_snapshots,
+            (),
+            (MatchedEffectApplication(attack_effect, rule_item_id=core_rule_id),),
+            request.scenario.current_operator,
+            initial_character_snapshots=request.initial_character_snapshots,
+            scenario=request.scenario,
+            apply_panel=True,
+        )
+        return replace(
+            panel_application,
+            character_snapshots=attack_application.character_snapshots,
+            applied_panel_effect_ids=(
+                panel_application.applied_panel_effect_ids
+                | attack_application.applied_panel_effect_ids
+            ),
+            panel_traces=panel_application.panel_traces + attack_application.panel_traces,
+            diagnostics=(
+                *panel_application.diagnostics,
+                *attack_application.diagnostics,
+            ),
+        )
 
     def _resolve_external_penetration_force_source(
         self,
@@ -2788,13 +2969,16 @@ def _apply_event_multiplier_modifiers(
         # the source AP contribution, which preserves Remielle's explicit
         # (base + AP) * Cinema-4 order.
         return event
-    if not isinstance(event, (DirectDamageEvent, PenetrationDamageEvent)):
+    if not isinstance(
+        event,
+        (DirectDamageEvent, PenetrationDamageEvent, DischargeDamageEvent),
+    ):
         diagnostics.append(
             _diagnostic(
                 "event-multiplier",
                 "event-kind",
                 DiagnosticKind.UNSUPPORTED_CALCULATOR,
-                "event multiplier modifiers require a direct or penetration damage event",
+                "event multiplier modifiers require a Direct, Penetration, or Discharge event",
             )
         )
         return event
@@ -2819,6 +3003,8 @@ def _apply_event_multiplier_modifiers(
         )
         return event
     value = event.multiplier.value.value
+    additive = 0.0
+    multiplier = 1.0
     for modifier in modifiers:
         if modifier.modifier_path is not CalculationNode.DAMAGE_SKILL_MULTIPLIER:
             diagnostics.append(
@@ -2830,13 +3016,13 @@ def _apply_event_multiplier_modifiers(
                 )
             )
             continue
-        if modifier.operation is not EffectOperation.MULTIPLY:
+        if modifier.operation not in (EffectOperation.ADD, EffectOperation.MULTIPLY):
             diagnostics.append(
                 _diagnostic(
                     str(modifier.effect_id),
                     "event-multiplier-operation",
                     DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                    "event skill multipliers support MULTIPLY only",
+                    "event skill multipliers support ADD and MULTIPLY only",
                 )
             )
             continue
@@ -2850,8 +3036,14 @@ def _apply_event_multiplier_modifiers(
                 )
             )
             continue
-        value *= modifier.value.value
-    return replace(event, multiplier=FixedMultiplier(Resolved(value)))
+        if modifier.operation is EffectOperation.ADD:
+            additive += modifier.value.value
+        else:
+            multiplier *= modifier.value.value
+    return replace(
+        event,
+        multiplier=FixedMultiplier(Resolved((value + additive) * multiplier)),
+    )
 
 
 def _execution_without_events(

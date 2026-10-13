@@ -9,6 +9,7 @@ from web.api import app
 NORMA = "character:1571"
 ANTON = "character:1111"
 NICOLE = "character:1031"
+YINHU = "character:1421"
 CLIENT = TestClient(app)
 
 
@@ -21,15 +22,21 @@ def _payload(
     crit_rate: float = 0.60,
     conditions: dict[str, bool] | None = None,
     enabled_rules: tuple[str, ...] = (),
+    panel_overrides: dict[str, dict[str, object]] | None = None,
 ) -> dict[str, object]:
+    panel_overrides = panel_overrides or {}
     return {
         "primary_character_id": primary,
         "supporting_character_ids": [item for item in team if item != primary],
         "team_character_ids": list(team),
         "formation_character_ids": list(team),
-        "move_entry_id": f"move-entry:{NORMA}:{entry}"
-        if primary == NORMA
-        else f"move-entry:{primary}:basic-normal-1",
+        "move_entry_id": (
+            f"move-entry:{NORMA}:{entry}"
+            if primary == NORMA
+            else f"move-entry:{YINHU}:basic-stage-1"
+            if primary == YINHU
+            else f"move-entry:{primary}:basic-normal-1"
+        ),
         "compile_configs": {
             item: {
                 "core_level": 7,
@@ -55,6 +62,7 @@ def _payload(
                     "penetration_rate": 0.0,
                     "penetration_flat": 0.0,
                     "element_damage_bonus": {"fire": 0.0},
+                    **panel_overrides.get(item, {}),
                 },
             }
             for item in team
@@ -199,7 +207,7 @@ def test_norma_technical_gap_cinema2_replaces_three_percent_with_six() -> None:
     )
 
 
-def test_norma_core_initial_crit_and_penetration_force_partial_are_local_to_norma_direct() -> None:
+def test_norma_core_initial_crit_and_external_force_conversion_are_local() -> None:
     core_crit = f"rule:{NORMA}:core:initial-crit-damage"
     with_core = _event(
         _calculate(_payload(enabled_rules=(core_crit,)))
@@ -217,14 +225,49 @@ def test_norma_core_initial_crit_and_penetration_force_partial_are_local_to_norm
     assert _breakdown(capped, "character.current.crit-damage") == pytest.approx(1.35)
 
     pf_rule = f"rule:{NORMA}:core:penetration-force-atk"
-    partial = _calculate(_payload(enabled_rules=(pf_rule,)))
-    assert _event(partial)["modes"]["expected"]["status"] == "blocked"
-    assert partial["totals"]["expected"]["complete"] is False
-    assert any(
-        item["diagnostic_id"] == f"effect:{NORMA}:core:penetration-force-atk:unresolved-effect"
-        and item["blocking"]
-        for item in partial["diagnostics"]
+    no_force = _calculate(_payload(enabled_rules=(pf_rule,)))
+    assert _event(no_force)["modes"]["expected"]["status"] == "calculated"
+    assert no_force["totals"]["expected"]["complete"] is True
+    no_force_norma = next(
+        item for item in no_force["resolved_character_snapshots"]
+        if item["character_id"] == NORMA
     )
+    assert no_force_norma["stats"]["attack"] == pytest.approx(1000.0)
+
+    lucia = "character:1451"
+    lucia_force_rule = "rule:character:1451:ex-special:break-dark-penetration-force"
+    lucia_result = _calculate(
+        _payload(
+            team=(NORMA, lucia),
+            conditions={"condition:lucia:break-dark-active": True},
+            enabled_rules=(pf_rule, lucia_force_rule),
+            panel_overrides={lucia: {"hp": 10000.0}},
+        )
+    )
+    lucia_norma = next(
+        item for item in lucia_result["resolved_character_snapshots"]
+        if item["character_id"] == NORMA
+    )
+    assert lucia_norma["stats"]["attack"] == pytest.approx(1477.5)
+    assert lucia_result["totals"]["expected"]["complete"] is True
+
+    yinhu = YINHU
+    yinhu_force_rule = f"rule:{yinhu}:core:tongqiao-penetration-force:character-1571"
+    yinhu_condition = "condition:yinhu:core:tongqiao-active:character-1571"
+    yinhu_result = _calculate(
+        _payload(
+            team=(NORMA, yinhu),
+            conditions={yinhu_condition: True},
+            enabled_rules=(pf_rule, yinhu_force_rule),
+            panel_overrides={yinhu: {"attack": 2000.0}},
+        )
+    )
+    yinhu_norma = next(
+        item for item in yinhu_result["resolved_character_snapshots"]
+        if item["character_id"] == NORMA
+    )
+    assert yinhu_norma["stats"]["attack"] == pytest.approx(1450.0)
+    assert yinhu_result["totals"]["expected"]["complete"] is True
 
     teammate_payload = _payload(
         primary=ANTON,
@@ -234,6 +277,55 @@ def test_norma_core_initial_crit_and_penetration_force_partial_are_local_to_norm
     teammate = _calculate(teammate_payload)
     assert _event(teammate)["modes"]["expected"]["status"] == "calculated"
     assert teammate["totals"]["expected"]["complete"] is True
+
+
+def test_norma_external_force_uses_the_source_cap_without_a_900_point_runtime_cutoff() -> None:
+    lucia = "character:1451"
+    yinhu = "character:1421"
+    force_rule = f"rule:{NORMA}:core:penetration-force-atk"
+    high_source_rules = (
+        force_rule,
+        "rule:character:1451:ex-special:break-dark-penetration-force",
+        f"rule:{yinhu}:core:tongqiao-penetration-force:character-1571",
+    )
+    high_conditions = {
+        "condition:lucia:break-dark-active": True,
+        "condition:yinhu:core:tongqiao-active:character-1571": True,
+    }
+    high_builds = {
+        lucia: {"hp": 24000.0},
+        yinhu: {"attack": 2000.0},
+    }
+    norma_result = _calculate(
+        _payload(
+            team=(NORMA, lucia, yinhu),
+            conditions=high_conditions,
+            enabled_rules=high_source_rules,
+            panel_overrides=high_builds,
+        )
+    )
+    assert norma_result["totals"]["expected"]["complete"] is True
+    assert not any(
+        item["diagnostic_id"] == "partial:character:1571:core:external-force-over-900"
+        for item in norma_result["diagnostics"]
+    )
+    norma_snapshot = next(
+        item for item in norma_result["resolved_character_snapshots"]
+        if item["character_id"] == NORMA
+    )
+    assert norma_snapshot["stats"]["attack"] == pytest.approx(2200.0)
+
+    peer_result = _calculate(
+        _payload(
+            primary=yinhu,
+            team=(yinhu, NORMA, lucia),
+            conditions=high_conditions,
+            enabled_rules=high_source_rules,
+            panel_overrides=high_builds,
+        )
+    )
+    assert peer_result["totals"]["expected"]["complete"] is True
+    assert _event(peer_result)["modes"]["expected"]["status"] == "calculated"
 
 
 def test_norma_term_attack_team_bonus_c1_and_c6_current_conditions() -> None:

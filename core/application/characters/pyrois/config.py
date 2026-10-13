@@ -25,8 +25,10 @@ class PyroisCompileConfig:
             raise ValueError("PyroisCompileConfig requires character:1551")
         if not 1 <= self.core_level <= 7:
             raise ValueError("core_level must be between 1 and 7")
-        if not 0 <= self.cinema_level <= 6:
-            raise ValueError("cinema_level must be between 0 and 6")
+        # The source explicitly marks Cinema 6 as unpublished.  Keep it out
+        # of the selectable/configurable range until a reviewed source exists.
+        if not 0 <= self.cinema_level <= 5:
+            raise ValueError("cinema_level must be between 0 and 5")
         groups = tuple(item.skill_group for item in self.skill_levels)
         if len(set(groups)) != len(groups):
             raise ValueError("skill levels must be unique per skill group")

@@ -2768,8 +2768,8 @@ def _pyrois_fields(
             "佩洛伊斯影画",
             int(values.get("cinema_level", 0)),
             0,
-            6,
-            "S级代理人默认影画为0；3影与5影技能等级提升包含终结技并受16级上限约束。",
+            5,
+            "影画6尚未公开；3影与5影技能等级提升包含终结技并受16级上限约束。",
         ),
         *_skill_level_fields(values, default_level=12),
     )

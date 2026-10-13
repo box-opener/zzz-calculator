@@ -9,6 +9,7 @@ from core.types import (
     BattleEventKind,
     CalculationNode,
     CharacterRole,
+    CurrentAttackValueSource,
     DamageDealerFilter,
     DamageTag,
     DamageTagFilter,
@@ -25,19 +26,21 @@ from core.types import (
     EventCreationResult,
     EventTemplateId,
     EventTemplateIdFilter,
+    FixedMultiplier,
     ModifierEffect,
     ModifierResult,
     Resolved,
     RuleSource,
     SkillGroup,
     SnapshotRule,
+    StandardCritRule,
     StateId,
     Unresolved,
-    UnresolvedReason,
 )
 
 from ...diagnostics import CalculationDiagnostic
-from ...ids import RuleItemId
+from ...ids import DamageEventSemanticId, RuleItemId
+from ...moves import DamageEventTemplateRef, DerivedDamageEventTemplateRef
 from ...rules import CalculationRuleItem, RuleEligibility
 from ...scenario import ConditionResolution, ScenarioCondition
 from ..definition import CharacterCalculationDefinition
@@ -51,6 +54,7 @@ from ..nanoka_compiler import (
     source_for,
 )
 from ..nanoka_source import load_nanoka_raw_record
+from ..templates import DirectDamageEventTemplate
 from .config import PYROIS_ID, PyroisCompileConfig
 from .reviewed import (
     PYROIS_EX_ASSIST_ORDER_PROC_ACTIVE,
@@ -246,6 +250,8 @@ def compile_pyrois(
         reviewed_mapping=PYROIS_REVIEWED_MAPPING,
         id_namespace="character:1551",
     )
+    templates = list(direct_templates)
+    independent_derived: list[DerivedDamageEventTemplateRef] = []
     core = raw_record.core_levels[config.core_level - 1]
     rules: list[CalculationRuleItem] = []
     conditions = [
@@ -367,6 +373,34 @@ def compile_pyrois(
         ),
     ):
         original_text = core.description
+        rule_id = RuleItemId(f"rule:character:1551:core:{key}")
+        child_id = EventTemplateId(f"template:character:1551:core:{key}:ether-ultimate")
+        child_ref = DamageEventTemplateRef(
+            template_id=child_id,
+            semantic_id=DamageEventSemanticId(f"event:character:1551:core:{key}:ether-ultimate"),
+            label=f"核心被动：{label}（以太终结技追加伤害）",
+            damage_type=DamageType.DIRECT,
+            skill_group=SkillGroup.ULTIMATE,
+            damage_tags=frozenset({DamageTag.ULTIMATE}),
+            element=Element.ETHER,
+            source_rule_item_id=rule_id,
+        )
+        templates.append(
+            DirectDamageEventTemplate(
+                ref=child_ref,
+                damage_dealer=PYROIS_ID,
+                element=Element.ETHER,
+                base_source=CurrentAttackValueSource(PYROIS_ID),
+                crit_rule=StandardCritRule(PYROIS_ID),
+                move_id=None,
+            )
+        )
+        independent_derived.append(
+            DerivedDamageEventTemplateRef(
+                template=child_ref,
+                multiplier=FixedMultiplier(Resolved(ratio)),
+            )
+        )
         rules.append(
             _rule(
                 f"core:{key}",
@@ -396,15 +430,7 @@ def compile_pyrois(
                         ),
                         result=EventCreationResult(
                             event_kind=BattleEventKind.DAMAGE,
-                            unresolved_template=Unresolved(
-                                reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-                                notes=(
-                                    f"Known current-ATK ratio is {ratio:.4g}x at Core {config.core_level}. "
-                                    "The source does not define the additional event's element, skill group, move, or damage tags; "
-                                    "keep the corresponding ultimate parent calculation and do not inherit its identity."
-                                ),
-                                original_text=original_text,
-                            ),
+                            event_template_id=child_id,
                             unique_per_source_event=True,
                         ),
                     ),
@@ -505,14 +531,35 @@ def compile_pyrois(
     else:
         ratio_note = f"Known selected-level independent Special damage curve: {order_ratio:.4g}x ATK."
 
-    order_unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            f"{ratio_note} The text identifies Ether damage and the independent Special: Battle Order curve 1551022, "
-            "but names Phaethon as the assistant rather than a CharacterId. A damage dealer and its ATK/Crit panels "
-            "cannot be inferred from this record."
-        ),
-        original_text=order_move.description,
+    order_rule_id = RuleItemId("rule:character:1551:skill:special-battle-order-ultimate-trigger")
+    order_template_id = EventTemplateId("template:character:1551:special-battle-order:ether")
+    order_ref = DamageEventTemplateRef(
+        template_id=order_template_id,
+        semantic_id=DamageEventSemanticId("event:character:1551:special-battle-order:ether"),
+        label="特殊技：强袭训令（以太伤害）",
+        damage_type=DamageType.DIRECT,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        damage_tags=frozenset({DamageTag.SPECIAL_ATTACK}),
+        element=Element.ETHER,
+        source_rule_item_id=order_rule_id,
+    )
+    templates.append(
+        DirectDamageEventTemplate(
+            ref=order_ref,
+            damage_dealer=PYROIS_ID,
+            element=Element.ETHER,
+            base_source=CurrentAttackValueSource(PYROIS_ID),
+            crit_rule=StandardCritRule(PYROIS_ID),
+            move_id=None,
+        )
+    )
+    independent_derived.append(
+        DerivedDamageEventTemplateRef(
+            template=order_ref,
+            multiplier=FixedMultiplier(
+                order_ratio if isinstance(order_ratio, Unresolved) else Resolved(order_ratio)
+            ),
+        )
     )
     def _order_trigger_effect(effect_suffix: str, parent: EventTemplateId):
         return EventCreationEffect(
@@ -532,7 +579,7 @@ def compile_pyrois(
             ),
             result=EventCreationResult(
                 event_kind=BattleEventKind.DAMAGE,
-                unresolved_template=order_unresolved,
+                event_template_id=order_template_id,
                 unique_per_source_event=True,
             ),
         )
@@ -544,7 +591,7 @@ def compile_pyrois(
         _rule(
             "skill:special-battle-order-ultimate-trigger",
             order_source,
-            "特殊技：强袭训令（终结技必定触发，独立伤害来源身份待明确）",
+            "特殊技：强袭训令（终结技必定触发；伤害归属佩洛伊斯）",
             order_move.description,
             RuleEligibility.ELIGIBLE,
             effects=tuple(
@@ -577,7 +624,8 @@ def compile_pyrois(
             f"Nanoka {raw_record.source_version}: {raw_record.source_url}",
         ),
         entries=entries,
-        templates=direct_templates,
+        templates=templates,
+        independent_derived_damage_events=independent_derived,
         rules=rules,
         conditions=conditions,
         diagnostics=(*move_diagnostics, *order_diagnostics),

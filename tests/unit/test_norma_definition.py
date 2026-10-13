@@ -41,7 +41,6 @@ from core.types import (
     RuleStackCondition,
     ScenarioParameterDerivedValue,
     SkillGroup,
-    UnresolvedEffect,
 )
 
 
@@ -221,15 +220,11 @@ def test_core_crit_damage_uses_initial_crit_rate_and_raw_level_curve() -> None:
         assert effect.result.modifier_path is CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE
 
 
-def test_penetration_force_formula_remains_local_unresolved_without_a_stun_panel_node() -> None:
+def test_penetration_force_conversion_is_source_resolved_by_execution() -> None:
     _, definition = _compiled()
-    effect = _rule(definition, "core:penetration-force-atk").effects[0]
-    assert isinstance(effect, UnresolvedEffect)
-    assert "1.25" in effect.unresolved.notes
-    assert "Rupture-only" in effect.unresolved.notes
-    assert effect.rule.target is EffectTarget.SELF
-    assert DamageDealerFilter(NORMA_ID) in effect.rule.filters
-    assert DamageTypeFilter(DamageType.DIRECT) in effect.rule.filters
+    rule = _rule(definition, "core:penetration-force-atk")
+    assert rule.effects == ()
+    assert "1.25" in rule.display_name
 
 
 def test_extra_ability_current_technical_gap_stacks_and_cinema2_replacement_scope() -> None:
