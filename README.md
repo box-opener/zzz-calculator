@@ -1,50 +1,56 @@
 # ZZZ Calculator
 
-This branch implements the frozen `spec-v1` documents as a new deterministic
-Python core. The legacy calculator is intentionally not part of the working
-tree; it remains recoverable from the Git history and the `spec-v1` tag.
+绝区零角色与装备伤害计算器，使用 Python 计算内核和 React 网页界面。支持配置队伍、音擎与驱动盘，也可从米游社导入国服账号的角色和实际装备。程序在本机运行，通过浏览器使用。
 
-Current scope is deliberately limited to:
+## 快速启动（Windows）
 
-- domain enums and discriminated unions;
-- `Character`, `Enemy`, `BattleState`, `DamageEvent`, `AnomalyRecord`, `State`,
-  and `Effect` models;
-- calculation-node names and aggregation metadata;
-- unit tests for structural invariants.
+1. 在 GitHub 项目页点击 **Code → Download ZIP**，下载完整项目并解压；也可使用 Git 克隆仓库。下载 ZIP 时先解压，再运行里面的文件。
+2. 打开项目根目录，也就是同时包含 `run.cmd`、`scripts`、`frontend` 和 `pyproject.toml` 的文件夹。
+3. **双击 [run.cmd](run.cmd)**，保持打开的运行窗口，等待环境配置和前端构建完成。首次启动需要联网下载依赖，耗时取决于网络情况。
+4. 浏览器会自动打开计算器。若没有自动打开，复制运行窗口中“已启动”后面的地址到浏览器，默认是 [http://127.0.0.1:8000](http://127.0.0.1:8000)。
 
-The current Stage18-2 slices additionally include reviewed max-level data for
-the Ye Shunguang signature W-Engine `14143`, Astra signature W-Engine `14131`,
-and the Stage18-2.5 attack/support validation set. Their static panel
-contributions and reviewed damage-relevant combat Effects enter the existing
-Build Assembly / Matcher / Execution pipeline; non-damage resource effects are
-retained in raw source text but are outside the current damage scope.
-Non-max-level W-Engine values are intentionally not part of this slice and
-produce an explicit diagnostic.
+使用期间请保持运行窗口打开；**停止服务时，在该窗口按 `Ctrl+C`**。以后启动仍双击 `run.cmd`；更新项目代码后，先停止旧服务，再重新启动。
 
-Natural-language parsing and full event dispatch remain outside this stage;
-the existing direct-damage calculator, matcher, and reviewed character/build
-compilers are reused by the W-Engine validation slice.
+启动入口 `run.cmd` 调用 [scripts/run.ps1](scripts/run.ps1)，自动完成：
 
-## 米游社角色获取
+- 检查 Python 3.11+，创建或复用项目的 `.venv`，安装后端 Web 依赖。
+- 检查 Node.js 与 npm，按 `frontend/package-lock.json` 安装前端依赖。
+- 构建网页，启动本地服务，等待服务就绪后打开浏览器。
 
-Windows 可直接双击仓库根目录的 **`run.cmd`**：自动创建/复用 `.venv`、安装 Web 依赖、按锁文件安装前端依赖、构建页面，最后启动本地服务并打开浏览器。路径不依赖当前工作目录。首次配置需要联网；之后依赖配置未变化时复用缓存，但每次都会重新构建前端，确保页面跟随工作区代码。
+脚本使用 Windows PowerShell 5.1 或更高版本。未找到 Python 时会尝试通过 winget 为当前用户安装 Python 3.12；没有 winget 时，按提示手动安装 Python 3.11+ 后重新运行。未找到兼容的 Node.js 与 npm 时，会从 Node.js 官方下载并校验 LTS 压缩包，解压到项目 `.cache/launcher/runtimes/`。
 
-未找到 Python 3.11+ 时尝试通过 winget 为当前用户安装 Python 3.12；系统没有 winget 时会提示手动安装 Python。未找到兼容的 Node.js 与 npm 时，从 [Node.js 官方发行目录](https://nodejs.org/dist/index.json) 下载并校验 LTS 压缩包，仅解压到项目 `.cache/launcher/runtimes/`。脚本与运行日志都不保存米游社 Cookie。窗口中的 `Ctrl+C` 停止本次启动的服务。
+后续启动在依赖配置未变化时复用已安装依赖，每次仍会重新构建网页。启动脚本按自身位置寻找项目，无需提前切换工作目录。
 
-可选参数（命令行执行）：
+### Windows 启动参数
+
+在项目根目录打开 PowerShell，可执行：
 
 ```powershell
+.\run.cmd                  # 正常启动并打开浏览器
 .\run.cmd -Port 8080        # 默认8000；被占用时自动寻找后续空闲端口
 .\run.cmd -NoBrowser        # 启动但不自动打开浏览器
 .\run.cmd -SetupOnly        # 只配置依赖与构建，不启动服务
 .\run.cmd -Reinstall        # 重新安装依赖并构建
 ```
 
+### 常见启动问题
+
+- **首次安装失败**：查看运行窗口的错误信息，确认能访问 Python 包索引、npm 和 Node.js 下载站点，再重新运行。失败窗口会保留提示；需要强制重装依赖时使用 `.\run.cmd -Reinstall`。
+- **提示没有 Python 或 winget**：手动安装 [Python 3.11+](https://www.python.org/downloads/windows/)，然后重新打开 `run.cmd`。
+- **浏览器无法打开页面**：先确认窗口已经显示“已启动”，再使用窗口中的实际地址。8000 被占用时，脚本会从后续最多19个端口中寻找空闲端口。
+- **提示另一个窗口正在配置项目**：等待那个窗口配置结束，再启动，避免同时安装依赖。
+- **服务启动失败或异常退出**：查看窗口提示以及项目 `.cache/launcher/` 下的 `server-*.log` 和 `server-*.error.log`。
+
 浏览器米游社缓存按访问地址和端口保存；更换端口时需在新地址重新获取，原地址的缓存仍保留。
 
-安装 Web 依赖并构建前端后，启动同源服务（以下为 Windows PowerShell，命令在仓库根目录执行）：
+## 手动启动（Windows / macOS / Linux）
+
+手动启动需先安装 Python 3.11+ 和 Node.js（可使用 22.x 的 22.12 及以上版本或 24.x，含 npm）。以下命令都从项目根目录开始执行。
+
+### Windows PowerShell
 
 ```powershell
+py -3 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e '.[web]'
 cd frontend
 npm ci
@@ -52,6 +58,24 @@ npm run build
 cd ..
 .venv\Scripts\python.exe -m uvicorn web.api:app --host 127.0.0.1 --port 8000
 ```
+
+### macOS / Linux
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[web]'
+cd frontend
+npm ci
+npm run build
+cd ..
+.venv/bin/python -m uvicorn web.api:app --host 127.0.0.1 --port 8000
+```
+
+看到服务启动成功后，在浏览器打开 [http://127.0.0.1:8000](http://127.0.0.1:8000)。手动启动不会自动打开浏览器，也不会自动更换端口；端口被占用时修改命令中的 `--port`，并打开对应地址。终端需保持运行，按 `Ctrl+C` 停止服务。修改前端代码后需重新执行 `npm run build`，修改后端代码后需重新启动服务。
+
+前端开发与热更新方式见 [frontend/README.md](frontend/README.md)。
+
+## 米游社角色获取
 
 打开 `http://127.0.0.1:8000`，展开左侧“从米游社加载我的角色”。默认选择“扫码登录”，点击“生成登录二维码”，使用本人**米游社 App** 扫描并在手机上确认登录。页面显示未扫描、已扫描待确认、登录成功、过期或取消状态；确认后自动读取并填写国服绝区零游戏 UID，多账号时可选择。没有自动读到 UID 时可手动填写，再点击“获取并保存角色”。生成二维码本身不会登录账号，确认登录需由使用者在米游社 App 完成。
 
