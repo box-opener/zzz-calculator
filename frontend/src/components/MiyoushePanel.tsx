@@ -6,7 +6,7 @@ import type { QrAuthentication } from "../state/miyousheQr";
 import type { CharacterConfig, EquipmentValidationCatalog } from "../state/equipmentConfig";
 import { sortCharactersById } from "../state/characterLibrary";
 import {
-  MIYOUSHE_STORAGE_KEY, readMiyousheProfiles, saveMiyousheProfile, validateMiyousheProfile,
+  MIYOUSHE_STORAGE_KEY, createMiyousheDraft, readMiyousheProfiles, saveMiyousheProfile, validateMiyousheProfile,
   type MiyousheProfile, type MiyousheCharacter,
 } from "../state/miyousheProfiles";
 
@@ -111,7 +111,7 @@ export default function MiyoushePanel({ catalog, ready, supportedCharacterIds, o
 
   return <details className="miyoushe-panel">
     <summary>从米游社加载我的角色</summary>
-    <p className="roster-hint">可使用米游社 App 扫码或手动 Cookie 获取国服角色。角色资料保存在当前浏览器，登录凭据不保存到本地。</p>
+    <p className="roster-hint">可使用米游社 App 扫码或手动 Cookie 获取国服角色。本地资料只读，再次获取会覆盖对应账号资料。加载后编辑的是独立副本，可另存为配置文件。登录凭据不保存到本地。</p>
     <form onSubmit={(e) => { e.preventDefault(); void fetchCharacters(); }} className="miyoushe-form">
       <div className="miyoushe-actions" role="tablist" aria-label="米游社登录方式">
         {(["qr", "cookie"] as const).map((mode) => <button key={mode} type="button" role="tab" aria-selected={loginMode === mode}
@@ -155,7 +155,7 @@ export default function MiyoushePanel({ catalog, ready, supportedCharacterIds, o
               {!supportedCharacterIds.includes(c.character_id) && <p className="roster-hint">此版本尚未支持该角色。</p>}
             </div>
             <button className="secondary-button" type="button" disabled={!ready || busy || !c.configuration || !supportedCharacterIds.includes(c.character_id)} onClick={() => {
-              if (c.configuration) { onLoad(c.configuration, c); setFailed(false); setMessage(`已加载 ${c.display_name} 的真实配置。`); }
+              if (c.configuration) { onLoad(createMiyousheDraft(c.configuration), c); setFailed(false); setMessage(`已加载 ${c.display_name} 的配置副本，本地资料保持不变。`); }
             }}>加载到当前槽位</button>
           </article>)}
         </div>

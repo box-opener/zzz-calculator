@@ -166,6 +166,31 @@ compiler must not carry a second copy. A veil-like mechanism is represented as
 an explicit vulnerability settlement policy for the current event, not as a
 replacement of the enemy's base stun-vulnerability value.
 
+## Imported snapshots and equipment drafts
+
+Miyoushe account profiles in `zzz-miyoushe-profiles-v1` are immutable imported
+snapshots. Fetching the same UID again replaces that account's entire saved
+profile. Loading a character creates a deep independent editor copy, including
+skills, weapon, drive-disc substats and effective-stat selections. Edits,
+equipment-file imports and clearing discs affect the current configuration.
+They never write back to the saved profile. Loading the saved character again
+restores its imported configuration. Export uses a timestamped `-copy-` JSON
+filename and is labelled as saving a separate configuration.
+
+Build Preview exposes `stat_breakdown` for HP, Attack, Defense, Anomaly
+Mastery and Energy Regen. Each value contains `white_value` and
+`additional_value`. The server obtains white values from character base stats
+plus Build's `white-value` contributions (including W-Engine base Attack or
+Defense), and additions from final out-of-combat value minus white. Missing
+values remain null. The UI displays the existing total above both components
+and colors the addition green; it does not reconstruct stat layers itself.
+
+Each equipped drive-disc card has a delete action, and each character has a
+clear-all action. Both update only that character's current drive-disc array
+and request an authoritative editor/build refresh, including set counts and
+set rule eligibility. Level, weapon and other characters' equipment remain
+part of the current configuration.
+
 ## Endgame scenes
 
 The offline season endpoints expose pinned formal `3.2` snapshots for `boss`

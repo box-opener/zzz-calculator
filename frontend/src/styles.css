@@ -257,6 +257,7 @@ select option { color: #151823; background: #f5f6fb; }
 .wengine-picker-specialty .wengine-picker-option { padding-left: 16px; }
 .wengine-specialty-warning { color: var(--amber); font-size: 10px; line-height: 1.5; }
 .drive-disc-area-heading { align-items: center; }
+.drive-disc-area-actions, .drive-disc-card-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 
 /* Wide two-column cards: each card keeps the selector, roll math and status visible. */
 .drive-disc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 4px; }
@@ -334,6 +335,9 @@ select option { color: #151823; background: #f5f6fb; }
 .live-panel-stat span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .live-panel-stat strong { overflow: hidden; color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .live-panel-stat small { color: var(--muted-dark); font-size: 8px; font-weight: 800; letter-spacing: .08em; }
+.live-panel-stat .live-panel-breakdown { display: flex; flex-direction: column; gap: 3px; font-size: 9px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.live-panel-breakdown span { overflow: visible; color: var(--text); white-space: normal; overflow-wrap: anywhere; font-size: inherit; }
+.live-panel-breakdown .live-panel-additional { color: var(--green); }
 .live-panel-featured-stat { border-color: rgba(124, 217, 229, .2); background: rgba(124, 217, 229, .075); }
 .live-panel-card-1 .live-panel-featured-stat { border-color: rgba(169, 147, 255, .2); background: rgba(169, 147, 255, .075); }
 .live-panel-featured-stat strong { color: #d8fbff; font-size: 18px; }

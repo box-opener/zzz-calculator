@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import DriveDiscCard from "./components/DriveDiscCard";
+import PanelStatBreakdown, { type PanelStatBreakdownValue } from "./components/PanelStatBreakdown";
 import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTraceDetails";
 import NumberField from "./components/NumberField";
 import WEnginePicker from "./components/WEnginePicker";
@@ -270,6 +271,7 @@ type BuildPreview = {
   build_mode: "equipment-build";
   base_stats: Record<string, BuildPreviewStat>;
   out_of_combat_stats: Record<string, BuildPreviewStat>;
+  stat_breakdown: Record<string, PanelStatBreakdownValue>;
   provenance: BuildPreviewContribution[];
   drive_discs: BuildPreviewDisc[];
   set_counts: { set_id: string; count: number }[];
@@ -1231,14 +1233,15 @@ function App() {
     const anchor = document.createElement("a");
     const character = characters.find((item) => item.character_id === owner);
     anchor.href = url;
-    anchor.download = characterConfigFilename(character?.code_name, owner);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    anchor.download = characterConfigFilename(character?.code_name, owner).replace(/\.json$/, `-copy-${timestamp}.json`);
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
     setEquipmentFeedback((current) => ({
       ...current,
-      [owner]: { kind: "success", message: "角色完整配置已导出为 JSON，可随时重新导入。" },
+      [owner]: { kind: "success", message: "当前配置已另存为独立 JSON 文件，可重新导入使用。" },
     }));
   };
 
@@ -1316,11 +1319,7 @@ function App() {
     }
   };
 
-  const updateDriveDisc = (owner: string, slot: number, nextDisc: DriveDiscConfig | null) => {
-    const current = driveDiscSelections[owner] ?? [];
-    const nextForOwner = nextDisc
-      ? [...current.filter((item) => item.slot !== slot), nextDisc].sort((a, b) => a.slot - b.slot)
-      : current.filter((item) => item.slot !== slot);
+  const setCharacterDriveDiscs = (owner: string, nextForOwner: DriveDiscConfig[]) => {
     const nextSelections = { ...driveDiscSelections, [owner]: nextForOwner };
     setDriveDiscSelections(nextSelections);
     void loadEditors(
@@ -1332,6 +1331,13 @@ function App() {
       wengineSelections,
       nextSelections,
     );
+  };
+
+  const updateDriveDisc = (owner: string, slot: number, nextDisc: DriveDiscConfig | null) => {
+    const current = driveDiscSelections[owner] ?? [];
+    setCharacterDriveDiscs(owner, nextDisc
+      ? [...current.filter((item) => item.slot !== slot), nextDisc].sort((a, b) => a.slot - b.slot)
+      : current.filter((item) => item.slot !== slot));
   };
 
   const selectDriveDiscSet = (owner: string, slot: number, setId: string) => {
@@ -1684,7 +1690,7 @@ function App() {
                         <span aria-hidden="true">↑</span> 导入配置
                       </button>
                       <button className="toolbar-button" type="button" onClick={() => exportEquipmentConfig(id)}>
-                        <span aria-hidden="true">↓</span> 导出配置
+                        <span aria-hidden="true">↓</span> 另存配置
                       </button>
                       <input
                         ref={(element) => { equipmentImportInputRefs.current[id] = element; }}
@@ -1713,7 +1719,7 @@ function App() {
                     <div><dt>精炼</dt><dd>{selectedWengine ? `${wengineSelections[id]?.refinement ?? 1} 阶` : "—"}</dd></div>
                   </dl>}
                   <div id={`equipment-details-${id}`} hidden={collapsed}>
-                  <div className="equipment-schema-copy">导入或导出当前角色的等级、核心/影画、技能、音擎与驱动盘；文件会完整校验输入。</div>
+                  <div className="equipment-schema-copy">编辑当前角色的等级、核心/影画、技能、音擎与驱动盘，可另存为独立配置文件。米游社本地资料保持导入时的配置，再次获取会覆盖对应账号资料。</div>
                   {feedback && <p className={`equipment-feedback ${feedback.kind}`}>{feedback.kind === "success" ? "✓" : "!"} {feedback.message}</p>}
 
                   <div className="build-level-strip">
@@ -1744,7 +1750,7 @@ function App() {
                   </div>
 
                   <div className="drive-disc-section-wrap">
-                    <div className="subsection-heading drive-disc-area-heading"><div><span className="eyebrow">DRIVE DISCS</span><h3>驱动盘</h3></div><span className="subsection-badge">6 个槽位</span></div>
+                    <div className="subsection-heading drive-disc-area-heading"><div><span className="eyebrow">DRIVE DISCS</span><h3>驱动盘</h3></div><div className="drive-disc-area-actions"><span className="subsection-badge">6 个槽位</span><button className="toolbar-button" type="button" disabled={selectedDiscs.length === 0} onClick={() => setCharacterDriveDiscs(id, [])}>清除全部驱动盘</button></div></div>
                     <div className="drive-disc-grid">
                       {(driveView?.slot_schemas ?? []).map((schema) => {
                         const disc = selectedDiscs.find((item) => item.slot === schema.slot);
@@ -1758,6 +1764,7 @@ function App() {
                           substatOptions={driveView?.substat_options ?? []}
                           diagnostics={driveView?.diagnostics ?? []}
                           onSelectSet={(setId) => selectDriveDiscSet(id, schema.slot, setId)}
+                          onRemoveDisc={() => updateDriveDisc(id, schema.slot, null)}
                           onUpdateMain={(mainStat) => updateDriveDiscMain(id, schema.slot, mainStat)}
                           onUpdateSubstat={(index, next) => updateDriveDiscSubstat(id, schema.slot, index, next)}
                           onUpdateRoll={(index, delta) => updateDriveDiscSubstatRoll(id, schema.slot, index, delta)}
@@ -2129,7 +2136,7 @@ function LivePanel({ teamIds, currentOperatorId, characters, editorViews, previe
             <span className={`live-panel-status ${statusClass}`}>{status}</span>
           </div>
           <div className="live-panel-featured-grid">
-            <div className="live-panel-stat live-panel-featured-stat"><span>攻击力</span><strong>{readStat("attack")}</strong><small>ATK</small></div>
+            <div className="live-panel-stat live-panel-featured-stat"><span>攻击力</span><strong>{readStat("attack")}</strong><PanelStatBreakdown value={preview?.stat_breakdown?.attack} /><small>ATK</small></div>
             <div className="live-panel-stat live-panel-featured-stat"><span>暴击率</span><strong>{readStat("crit_rate", true)}</strong><small>CRIT RATE</small></div>
             <div className="live-panel-stat live-panel-featured-stat"><span>暴击伤害</span><strong>{readStat("crit_damage", true)}</strong><small>CRIT DMG</small></div>
             <div className="live-panel-stat live-panel-featured-stat live-panel-element-bonuses"><span>属性增伤</span><strong>{formatElementBonus(elementValue as Record<string, number | null> | null, damageElement)}</strong><small>ELEMENT BONUS</small></div>
@@ -2137,7 +2144,7 @@ function LivePanel({ teamIds, currentOperatorId, characters, editorViews, previe
           <div className="live-panel-secondary-grid">
             {LIVE_PANEL_STATS.filter(({ key }) => !["attack", "crit_rate", "crit_damage"].includes(key)
               && (key !== "penetration_force" || character?.specialty === "rupture"))
-              .map(({ key, label, ratio }) => <div className="live-panel-stat" key={key}><span>{label}</span><strong>{readStat(key, ratio)}</strong></div>)}
+              .map(({ key, label, ratio }) => <div className="live-panel-stat" key={key}><span>{label}</span><strong>{readStat(key, ratio)}</strong><PanelStatBreakdown value={preview?.stat_breakdown?.[key]} /></div>)}
           </div>
           <details className="live-panel-provenance">
             <summary><span>来源明细</span><small>{preview ? `${preview.provenance.length} 项装备/基础贡献` : "等待装备构筑解析"}</small></summary>

@@ -415,6 +415,7 @@ from .build_preview import (
     DriveDiscPreviewView,
     DriveDiscStatPreviewView,
     out_of_combat_penetration_force,
+    out_of_combat_stat_breakdown,
 )
 from .calculation import BuildContributionView, panel_snapshot_view
 from .calculation import build_contribution_view
@@ -8240,6 +8241,7 @@ def build_registered_build_preview(
         build_mode=BuildMode.EQUIPMENT_BUILD.value,
         base_stats=base_snapshot.stats,
         out_of_combat_stats=out_of_combat_stats,
+        stat_breakdown=out_of_combat_stat_breakdown(assembled),
         provenance=provenance,
         drive_discs=_drive_disc_preview_views(drive_resolution),
         set_counts=tuple(
