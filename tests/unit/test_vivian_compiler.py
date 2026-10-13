@@ -631,7 +631,7 @@ def test_synthetic_panel_anomaly_profiles_keep_periodic_source_tick_counts() -> 
         Element.LINREN: (7.13, None),
         Element.ICE: (5.0, None),
         Element.LIESHUANG: (5.0, None),
-        Element.WIND: (17.5, None),
+        Element.WIND: (12.5, None),
     }
     for element, (tick_multiplier, repeat_count) in expected.items():
         entry, _template = _synthetic_panel_source_entry(

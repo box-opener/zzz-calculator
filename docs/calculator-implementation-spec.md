@@ -348,6 +348,10 @@ MoveEntry 结构伪造不存在的来源招式。
 `ENEMY_STUN_VULNERABILITY + ADD 1.50` 传入。基础 Modifier 必须已经使用 `ADD`，且不得
 包含角色面板节点。
 
+若怪物资料标注的是包含基础100%的失衡总倍率150%，则应先换算为额外易伤
+`+50%`，传入 `ENEMY_STUN_VULNERABILITY + ADD 0.50`；不能把总倍率1.50直接作为
+加算量。结算易伤区的基础1只加入一次。
+
 应用层负责解释 Modifier operation。没有 `OVERRIDE` 时，同一节点的基础 ADD 与规则 ADD
 共同汇总；存在唯一 `OVERRIDE` 时，该值替代同一节点的基础值，并以规范化 ADD 传给
 Calculator。多个 OVERRIDE，或 OVERRIDE 与任何其他规则 operation 的先后关系未被规范明确

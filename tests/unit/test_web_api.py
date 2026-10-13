@@ -5724,7 +5724,7 @@ def test_velina_raw_panel_signature_and_wind_or_infused_cyclone_mapping() -> Non
     assert broad_wind.multiplier_variants[0].repeat_count == 10
     assert entries["move-entry:character:1561:micro-cyclone"].multiplier_variants[0].multiplier.value.value == pytest.approx(0.655)
     weathering = entries["move-entry:character:1561:wind-weathering"]
-    assert weathering.multiplier_variants[0].multiplier.value.value == pytest.approx(17.5)
+    assert weathering.multiplier_variants[0].multiplier.value.value == pytest.approx(12.5)
 
     coloured = registration.compile_definition(
         {"core_level": 7, "cinema_level": 0, "current_coloured_element": 5},

@@ -29,7 +29,7 @@ from core.types import CharacterId
 
 app = FastAPI(
     title="ZZZ Calculator Presentation API",
-    version="0.1.0",
+    version="2.1.0",
     docs_url="/api/docs",
     redoc_url=None,
 )
