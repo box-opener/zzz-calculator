@@ -55,6 +55,7 @@ from ...ids import (
     ScenarioParameterId,
 )
 from ...moves import (
+    DerivedDamageEventTemplateRef,
     DamageEventTemplateRef,
     MoveCalculationEntry,
     MultiplierRelation,
@@ -358,36 +359,49 @@ def _static_physical_entries(raw: NanokaRawRecord):
     return (anomaly_entry, disorder_entry), (anomaly_template, disorder_template), remaining
 
 
-def _unresolved_c6_extra_attack(raw: NanokaRawRecord):
+def _c6_extra_assault_attack(raw: NanokaRawRecord):
     c6 = raw.mindscapes[5]
     ratio = _number(
         c6.description,
         r"造成等同于简(?P<value>[\d.]+)%异常精通的物理伤害",
         "Jane Doe Cinema 6 anomaly-proficiency extra-attack coefficient",
     ) / 100.0
+    # Preserve the established entry ID so saved selections continue to load.
     key = "cinema6-extra-assault-identity-unresolved"
-    label = f"6影：强击暴击额外物理伤害（{ratio:.0%}×当前异常精通；事件身份待确认）"
-    ref = DamageEventTemplateRef(
-        template_id=EventTemplateId(f"template:character:1261:{key}:main"),
-        semantic_id=DamageEventSemanticId(f"event:character:1261:{key}:main"),
+    label = f"6影：强击暴击额外直伤（{ratio:.0%}×简当前异常精通）"
+    standalone_ref = DamageEventTemplateRef(
+        template_id=EventTemplateId(f"template:character:1261:{key}:standalone"),
+        semantic_id=DamageEventSemanticId(f"event:character:1261:{key}:standalone"),
         label=label,
         damage_type=DamageType.DIRECT,
         element=Element.PHYSICAL,
     )
-    template = DirectDamageEventTemplate(
-        ref=ref,
+    standalone_template = DirectDamageEventTemplate(
+        ref=standalone_ref,
         damage_dealer=JANE_DOE_ID,
         element=Element.PHYSICAL,
         base_source=CurrentAnomalyProficiencyValueSource(JANE_DOE_ID),
         crit_rule=StandardCritRule(JANE_DOE_ID),
         move_id=None,
     )
-    diagnostic = CalculationDiagnostic(
-        diagnostic_id=DiagnosticId(f"unsupported:character:1261:{key}:identity"),
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        message="Cinema 6's 1600% current-Anomaly-Proficiency Physical extra hit has unresolved event type, Crit rule, skill group, and damage tags; no typed damage event is emitted.",
-        blocking=True,
-        original_text=c6.description,
+    child_rule_id = RuleItemId(
+        "rule:character:1261:cinema6:strong-crit-extra-attack-identity-unresolved"
+    )
+    child_ref = DamageEventTemplateRef(
+        template_id=EventTemplateId(f"template:character:1261:{key}:child"),
+        semantic_id=DamageEventSemanticId(f"event:character:1261:{key}:child"),
+        label=label,
+        damage_type=DamageType.DIRECT,
+        element=Element.PHYSICAL,
+        source_rule_item_id=child_rule_id,
+    )
+    child_template = DirectDamageEventTemplate(
+        ref=child_ref,
+        damage_dealer=JANE_DOE_ID,
+        element=Element.PHYSICAL,
+        base_source=CurrentAnomalyProficiencyValueSource(JANE_DOE_ID),
+        crit_rule=StandardCritRule(JANE_DOE_ID),
+        move_id=None,
     )
     entry = MoveCalculationEntry(
         entry_id=MoveEntryId(f"move-entry:character:1261:{key}"),
@@ -397,7 +411,7 @@ def _unresolved_c6_extra_attack(raw: NanokaRawRecord):
         original_text=c6.description,
         skill_group=None,
         damage_tags=frozenset(),
-        multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
+        multiplier_relation=MultiplierRelation.COMPLETE,
         multiplier_variants=(
             MultiplierVariant(
                 variant_id=MultiplierVariantId(f"variant:character:1261:{key}:coefficient"),
@@ -406,15 +420,13 @@ def _unresolved_c6_extra_attack(raw: NanokaRawRecord):
                 multiplier=FixedMultiplier(Resolved(ratio)),
             ),
         ),
-        main_damage_event=ref,
-        diagnostics=(diagnostic,),
+        main_damage_event=standalone_ref,
     )
-    unresolved_child = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_TEXT,
-        notes="The source defines a one-time 1600% current-Anomaly-Proficiency Physical extra attack after a team Assault crit. Its damage type, Crit rule, group, and tags are unresolved; no synthetic event is emitted.",
-        original_text=c6.description,
+    child_referral = DerivedDamageEventTemplateRef(
+        template=child_ref,
+        multiplier=FixedMultiplier(Resolved(ratio)),
     )
-    return entry, template, unresolved_child
+    return entry, standalone_template, child_template, child_referral
 
 
 def compile_jane_doe(
@@ -434,6 +446,7 @@ def compile_jane_doe(
     )
     entries = list(direct_entries)
     templates = list(direct_templates)
+    independent_derived: list[DerivedDamageEventTemplateRef] = []
     raw_moves = raw_move_index(raw_record)
     basic_level = effective_skill_level(config, SkillGroup.BASIC_ATTACK)
     saohov_curve_id = "1261030" if config.potential_level >= 1 else "1261007"
@@ -840,9 +853,10 @@ def compile_jane_doe(
                 ),
             ),
         ))
-        c6_entry, c6_template, c6_unresolved = _unresolved_c6_extra_attack(raw_record)
+        c6_entry, c6_template, c6_child_template, c6_child_ref = _c6_extra_assault_attack(raw_record)
         entries.append(c6_entry)
-        templates.append(c6_template)
+        templates.extend((c6_template, c6_child_template))
+        independent_derived.append(c6_child_ref)
         conditions.append(_condition(
             JANE_C6_ASSAULT_CRIT_TRIGGERED,
             "本次队伍强击暴击已触发简的6影额外攻击",
@@ -851,7 +865,7 @@ def compile_jane_doe(
         rules.append(_rule(
             "cinema6:strong-crit-extra-attack-identity-unresolved",
             cinema6_source,
-            "6影：队伍强击暴击触发的1600%异常精通额外攻击（身份待确认）",
+            "6影：队伍强击暴击触发一次1600%简当前异常精通物理直伤（无技能组/标签）",
             c6.description,
             RuleEligibility.ELIGIBLE,
             conditions=(JANE_C6_ASSAULT_CRIT_TRIGGERED,),
@@ -870,7 +884,7 @@ def compile_jane_doe(
                 ),
                 result=EventCreationResult(
                     event_kind=BattleEventKind.DAMAGE,
-                    unresolved_template=c6_unresolved,
+                    event_template_id=c6_child_ref.template.template_id,
                     unique_per_source_event=True,
                 ),
             ),),
@@ -895,6 +909,7 @@ def compile_jane_doe(
         rules=rules,
         conditions=conditions,
         parameters=(disorder_seconds,),
+        independent_derived_damage_events=tuple(independent_derived),
         diagnostics=diagnostics,
     )
 

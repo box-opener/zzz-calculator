@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+import re
 from typing import Any, Callable
 
 from core.application.characters.astra import (
@@ -144,7 +145,6 @@ from core.application.characters.ellen import (
 )
 from core.application.characters.harumasa import (
     HARUMASA_ID,
-    HARUMASA_JULEI_TAG_SCOPE_MECHANISM,
     HarumasaCompileConfig,
     compile_harumasa,
     load_raw_record as load_harumasa_raw_record,
@@ -388,9 +388,13 @@ from core.application.equipment import (
     load_wengine_raw_record,
     stable_set_id,
 )
-from core.application.build.assembler import assemble_build
+from core.application.build.assembler import ResolvedBuild, assemble_build
 from core.types import (
+    BuildContributionLayer,
+    BuildContributionTrace,
     BuildMode,
+    BuildSource,
+    BuildSourceType,
     DriveDiscBuildInput,
     DriveDiscSlot,
     DriveDiscStatKey,
@@ -398,6 +402,7 @@ from core.types import (
     EquippedDriveDisc,
     CharacterBuildDefinition,
     CharacterSnapshot,
+    CharacterStat,
     Resolved,
     DRIVE_DISC_MAIN_STAT_VALUES,
     DRIVE_DISC_SUBSTAT_VALUES,
@@ -1187,8 +1192,14 @@ def _ben_fields(
 
 def _soukaku_fields(
     values: Mapping[str, Any],
-    _team_ids: Sequence[CharacterId],
+    team_ids: Sequence[CharacterId],
 ) -> tuple[CompileConfigFieldView, ...]:
+    requested_recipient = str(
+        values.get("flag_attack_recipient_id", str(SOUKAKU_ID))
+    )
+    team_id_strings = tuple(str(item) for item in team_ids)
+    if requested_recipient not in team_id_strings:
+        requested_recipient = str(SOUKAKU_ID)
     return (
         _slider_field(
             "core_level",
@@ -1205,6 +1216,17 @@ def _soukaku_fields(
             0,
             6,
             "已解锁的影画等级",
+        ),
+        CompileConfigFieldView(
+            field_id="flag_attack_recipient_id",
+            label="展旗攻击力增益当前持有者",
+            field_type="character-select",
+            value=requested_recipient,
+            minimum=None,
+            maximum=None,
+            editable=True,
+            options=team_id_strings,
+            help_text="选择唯一持有者，可选苍角本人；转移给队友后苍角不再持有。选择按角色 ID 保存，不随当前操作角色或队伍顺序变化。",
         ),
         *_skill_level_fields(values, default_level=16),
     )
@@ -2235,13 +2257,20 @@ def _compile_soukaku(
     team_ids: Sequence[CharacterId],
     strict: bool = True,
 ) -> CharacterCalculationDefinition:
-    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels"}))
+    _allowed(values, frozenset({"core_level", "cinema_level", "skill_levels", "flag_attack_recipient_id"}))
     if strict:
         _required(values, frozenset({"core_level", "cinema_level"}))
+    recipient_value = values.get("flag_attack_recipient_id", str(SOUKAKU_ID))
+    recipient = CharacterId(str(recipient_value))
+    if recipient not in team_ids:
+        # A previously selected teammate may have been removed from the team.
+        # The editor exposes the self fallback as the only always-valid choice.
+        recipient = SOUKAKU_ID
     config = SoukakuCompileConfig(
         skill_levels=_skill_levels(values),
         core_level=_integer_with_default(values, "core_level", 7, strict),
         cinema_level=_integer_with_default(values, "cinema_level", 0, strict),
+        flag_attack_recipient_id=recipient,
         additional_ability_eligible=_soukaku_additional_ability_eligibility(
             team_ids
         ),
@@ -7492,7 +7521,6 @@ _REGISTRATIONS: dict[CharacterId, CharacterPresentationRegistration] = {
                     EquipmentDamageScope(Element.ELECTRIC, SkillGroup.ASSIST, frozenset({DamageTag.ASSIST})),
                 }
             ),
-            mechanisms=frozenset({HARUMASA_JULEI_TAG_SCOPE_MECHANISM}),
         ),
     ),
     RINA_ID: CharacterPresentationRegistration(
@@ -8146,12 +8174,66 @@ def build_registered_drive_disc_editor_view(
     )
 
 
+def _apply_ben_initial_attack_conversion(
+    assembled: ResolvedBuild,
+    core_source_text: str,
+) -> ResolvedBuild:
+    """Add Ben's Core conversion to the out-of-combat Initial ATK panel."""
+
+    if (
+        assembled.character_id != BEN_ID
+        or assembled.mode is not BuildMode.EQUIPMENT_BUILD
+        or any(
+            item.contribution_id == "character:1121:core:initial-defense-to-attack"
+            for item in assembled.provenance
+        )
+    ):
+        return assembled
+    plain_text = re.sub(r"<[^>]*>", "", core_source_text)
+    matches = tuple(
+        re.finditer(r"初始防御力的(?P<value>[\d.]+)%", plain_text, re.DOTALL)
+    )
+    if len(matches) != 1:
+        raise ValueError("Ben Core source must contain one Initial DEF-to-ATK coefficient")
+    coefficient = float(matches[0].group("value")) / 100.0
+    initial_attack = assembled.initial_stats.attack
+    initial_defense = assembled.initial_stats.defense
+    if not isinstance(initial_attack, Resolved) or not isinstance(initial_defense, Resolved):
+        return assembled
+    bonus = initial_defense.value * coefficient
+    updated_stats = replace(
+        assembled.initial_stats,
+        attack=Resolved(initial_attack.value + bonus),
+    )
+    source = BuildSource(
+        source_id="source:character:1121:core:initial-defense-to-attack",
+        source_type=BuildSourceType.CHARACTER,
+        label="本核心：初始防御转初始攻击",
+    )
+    trace = BuildContributionTrace(
+        character_id=BEN_ID,
+        contribution_id="character:1121:core:initial-defense-to-attack",
+        source=source,
+        stat=CharacterStat.ATTACK,
+        layer=BuildContributionLayer.OUT_OF_COMBAT_FLAT,
+        input_value=Resolved(initial_defense.value),
+        applied_value=Resolved(bonus),
+    )
+    return replace(
+        assembled,
+        initial_stats=updated_stats,
+        initial_snapshot=replace(assembled.initial_snapshot, initial_stats=updated_stats),
+        provenance=(*assembled.provenance, trace),
+    )
+
+
 def build_registered_build_preview(
     character_id: str | CharacterId,
     *,
     team_character_ids: Sequence[str | CharacterId] = (),
     formation_character_ids: Sequence[str | CharacterId] | None = None,
     level: int = 60,
+    core_level: int = 7,
     wengine_id: str | None = None,
     wengine_level: int = 60,
     wengine_refinement: int = 1,
@@ -8211,6 +8293,14 @@ def build_registered_build_preview(
             contributions=tuple(contributions),
         ),
     )
+    if owner == BEN_ID:
+        if not 1 <= core_level <= 7:
+            raise ValueError("Ben Core level must be between 1 and 7")
+        ben_raw = load_ben_raw_record(load_character_record(str(BEN_ID)))
+        assembled = _apply_ben_initial_attack_conversion(
+            assembled,
+            ben_raw.core_levels[core_level - 1].description,
+        )
     diagnostics.extend(assembled.diagnostics)
     diagnostic_views = tuple(
         diagnostic_view(item) for item in dict.fromkeys(diagnostics)

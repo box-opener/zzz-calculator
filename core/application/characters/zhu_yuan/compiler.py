@@ -56,6 +56,7 @@ from ...ids import (
     ScenarioParameterId,
 )
 from ...moves import (
+    DerivedDamageEventTemplateRef,
     DamageEventTemplateRef,
     MoveCalculationEntry,
     MultiplierRelation,
@@ -83,12 +84,14 @@ from ..templates import (
     AttributeAnomalyDamageEventTemplate,
     DirectDamageEventTemplate,
     DisorderDamageEventTemplate,
+    UnresolvedDamageEventTemplate,
 )
 from .config import ZhuYuanCompileConfig
 from .reviewed import (
     ZHU_ADDITIONAL_CRIT_ACTIVE,
     ZHU_C6_ETHER_AFTERGLOW_ACTIVE,
     ZHU_CURRENT_SPECIAL_SHOT_COUNT,
+    ZHU_EX_MOVE_ID,
     ZHU_ENHANCED_SHELL_CONSUMED,
     ZHU_SUPPRESSION_MODE_ACTIVE,
     ZHU_YUAN_REVIEWED_MAPPING,
@@ -288,24 +291,103 @@ def _unresolved_assault_basic_entries(raw: NanokaRawRecord, config: ZhuYuanCompi
     templates = []
     diagnostics = []
     for stage, source_skill_id in enumerate(("1241001", "1241002", "1241003", "1241004", "1241005"), start=1):
-        entry, template, diagnostic = _unresolved_source_entry(
+        key = f"assault-basic-stage-{stage}-element-unresolved"
+        parameter_name = f"{stages[stage - 1]}段伤害倍率"
+        ratio = raw_multiplier(
             raw_moves,
-            config,
-            key=f"assault-basic-stage-{stage}-element-unresolved",
-            label=f"普通攻击：不许动！（突击模式第{stages[stage - 1]}段，元素待确认）",
-            source_name="普通攻击：不许动！",
-            parameter_name=f"{stages[stage - 1]}段伤害倍率",
+            source.name,
+            parameter_name,
+            effective_skill_level(config, SkillGroup.BASIC_ATTACK),
+            f"{ZHU_YUAN_ID}:{key}",
+            [],
             source_skill_id=source_skill_id,
-            original_text=source.description,
-            message="突击模式普通攻击的五段曲线保留，但原文只说明整套会造成物理和以太伤害，没有把元素映射到每一段；确认前不生成事件。",
+        )
+        if isinstance(ratio, Unresolved):
+            raise ValueError(f"Zhu Yuan Assault Basic stage {stage} curve is missing")
+        label = f"普通攻击：不许动！（突击模式第{stages[stage - 1]}段）"
+        element = (
+            Element.PHYSICAL if stage in (1, 3)
+            else Element.ETHER if stage == 2
+            else None
+        )
+        ref = DamageEventTemplateRef(
+            template_id=EventTemplateId(f"template:character:1241:{key}:main"),
+            semantic_id=DamageEventSemanticId(f"event:character:1241:{key}:main"),
+            label=label,
+            damage_type=DamageType.DIRECT,
             skill_group=SkillGroup.BASIC_ATTACK,
             damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
-            move_id=ZHU_ASSAULT_BASIC_MOVE_ID,
-            placeholder_element=Element.ETHER,
+            element=element,
         )
-        entries.append(entry)
-        templates.append(template)
-        diagnostics.append(diagnostic)
+        if element is not None:
+            templates.append(
+                DirectDamageEventTemplate(
+                    ref=ref,
+                    damage_dealer=ZHU_YUAN_ID,
+                    element=element,
+                    base_source=CurrentAttackValueSource(ZHU_YUAN_ID),
+                    crit_rule=StandardCritRule(ZHU_YUAN_ID),
+                    move_id=ZHU_ASSAULT_BASIC_MOVE_ID,
+                )
+            )
+            relation = MultiplierRelation.SEQUENTIAL_STAGE
+            diagnostic_items = ()
+            element_label = element.value
+        else:
+            unresolved = Unresolved(
+                reason=UnresolvedReason.AMBIGUOUS_TEXT,
+                notes=(
+                    f"突击模式第{stage}段的来源倍率{ratio:.4f}已知，但用户确认该段混合物理与以太伤害，"
+                    "未提供两种属性的倍率分配；不生成猜测的伤害事件。"
+                ),
+                original_text=source.description,
+            )
+            templates.append(
+                UnresolvedDamageEventTemplate(
+                    ref=ref,
+                    damage_dealer=ZHU_YUAN_ID,
+                    move_id=None,
+                    unresolved=unresolved,
+                )
+            )
+            diagnostic = CalculationDiagnostic(
+                diagnostic_id=DiagnosticId(f"unsupported:character:1241:{key}:element-split"),
+                kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
+                message=unresolved.notes,
+                blocking=True,
+                original_text=source.description,
+            )
+            diagnostics.append(diagnostic)
+            relation = MultiplierRelation.UNRESOLVED_RELATION
+            diagnostic_items = (diagnostic,)
+            element_label = "物理/以太分配待确认"
+        entries.append(
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(f"move-entry:character:1241:{key}"),
+                character_id=ZHU_YUAN_ID,
+                move_id=(
+                    ZHU_ASSAULT_BASIC_MOVE_ID
+                    if element is not None
+                    else None
+                ),
+                display_name=f"{label}（{element_label}）",
+                original_text=source.description,
+                skill_group=SkillGroup.BASIC_ATTACK,
+                damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
+                multiplier_relation=relation,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(f"variant:character:1241:{key}:damage"),
+                        label=parameter_name,
+                        parameter_name=parameter_name,
+                        multiplier=FixedMultiplier(Resolved(ratio)),
+                    ),
+                ),
+                main_damage_event=ref,
+                stage_index=stage if relation is MultiplierRelation.SEQUENTIAL_STAGE else None,
+                diagnostics=diagnostic_items,
+            )
+        )
     return tuple(entries), tuple(templates), tuple(diagnostics)
 
 
@@ -329,27 +411,51 @@ def _unresolved_assist_strike(raw: NanokaRawRecord, config: ZhuYuanCompileConfig
     )
 
 
-def _unresolved_c6_ether_bullets(raw: NanokaRawRecord):
+def _cinema6_ether_bullets(raw: NanokaRawRecord):
     c6 = raw.mindscapes[5]
     bullet_ratio = _number(c6.description, r"每枚额外发射的以太鹿弹将造成朱鸢(?P<value>[\d.]+)%攻击力的伤害", "Zhu Yuan Cinema 6 bullet ATK ratio") / 100.0
     bullet_count = _number(c6.description, r"额外发射总计(?P<value>[\d.]+)枚以太鹿弹", "Zhu Yuan Cinema 6 extra bullet count")
     total_ratio = bullet_ratio * bullet_count
-    return _unresolved_source_entry(
-        {},
-        ZhuYuanCompileConfig(),
-        key="cinema6-extra-ether-bullets-identity-unresolved",
-        label=f"6影：以太鹿弹额外子弹（{bullet_count:g}×{bullet_ratio:.2%}攻击力，共{total_ratio:.2%}；伤害身份待确认）",
-        source_name="终结技：歼灭模式MAX",
-        parameter_name="额外以太鹿弹倍率",
-        source_skill_id="",
-        original_text=c6.description,
-        message="6影明确额外发射4枚以太鹿弹，每枚造成220%攻击力，总倍率880%；元素已知，伤害身份/标签待确认。本行保留倍率但不生成Direct事件或触发武器效果。",
-        skill_group=None,
-        damage_tags=frozenset(),
-        move_id=None,
-        placeholder_element=Element.ETHER,
-        ratio=total_ratio,
+    key = "cinema6-extra-ether-bullets"
+    label = f"6影：强化特殊技额外鹿弹（{bullet_count:g}×{bullet_ratio:.2%}攻击力）"
+    ref = DamageEventTemplateRef(
+        template_id=EventTemplateId(f"template:character:1241:{key}:standalone"),
+        semantic_id=DamageEventSemanticId(f"event:character:1241:{key}:standalone"),
+        label=label,
+        damage_type=DamageType.DIRECT,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        damage_tags=frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+        element=Element.ETHER,
     )
+    template = DirectDamageEventTemplate(
+        ref=ref,
+        damage_dealer=ZHU_YUAN_ID,
+        element=Element.ETHER,
+        base_source=CurrentAttackValueSource(ZHU_YUAN_ID),
+        crit_rule=StandardCritRule(ZHU_YUAN_ID),
+        move_id=ZHU_EX_MOVE_ID,
+    )
+    entry = MoveCalculationEntry(
+        entry_id=MoveEntryId(f"move-entry:character:1241:{key}"),
+        character_id=ZHU_YUAN_ID,
+        move_id=ZHU_EX_MOVE_ID,
+        display_name=label,
+        original_text=c6.description,
+        skill_group=SkillGroup.SPECIAL_ATTACK,
+        damage_tags=frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+        multiplier_relation=MultiplierRelation.COMPLETE,
+        multiplier_variants=(
+            MultiplierVariant(
+                variant_id=MultiplierVariantId(f"variant:character:1241:{key}"),
+                label=f"{bullet_count:g}×{bullet_ratio:.2%} ATK = {total_ratio:.2%} ATK",
+                parameter_name="额外以太鹿弹总倍率",
+                multiplier=FixedMultiplier(Resolved(total_ratio)),
+            ),
+        ),
+        main_damage_event=ref,
+        condition_ids=(ZHU_C6_ETHER_AFTERGLOW_ACTIVE,),
+    )
+    return entry, template, total_ratio, bullet_count, bullet_ratio
 
 
 def _static_ether_entries(raw: NanokaRawRecord):
@@ -457,16 +563,45 @@ def compile_zhu_yuan(config: ZhuYuanCompileConfig, raw_record: NanokaRawRecord) 
     entries = list(direct_entries)
     templates = list(direct_templates)
     diagnostics = list(direct_diagnostics)
+    independent_derived: list[DerivedDamageEventTemplateRef] = []
     basic_entries, basic_templates, _ = _unresolved_assault_basic_entries(raw_record, config)
     entries.extend(basic_entries)
     templates.extend(basic_templates)
     assist_entry, assist_template, _ = _unresolved_assist_strike(raw_record, config)
     entries.append(assist_entry)
     templates.append(assist_template)
+    c6_child_ref: DamageEventTemplateRef | None = None
     if config.cinema_level >= 6:
-        c6_standalone, c6_template, _ = _unresolved_c6_ether_bullets(raw_record)
+        c6_standalone, c6_template, c6_total_ratio, _, _ = _cinema6_ether_bullets(raw_record)
         entries.append(c6_standalone)
         templates.append(c6_template)
+        c6_rule_id = RuleItemId("rule:character:1241:cinema6:extra-ether-bullets")
+        c6_child_ref = DamageEventTemplateRef(
+            template_id=EventTemplateId("template:character:1241:cinema6:extra-ether-bullets:child"),
+            semantic_id=DamageEventSemanticId("event:character:1241:cinema6:extra-ether-bullets:child"),
+            label="6影：强化特殊技额外鹿弹（一次追加包）",
+            damage_type=DamageType.DIRECT,
+            skill_group=SkillGroup.SPECIAL_ATTACK,
+            damage_tags=frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+            element=Element.ETHER,
+            source_rule_item_id=c6_rule_id,
+        )
+        templates.append(
+            DirectDamageEventTemplate(
+                ref=c6_child_ref,
+                damage_dealer=ZHU_YUAN_ID,
+                element=Element.ETHER,
+                base_source=CurrentAttackValueSource(ZHU_YUAN_ID),
+                crit_rule=StandardCritRule(ZHU_YUAN_ID),
+                move_id=None,
+            )
+        )
+        independent_derived.append(
+            DerivedDamageEventTemplateRef(
+                template=c6_child_ref,
+                multiplier=FixedMultiplier(Resolved(c6_total_ratio)),
+            )
+        )
     # Element-unresolved move notes are attached to the affected selector rows.
     raw_moves = raw_move_index(raw_record)
     core = raw_record.core_levels[config.core_level - 1]
@@ -647,16 +782,11 @@ def compile_zhu_yuan(config: ZhuYuanCompileConfig, raw_record: NanokaRawRecord) 
         c6 = raw_record.mindscapes[5]
         c6_source = source_for(ZHU_YUAN_ID, "cinema6", EffectSourceType.CINEMA, c6.name, c6.description)
         conditions.append(_condition(ZHU_C6_ETHER_AFTERGLOW_ACTIVE, "以太余温当前生效，下一次强化特殊技将额外发射鹿弹", c6.description))
-        c6_unresolved = Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-            notes="C6 specifies four additional Ether Deer bullets at 220% of Zhu Yuan's ATK each (880% total). Their Direct/Crit/SkillGroup/DamageTag inheritance is pending confirmation; no typed child event is fabricated.",
-            original_text=c6.description,
-        )
         ex_template_id = EventTemplateId("template:character:1241:ex-ether:main")
         rules.append(_rule(
             "cinema6:extra-ether-bullets",
             c6_source,
-            "6影：以太余温额外四枚以太鹿弹（伤害身份待确认）",
+            "6影：以太余温额外发射以太鹿弹（强化特殊技追加伤害）",
             c6.description,
             RuleEligibility.ELIGIBLE,
             conditions=(ZHU_C6_ETHER_AFTERGLOW_ACTIVE,),
@@ -675,7 +805,7 @@ def compile_zhu_yuan(config: ZhuYuanCompileConfig, raw_record: NanokaRawRecord) 
                 ),
                 result=EventCreationResult(
                     event_kind=BattleEventKind.DAMAGE,
-                    unresolved_template=c6_unresolved,
+                    event_template_id=(c6_child_ref.template_id if c6_child_ref is not None else None),
                     unique_per_source_event=True,
                 ),
             ),),
@@ -694,6 +824,7 @@ def compile_zhu_yuan(config: ZhuYuanCompileConfig, raw_record: NanokaRawRecord) 
         rules=rules,
         conditions=conditions,
         parameters=(*parameters, disorder_seconds),
+        independent_derived_damage_events=tuple(independent_derived),
         diagnostics=diagnostics,
     )
 

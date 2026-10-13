@@ -89,7 +89,7 @@ RINA_REVIEWED_MAPPING = NanokaReviewedMapping(
         _move("potential1-midnight-sweep", move_id=RINA_MIDNIGHT_SWEEP_MOVE_ID, label="潜能1：普通攻击·午夜清扫（当前6层惊吓）", source="普通攻击：午夜清扫", group=SkillGroup.BASIC_ATTACK, tags=_BASIC, parameter="伤害倍率", curve="1211027", element=Element.ELECTRIC, condition_ids=(RINA_FEAR_STACKS_FULL,)),
     ),
     data_quality_notes=(
-        "The four Basic-stage ratios are preserved separately but their Physical/Electric mapping remains unresolved; the source only says the sequence deals both elements.",
+        "The latest user confirmation is that Rina Basic stages 1–2 are Physical and stages 3–4 are Electric.",
         "Morning Sweep is exposed as per-source-hit coefficients, but each coefficient's Physical/Electric split is unresolved; no synthetic packet is emitted.",
         "Time-based doll returns, attack intervals, energy, and buildup are represented only by current-state controls where applicable.",
     ),

@@ -12,11 +12,13 @@ from core.types import (
     BattleEventKind,
     CalculationNode,
     CharacterRole,
+    CurrentDefenseValueSource,
     DamageDealerFilter,
     DamageSubtype,
     DamageSubtypeFilter,
     DamageType,
     DamageTypeFilter,
+    DamageTag,
     DynamicIdentity,
     DynamicIdentityCondition,
     EffectId,
@@ -51,6 +53,7 @@ from ...ids import (
     ScenarioParameterId,
 )
 from ...moves import (
+    DerivedDamageEventTemplateRef,
     DamageEventTemplateRef,
     MoveCalculationEntry,
     MultiplierRelation,
@@ -70,7 +73,11 @@ from ..nanoka_compiler import (
     source_for,
 )
 from ..nanoka_source import NanokaRawRecord, load_nanoka_raw_record
-from ..templates import AttributeAnomalyDamageEventTemplate, DisorderDamageEventTemplate
+from ..templates import (
+    AttributeAnomalyDamageEventTemplate,
+    DirectDamageEventTemplate,
+    DisorderDamageEventTemplate,
+)
 from .config import BenCompileConfig
 from .reviewed import (
     BEN_C4_COUNTER_BONUS_ACTIVE,
@@ -362,6 +369,7 @@ def compile_ben(
         move_id=MoveId("move:ben:ex-special-complete-successful-counter"),
         condition_ids=(BEN_GUARD_COUNTER_SUCCESSFUL,),
     )
+    entry_index = {str(item.entry_id).rsplit(":", 1)[-1]: item for item in entries}
     static_entries, static_templates, disorder_remaining = _static_fire_entries()
     entries.extend(static_entries)
     templates.extend(static_templates)
@@ -392,102 +400,13 @@ def compile_ben(
         r"提升效果等同于自身初始防御力的(?P<value>[\d.]+)%",
         "Ben Core initial ATK per initial DEF",
     ) / 100.0
-    core_attack_unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_TEXT,
-        notes=(
-            f"Ben Core supplies a known {core_attack_ratio:.0%} Initial DEF-to-Initial ATK conversion, "
-            "but its out-of-combat versus combat-layer placement is awaiting the user's clarification. "
-            "Keep the selected Ben event's base value, mark the Ben-ATK-dependent result incomplete, "
-            "and do not create a synthetic damage hit."
-        ),
-        original_text=core.description,
-    )
-    ben_direct_template_filters = AnyFilter(
-        tuple(
-            EventTemplateIdFilter(
-                EventTemplateId(f"template:character:1121:{spec.entry_key}:main")
-            )
-            for spec in BEN_REVIEWED_MAPPING.moves
-        )
-        + tuple(
-            EventTemplateIdFilter(
-                EventTemplateId(f"template:character:1121:{key}:main")
-            )
-            for key in (
-                "special-complete-successful-counter",
-                "ex-special-complete-followup",
-                "ex-special-complete-successful-counter",
-            )
-        )
-    )
-    core_attack_effects = (
-        EventCreationEffect(
-            rule=EffectRule(
-                effect_id=EffectId("effect:character:1121:core:initial-defense-to-attack-direct"),
-                source=core_source,
-                owner=BEN_ID,
-                target=EffectTarget.TEAM,
-                snapshot_rule=SnapshotRule.SETTLEMENT,
-                condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-                filters=(
-                    DamageTypeFilter(DamageType.DIRECT),
-                    DamageDealerFilter(BEN_ID),
-                    ben_direct_template_filters,
-                ),
-            ),
-            result=EventCreationResult(
-                event_kind=BattleEventKind.DAMAGE,
-                unresolved_template=core_attack_unresolved,
-            ),
-        ),
-        EventCreationEffect(
-            rule=EffectRule(
-                effect_id=EffectId("effect:character:1121:core:initial-defense-to-attack-fire-anomaly"),
-                source=core_source,
-                owner=BEN_ID,
-                target=EffectTarget.TEAM,
-                snapshot_rule=SnapshotRule.SETTLEMENT,
-                condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-                filters=(
-                    DamageTypeFilter(DamageType.ANOMALY),
-                    DamageSubtypeFilter(DamageSubtype.ATTRIBUTE_ANOMALY),
-                    DamageDealerFilter(BEN_ID),
-                    EventTemplateIdFilter(EventTemplateId("template:character:1121:fire-anomaly")),
-                ),
-            ),
-            result=EventCreationResult(
-                event_kind=BattleEventKind.DAMAGE,
-                unresolved_template=core_attack_unresolved,
-            ),
-        ),
-        EventCreationEffect(
-            rule=EffectRule(
-                effect_id=EffectId("effect:character:1121:core:initial-defense-to-attack-fire-disorder"),
-                source=core_source,
-                owner=BEN_ID,
-                target=EffectTarget.TEAM,
-                snapshot_rule=SnapshotRule.SETTLEMENT,
-                condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-                filters=(
-                    DamageTypeFilter(DamageType.DISORDER),
-                    DamageDealerFilter(BEN_ID),
-                    EventTemplateIdFilter(EventTemplateId("template:character:1121:fire-disorder")),
-                ),
-            ),
-            result=EventCreationResult(
-                event_kind=BattleEventKind.DAMAGE,
-                unresolved_template=core_attack_unresolved,
-            ),
-        ),
-    )
     rules.append(
         _rule(
             "core:initial-defense-to-attack",
             core_source,
-            f"核心被动：初始防御力×{core_attack_ratio:.0%}转攻击力",
+            f"核心被动：初始防御力×{core_attack_ratio:.0%}加入局外初始攻击力",
             core.description,
             RuleEligibility.ELIGIBLE,
-            effects=core_attack_effects,
         )
     )
 
@@ -528,20 +447,80 @@ def compile_ben(
         r"额外造成本(?P<value>[\d.]+)%防御力的伤害",
         "Ben Cinema 2 DEF-scaled counter damage",
     ) / 100.0
-    c2_unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            f"The known extra hit is {c2_ratio:.0%} of Ben's current DEF. "
-            "Its child element/Crit/tag inheritance and whether the EX follow-up shares one C2 proc "
-            "are not specified by a separate typed source event."
-        ),
-        original_text=cinema2.description,
-    )
     c2_counter_keys = (
         "special-counter",
         "ex-special-counter",
         "ex-special-complete-successful-counter",
     )
+    c2_rule_id = RuleItemId("rule:character:1121:cinema2:counter-defense-extra-damage")
+    c2_children: list[DirectDamageEventTemplate] = []
+    c2_refs: dict[str, DerivedDamageEventTemplateRef] = {}
+    c2_effects = []
+    for key in c2_counter_keys:
+        parent_ref = entry_index[key].main_damage_event
+        child_id = EventTemplateId(f"template:character:1121:cinema2:{key}:defense-extra")
+        child_ref = DamageEventTemplateRef(
+            template_id=child_id,
+            semantic_id=DamageEventSemanticId(
+                f"event:character:1121:cinema2:{key}:defense-extra"
+            ),
+            label=f"2影：{entry_index[key].display_name}（父招式属性/暴击/技能标签）",
+            damage_type=DamageType.DIRECT,
+            skill_group=parent_ref.skill_group,
+            damage_tags=parent_ref.damage_tags,
+            element=parent_ref.element,
+            source_rule_item_id=c2_rule_id,
+        )
+        c2_children.append(
+            DirectDamageEventTemplate(
+                ref=child_ref,
+                damage_dealer=BEN_ID,
+                element=parent_ref.element,
+                base_source=CurrentDefenseValueSource(BEN_ID),
+                crit_rule=StandardCritRule(BEN_ID),
+                move_id=None,
+            )
+        )
+        c2_refs[key] = DerivedDamageEventTemplateRef(
+            template=child_ref,
+            multiplier=FixedMultiplier(Resolved(c2_ratio)),
+        )
+        c2_effects.append(
+            EventCreationEffect(
+                rule=EffectRule(
+                    effect_id=EffectId(
+                        f"effect:character:1121:cinema2:{key}:counter-defense-extra-damage"
+                    ),
+                    source=cinema2_source,
+                    owner=BEN_ID,
+                    target=EffectTarget.TEAM,
+                    snapshot_rule=SnapshotRule.SETTLEMENT,
+                    condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
+                    filters=(
+                        DamageTypeFilter(DamageType.DIRECT),
+                        DamageDealerFilter(BEN_ID),
+                        EventTemplateIdFilter(parent_ref.template_id),
+                    ),
+                ),
+                result=EventCreationResult(
+                    event_kind=BattleEventKind.DAMAGE,
+                    event_template_id=child_id,
+                    unique_per_source_event=True,
+                ),
+            )
+        )
+    templates.extend(c2_children)
+    for key, child_ref in c2_refs.items():
+        selected_index = next(
+            index
+            for index, item in enumerate(entries)
+            if str(item.entry_id) == f"move-entry:character:1121:{key}"
+        )
+        selected_entry = entries[selected_index]
+        entries[selected_index] = replace(
+            selected_entry,
+            derived_damage_events=(*selected_entry.derived_damage_events, child_ref),
+        )
     rules.append(
         _rule(
             "cinema2:counter-defense-extra-damage",
@@ -549,27 +528,7 @@ def compile_ben(
             f"2影：成功格挡反击额外造成防御力×{c2_ratio:.0%}伤害",
             cinema2.description,
             RuleEligibility.ELIGIBLE if config.cinema_level >= 2 else RuleEligibility.INELIGIBLE,
-            effects=(
-                EventCreationEffect(
-                    rule=EffectRule(
-                        effect_id=EffectId("effect:character:1121:cinema2:counter-defense-extra-damage"),
-                        source=cinema2_source,
-                        owner=BEN_ID,
-                        target=EffectTarget.TEAM,
-                        snapshot_rule=SnapshotRule.SETTLEMENT,
-                        condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-                        filters=(
-                            DamageTypeFilter(DamageType.DIRECT),
-                            DamageDealerFilter(BEN_ID),
-                            AnyFilter(tuple(_event_filter(key) for key in c2_counter_keys)),
-                        ),
-                    ),
-                    result=EventCreationResult(
-                        event_kind=BattleEventKind.DAMAGE,
-                        unresolved_template=c2_unresolved,
-                    ),
-                ),
-            ),
+            effects=tuple(c2_effects),
         )
     )
 
@@ -614,7 +573,13 @@ def compile_ben(
                     filters=(
                         DamageTypeFilter(DamageType.DIRECT),
                         DamageDealerFilter(BEN_ID),
-                        AnyFilter(tuple(_event_filter(key) for key in c4_counter_keys)),
+                        AnyFilter(
+                            tuple(_event_filter(key) for key in c4_counter_keys)
+                            + tuple(
+                                EventTemplateIdFilter(item.ref.template_id)
+                                for item in c2_children
+                            )
+                        ),
                     ),
                     condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
                 ),

@@ -16,6 +16,7 @@ class SoukakuCompileConfig:
     core_level: int = 7
     cinema_level: int = 0
     additional_ability_eligible: bool = False
+    flag_attack_recipient_id: CharacterId = CharacterId("character:1131")
 
     def __post_init__(self) -> None:
         if self.character_id != CharacterId("character:1131"):
@@ -24,6 +25,8 @@ class SoukakuCompileConfig:
             raise ValueError("core_level must be between 1 and 7")
         if not 0 <= self.cinema_level <= 6:
             raise ValueError("cinema_level must be between 0 and 6")
+        if not str(self.flag_attack_recipient_id):
+            raise ValueError("flag_attack_recipient_id must be a character ID")
         groups = tuple(item.skill_group for item in self.skill_levels)
         if len(set(groups)) != len(groups):
             raise ValueError("skill levels must be unique per skill group")

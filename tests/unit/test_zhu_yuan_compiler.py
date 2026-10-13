@@ -18,7 +18,7 @@ from core.application.moves import MultiplierRelation
 from core.data.loader import load_character_record, supported_character_ids
 from core.presentation.base_stats import character_base_stats
 from core.presentation.registry import registration_for
-from core.types import CharacterId, SkillGroup, WEngineBuildInput, WEngineId
+from core.types import CharacterId, DamageTag, SkillGroup, WEngineBuildInput, WEngineId
 from web.api import app
 
 
@@ -169,7 +169,7 @@ def test_zhu_yuan_source_registration_panel_defaults_and_signature() -> None:
     assert engine.contributions[1].value.value == pytest.approx(0.48)
 
 
-def test_zhu_yuan_known_direct_curves_and_unresolved_basic_and_assist_are_local() -> None:
+def test_zhu_yuan_known_direct_curves_and_confirmed_assault_basic_elements() -> None:
     raw = load_raw_record(load_character_record(str(ZHU_YUAN_ID)))
     definition = compile_zhu_yuan(ZhuYuanCompileConfig(), raw)
     entries = {str(item.entry_id): item for item in definition.move_entries}
@@ -195,12 +195,24 @@ def test_zhu_yuan_known_direct_curves_and_unresolved_basic_and_assist_are_local(
         assert entry.multiplier_variants[0].multiplier.value.value == pytest.approx(expected)
     for stage, expected in enumerate((0.871, 2.529, 2.748, 3.028, 3.250), start=1):
         entry = entries[f"move-entry:character:1241:assault-basic-stage-{stage}-element-unresolved"]
-        assert entry.multiplier_relation is MultiplierRelation.UNRESOLVED_RELATION
+        if stage <= 3:
+            assert entry.multiplier_relation is MultiplierRelation.SEQUENTIAL_STAGE
+            assert entry.main_damage_event.element.value == (
+                "ether" if stage == 2 else "physical"
+            )
+        else:
+            assert entry.multiplier_relation is MultiplierRelation.UNRESOLVED_RELATION
+            assert entry.main_damage_event.element is None
         assert entry.multiplier_variants[0].multiplier.value.value == pytest.approx(expected)
     assist = entries["move-entry:character:1241:assist-strike-mixed-element-unresolved"]
     assert assist.multiplier_variants[0].multiplier.value.value == pytest.approx(7.122)
 
-    for stage in range(1, 6):
+    for stage, element in enumerate(("physical", "ether", "physical"), start=1):
+        result = _calculate(_payload(f"move-entry:character:1241:assault-basic-stage-{stage}-element-unresolved"))
+        assert len(result["events"]) == 1
+        assert result["events"][0]["element"] == element
+        assert result["totals"]["expected"]["complete"] is True
+    for stage in (4, 5):
         result = _calculate(_payload(f"move-entry:character:1241:assault-basic-stage-{stage}-element-unresolved"))
         assert result["events"] == []
         assert result["totals"]["expected"]["complete"] is False
@@ -305,16 +317,26 @@ def test_zhu_yuan_additional_ability_cr_is_current_self_panel_state() -> None:
     assert snapshot["stats"]["crit_rate"] == pytest.approx(0.35)
 
 
-def test_zhu_yuan_cinema_six_keeps_known_880_percent_local_without_fake_child() -> None:
-    c6_entry = "move-entry:character:1241:cinema6-extra-ether-bullets-identity-unresolved"
+def test_zhu_yuan_cinema_six_uses_the_confirmed_ex_special_event_identity() -> None:
+    c6_entry = "move-entry:character:1241:cinema6-extra-ether-bullets"
     raw = load_raw_record(load_character_record(str(ZHU_YUAN_ID)))
     definition = compile_zhu_yuan(ZhuYuanCompileConfig(cinema_level=6), raw)
     entry = next(item for item in definition.move_entries if str(item.entry_id) == c6_entry)
     assert entry.multiplier_variants[0].multiplier.value.value == pytest.approx(8.8)
+    assert entry.main_damage_event.element.value == "ether"
+    assert entry.skill_group is SkillGroup.SPECIAL_ATTACK
+    assert entry.damage_tags == frozenset({DamageTag.EX_SPECIAL_ATTACK})
 
-    standalone = _calculate(_payload(c6_entry, cinema=6))
-    assert standalone["events"] == []
-    assert standalone["totals"]["expected"]["complete"] is False
+    standalone = _calculate(
+        _payload(
+            c6_entry,
+            cinema=6,
+            conditions={"condition:zhu-yuan:cinema6-ether-afterglow-active": True},
+        )
+    )
+    assert len(standalone["events"]) == 1
+    assert standalone["events"][0]["damage_type"] == "direct"
+    assert standalone["totals"]["expected"]["complete"] is True
     c6_rule = "rule:character:1241:cinema6:extra-ether-bullets"
     c6_ex = _calculate(
         _payload(
@@ -324,9 +346,10 @@ def test_zhu_yuan_cinema_six_keeps_known_880_percent_local_without_fake_child() 
             enabled=(c6_rule,),
         )
     )
-    assert len(c6_ex["events"]) == 1
-    assert c6_ex["totals"]["expected"]["complete"] is False
-    assert sum(event["modes"]["expected"]["known_value"] or 0.0 for event in c6_ex["events"]) > 0.0
+    assert len(c6_ex["events"]) == 2
+    assert c6_ex["events"][1]["element"] == "ether"
+    assert c6_ex["events"][1]["damage_type"] == "direct"
+    assert c6_ex["totals"]["expected"]["complete"] is True
 
 
 def test_zhu_yuan_static_ether_anomaly_and_disorder_are_available() -> None:

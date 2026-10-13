@@ -156,6 +156,8 @@ class CharacterCalculationDefinition:
                 self._assert_derived_source_rule(derived, rule_map)
         for template in self.damage_event_templates:
             if template.damage_dealer != self.character_id:
+                if self._is_friendly_actor_template(template, self.character_id):
+                    continue
                 self._assert_external_derived_template(
                     template,
                     derived_refs_by_template,
@@ -166,9 +168,15 @@ class CharacterCalculationDefinition:
             if entry.character_id != self.character_id:
                 raise ValueError("move entry character_id must match definition")
             main_template = template_map.get(entry.main_damage_event.template_id)
-            if main_template is None or main_template.damage_dealer != self.character_id:
+            if main_template is None or (
+                main_template.damage_dealer != self.character_id
+                and not self._is_friendly_actor_template(
+                    main_template,
+                    self.character_id,
+                )
+            ):
                 raise ValueError(
-                    "move main-damage event must be owned by its character definition"
+                    "move main-damage event must belong to its character definition or a declared friendly actor"
                 )
             self._assert_condition_references(entry.condition_ids, condition_ids)
             if (
@@ -364,6 +372,23 @@ class CharacterCalculationDefinition:
             raise ValueError(
                 "cross-dealer EventCreation effect must be owned by the definition"
             )
+
+    @staticmethod
+    def _is_friendly_actor_template(
+        template: DamageEventTemplate,
+        definition_owner: CharacterId,
+    ) -> bool:
+        return (
+            isinstance(template, DirectDamageEventTemplate)
+            and template.friendly_actor_owner_id == definition_owner
+            and template.damage_dealer != definition_owner
+            and not template.allow_external_base_source
+            and template.base_source.character_id == template.damage_dealer
+            and template.crit_rule.stat_owner == template.damage_dealer
+            and template.move_id is None
+            and template.ref.skill_group is None
+            and not template.ref.damage_tags
+        )
 
     @staticmethod
     def _rule_creates_template(

@@ -255,7 +255,7 @@ def test_anton_mixed_assist_core_gap_is_local_to_selected_entry() -> None:
     )
 
 
-def test_anton_extra_shock_is_a_local_triggered_child_without_timeline_replay() -> None:
+def test_anton_extra_shock_uses_one_selected_source_record_without_timeline_replay() -> None:
     payload = _anton_payload("move-entry:character:1111:basic-normal-1")
     payload["supporting_character_ids"] = ["character:1011"]
     payload["team_character_ids"] = [str(ANTON_ID), "character:1011"]
@@ -299,9 +299,25 @@ def test_anton_extra_shock_is_a_local_triggered_child_without_timeline_replay() 
     events = response.json()["events"]
     assert events[0]["semantic_id"] == "event:character:1111:basic-normal-1:main"
     assert events[0]["modes"]["expected"]["status"] == "calculated"
-    assert any(
-        "0.5625" in item["message"]
-        for item in response.json()["diagnostics"]
+    assert len(events) == 2
+    assert events[1]["damage_type"] == "anomaly"
+    assert events[1]["damage_subtype"] == "attribute-anomaly"
+    assert events[1]["element"] == "electric"
+    assert events[1]["repeat_count"] == 1
+    assert events[1]["modes"]["expected"]["status"] == "calculated"
+    assert response.json()["totals"]["expected"]["complete"] is True
+
+    payload["discharge_anomaly_source"] = {
+        "source_character_id": "character:1011",
+        "element": "electric",
+    }
+    teammate_source = client.post("/api/v1/moves/calculate", json=payload)
+    assert teammate_source.status_code == 200, teammate_source.text
+    teammate_events = teammate_source.json()["events"]
+    assert len(teammate_events) == 2
+    assert teammate_events[1]["modes"]["expected"]["status"] == "calculated"
+    assert teammate_events[1]["modes"]["expected"]["value"] != pytest.approx(
+        events[1]["modes"]["expected"]["value"]
     )
 
 

@@ -124,7 +124,7 @@ type Parameter = {
 type CompileField = {
   field_id: string;
   label: string;
-  field_type: "integer" | "boolean" | "select" | "slider";
+  field_type: "integer" | "boolean" | "select" | "slider" | "character-select";
   value: boolean | number | string;
   minimum: number | null;
   maximum: number | null;
@@ -529,6 +529,14 @@ function App() {
       || moveEntryId === "move-entry:character:1181:potential1-cycle-single-throw")
     && graceAnomalySources.length > 0;
   const dischargeAnomalySources = burniceAnomalySourceOptions(teamIds, editorViews);
+  const antonShockAnomalySources = dischargeAnomalySources.filter(
+    (source) => source.element === "electric",
+  );
+  const effectiveAntonShockAnomalySource = selectedBurniceAnomalySource(
+    antonShockAnomalySources,
+    dischargeAnomalySourceKey,
+    "character:1111",
+  );
   const dischargeSourceDefaultCharacterId = currentOperatorId === "character:1511"
     ? "character:1511"
     : currentOperatorId === "character:1541"
@@ -564,6 +572,13 @@ function App() {
     && (promeiaChainOrUltimateHit || promeiaCoreHit
       && conditionValuesRef.current["condition:character:1541:current-action-consumes-frost-punishment"] === true)
     && dischargeAnomalySources.length > 0;
+  const showAntonExtraShockSource = currentOperatorId === "character:1111"
+    && selectedPolarMove?.damage_type === "direct"
+    && conditionValuesRef.current["condition:anton:burst-state-active"] === true
+    && conditionValuesRef.current["condition:anton:extra-shock-ready"] === true
+    && conditionValuesRef.current["condition:anton:enemy-shocked"] === true
+    && enabledRules.has("rule:character:1111:extra-ability:shock-extra-hit")
+    && antonShockAnomalySources.length > 0;
   useEffect(() => {
     if (
       dischargeAnomalySourceKey !== null
@@ -760,6 +775,7 @@ function App() {
               team_character_ids: normalizedTeam,
               formation_character_ids: normalizedTeam,
               level: characterLevelsSource[owner] ?? 60,
+              core_level: Number(configSource[owner]?.core_level ?? 7),
               ...(selection?.id ? {
                 wengine_id: selection.id,
                 wengine_level: selection.level,
@@ -1333,6 +1349,12 @@ function App() {
               element: effectiveDischargeAnomalySource.element,
             },
           } : {}),
+          ...(showAntonExtraShockSource && effectiveAntonShockAnomalySource ? {
+            discharge_anomaly_source: {
+              source_character_id: effectiveAntonShockAnomalySource.characterId,
+              element: effectiveAntonShockAnomalySource.element,
+            },
+          } : {}),
           compile_configs: Object.fromEntries(teamIds.map((id) => [id, {
             core_level: 7,
             cinema_level: 0,
@@ -1381,6 +1403,9 @@ function App() {
     }
     if (field.field_type === "select") {
       return <label className="select-field" key={`${owner}-${field.field_id}`}><span>{field.label}</span><select disabled={!field.editable} value={String(fieldValue)} onChange={(event) => updateConfigField(owner, field, Number(event.target.value))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+    }
+    if (field.field_type === "character-select") {
+      return <label className="select-field" key={`${owner}-${field.field_id}`}><span><strong>{field.label}</strong><small>{field.help_text ?? "选择队伍中的角色"}</small></span><select disabled={!field.editable} value={String(fieldValue)} onChange={(event) => updateConfigField(owner, field, event.target.value)}>{field.options.map((option) => <option key={option} value={option}>{characters.find((item) => item.character_id === option)?.display_name ?? option}</option>)}</select></label>;
     }
     if (field.field_type === "slider") {
       return <label className="slider-field" key={`${owner}-${field.field_id}`}>
@@ -1655,6 +1680,14 @@ function App() {
             <label className="select-field"><span>原异常来源</span><select value={effectiveDischargeAnomalySource?.key ?? ""} onChange={(event) => setDischargeAnomalySourceKey(event.target.value || null)}>
               {dischargeAnomalySources.map((option) => <option key={option.key} value={option.key}>
                 {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · {elementLabel(option.element)}
+              </option>)}
+            </select></label>
+          </div>}
+          {showAntonExtraShockSource && <div className="control-list yanagi-polar-source">
+            <div className="section-heading compact"><div><p className="eyebrow">ANTON EXTRA SHOCK SOURCE</p><h2>额外感电记录来源</h2><p className="control-section-hint">选择当前队伍的一条感电记录；默认使用安东自身感电。额外伤害为所选记录单跳的45%，并保留其来源面板和记录效果。</p></div></div>
+            <label className="select-field"><span>感电来源</span><select value={effectiveAntonShockAnomalySource?.key ?? ""} onChange={(event) => setDischargeAnomalySourceKey(event.target.value || null)}>
+              {antonShockAnomalySources.map((option) => <option key={option.key} value={option.key}>
+                {characters.find((character) => character.character_id === option.characterId)?.display_name ?? option.characterId} · 感电
               </option>)}
             </select></label>
           </div>}

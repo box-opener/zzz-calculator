@@ -207,6 +207,12 @@ def _event(payload: dict) -> dict:
     return response.json()["events"][0]
 
 
+def _calculate(payload: dict) -> dict:
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
 def _noncrit(event: dict) -> float:
     return event["modes"]["non-crit"]["value"]
 
@@ -358,22 +364,97 @@ def test_ben_extra_ability_uses_real_team_element_or_faction_and_core_shield_sta
     assert extra.condition_ids
 
 
-def test_ben_cinema2_counter_child_is_local_unresolved_not_a_fake_damage_hit() -> None:
+@pytest.mark.parametrize(
+    ("move_entry_id", "element", "tags"),
+    (
+        (
+            "move-entry:character:1121:special-counter",
+            "physical",
+            frozenset({DamageTag.SPECIAL_ATTACK}),
+        ),
+        (
+            "move-entry:character:1121:ex-special-counter",
+            "fire",
+            frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+        ),
+        (
+            "move-entry:character:1121:ex-special-complete-successful-counter",
+            "fire",
+            frozenset({DamageTag.EX_SPECIAL_ATTACK}),
+        ),
+    ),
+)
+def test_ben_cinema2_counter_child_inherits_each_selected_parent_once(
+    move_entry_id: str,
+    element: str,
+    tags: frozenset[DamageTag],
+) -> None:
+    raw = load_raw_record(load_character_record(str(BEN_ID)))
+    definition = compile_ben(BenCompileConfig(cinema_level=2), raw)
+    entry = next(item for item in definition.move_entries if str(item.entry_id) == move_entry_id)
+    assert len(entry.derived_damage_events) == 1
+    child_ref = entry.derived_damage_events[0].template
+    child = next(
+        item
+        for item in definition.damage_event_templates
+        if item.ref.template_id == child_ref.template_id
+    )
+    assert child.ref.element.value == element
+    assert child.ref.skill_group is SkillGroup.SPECIAL_ATTACK
+    assert child.ref.damage_tags == tags
+    assert child.crit_rule.guaranteed is False
     payload = _ben_payload(
-        "move-entry:character:1121:special-counter",
+        move_entry_id,
         cinema_level=2,
         condition_values={_GUARD_CONDITION: True},
         enabled_rule_item_ids=[_C2_RULE],
     )
-    response = client.post("/api/v1/moves/calculate", json=payload)
-    assert response.status_code == 200, response.text
-    result = response.json()
-    assert len(result["events"]) == 1
-    assert result["events"][0]["modes"]["expected"]["status"] == "calculated"
-    assert any(
-        item["blocking"] and "300%" in item["message"]
-        for item in result["diagnostics"]
+    result = _calculate(payload)
+    assert len(result["events"]) == 2
+    assert result["events"][0]["element"] == element
+    assert result["events"][1]["element"] == element
+    assert result["events"][1]["modes"]["expected"]["status"] == "calculated"
+    assert result["totals"]["expected"]["complete"] is True
+
+
+def test_ben_cinema2_does_not_add_a_child_to_the_tap_or_an_unenabled_counter() -> None:
+    active_tap = _calculate(
+        _ben_payload(
+            "move-entry:character:1121:special-active",
+            cinema_level=2,
+            enabled_rule_item_ids=[_C2_RULE],
+        )
     )
+    disabled_counter = _calculate(
+        _ben_payload(
+            "move-entry:character:1121:special-counter",
+            cinema_level=2,
+            condition_values={_GUARD_CONDITION: True},
+        )
+    )
+    assert len(active_tap["events"]) == 1
+    assert len(disabled_counter["events"]) == 1
+    assert active_tap["totals"]["expected"]["complete"] is True
+    assert disabled_counter["totals"]["expected"]["complete"] is True
+
+
+def test_ben_cinema4_counter_bonus_applies_to_the_inherited_cinema2_child() -> None:
+    payload = _ben_payload(
+        "move-entry:character:1121:special-counter",
+        cinema_level=4,
+        condition_values={_GUARD_CONDITION: True, _C4_CONDITION: True},
+        enabled_rule_item_ids=[_C2_RULE, _C4_RULE],
+    )
+    result = _calculate(payload)
+    assert len(result["events"]) == 2
+    for event in result["events"]:
+        bonus = next(
+            item["value"]
+            for item in event["modes"]["expected"]["calculation_breakdown"]
+            if item["node"] == "damage.normal-bonus"
+        )
+        assert bonus == pytest.approx(0.30)
+    assert result["totals"]["expected"]["complete"] is True
 
 
 def test_initial_defense_can_be_resolved_as_a_panel_derived_source() -> None:
@@ -412,7 +493,7 @@ def test_initial_defense_can_be_resolved_as_a_panel_derived_source() -> None:
     assert resolved.result.value.value == pytest.approx(579.22808)
 
 
-def test_ben_core_defense_to_attack_layer_is_visible_but_not_guessed() -> None:
+def test_ben_manual_panel_is_final_and_core_does_not_add_attack_a_second_time() -> None:
     move = "move-entry:character:1121:basic-1"
     base = _event(_ben_payload(move))
     with_core = client.post(
@@ -424,17 +505,40 @@ def test_ben_core_defense_to_attack_layer_is_visible_but_not_guessed() -> None:
     assert result["events"][0]["modes"]["non-crit"]["value"] == pytest.approx(
         base["modes"]["non-crit"]["value"]
     )
-    diagnostic = next(
-        item
-        for item in result["diagnostics"]
-        if "Initial DEF-to-Initial ATK" in item["message"]
+    assert not any("Initial DEF-to-Initial ATK" in item["message"] for item in result["diagnostics"])
+    assert result["totals"]["expected"]["complete"] is True
+
+
+def test_ben_core_conversion_is_in_the_out_of_combat_initial_attack_panel() -> None:
+    core1 = client.post(
+        "/api/v1/builds/preview",
+        json={"character_id": str(BEN_ID), "level": 60, "core_level": 1},
     )
-    assert diagnostic["blocking"] is True
-    assert "初始攻击力随初始防御力提升" in diagnostic["original_text"]
-    assert result["totals"]["expected"]["complete"] is False
+    core7 = client.post(
+        "/api/v1/builds/preview",
+        json={"character_id": str(BEN_ID), "level": 60, "core_level": 7},
+    )
+    assert core1.status_code == 200, core1.text
+    assert core7.status_code == 200, core7.text
+    assert core1.json()["out_of_combat_stats"]["attack"] == pytest.approx(942.70064)
+    assert core7.json()["out_of_combat_stats"]["attack"] == pytest.approx(1232.31468)
+    assert core7.json()["out_of_combat_stats"]["defense"] == pytest.approx(724.0351)
+    with_signature = client.post(
+        "/api/v1/builds/preview",
+        json={
+            "character_id": str(BEN_ID),
+            "level": 60,
+            "core_level": 7,
+            "wengine_id": "wengine:13112",
+            "wengine_level": 60,
+            "wengine_refinement": 5,
+        },
+    )
+    assert with_signature.status_code == 200, with_signature.text
+    assert with_signature.json()["out_of_combat_stats"]["attack"] == pytest.approx(2088.005912)
 
 
-def test_ben_core_layer_diagnostic_does_not_create_or_block_defense_engine_proc() -> None:
+def test_ben_core_panel_conversion_does_not_create_or_change_defense_engine_proc() -> None:
     move = "move-entry:character:1121:basic-1"
     without_core_rule = _ben_r5_big_cylinder_payload(move)
     without_core_rule["enabled_rule_item_ids"].remove(_CORE_RULE)
@@ -458,7 +562,7 @@ def test_ben_core_layer_diagnostic_does_not_create_or_block_defense_engine_proc(
     assert weapon_proc["modes"]["expected"]["value"] == pytest.approx(
         base_weapon_proc["modes"]["expected"]["value"]
     )
-    assert any("Initial DEF-to-Initial ATK" in item["message"] for item in with_core_rule.json()["diagnostics"])
+    assert not any("Initial DEF-to-Initial ATK" in item["message"] for item in with_core_rule.json()["diagnostics"])
 
 
 @pytest.mark.parametrize(
@@ -468,7 +572,7 @@ def test_ben_core_layer_diagnostic_does_not_create_or_block_defense_engine_proc(
         "move-entry:character:1121:fire-disorder",
     ),
 )
-def test_ben_core_layer_diagnostic_covers_his_anomaly_and_disorder_sources(
+def test_ben_manual_panel_core_rule_does_not_make_anomaly_or_disorder_partial(
     move_entry_id: str,
 ) -> None:
     base_response = client.post(
@@ -484,15 +588,12 @@ def test_ben_core_layer_diagnostic_covers_his_anomaly_and_disorder_sources(
         json=_ben_payload(move_entry_id, enabled_rule_item_ids=[_CORE_RULE]),
     )
     assert core_response.status_code == 200, core_response.text
-    partial = core_response.json()
-    assert partial["totals"]["expected"]["complete"] is False
-    assert partial["events"][0]["modes"]["expected"]["known_value"] == pytest.approx(
-        base["events"][0]["modes"]["expected"]["known_value"]
+    result = core_response.json()
+    assert result["totals"]["expected"]["complete"] is True
+    assert result["events"][0]["modes"]["expected"]["value"] == pytest.approx(
+        base["events"][0]["modes"]["expected"]["value"]
     )
-    assert any(
-        "Initial DEF-to-Initial ATK" in item["message"]
-        for item in partial["diagnostics"]
-    )
+    assert not any("Initial DEF-to-Initial ATK" in item["message"] for item in result["diagnostics"])
 
 
 def test_koleda_ben_synergy_selects_the_actual_teammate_curves_and_states() -> None:

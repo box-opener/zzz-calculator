@@ -11,7 +11,6 @@ from core.types import (
     CharacterId,
     CharacterRole,
     CurrentAttackValueSource,
-    DamageDealerFilter,
     DamageTag,
     DamageType,
     DamageTypeFilter,
@@ -37,10 +36,9 @@ from core.types import (
     Unresolved,
 )
 
-from ...diagnostics import CalculationDiagnostic, DiagnosticKind
+from ...diagnostics import CalculationDiagnostic
 from ...ids import (
     DamageEventSemanticId,
-    DiagnosticId,
     MoveEntryId,
     MultiplierVariantId,
     RuleItemId,
@@ -62,6 +60,9 @@ from ..definition import CharacterCalculationDefinition
 from ..nanoka_compiler import (
     build_definition,
     compile_direct_moves,
+    effective_skill_level,
+    raw_move_index,
+    raw_multiplier,
     source_for,
 )
 from ..nanoka_source import NanokaRawRecord, load_nanoka_raw_record
@@ -75,8 +76,9 @@ from .reviewed import (
     EN_NI_BARRAGE_ACTIVE,
     EXTRA_TECH_GAP_RULE_ID,
     NORMA_ID,
+    NORMA_CONSTRUCT_PREFIX,
+    NORMA_FRIENDLY_ACTOR_CURVES,
     NORMA_REVIEWED_MAPPING,
-    NORMA_UNRESOLVED_ACTOR_CURVES,
     EX_TARGET_NOT_STUNNED,
     EX_TARGET_STUNNED,
     TERM_1000012_ACTIVE,
@@ -91,6 +93,9 @@ _EX_HIGH_EXPLOSIVE_TEMPLATE = EventTemplateId(
 )
 _EX_EXTENDED_HIGH_EXPLOSIVE_TEMPLATE = EventTemplateId(
     "template:character:1571:ex-extended-high-explosive-per-second:main"
+)
+_NORMA_CONSTRUCT_HIGH_EXPLOSIVE_TEMPLATE = EventTemplateId(
+    "template:character:1571:friendly-construct:ex-firepower-high-explosive-shell:main"
 )
 
 
@@ -251,11 +256,6 @@ def _extra_rules(
     conditions = [
         _condition(
             TERM_1000012_ACTIVE,
-            "源术语 Term:1000012 当前生效（名称未由本源确定）",
-            extra_text,
-        ),
-        _condition(
-            EN_NI_BARRAGE_ACTIVE,
             "嗯呢弹幕当前生效",
             extra_text,
         ),
@@ -325,7 +325,7 @@ def _extra_rules(
         _rule(
             "extra-ability:term-1000012-attack",
             extra_source,
-            f"额外能力：Term:1000012期间攻击力+{term_atk:g}+{term_per_level:g}/等级（至多{term_cap:g}）",
+            f"额外能力：嗯呢弹幕期间攻击力+{term_atk:g}+{term_per_level:g}/等级（至多{term_cap:g}）",
             extra_text,
             eligibility,
             conditions=(TERM_1000012_ACTIVE,),
@@ -487,14 +487,16 @@ def _cinema_rules(
                 source,
                 CalculationNode.DAMAGE_NORMAL_BONUS,
                 Resolved(high_explosive_bonus),
-                target=EffectTarget.SELF,
+                target=EffectTarget.TEAM,
                 filters=(
-                    DamageDealerFilter(NORMA_ID),
                     DamageTypeFilter(DamageType.DIRECT),
                     AnyFilter(
                         (
                             EventTemplateIdFilter(_EX_HIGH_EXPLOSIVE_TEMPLATE),
                             EventTemplateIdFilter(_EX_EXTENDED_HIGH_EXPLOSIVE_TEMPLATE),
+                            EventTemplateIdFilter(
+                                _NORMA_CONSTRUCT_HIGH_EXPLOSIVE_TEMPLATE
+                            ),
                         )
                     ),
                 ),
@@ -510,6 +512,95 @@ def _cinema_rules(
                 )
             )
     return rules, conditions
+
+
+def _friendly_construct_entries(
+    config: NormaCompileConfig,
+    raw: NanokaRawRecord,
+) -> tuple[tuple[MoveCalculationEntry, ...], tuple[DirectDamageEventTemplate, ...], tuple[CalculationDiagnostic, ...]]:
+    raw_moves = raw_move_index(raw)
+    entries: list[MoveCalculationEntry] = []
+    templates: list[DirectDamageEventTemplate] = []
+    diagnostics: list[CalculationDiagnostic] = []
+    for candidate in NORMA_FRIENDLY_ACTOR_CURVES:
+        source_level = effective_skill_level(config, candidate.parameter_skill_group)
+        ratio = raw_multiplier(
+            raw_moves,
+            candidate.source_name,
+            candidate.parameter_name,
+            source_level,
+            f"{NORMA_ID}:{candidate.entry_key}",
+            diagnostics,
+            candidate.source_skill_id,
+        )
+        raw_move = raw_moves.get(candidate.source_name)
+        original_text = (
+            raw_move.description if raw_move is not None else candidate.source_text_hint
+        )
+        actor_id = CharacterId(f"{NORMA_CONSTRUCT_PREFIX}{candidate.entry_key}")
+        template_id = (
+            _NORMA_CONSTRUCT_HIGH_EXPLOSIVE_TEMPLATE
+            if candidate.entry_key == "ex-firepower-high-explosive-shell"
+            else EventTemplateId(
+                f"template:character:1571:friendly-construct:{candidate.entry_key}:main"
+            )
+        )
+        ref = DamageEventTemplateRef(
+            template_id=template_id,
+            semantic_id=DamageEventSemanticId(
+                f"event:character:1571:{candidate.entry_key}:main"
+            ),
+            label=candidate.display_name,
+            damage_type=DamageType.DIRECT,
+            element=candidate.element,
+        )
+        template = DirectDamageEventTemplate(
+            ref=ref,
+            damage_dealer=actor_id,
+            element=candidate.element,
+            base_source=CurrentAttackValueSource(actor_id),
+            crit_rule=StandardCritRule(actor_id),
+            move_id=None,
+            friendly_actor_owner_id=NORMA_ID,
+        )
+        conditions = (
+            (EX_TARGET_NOT_STUNNED,)
+            if candidate.entry_key == "ex-firepower-armor-shell"
+            else (EX_TARGET_STUNNED,)
+            if candidate.entry_key == "ex-firepower-high-explosive-shell"
+            else ()
+        )
+        multiplier = (
+            ratio
+            if isinstance(ratio, Unresolved)
+            else FixedMultiplier(Resolved(ratio))
+        )
+        entry = MoveCalculationEntry(
+            entry_id=MoveEntryId(f"move-entry:character:1571:{candidate.entry_key}"),
+            character_id=NORMA_ID,
+            move_id=None,
+            display_name=candidate.display_name,
+            original_text=original_text,
+            skill_group=None,
+            damage_tags=frozenset(),
+            multiplier_relation=MultiplierRelation.COMPLETE,
+            multiplier_variants=(
+                MultiplierVariant(
+                    variant_id=MultiplierVariantId(
+                        f"variant:character:1571:{candidate.entry_key}:source-ratio"
+                    ),
+                    label="来源倍率",
+                    parameter_name=candidate.parameter_name,
+                    multiplier=multiplier,
+                    condition_ids=conditions,
+                ),
+            ),
+            main_damage_event=ref,
+            condition_ids=conditions,
+        )
+        entries.append(entry)
+        templates.append(template)
+    return tuple(entries), tuple(templates), tuple(diagnostics)
 
 
 def _cinema6_current_missile(
@@ -622,28 +713,12 @@ def compile_norma(
     rules.extend(cinema_rules)
     conditions.extend(cinema_conditions)
 
-    # Known ratios from autonomous Term/turret attacks remain a local identity
-    # question. Keep the reviewed candidates visible as non-blocking diagnostics
-    # instead of assigning Norma's player actor or silently dropping their source.
-    raw_moves = {item.name: item for item in raw_record.moves}
-    for index, candidate in enumerate(NORMA_UNRESOLVED_ACTOR_CURVES, start=1):
-        raw_move = raw_moves.get(candidate.source_name)
-        original = raw_move.description if raw_move is not None else candidate.source_text_hint
-        diagnostics.append(
-            CalculationDiagnostic(
-                diagnostic_id=DiagnosticId(
-                    f"unsupported:character:1571:actor:{candidate.entry_key}"
-                ),
-                kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                message=(
-                    f"{candidate.display_name} has a source multiplier, but the actor or construct-stat owner is not resolved; "
-                    "it is not instantiated as a Norma Direct hit."
-                ),
-                blocking=False,
-                original_text=original,
-                candidates=(candidate.source_text_hint,),
-            )
-        )
+    construct_entries, construct_templates, construct_diagnostics = (
+        _friendly_construct_entries(config, raw_record)
+    )
+    entries.extend(construct_entries)
+    templates.extend(construct_templates)
+    diagnostics.extend(construct_diagnostics)
 
     c6_result = _cinema6_current_missile(config, raw_record)
     if c6_result is not None:

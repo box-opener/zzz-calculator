@@ -275,7 +275,7 @@ JANE_DOE_REVIEWED_MAPPING = NanokaReviewedMapping(
     moves=_KNOWN_MOVES,
     data_quality_notes=(
         "Jane's Basic Saohov Jump continuous segment has separate source curves for Potential 0 and Potential 1+; the compiler selects the matching source curve.",
-        "Cinema 6's 1600% Anomaly Proficiency Physical extra attack remains a local partial until its event identity is clarified.",
+        "The user confirmed Jane owns the Cinema 6 extra: one Physical Direct packet using 1600% of Jane's current Anomaly Proficiency, with Standard Crit and no SkillGroup or DamageTags. The triggered packet and standalone query both use this independent base; no ATK or anomaly-record strength is added.",
     ),
 )
 

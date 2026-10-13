@@ -406,7 +406,7 @@ def test_harumasa_unlabeled_c6_explosion_keeps_generic_crit_and_damage_bonuses()
     assert "effect:wengine:14120:owner:1201:electric-dash-damage" not in applied_effect_ids
 
 
-def test_harumasa_potential1_julei_is_a_local_partial_on_stunned_dash_slash() -> None:
+def test_harumasa_potential1_julei_triggers_once_per_dash_slash_and_has_dash_tag() -> None:
     rule = "rule:character:1201:potential1:julei-follow-up"
     selected = _calculate(_payload(
         "move-entry:character:1201:dash-slash-1",
@@ -422,14 +422,14 @@ def test_harumasa_potential1_julei_is_a_local_partial_on_stunned_dash_slash() ->
         enabled=(rule,),
         enemy_stunned=False,
     ))
-    assert len(selected["events"]) == 1
-    assert selected["totals"]["expected"]["complete"] is False
+    assert len(selected["events"]) == 2
+    assert selected["totals"]["expected"]["complete"] is True
     assert len(not_triggered["events"]) == 1
     assert not_triggered["totals"]["expected"]["complete"] is True
 
     julei = _calculate(_payload("move-entry:character:1201:potential1-julei", potential=1))
     assert julei["events"][0]["modes"]["expected"]["status"] == "calculated"
-    assert any("标签限定" in item["message"] for item in julei["diagnostics"])
+    assert julei["totals"]["expected"]["complete"] is True
 
     equipped = _payload("move-entry:character:1201:potential1-julei", potential=1)
     equipped["character_builds"][str(HARUMASA_ID)] = {
@@ -443,5 +443,10 @@ def test_harumasa_potential1_julei_is_a_local_partial_on_stunned_dash_slash() ->
     equipped["enabled_rule_item_ids"] = ["rule:wengine:14120:owner:1201:electric-dash-damage"]
     with_signature_rule = _calculate(equipped)
     assert len(with_signature_rule["events"]) == 1
-    assert with_signature_rule["totals"]["expected"]["complete"] is False
-    assert any("Dash Attack tag" in item["message"] for item in with_signature_rule["diagnostics"])
+    assert with_signature_rule["totals"]["expected"]["complete"] is True
+    normal_bonus = next(
+        item["value"]
+        for item in with_signature_rule["events"][0]["modes"]["expected"]["calculation_breakdown"]
+        if item["node"] == "damage.normal-bonus"
+    )
+    assert normal_bonus == pytest.approx(0.4)

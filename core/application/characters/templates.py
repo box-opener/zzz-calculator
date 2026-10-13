@@ -1,6 +1,7 @@
 """Typed damage-event templates emitted by reviewed character compilers."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from core.types import (
     AnomalyRecordId,
@@ -19,6 +20,7 @@ from core.types import (
     DamageType,
     DamageSubtype,
     Element,
+    EffectId,
     MoveId,
     NoCritRule,
     RecordedAnomalyCritRule,
@@ -29,6 +31,14 @@ from core.types import (
 
 from ..ids import RuleItemId, ScenarioParameterId
 from ..moves import DamageEventTemplateRef
+
+
+class FriendlyActorPanelStat(StrEnum):
+    ATTACK = "attack"
+    IMPACT = "impact"
+    ANOMALY_PROFICIENCY = "anomaly_proficiency"
+    CRIT_RATE = "crit_rate"
+    CRIT_DAMAGE = "crit_damage"
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +57,10 @@ class DirectDamageEventTemplate:
     crit_rule: StandardCritRule
     move_id: MoveId | None
     allow_external_base_source: bool = False
+    friendly_actor_owner_id: CharacterId | None = None
+    friendly_actor_attack_bonus_effect_id: EffectId | None = None
+    friendly_actor_attack_bonus_multiplier: float = 0.0
+    friendly_actor_inherited_panel_stats: frozenset[FriendlyActorPanelStat] | None = None
 
     def __post_init__(self) -> None:
         if self.ref.damage_type is not DamageType.DIRECT:
@@ -60,6 +74,31 @@ class DirectDamageEventTemplate:
             raise ValueError("base attack source must match damage dealer")
         if self.damage_dealer != self.crit_rule.stat_owner:
             raise ValueError("crit stat owner must match damage dealer")
+        if self.friendly_actor_owner_id is None:
+            if (
+                self.friendly_actor_attack_bonus_effect_id is not None
+                or self.friendly_actor_attack_bonus_multiplier != 0.0
+                or self.friendly_actor_inherited_panel_stats is not None
+            ):
+                raise ValueError(
+                    "friendly actor inheritance fields require a friendly actor owner"
+                )
+        else:
+            if self.friendly_actor_owner_id == self.damage_dealer:
+                raise ValueError("friendly actor identity must differ from its owner")
+            if self.ref.skill_group is not None or self.ref.damage_tags or self.move_id is not None:
+                raise ValueError(
+                    "friendly actor damage must not borrow the owner's move identity"
+                )
+            if self.friendly_actor_attack_bonus_multiplier < 0:
+                raise ValueError("friendly actor attack bonus multiplier must be non-negative")
+            if (
+                self.friendly_actor_attack_bonus_multiplier > 0
+                and self.friendly_actor_attack_bonus_effect_id is None
+            ):
+                raise ValueError(
+                    "friendly actor attack bonus multiplier requires a source effect"
+                )
         if self.ref.skill_group is None and self.move_id is not None:
             raise ValueError(
                 "a template with a move_id must have an explicit skill_group"
@@ -108,6 +147,7 @@ class AttributeAnomalyDamageEventTemplate:
     history_record_source: AnomalyRecordId
     crit_rule: RecordedAnomalyCritRule | NoCritRule | Unresolved
     move_id: MoveId | None
+    requires_selected_anomaly_source: bool = False
 
     def __post_init__(self) -> None:
         if self.ref.damage_type is not DamageType.ANOMALY:
@@ -116,6 +156,8 @@ class AttributeAnomalyDamageEventTemplate:
             raise ValueError("template ref element must match typed template element")
         if self.ref.damage_subtype is not DamageSubtype.ATTRIBUTE_ANOMALY:
             raise ValueError("attribute anomaly template requires attribute-anomaly subtype")
+        if self.requires_selected_anomaly_source and self.move_id is not None:
+            raise ValueError("selected anomaly-source settlement cannot invent a move ID")
 
 
 @dataclass(frozen=True, slots=True)

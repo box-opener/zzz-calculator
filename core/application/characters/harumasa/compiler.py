@@ -511,24 +511,10 @@ def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord)
     )
     entries = list(direct_entries)
     templates = list(direct_templates)
+    independent_derived: list[DerivedDamageEventTemplateRef] = []
     diagnostics = list(diagnostics)
     raw_moves = raw_move_index(raw_record)
-    if config.potential_level >= 1:
-        julei_index = next(
-            index for index, entry in enumerate(entries)
-            if str(entry.entry_id) == "move-entry:character:1201:potential1-julei"
-        )
-        julei_entry = entries[julei_index]
-        entries[julei_index] = replace(
-            julei_entry,
-            diagnostics=(CalculationDiagnostic(
-                diagnostic_id=DiagnosticId("unsupported:character:1201:potential1:julei-tag-scope"),
-                kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                message="逐雷来源位于闪避技能段，但未明确 DamageTag；基础倍率可计算，标签限定装备效果不作推测。",
-                blocking=False,
-                original_text=raw_moves["冲刺攻击：飞弦·斩"].description,
-            ),),
-        )
+    julei_child_templates: tuple[EventTemplateId, ...] = ()
     anomaly_entries, anomaly_templates, disorder_parameter = _electric_anomaly_entries()
     entries.extend(anomaly_entries)
     templates.extend(anomaly_templates)
@@ -621,41 +607,112 @@ def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord)
         )
         if source_ratio is None:
             raise ValueError("Harumasa Potential 1 Julei source curve is missing")
-        julei_unresolved = Unresolved(
-            reason=UnresolvedReason.AMBIGUOUS_TEXT,
-            notes=f"逐雷来源倍率为{source_ratio / 100:.3%}（L{effective_skill_level(config, SkillGroup.DODGE)}）；原文说明失衡目标会触发额外电伤，但未说明该触发按每个飞弦·斩段还是每次完整招式结算。",
-            original_text=raw_moves["冲刺攻击：飞弦·斩"].description,
-        )
-        julei_effects = tuple(
-            EventCreationEffect(
-                rule=EffectRule(
-                    effect_id=EffectId(f"effect:character:1201:potential1:julei-follow-up:dash-slash-{stage}"),
-                    source=p1_source,
-                    owner=HARUMASA_ID,
-                    target=EffectTarget.TEAM,
-                    snapshot_rule=SnapshotRule.SETTLEMENT,
-                    filters=(
-                        DamageTypeFilter(DamageType.DIRECT),
-                        DamageDealerFilter(HARUMASA_ID),
-                        EventTemplateIdFilter(EventTemplateId(f"template:character:1201:dash-slash-{stage}:main")),
-                        EnemyStateFilter(_ENEMY_STUNNED),
-                    ),
-                ),
-                result=EventCreationResult(
-                    event_kind=BattleEventKind.DAMAGE,
-                    unresolved_template=julei_unresolved,
-                    unique_per_source_event=True,
-                ),
+        julei_rule_id = RuleItemId("rule:character:1201:potential1:julei-follow-up")
+        julei_templates = []
+        julei_refs = []
+        julei_effects = []
+        for stage in (1, 2, 3):
+            template_id = EventTemplateId(
+                f"template:character:1201:potential1:julei-follow-up-stage-{stage}"
             )
-            for stage in (1, 2, 3)
+            template_ref = DamageEventTemplateRef(
+                template_id=template_id,
+                semantic_id=DamageEventSemanticId(
+                    f"event:character:1201:potential1:julei-follow-up-stage-{stage}"
+                ),
+                label=f"潜能1：飞弦·斩第{stage}段触发逐雷",
+                damage_type=DamageType.DIRECT,
+                skill_group=SkillGroup.DODGE,
+                damage_tags=frozenset({DamageTag.DASH_ATTACK}),
+                element=Element.ELECTRIC,
+                source_rule_item_id=julei_rule_id,
+            )
+            julei_templates.append(
+                DirectDamageEventTemplate(
+                    ref=template_ref,
+                    damage_dealer=HARUMASA_ID,
+                    element=Element.ELECTRIC,
+                    base_source=CurrentAttackValueSource(HARUMASA_ID),
+                    crit_rule=StandardCritRule(HARUMASA_ID),
+                    move_id=None,
+                )
+            )
+            julei_refs.append(
+                DerivedDamageEventTemplateRef(
+                    template=template_ref,
+                    multiplier=FixedMultiplier(Resolved(source_ratio / 100.0)),
+                )
+            )
+            julei_effects.append(
+                EventCreationEffect(
+                    rule=EffectRule(
+                        effect_id=EffectId(
+                            f"effect:character:1201:potential1:julei-follow-up:dash-slash-{stage}"
+                        ),
+                        source=p1_source,
+                        owner=HARUMASA_ID,
+                        target=EffectTarget.TEAM,
+                        snapshot_rule=SnapshotRule.SETTLEMENT,
+                        filters=(
+                            DamageTypeFilter(DamageType.DIRECT),
+                            DamageDealerFilter(HARUMASA_ID),
+                            EventTemplateIdFilter(
+                                EventTemplateId(
+                                    f"template:character:1201:dash-slash-{stage}:main"
+                                )
+                            ),
+                            EnemyStateFilter(_ENEMY_STUNNED),
+                        ),
+                    ),
+                    result=EventCreationResult(
+                        event_kind=BattleEventKind.DAMAGE,
+                        event_template_id=template_id,
+                        unique_per_source_event=True,
+                    ),
+                )
+            )
+        templates.extend(julei_templates)
+        julei_child_templates = tuple(item.ref.template_id for item in julei_templates)
+        independent_derived.extend(julei_refs)
+        core_rule_index = next(
+            index
+            for index, item in enumerate(rules)
+            if item.rule_id == RuleItemId("rule:character:1201:core:dash-crit-buffs")
         )
+        core_rule = rules[core_rule_index]
+        updated_core_effects = []
+        for effect in core_rule.effects:
+            if not isinstance(effect, ModifierEffect):
+                updated_core_effects.append(effect)
+                continue
+            existing = next(
+                (item for item in effect.rule.filters if isinstance(item, AnyFilter)),
+                None,
+            )
+            if existing is None:
+                updated_core_effects.append(effect)
+                continue
+            extra_filters = tuple(EventTemplateIdFilter(item) for item in julei_child_templates)
+            updated_core_effects.append(
+                replace(
+                    effect,
+                    rule=replace(
+                        effect.rule,
+                        filters=(
+                            *tuple(item for item in effect.rule.filters if not isinstance(item, AnyFilter)),
+                            AnyFilter((*existing.filters, *extra_filters)),
+                        ),
+                    ),
+                )
+            )
+        rules[core_rule_index] = replace(core_rule, effects=tuple(updated_core_effects))
         rules.append(_rule(
             "potential1:julei-follow-up",
             p1_source,
-            "潜能1：失衡目标触发逐雷（触发次数待确认）",
+            "潜能1：每段飞弦·斩命中失衡目标时触发一次逐雷",
             raw_moves["冲刺攻击：飞弦·斩"].description,
             RuleEligibility.ELIGIBLE,
-            effects=julei_effects,
+            effects=tuple(julei_effects),
         ))
 
     extra_eligibility = RuleEligibility.ELIGIBLE if config.additional_ability_eligible else RuleEligibility.INELIGIBLE
@@ -807,7 +864,7 @@ def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord)
                     CalculationNode.DAMAGE_RESISTANCE_IGNORE,
                     Resolved(res_ignore),
                     target=EffectTarget.ENEMY,
-                    filters=(DamageDealerFilter(HARUMASA_ID), element_scope_filter(Element.ELECTRIC), AnyFilter(tuple(EventTemplateIdFilter(item) for item in (*dash_slash_templates, julei_template)))),
+                    filters=(DamageDealerFilter(HARUMASA_ID), element_scope_filter(Element.ELECTRIC), AnyFilter(tuple(EventTemplateIdFilter(item) for item in (*dash_slash_templates, julei_template, *julei_child_templates)))),
                 ),
             ),
         ))
@@ -853,6 +910,7 @@ def compile_harumasa(config: HarumasaCompileConfig, raw_record: NanokaRawRecord)
         rules=rules,
         conditions=conditions,
         parameters=parameters,
+        independent_derived_damage_events=independent_derived,
         diagnostics=diagnostics,
     )
 

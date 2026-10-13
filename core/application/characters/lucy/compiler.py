@@ -10,6 +10,7 @@ from core.types import (
     AnomalyRecordId,
     BattleEventKind,
     CalculationNode,
+    CharacterId,
     CharacterRole,
     CurrentAttackValueSource,
     DamageDealerFilter,
@@ -40,7 +41,6 @@ from core.types import (
     SkillGroup,
     StandardCritRule,
     Unresolved,
-    UnresolvedReason,
 )
 
 from ...diagnostics import CalculationDiagnostic, DiagnosticKind
@@ -80,6 +80,7 @@ from ..templates import (
     AttributeAnomalyDamageEventTemplate,
     DirectDamageEventTemplate,
     DisorderDamageEventTemplate,
+    FriendlyActorPanelStat,
 )
 from .config import LucyCompileConfig
 from .reviewed import (
@@ -88,6 +89,7 @@ from .reviewed import (
     FIRE_ANOMALY_RECORD_ID,
     FIRE_DISORDER_MOVE_ID,
     LUCY_ID,
+    PIG_ACTOR_ID,
     LUCY_REVIEWED_MAPPING,
     PIGS_ACTIVE,
 )
@@ -292,15 +294,11 @@ def _pig_source_entry(
     original_text: str,
     element: Element,
     multiplier: float | Unresolved,
+    inherit_crit: bool,
     condition_ids: tuple[ScenarioConditionId, ...] = (),
     source_diagnostics: tuple[CalculationDiagnostic, ...] = (),
 ) -> tuple[MoveCalculationEntry, DirectDamageEventTemplate]:
-    """Retain a known pig ratio without emitting an untyped follower hit.
-
-    The actor/source snapshot is unresolved, so the relation blocks before an
-    event can be instantiated. This keeps the selectable source and its raw
-    ratio visible without allowing it to trigger character or engine effects.
-    """
+    """Build a pig hit from a separate friendly-actor panel identity."""
 
     ref = DamageEventTemplateRef(
         template_id=EventTemplateId(f"template:character:1151:{entry_key}:main"),
@@ -311,28 +309,31 @@ def _pig_source_entry(
     )
     template = DirectDamageEventTemplate(
         ref=ref,
-        damage_dealer=LUCY_ID,
+        damage_dealer=PIG_ACTOR_ID,
         element=element,
-        base_source=CurrentAttackValueSource(LUCY_ID),
-        crit_rule=StandardCritRule(LUCY_ID),
+        base_source=CurrentAttackValueSource(PIG_ACTOR_ID),
+        crit_rule=StandardCritRule(PIG_ACTOR_ID),
         move_id=None,
-    )
-    unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            "The source ratio is retained, but the pig actor's ATK/Crit snapshot and event identity are not available. "
-            "This entry is blocked before event creation and cannot trigger role or equipment effects."
+        friendly_actor_owner_id=LUCY_ID,
+        friendly_actor_attack_bonus_effect_id=EffectId(
+            "effect:character:1151:cheer-on:team-attack"
         ),
-        original_text=original_text,
-    )
-    diagnostic = CalculationDiagnostic(
-        diagnostic_id=DiagnosticId(
-            f"source:character:1151:{entry_key}:follower-identity"
+        friendly_actor_attack_bonus_multiplier=2.0,
+        friendly_actor_inherited_panel_stats=frozenset(
+            {
+                FriendlyActorPanelStat.ATTACK,
+                FriendlyActorPanelStat.IMPACT,
+                FriendlyActorPanelStat.ANOMALY_PROFICIENCY,
+                *(
+                    (
+                        FriendlyActorPanelStat.CRIT_RATE,
+                        FriendlyActorPanelStat.CRIT_DAMAGE,
+                    )
+                    if inherit_crit
+                    else ()
+                ),
+            }
         ),
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        message=unresolved.notes,
-        blocking=True,
-        original_text=original_text,
     )
     variant_multiplier = multiplier
     if isinstance(multiplier, Unresolved):
@@ -346,7 +347,7 @@ def _pig_source_entry(
             original_text=original_text,
             skill_group=None,
             damage_tags=frozenset(),
-            multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
+            multiplier_relation=MultiplierRelation.COMPLETE,
             multiplier_variants=(
                 MultiplierVariant(
                     variant_id=MultiplierVariantId(
@@ -363,7 +364,7 @@ def _pig_source_entry(
             ),
             main_damage_event=ref,
             condition_ids=condition_ids,
-            diagnostics=(diagnostic, *source_diagnostics),
+            diagnostics=source_diagnostics,
         ),
         template,
     )
@@ -405,6 +406,7 @@ def _reviewed_pig_curve(
         original_text=source.description or parameter_name,
         element=element,
         multiplier=ratio,
+        inherit_crit=config.additional_ability_eligible,
         condition_ids=condition_ids,
         source_diagnostics=tuple(source_diagnostics),
     )
@@ -429,31 +431,6 @@ def compile_lucy(
         item.description
         for item in raw_record.moves
         if item.name == "普通攻击：淑女的球棍"
-    )
-    basic_derived_index = next(
-        index
-        for index, entry in enumerate(entries)
-        if str(entry.entry_id) == "move-entry:character:1151:basic-3-derived"
-    )
-    basic_derived = entries[basic_derived_index]
-    basic_derived_diagnostic = CalculationDiagnostic(
-        diagnostic_id=DiagnosticId("review:character:1151:basic-3-derived-element"),
-        kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-        message=(
-            "The raw Basic description states that the sequence deals Physical and Fire damage, "
-            "but it does not assign the separately named third-stage-derived curve 1151003 to either element. "
-            "The skill-list action IDs are a different namespace and do not identify this parameter curve. "
-            "Its source ratio is retained, but this branch does not emit a damage event until the element is known."
-        ),
-        blocking=True,
-        original_text=basic_source_description,
-    )
-    entries[basic_derived_index] = replace(
-        basic_derived,
-        display_name="普通攻击：淑女的球棍（三段派生，属性待确认）",
-        multiplier_relation=MultiplierRelation.UNRESOLVED_RELATION,
-        original_text=basic_source_description,
-        diagnostics=(basic_derived_diagnostic,),
     )
     pig_basic_source = "亲卫队小猪：抄家伙！"
     for key, label, parameter_name, source_skill_id, element in (
@@ -504,6 +481,7 @@ def compile_lucy(
             original_text=cinema6_source_text,
             element=Element.FIRE,
             multiplier=explosion_ratio,
+            inherit_crit=config.additional_ability_eligible,
             condition_ids=(CHEER_ON_ACTIVE,),
         )
         swing_entry, swing_template = _reviewed_pig_curve(
@@ -559,11 +537,6 @@ def compile_lucy(
     )
     cheer_cap = float(cap_match.group("value"))
 
-    pig_source_note = _note(
-        "core:pig-actor-model",
-        "The source states that pigs join when Lucy uses Special/EX, inherit Lucy's ATK/Impact/Anomaly Proficiency, and that their random attacks and deferred spin attacks can occur multiple times. Source ratios remain selectable, but the current actor model has no pig stat owner or attack-history counter, so no follower hit is added to Lucy's own Direct events; Lucy's own source moves and team Cheer On panel effect remain available.",
-        core.description,
-    )
     cheer_source = _source(
         "cheer-on", EffectSourceType.SPECIAL_MECHANISM, "加油！", cheer_description
     )
@@ -576,7 +549,7 @@ def compile_lucy(
     )
     cheer_noncharacter_note = _note(
         "cheer-on:non-character-recipients",
-        "The source also names Bangboo and pigs as recipients. This calculation request exposes character snapshots only, so the panel buff is applied to the active agent team; no Bangboo/pig panel row is fabricated.",
+        "The source also names Bangboo as a recipient. Bangboo has no panel row in this calculation contract; pig events use a separate friendly-actor snapshot derived from Lucy's resolved panel.",
         cheer_description,
     )
     rules: list[CalculationRuleItem] = [
@@ -586,7 +559,6 @@ def compile_lucy(
             "核心被动：亲卫队小猪继承属性（当前输出不生成小猪自动攻击）",
             core.description,
             RuleEligibility.ELIGIBLE,
-            diagnostics=(pig_source_note,),
         ),
         _rule(
             "extra-ability:pig-crit-inheritance",
@@ -626,14 +598,6 @@ def compile_lucy(
         ),
     ]
     basic_description = basic_source_description
-    pig_swing_unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            "The Basic 4 prose explicitly triggers Bodyguard Pig: Revolving Swing when pigs are on the field; the raw swing curve is 592%. "
-            "The current calculator has no separate pig stat owner or supported count for the on-field pig group, so this child remains local-unresolved without instantiating a fake Direct hit."
-        ),
-        original_text=basic_description,
-    )
     basic_four_swing_source = _source(
         "basic-four-pig-swing",
         EffectSourceType.SKILL,
@@ -644,7 +608,7 @@ def compile_lucy(
         _rule(
             "skill:basic-four-pig-swing",
             basic_four_swing_source,
-            "普通攻击四段：当前小猪在场时的回旋挥击（倍率已知，仆从属性待明确）",
+            "普通攻击四段：当前小猪在场时发动一次回旋挥击",
             basic_description,
             RuleEligibility.ELIGIBLE,
             conditions=(PIGS_ACTIVE,),
@@ -667,7 +631,7 @@ def compile_lucy(
                     ),
                     result=EventCreationResult(
                         event_kind=BattleEventKind.DAMAGE,
-                        unresolved_template=pig_swing_unresolved,
+                        event_template_id=pig_swing_template.ref.template_id,
                         unique_per_source_event=True,
                     ),
                 ),
@@ -719,14 +683,6 @@ def compile_lucy(
     c6_source = _source(
         "cinema-6", EffectSourceType.CINEMA, cinema6.name, cinema6.description
     )
-    c6_unresolved = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            "The source supplies the pig explosion as 300% of pig ATK and one pig Revolving Swing after the explosion (source ratio 592%). "
-            "The pig's combat stat/crit owner is not represented as a separate actor, so only these child events are left unresolved; the triggering teammate EX event remains calculated."
-        ),
-        original_text=cinema6.description,
-    )
     team_ex_filters = (
         DamageTagFilter(DamageTag.EX_SPECIAL_ATTACK),
         # A teammate EX may be a Rupture/Penetration event; only the real EX
@@ -745,15 +701,18 @@ def compile_lucy(
             ),
             result=EventCreationResult(
                 event_kind=BattleEventKind.DAMAGE,
-                unresolved_template=c6_unresolved,
+                event_template_id=template.ref.template_id,
                 unique_per_source_event=True,
             ),
         )
-        for key in ("pig-explosion", "pig-revolving-swing")
+        for key, template in (
+            ("pig-explosion", explosion_template),
+            ("pig-revolving-swing", swing_template),
+        )
     )
     c6_source_note = _note(
         "cinema6:duration-and-cap",
-        "Cinema 6 extends the current Cheer On state and has a three-extension cap/refresh rule; duration and trigger history are not replayed. The known explosion and subsequent swing are kept as local unresolved child events until the follower actor's inherited stat source is representable.",
+        "Cinema 6 extends the current Cheer On state and has a three-extension cap/refresh rule; duration and trigger history are not replayed. One friendly-pig explosion and its one subsequent swing are created for each selected qualifying teammate EX event.",
         cinema6.description,
     )
     rules.append(

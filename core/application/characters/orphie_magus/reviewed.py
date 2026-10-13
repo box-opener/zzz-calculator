@@ -210,7 +210,12 @@ ORPHIE_MAGUS_REVIEWED_MAPPING = NanokaReviewedMapping(
             curve="1301021",
             element=Element.FIRE,
         ),
-    )
+    ),
+    data_quality_notes=(
+        "The user confirmed the Special: Light Eater source coefficient is the total for its four laser follow-up attacks; apply the curve once and do not repeat it four times.",
+        "The user confirmed Ultimate Extension is additional to the base Ultimate. The extended-ultimate entry sums each source ratio once without simulating timing or follow-up history.",
+        "The user confirmed Cinema 6's Fire packet receives Cinema 1 Fire resistance ignore and Cinema 4's damage bonus; repeated-laser frequency and its 0.5-second limit are not replayed.",
+    ),
 )
 
 __all__ = [

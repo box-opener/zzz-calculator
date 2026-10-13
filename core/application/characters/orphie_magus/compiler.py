@@ -11,7 +11,6 @@ from core.types import (
     AnyFilter,
     AnomalyRecordId,
     AnomalyRecordValueSource,
-    BattleEventKind,
     CalculationNode,
     CharacterId,
     CharacterRole,
@@ -29,8 +28,6 @@ from core.types import (
     EffectTarget,
     Element,
     ElementFilter,
-    EventCreationEffect,
-    EventCreationResult,
     EventTemplateId,
     EventTemplateIdFilter,
     FixedMultiplier,
@@ -198,43 +195,6 @@ def _modifier(
             modifier_path=node,
             operation=EffectOperation.ADD,
             value=value,
-        ),
-    )
-
-
-def _unresolved_effect(
-    key: str,
-    source: RuleSource,
-    *,
-    parent_template_ids: tuple[EventTemplateId, ...],
-    original_text: str,
-    notes: str,
-) -> EventCreationEffect:
-    parent_filter = (
-        EventTemplateIdFilter(parent_template_ids[0])
-        if len(parent_template_ids) == 1
-        else AnyFilter(tuple(EventTemplateIdFilter(item) for item in parent_template_ids))
-    )
-    return EventCreationEffect(
-        rule=EffectRule(
-            effect_id=EffectId(f"effect:character:1301:{key}"),
-            source=source,
-            owner=ORPHIE_ID,
-            target=EffectTarget.TEAM,
-            snapshot_rule=SnapshotRule.SETTLEMENT,
-            filters=(
-                DamageTypeFilter(DamageType.DIRECT),
-                DamageDealerFilter(ORPHIE_ID),
-                parent_filter,
-            ),
-        ),
-        result=EventCreationResult(
-            event_kind=BattleEventKind.DAMAGE,
-            unresolved_template=Unresolved(
-                reason=UnresolvedReason.AMBIGUOUS_TEXT,
-                notes=notes,
-                original_text=original_text,
-            ),
         ),
     )
 
@@ -492,30 +452,6 @@ def compile_orphie_magus(
     )
     entries = list(entries)
     templates = list(templates)
-    light_eater_index = next(
-        index for index, item in enumerate(entries)
-        if str(item.entry_id) == "move-entry:character:1301:special-light-eater"
-    )
-    light_eater = entries[light_eater_index]
-    light_eater_source = raw_move_index(raw_record)["特殊技：蚀光一闪"]
-    entries[light_eater_index] = replace(
-        light_eater,
-        diagnostics=(
-            *light_eater.diagnostics,
-            CalculationDiagnostic(
-                diagnostic_id=DiagnosticId(
-                    "unsupported:character:1301:special-light-eater:four-hit-total"
-                ),
-                kind=DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                message=(
-                    "来源明确有四次激光追加攻击，但只提供一条伤害倍率；"
-                    "当前保留一个来源曲线，不把它猜成四次重复或整段合计。"
-                ),
-                blocking=True,
-                original_text=light_eater_source.description,
-            ),
-        ),
-    )
     if config.cinema_level >= 6:
         cinema6 = raw_record.mindscapes[5]
         interval_diagnostic = CalculationDiagnostic(
@@ -548,6 +484,84 @@ def compile_orphie_magus(
     )
     entries.extend(unresolved_entries)
     templates.extend(unresolved_templates)
+    ultimate_entry = next(
+        item for item in entries
+        if str(item.entry_id) == "move-entry:character:1301:ultimate"
+    )
+    extension_entry = next(
+        item for item in entries
+        if str(item.entry_id) == "move-entry:character:1301:ultimate-extension"
+    )
+    ultimate_multiplier = ultimate_entry.multiplier_variants[0].multiplier
+    extension_multiplier = extension_entry.multiplier_variants[0].multiplier
+    if not (
+        isinstance(ultimate_multiplier, FixedMultiplier)
+        and isinstance(ultimate_multiplier.value, Resolved)
+        and isinstance(extension_multiplier, FixedMultiplier)
+        and isinstance(extension_multiplier.value, Resolved)
+    ):
+        raise ValueError("Orphie's Ultimate and extension source components must be resolved")
+    ultimate_template = next(
+        item for item in templates
+        if item.ref.template_id == ultimate_entry.main_damage_event.template_id
+    )
+    full_ultimate_ref = replace(
+        ultimate_entry.main_damage_event,
+        template_id=EventTemplateId("template:character:1301:ultimate-extended-complete:main"),
+        semantic_id=DamageEventSemanticId("event:character:1301:ultimate-extended-complete:main"),
+        label="终结技：与火共舞（基础喷射+快速支援后的延长部分，各一次）",
+    )
+    entries.append(
+        MoveCalculationEntry(
+            entry_id=MoveEntryId("move-entry:character:1301:ultimate-extended-complete"),
+            character_id=ORPHIE_ID,
+            move_id=ORPHIE_ULTIMATE_MOVE_ID,
+            display_name=full_ultimate_ref.label,
+            original_text=(
+                f"{ultimate_entry.original_text}\n{extension_entry.original_text}\n"
+                "用户确认延长曲线是新增部分；两条来源倍率在同一次延长终结技中各取一次。"
+            ),
+            skill_group=ultimate_entry.skill_group,
+            damage_tags=ultimate_entry.damage_tags,
+            multiplier_relation=MultiplierRelation.COMPLETE,
+            multiplier_variants=(
+                MultiplierVariant(
+                    variant_id=MultiplierVariantId(
+                        "variant:character:1301:ultimate-extended-complete:total"
+                    ),
+                    label="基础喷射+延长部分",
+                    parameter_name="延长终结技总倍率",
+                    multiplier=FixedMultiplier(
+                        Resolved(
+                            ultimate_multiplier.value.value
+                            + extension_multiplier.value.value
+                        )
+                    ),
+                ),
+            ),
+            main_damage_event=full_ultimate_ref,
+        )
+    )
+    templates.append(
+        replace(
+            ultimate_template,
+            ref=full_ultimate_ref,
+            move_id=ORPHIE_ULTIMATE_MOVE_ID,
+        )
+    )
+    if config.cinema_level >= 6:
+        full_ultimate_index = next(
+            index
+            for index, item in enumerate(entries)
+            if item.entry_id == MoveEntryId("move-entry:character:1301:ultimate-extended-complete")
+        )
+        entries[full_ultimate_index] = replace(
+            entries[full_ultimate_index],
+            diagnostics=(
+                *entries[full_ultimate_index].diagnostics,
+                interval_diagnostic,
+            ),
+        )
     rules: list[CalculationRuleItem] = []
     conditions: list[ScenarioCondition] = []
     core = raw_record.core_levels[config.core_level - 1]
@@ -708,7 +722,7 @@ def compile_orphie_magus(
                 if str(item.entry_id) == f"move-entry:character:1301:{key}"
             )
             for key in c1_fire_entry_keys
-        )
+        ) + (_C6_EXTRA_FIRE_TEMPLATE_ID,)
         rules.append(
             _rule(
                 "cinema1:focus-holder-damage",
@@ -747,23 +761,6 @@ def compile_orphie_magus(
                             ElementFilter(Element.FIRE),
                             AnyFilter(tuple(EventTemplateIdFilter(item) for item in c1_fire_templates)),
                         ),
-                    ),
-                    *(
-                        (
-                            _unresolved_effect(
-                                "cinema1:cinema6-extra-fire-resistance-scope",
-                                cinema1_source,
-                                parent_template_ids=(_C6_EXTRA_FIRE_TEMPLATE_ID,),
-                                original_text=cinema1.description,
-                                notes=(
-                                    "1影火抗无视明确适用于指定强化特殊技；"
-                                    "影画6额外包继承强化特殊技身份，但其触发父招式可能为终结技，"
-                                    "此包是否享受该抗性无视尚未确认。"
-                                ),
-                            ),
-                        )
-                        if config.cinema_level >= 6
-                        else ()
                     ),
                 ),
             )
@@ -886,10 +883,6 @@ def compile_orphie_magus(
             item.main_damage_event for item in entries
             if str(item.entry_id) == "move-entry:character:1301:ultimate-extension"
         )
-        ultimate_extension_ref = next(
-            item.main_damage_event for item in entries
-            if str(item.entry_id) == "move-entry:character:1301:ultimate-extension"
-        )
         c4_effects = [
             _modifier(
                 "cinema4:charge-and-ultimate-damage",
@@ -905,25 +898,13 @@ def compile_orphie_magus(
                             EventTemplateIdFilter(charge_ref.template_id),
                             EventTemplateIdFilter(ultimate_ref.template_id),
                             EventTemplateIdFilter(ultimate_extension_ref.template_id),
-                            EventTemplateIdFilter(ultimate_extension_ref.template_id),
+                            EventTemplateIdFilter(full_ultimate_ref.template_id),
+                            EventTemplateIdFilter(_C6_EXTRA_FIRE_TEMPLATE_ID),
                         )
                     ),
                 ),
             )
         ]
-        if config.cinema_level >= 6:
-            c4_effects.append(
-                _unresolved_effect(
-                    "cinema4:cinema6-extra-fire-scope",
-                    cinema4_source,
-                    parent_template_ids=(_C6_EXTRA_FIRE_TEMPLATE_ID,),
-                    original_text=cinema4.description,
-                    notes=(
-                        "4影的40%增伤明确作用于蓄热充能和终结技；"
-                        "影画6额外火伤虽视为强化特殊技，是否继承该增幅尚未确认。"
-                    ),
-                )
-            )
         rules.append(
             _rule(
                 "cinema4:charge-and-ultimate-damage",

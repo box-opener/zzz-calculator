@@ -12,12 +12,29 @@ from core.application.characters.yanagi import (
 from core.application.equipment import signature_wengine_id_for
 from core.application.rules import RuleEligibility
 from core.data.loader import load_character_record
+from core.application.execution.service import _turbulence_element_for_source
+from core.types import Element
 from core.presentation.base_stats import character_base_stats
 from core.presentation.registry import compile_registered_definition, config_fields_for
 from web.api import app
 
 
 client = TestClient(app)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    (
+        (Element.LIESHUANG, Element.ICE),
+        (Element.XUANMO, Element.ETHER),
+        (Element.LINREN, Element.PHYSICAL),
+    ),
+)
+def test_velina_turbulence_normalizes_variant_source_to_its_base_element(
+    source: Element,
+    expected: Element,
+) -> None:
+    assert _turbulence_element_for_source(source) is expected
 
 
 def _yanagi_payload(move_entry_id: str, *, cinema_level: int = 0) -> dict:

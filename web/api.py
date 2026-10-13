@@ -156,6 +156,7 @@ def preview_build(payload: dict[str, Any] = Body(default={})) -> JSONResponse:
             team_character_ids=team_ids,
             formation_character_ids=formation_ids,
             level=int(payload.get("level", 60)),
+            core_level=int(payload.get("core_level", 7)),
             wengine_id=str(wengine_id) if wengine_id is not None else None,
             wengine_level=int(payload.get("wengine_level", 60)),
             wengine_refinement=int(payload.get("wengine_refinement", 1)),

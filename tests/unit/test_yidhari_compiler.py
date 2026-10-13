@@ -37,7 +37,7 @@ def _payload(
     hp_below_50: bool = False,
     max_hp_bonus_active: bool = False,
     insight_active: bool = False,
-    current_hp_damage_bonus: int | None = 0,
+    current_hp_deficit_percent: int | None = 0,
     disorder_seconds: int = 10,
     enabled: tuple[str, ...] = (),
     supports: tuple[str, ...] = (),
@@ -86,9 +86,9 @@ def _payload(
     parameters: dict[str, int] = {
         "parameter:yidhari:ice-disorder-remaining-seconds": disorder_seconds
     }
-    if current_hp_damage_bonus is not None:
-        parameters["parameter:yidhari:core-current-hp-damage-bonus-percent"] = (
-            current_hp_damage_bonus
+    if current_hp_deficit_percent is not None:
+        parameters["parameter:yidhari:core-hp-deficit-percent"] = (
+            current_hp_deficit_percent
         )
     conditions = {
         "condition:yidhari:ether-curtain-active": curtain,
@@ -268,7 +268,7 @@ def test_yidhari_cinema_and_veil_effects_use_their_own_typed_lanes() -> None:
     normal_special = "move-entry:character:1051:special-broken-thought"
     enabled = (core_force, core_damage, c1_rule)
     base = _calculate(
-        _payload(basic, core_level=1, cinema_level=1, current_hp_damage_bonus=0, enabled=enabled)
+        _payload(basic, core_level=1, cinema_level=1, current_hp_deficit_percent=0, enabled=enabled)
     )["events"][0]
     assert _breakdown(base, "resistance.damage-ignore") == pytest.approx(0.20)
     special = _calculate(
@@ -276,7 +276,7 @@ def test_yidhari_cinema_and_veil_effects_use_their_own_typed_lanes() -> None:
             normal_special,
             core_level=1,
             cinema_level=1,
-            current_hp_damage_bonus=0,
+            current_hp_deficit_percent=0,
             enabled=enabled,
         )
     )["events"][0]
@@ -286,7 +286,7 @@ def test_yidhari_cinema_and_veil_effects_use_their_own_typed_lanes() -> None:
             "move-entry:character:1051:ex-special-frost-wrap",
             core_level=1,
             cinema_level=1,
-            current_hp_damage_bonus=0,
+            current_hp_deficit_percent=0,
             enabled=enabled,
         )
     )["events"][0]
@@ -297,7 +297,7 @@ def test_yidhari_cinema_and_veil_effects_use_their_own_typed_lanes() -> None:
             basic,
             core_level=1,
             cinema_level=6,
-            current_hp_damage_bonus=0,
+            current_hp_deficit_percent=0,
             insight_active=True,
             enabled=(core_force, core_damage, c6_rule),
         )
@@ -311,7 +311,7 @@ def test_yidhari_cinema_and_veil_effects_use_their_own_typed_lanes() -> None:
             cinema_level=4,
             hp=12000,
             curtain=True,
-            current_hp_damage_bonus=0,
+            current_hp_deficit_percent=0,
             enabled=(core_force, core_damage, c4_rule),
         )
     )
@@ -328,17 +328,45 @@ def test_yidhari_cinema_and_veil_effects_use_their_own_typed_lanes() -> None:
     )["events"][0]
     assert _breakdown(max_hp_state, "damage.normal-bonus") == pytest.approx(0.50)
 
+    quarter_lost_core1 = _calculate(
+        _payload(
+            basic,
+            core_level=1,
+            current_hp_deficit_percent=25,
+            enabled=(core_force, core_damage),
+        )
+    )["events"][0]
+    half_lost_core1 = _calculate(
+        _payload(
+            basic,
+            core_level=1,
+            current_hp_deficit_percent=50,
+            enabled=(core_force, core_damage),
+        )
+    )["events"][0]
+    assert _breakdown(quarter_lost_core1, "damage.normal-bonus") == pytest.approx(0.25)
+    assert _breakdown(half_lost_core1, "damage.normal-bonus") == pytest.approx(0.50)
+    quarter_lost_core7 = _calculate(
+        _payload(
+            basic,
+            core_level=7,
+            current_hp_deficit_percent=25,
+            enabled=(core_force, core_damage),
+        )
+    )["events"][0]
+    assert _breakdown(quarter_lost_core7, "damage.normal-bonus") == pytest.approx(0.50)
+
     missing_intermediate = _calculate(
         _payload(
             basic,
             core_level=1,
-            current_hp_damage_bonus=None,
+            current_hp_deficit_percent=None,
             enabled=(core_force, core_damage),
         )
     )
     assert missing_intermediate["totals"]["expected"]["complete"] is False
     assert any(
-        "parameter:yidhari:core-current-hp-damage-bonus-percent"
+        "parameter:yidhari:core-hp-deficit-percent"
         in item["message"]
         for item in missing_intermediate["diagnostics"]
     )
@@ -348,7 +376,7 @@ def test_yidhari_cinema_and_veil_effects_use_their_own_typed_lanes() -> None:
             basic,
             core_level=1,
             cinema_level=2,
-            current_hp_damage_bonus=0,
+            current_hp_deficit_percent=0,
             supports=("character:1361",),
             enabled=(core_force, core_damage, "rule:character:1051:cinema2:crit-damage"),
         )
@@ -386,7 +414,7 @@ def test_yidhari_extra_ability_owner_qualification_and_local_tentacle_gap() -> N
             "move-entry:character:1051:basic-frost-charge-three-finisher",
             core_level=1,
             curtain=True,
-            current_hp_damage_bonus=0,
+            current_hp_deficit_percent=0,
             supports=("character:1361",),
             enabled=(
                 force_rule,
@@ -402,7 +430,7 @@ def test_yidhari_extra_ability_owner_qualification_and_local_tentacle_gap() -> N
             basic,
             core_level=1,
             curtain=True,
-            current_hp_damage_bonus=0,
+            current_hp_deficit_percent=0,
             supports=("character:1361",),
             enabled=(
                 force_rule,

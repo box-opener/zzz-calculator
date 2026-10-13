@@ -36,13 +36,20 @@ from web.api import app
 client = TestClient(app)
 
 
-def _definition(*, cinema: int = 0, skill_levels=(), eligible: bool = False):
+def _definition(
+    *,
+    cinema: int = 0,
+    skill_levels=(),
+    eligible: bool = False,
+    recipient: CharacterId = SOUKAKU_ID,
+):
     raw = load_raw_record(load_character_record(str(SOUKAKU_ID)))
     return compile_soukaku(
         SoukakuCompileConfig(
             cinema_level=cinema,
             skill_levels=tuple(skill_levels),
             additional_ability_eligible=eligible,
+            flag_attack_recipient_id=recipient,
         ),
         raw,
     )
@@ -101,7 +108,7 @@ def test_soukaku_live_source_identity_signature_and_level_60_panel() -> None:
 def test_soukaku_reviewed_direct_curves_preserve_source_elements_and_expressions() -> None:
     definition = _definition()
     entries = _entries(definition)
-    assert len(entries) == 26
+    assert len(entries) == 27
 
     assert [_ratio(entries[f"basic-rice-cake-{stage}"]) for stage in range(1, 4)] == pytest.approx(
         [1.577, 5.118, 6.936]
@@ -142,13 +149,14 @@ def test_soukaku_reviewed_direct_curves_preserve_source_elements_and_expressions
     assert _ratio(_entries(cinema5_ult)["ultimate-large-goose-chicken-slash"]) == pytest.approx(47.033)
 
 
-def test_soukaku_core_and_cinema_effects_keep_self_target_and_ice_scopes() -> None:
+def test_soukaku_core_and_cinema_effects_keep_selected_recipient_and_ice_scopes() -> None:
     definition = _definition(cinema=6, eligible=True)
     rules = {str(item.rule_id): item for item in definition.rule_items}
     core = rules["rule:character:1131:core:flag-attack-self-atk"]
     assert core.condition_ids
     core_effect = core.effects[0]
-    assert core_effect.rule.target is EffectTarget.SELF
+    assert core_effect.rule.target is EffectTarget.RECIPIENT
+    assert core_effect.rule.recipient_character_id == SOUKAKU_ID
     assert isinstance(core_effect.result.value, PanelStatDerivedValue)
     assert core_effect.result.value.source_node.value == "character.initial.attack"
     assert core_effect.result.value.coefficient == Resolved(0.20)
@@ -156,7 +164,8 @@ def test_soukaku_core_and_cinema_effects_keep_self_target_and_ice_scopes() -> No
 
     consumed = rules["rule:character:1131:core:flag-attack-consumed-vortex-extra-atk"]
     assert len(consumed.effects) == 1
-    assert consumed.effects[0].rule.target is EffectTarget.SELF
+    assert consumed.effects[0].rule.target is EffectTarget.RECIPIENT
+    assert consumed.effects[0].rule.recipient_character_id == SOUKAKU_ID
     assert isinstance(consumed.effects[0].result.value, PanelStatDerivedValue)
 
     extra = rules["rule:character:1131:extra-ability:ice-damage"]
@@ -173,6 +182,14 @@ def test_soukaku_core_and_cinema_effects_keep_self_target_and_ice_scopes() -> No
     assert cinema6.eligibility.value == "eligible"
     assert cinema6.effects[0].result.value == Resolved(0.45)
     assert cinema6.effects[0].rule.target is EffectTarget.SELF
+
+
+def test_soukaku_ex_complete_contains_both_known_components_once() -> None:
+    entries = _entries(_definition())
+    assert _ratio(entries["ex-swat-insects-continuous"]) == pytest.approx(3.1045)
+    assert _ratio(entries["ex-swat-insects-windfield"]) == pytest.approx(2.416)
+    assert _ratio(entries["ex-swat-insects-complete"]) == pytest.approx(5.5205)
+    assert not entries["ex-swat-insects-complete"].diagnostics
     assert len(SOUKAKU_REVIEWED_MAPPING.moves) == 20
 
     cinema0 = {str(item.rule_id): item for item in _definition().rule_items}
@@ -197,12 +214,22 @@ def test_soukaku_registry_has_support_role_and_real_element_damage_scopes() -> N
     assert registration.catalog.element == "ice"
     config_fields = {
         item.field_id: item
-        for item in config_fields_for(SOUKAKU_ID, {}, [SOUKAKU_ID])
+        for item in config_fields_for(
+            SOUKAKU_ID,
+            {},
+            [SOUKAKU_ID, CharacterId("character:1051")],
+        )
     }
     assert config_fields["core_level"].value == 7
     assert config_fields["cinema_level"].value == 0
     assert config_fields["core_level"].field_type == "slider"
     assert config_fields["cinema_level"].field_type == "slider"
+    assert config_fields["flag_attack_recipient_id"].field_type == "character-select"
+    assert config_fields["flag_attack_recipient_id"].value == str(SOUKAKU_ID)
+    assert config_fields["flag_attack_recipient_id"].options == (
+        str(SOUKAKU_ID),
+        "character:1051",
+    )
     assert {
         key: item.value
         for key, item in config_fields.items()
@@ -254,6 +281,7 @@ def _api_payload(
     extra_active: bool,
     primary_character_id: str = str(SOUKAKU_ID),
     supporting_character_id: str = "character:1051",
+    flag_attack_recipient_id: str = str(SOUKAKU_ID),
 ) -> dict:
     team = (primary_character_id, supporting_character_id)
     return {
@@ -263,7 +291,16 @@ def _api_payload(
         "formation_character_ids": list(team),
         "move_entry_id": move_entry_id,
         "compile_configs": {
-            item: {"core_level": 7, "cinema_level": 0} for item in team
+            item: {
+                "core_level": 7,
+                "cinema_level": 0,
+                **(
+                    {"flag_attack_recipient_id": flag_attack_recipient_id}
+                    if item == str(SOUKAKU_ID)
+                    else {}
+                ),
+            }
+            for item in team
         },
         "condition_values": {
             "condition:soukaku:frost-banner-active": True,
@@ -363,7 +400,7 @@ def test_soukaku_ice_bonus_is_captured_once_for_anomaly_and_not_reapplied_to_dis
     assert _expected_value(yidhari_on) / _expected_value(yidhari_off) == pytest.approx(1.20)
 
 
-def test_soukaku_core_initial_atk_buff_is_self_scoped_and_consumption_doubles_it() -> None:
+def test_soukaku_core_initial_atk_buff_targets_one_selected_holder_and_consumption_doubles_it() -> None:
     base_rule = "rule:character:1131:core:flag-attack-self-atk"
     consumed_rule = "rule:character:1131:core:flag-attack-consumed-vortex-extra-atk"
     base_payload = _api_payload(
@@ -403,3 +440,18 @@ def test_soukaku_core_initial_atk_buff_is_self_scoped_and_consumption_doubles_it
     assert current_attack(consumed_result, str(SOUKAKU_ID)) == pytest.approx(932.16662)
     assert current_attack(base_result, "character:1051") == pytest.approx(859.9099)
     assert current_attack(consumed_result, "character:1051") == pytest.approx(859.9099)
+
+    transferred_payload = _api_payload(
+        "move-entry:character:1131:basic-rice-cake-1",
+        extra_active=False,
+        flag_attack_recipient_id="character:1051",
+    )
+    transferred_payload["condition_values"]["condition:soukaku:flag-attack-buff-active"] = True
+    transferred_payload["enabled_rule_item_ids"] = [base_rule]
+    transferred_payload["formation_character_ids"] = ["character:1051", str(SOUKAKU_ID)]
+    transferred_response = client.post("/api/v1/moves/calculate", json=transferred_payload)
+    assert transferred_response.status_code == 200, transferred_response.text
+    transferred = transferred_response.json()
+    assert current_attack(transferred, str(SOUKAKU_ID)) == pytest.approx(665.8333)
+    assert current_attack(transferred, "character:1051") == pytest.approx(993.07656)
+    assert transferred["totals"]["expected"]["complete"] is True

@@ -122,7 +122,7 @@ def test_norma_preview_uses_source_identity_defaults_and_roster_eligibility() ->
     assert fields["core_level"] == 7
     assert fields["cinema_level"] == 0
     assert fields["skill_level:ultimate"] == 12
-    assert len(solo_view["moves"]) == 18
+    assert len(solo_view["moves"]) == 21
     rules = {item["rule_id"]: item for item in solo_view["rule_items"]}
     extra_id = f"rule:{NORMA}:extra-ability:technical-gap-stacks"
     assert rules[extra_id]["eligibility"] == "ineligible"
@@ -343,7 +343,7 @@ def test_norma_term_attack_team_bonus_c1_and_c6_current_conditions() -> None:
     assert norma_snapshot["stats"]["attack"] == 1870.0
 
     team_rule = f"rule:{NORMA}:extra-ability:en-ni-barrage-team-damage"
-    team_condition = f"condition:{NORMA}:en-ni-barrage-active"
+    team_condition = term_condition
     team_damage = _event(
         _calculate(
             _payload(
@@ -410,3 +410,28 @@ def test_norma_term_attack_team_bonus_c1_and_c6_current_conditions() -> None:
     assert missile["element"] == "fire"
     assert _breakdown(missile, "damage.skill-multiplier") == 2.0
     assert missile["modes"]["expected"]["status"] == "calculated"
+
+
+def test_norma_friendly_construct_uses_her_panel_without_becoming_a_norma_hit() -> None:
+    term_condition = f"condition:{NORMA}:term-1000012-active"
+    term_rule = f"rule:{NORMA}:extra-ability:term-1000012-attack"
+    team_rule = f"rule:{NORMA}:extra-ability:en-ni-barrage-team-damage"
+    result = _calculate(
+        _payload(
+            entry="special-target-practice-turret",
+            conditions={term_condition: True},
+            enabled_rules=(term_rule, team_rule),
+        )
+    )
+    event = _event(result)
+    trace = event["common_application_trace"]
+    assert trace["base_source_character_id"] == (
+        "friendly-actor:character:1571:special-target-practice-turret"
+    )
+    assert _breakdown(event, "character.current-attack") == 1870.0
+    assert _breakdown(event, "damage.normal-bonus") == 0.20
+    assert result["totals"]["expected"]["complete"] is True
+    assert all(
+        snapshot["character_id"] in {NORMA, ANTON}
+        for snapshot in result["resolved_character_snapshots"]
+    )

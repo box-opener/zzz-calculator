@@ -125,10 +125,10 @@ _KNOWN_MOVES = (
 ZHU_YUAN_REVIEWED_MAPPING = NanokaReviewedMapping(
     moves=_KNOWN_MOVES,
     data_quality_notes=(
-        "The five Assault-mode Basic ratios are preserved as source-linked partial entries because their per-stage Physical/Ether mapping is unresolved.",
-        "Suppression-mode Physical and Ether component curves remain separate; the relation between the Ether curves and shell-consuming Physical shots is not inferred.",
+        "The latest user confirmation is that Assault Basic stage 1 is Physical, stage 2 is Ether, and stage 3 is Physical. Stages 4–5 mix Physical and Ether without a known per-element ratio, so they remain local partial entries and emit no guessed event.",
+        "Suppression-mode Ether shots replace the Physical shot when an Enhanced Shell is consumed; the two source curves remain selectable alternatives and are never summed.",
         "The Assist Strike has one mixed Physical/Ether source curve and remains a local partial entry until its packet split is known.",
-        "Cinema 6's four extra Ether bullets have a known 880% ATK total but unresolved event identity; no synthetic Direct child is emitted.",
+        "Cinema 6's four extra Ether bullets total 880% of Zhu Yuan's current ATK and are modeled as an EX Special Direct packet using the confirmed EX affiliation and standard Direct crit rules.",
     ),
 )
 

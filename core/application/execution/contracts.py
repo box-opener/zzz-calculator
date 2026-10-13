@@ -286,15 +286,22 @@ class MoveCalculationRequest:
                 if isinstance(template, DischargeDamageEventTemplate)
                 and template.source_multiplier_by_element
             )
-            if not dynamic_templates:
+            selected_anomaly_templates = tuple(
+                template
+                for definition in definitions
+                for template in definition.damage_event_templates
+                if isinstance(template, AttributeAnomalyDamageEventTemplate)
+                and template.requires_selected_anomaly_source
+            )
+            if not dynamic_templates and not selected_anomaly_templates:
                 raise ValueError(
-                    "a Discharge anomaly source selection requires a dynamic Discharge template"
+                    "an anomaly source selection requires a dynamic Discharge or selected-record anomaly template"
                 )
             if choice.source_character_id not in set(profile_ids):
                 raise ValueError("Discharge anomaly source actor must be an active teammate")
             if choice.element not in ANOMALY_ELEMENTS:
                 raise ValueError("Discharge anomaly source must use an ordinary anomaly element")
-            if not any(
+            matches_dynamic_discharge = any(
                 any(
                     element is choice.element
                     or BASE_ELEMENT_BY_ELEMENT[element]
@@ -302,9 +309,14 @@ class MoveCalculationRequest:
                     for element, _ in template.source_multiplier_by_element
                 )
                 for template in dynamic_templates
-            ):
+            )
+            matches_selected_anomaly = any(
+                template.element is choice.element
+                for template in selected_anomaly_templates
+            )
+            if not matches_dynamic_discharge and not matches_selected_anomaly:
                 raise ValueError(
-                    "selected anomaly element has no reviewed dynamic Discharge multiplier"
+                    "selected anomaly element does not match a reviewed dynamic event"
                 )
             source_definition = next(
                 item

@@ -18,7 +18,7 @@ from core.application.moves import MultiplierRelation
 from core.data.loader import load_character_record, supported_character_ids
 from core.presentation.base_stats import character_base_stats
 from core.presentation.registry import registration_for
-from core.types import CharacterId, DamageTag, SkillGroup, WEngineBuildInput, WEngineId
+from core.types import CharacterId, DamageTag, Element, SkillGroup, WEngineBuildInput, WEngineId
 from web.api import app
 
 
@@ -373,15 +373,19 @@ def test_jane_doe_strong_crit_record_flows_to_teammate_discharge() -> None:
     assert _breakdown(discharge)["anomaly.discharge.crit-region"] == pytest.approx(1.36)
 
 
-def test_jane_doe_cinema_six_extra_attack_remains_local_without_fake_event() -> None:
+def test_jane_doe_cinema_six_extra_attack_is_jane_owned_current_ap_direct() -> None:
     raw = load_raw_record(load_character_record(str(JANE_DOE_ID)))
     definition = compile_jane_doe(JaneDoeCompileConfig(cinema_level=6), raw)
     entry_id = "move-entry:character:1261:cinema6-extra-assault-identity-unresolved"
     entry = next(item for item in definition.move_entries if str(item.entry_id) == entry_id)
     assert entry.multiplier_variants[0].multiplier.value.value == pytest.approx(16.0)
+    assert entry.skill_group is None
+    assert entry.damage_tags == frozenset()
+    assert entry.main_damage_event.element is Element.PHYSICAL
     standalone = _calculate(_payload(entry_id, cinema=6))
-    assert standalone["events"] == []
-    assert standalone["totals"]["expected"]["complete"] is False
+    assert len(standalone["events"]) == 1
+    assert standalone["events"][0]["damage_type"] == "direct"
+    assert standalone["totals"]["expected"]["complete"] is True
 
     parent = _calculate(
         _payload(
@@ -394,5 +398,7 @@ def test_jane_doe_cinema_six_extra_attack_remains_local_without_fake_event() -> 
             enabled=("rule:character:1261:cinema6:strong-crit-extra-attack-identity-unresolved",),
         )
     )
-    assert len(parent["events"]) == 1
-    assert parent["totals"]["expected"]["complete"] is False
+    assert len(parent["events"]) == 2
+    assert parent["events"][1]["damage_type"] == "direct"
+    assert parent["events"][1]["element"] == "physical"
+    assert parent["totals"]["expected"]["complete"] is True

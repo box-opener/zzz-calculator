@@ -10,7 +10,6 @@ from ..nanoka_compiler import NanokaDamageParameterSpec, NanokaMoveSpec, NanokaR
 
 
 HARUMASA_ID = CharacterId("character:1201")
-HARUMASA_JULEI_TAG_SCOPE_MECHANISM = "harumasa-julei-tag-scope-unresolved"
 HARUMASA_ELECTRIC_ANOMALY_RECORD_ID = AnomalyRecordId("anomaly:character:1201:electric-shock")
 HARUMASA_TEN_CROSS_ACTIVE = ScenarioConditionId("condition:harumasa:target-ten-cross-marked")
 HARUMASA_POTENTIAL_ATK_BUFF_ACTIVE = ScenarioConditionId("condition:harumasa:potential-attack-buff-active")
@@ -130,7 +129,7 @@ _BASE_MOVES = (
         )
         for stage in (1, 2, 3)
     ),
-    _move("potential1-julei", move_id=HARUMASA_JULEI_MOVE_ID, label="潜能1：逐雷（单次来源倍率）", source="逐雷", group=SkillGroup.DODGE, tags=frozenset(), parameter="额外伤害倍率", curve="1201025", element=Element.ELECTRIC),
+    _move("potential1-julei", move_id=HARUMASA_JULEI_MOVE_ID, label="潜能1：逐雷（单次来源倍率）", source="逐雷", group=SkillGroup.DODGE, tags=_DASH, parameter="额外伤害倍率", curve="1201025", element=Element.ELECTRIC),
     _move("potential1-ex-patrol", move_id=HARUMASA_EX_PATROL_MOVE_ID, label="潜能1：强化特殊技·地网·巡弋", source="强化特殊技：地网·巡弋", group=SkillGroup.SPECIAL_ATTACK, tags=_EX, parameter="伤害倍率", curve="1201023", element=Element.ELECTRIC),
 )
 
@@ -139,7 +138,7 @@ HARUMASA_REVIEWED_MAPPING = NanokaReviewedMapping(
     moves=_BASE_MOVES,
     data_quality_notes=(
         "The user confirmed Basic stages 1–3 as Physical and stages 4–5 as Electric, resolving the source's combined Physical/Electric description without inferring from attribute-infliction values.",
-        "Potential 1 Julei is exposed as its single source coefficient, without assuming its attack tag or automatic trigger count.",
+        "Potential 1 Julei is a Dash Attack; the user confirmed each Dash Slash stage triggers one packet.",
     ),
 )
 

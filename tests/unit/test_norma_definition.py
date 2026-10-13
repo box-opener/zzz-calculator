@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from core.application.characters.nanoka_compiler import raw_move_index
+from core.application.moves import MultiplierRelation
 from core.presentation.registry import _norma_additional_ability_eligibility
 from core.application.characters.norma import (
     NORMA_ID,
@@ -21,7 +22,7 @@ from core.application.characters.norma.reviewed import (
     EX_TARGET_NOT_STUNNED,
     EX_TARGET_STUNNED,
     EXTRA_TECH_GAP_RULE_ID,
-    NORMA_UNRESOLVED_ACTOR_CURVES,
+    NORMA_FRIENDLY_ACTOR_CURVES,
     TERM_1000012_ACTIVE,
 )
 from core.application.rules import RuleEligibility
@@ -30,7 +31,6 @@ from core.types import (
     AnyFilter,
     CalculationNode,
     CharacterId,
-    DamageDealerFilter,
     DamageTag,
     DamageType,
     DamageTypeFilter,
@@ -144,23 +144,34 @@ def test_every_reviewed_norma_damage_curve_matches_its_raw_parameter_and_id() ->
             assert entry.condition_ids == (EX_TARGET_STUNNED,)
 
 
-def test_unresolved_turret_curves_keep_their_raw_ratios_but_are_not_norma_hits() -> None:
+def test_turret_curves_use_separate_friendly_actor_panels() -> None:
     raw_moves = raw_move_index(load_raw_record(_source_data()))
-    assert {item.source_skill_id for item in NORMA_UNRESOLVED_ACTOR_CURVES} == {
+    assert {item.source_skill_id for item in NORMA_FRIENDLY_ACTOR_CURVES} == {
         "1571013",
         "1571014",
         "1571015",
     }
-    assert all(item.move_id is None for item in NORMA_UNRESOLVED_ACTOR_CURVES)
-    assert all(item.authored_skill_group is None for item in NORMA_UNRESOLVED_ACTOR_CURVES)
-    assert all(not item.authored_damage_tags for item in NORMA_UNRESOLVED_ACTOR_CURVES)
-    for candidate in NORMA_UNRESOLVED_ACTOR_CURVES:
+    assert all(item.move_id is None for item in NORMA_FRIENDLY_ACTOR_CURVES)
+    assert all(item.authored_skill_group is None for item in NORMA_FRIENDLY_ACTOR_CURVES)
+    assert all(not item.authored_damage_tags for item in NORMA_FRIENDLY_ACTOR_CURVES)
+    _, definition = _compiled(NormaCompileConfig(cinema_level=6))
+    entries = {str(item.entry_id): item for item in definition.move_entries}
+    templates = {str(item.ref.template_id): item for item in definition.damage_event_templates}
+    for candidate in NORMA_FRIENDLY_ACTOR_CURVES:
         parameter = next(
             item
             for item in raw_moves[candidate.source_name].parameters
             if item.name == candidate.parameter_name
         )
         assert parameter.value_for_level(12, candidate.source_skill_id) is not None
+        entry = entries[f"move-entry:character:1571:{candidate.entry_key}"]
+        assert entry.multiplier_relation is MultiplierRelation.COMPLETE
+        assert entry.skill_group is None and not entry.damage_tags
+        template = templates[str(entry.main_damage_event.template_id)]
+        assert template.damage_dealer != NORMA_ID
+        assert template.friendly_actor_owner_id == NORMA_ID
+        assert template.base_source.character_id == template.damage_dealer
+        assert template.crit_rule.stat_owner == template.damage_dealer
 
     _, definition = _compiled()
     actor_notes = tuple(
@@ -266,6 +277,7 @@ def test_extra_ability_current_technical_gap_stacks_and_cinema2_replacement_scop
 
 def test_term_condition_is_separate_from_technical_gap_and_uses_source_level60_cap() -> None:
     _, definition = _compiled(NormaCompileConfig(additional_ability_eligible=True))
+    assert TERM_1000012_ACTIVE == EN_NI_BARRAGE_ACTIVE
     assert len(definition.scenario_parameters) == 1
     assert definition.scenario_parameters[0].parameter_id == CURRENT_TECH_GAP_STACKS
     assert any(item.condition_id == TERM_1000012_ACTIVE for item in definition.scenario_conditions)
@@ -330,7 +342,7 @@ def test_cinema6_exposes_one_current_missile_packet_and_high_explosive_scope() -
     effect = _first_modifier(c6)
     assert effect.result.modifier_path is CalculationNode.DAMAGE_NORMAL_BONUS
     assert effect.result.value.value == 0.30
-    assert effect.rule.target is EffectTarget.SELF
+    assert effect.rule.target is EffectTarget.TEAM
     template_filter = next(item for item in effect.rule.filters if isinstance(item, AnyFilter))
     assert {
         str(item.template_id)
@@ -339,6 +351,7 @@ def test_cinema6_exposes_one_current_missile_packet_and_high_explosive_scope() -
     } == {
         "template:character:1571:ex-high-explosive-shell:main",
         "template:character:1571:ex-extended-high-explosive-per-second:main",
+        "template:character:1571:friendly-construct:ex-firepower-high-explosive-shell:main",
     }
 
 

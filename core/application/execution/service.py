@@ -39,6 +39,7 @@ from core.types import (
     EventCreationResult,
     EventTemplateId,
     Element,
+    BASE_ELEMENT_BY_ELEMENT,
     IndependentAnomalyCrit,
     IndependentAnomalyCritRule,
     NoAnomalyCrit,
@@ -77,6 +78,7 @@ from ..characters.templates import (
     DisorderDamageEventTemplate,
     TurbulenceDamageEventTemplate,
     PolarDisorderDamageEventTemplate,
+    FriendlyActorPanelStat,
 )
 from ..diagnostics import CalculationDiagnostic, DiagnosticKind
 from ..ids import DamageEventSemanticId, DiagnosticId, MoveEntryId
@@ -156,6 +158,101 @@ def _turbulence_multiplier_for_history(record: AnomalyRecord) -> float | None:
     if element in {Element.ETHER, Element.XUANMO}:
         return 6.5 + floor(seconds / 0.5 + 1e-9) * 0.625
     return None
+
+
+def _turbulence_element_for_source(source_element: Element) -> Element:
+    """Map special source aliases to their base damage element for Turbulence."""
+
+    return BASE_ELEMENT_BY_ELEMENT[source_element]
+
+
+def _friendly_actor_snapshot(
+    template: DirectDamageEventTemplate,
+    application: ModifierApplicationResult,
+) -> CharacterSnapshot | None:
+    """Resolve a non-character actor from its explicitly named panel owner.
+
+    Friendly actors use their own synthetic damage-dealer ID, so owner-specific
+    character and W-Engine filters cannot mistake their packets for owner hits.
+    Their panel is copied only from the source-declared owner and then receives
+    any explicitly named actor-only attack inheritance.
+    """
+
+    owner_id = template.friendly_actor_owner_id
+    if owner_id is None:
+        return None
+    owner = next(
+        (
+            snapshot
+            for snapshot in application.character_snapshots
+            if snapshot.character_id == owner_id
+        ),
+        None,
+    )
+    if owner is None:
+        return None
+
+    stats = owner.settlement_stats
+    if template.friendly_actor_attack_bonus_effect_id is not None:
+        extra_attack = sum(
+            trace.resolved_value
+            for trace in application.panel_traces
+            if trace.recipient_character_id == owner_id
+            and trace.effect_id == template.friendly_actor_attack_bonus_effect_id
+        ) * template.friendly_actor_attack_bonus_multiplier
+        if isinstance(stats.attack, Resolved):
+            stats = replace(stats, attack=Resolved(stats.attack.value + extra_attack))
+
+    inherited_stats = template.friendly_actor_inherited_panel_stats
+    if inherited_stats is not None:
+        unlisted_stat = Unresolved(
+            reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
+            notes=(
+                "This friendly actor inherits only the panel fields explicitly listed "
+                "by its source. The source does not say whether it inherits penetration "
+                "or element-damage panel bonuses, so those values remain unresolved."
+            ),
+        )
+        stats = replace(
+            stats,
+            hp=unlisted_stat,
+            attack=(
+                stats.attack
+                if FriendlyActorPanelStat.ATTACK in inherited_stats
+                else unlisted_stat
+            ),
+            defense=unlisted_stat,
+            impact=(
+                stats.impact
+                if FriendlyActorPanelStat.IMPACT in inherited_stats
+                else unlisted_stat
+            ),
+            crit_rate=(
+                stats.crit_rate
+                if FriendlyActorPanelStat.CRIT_RATE in inherited_stats
+                else unlisted_stat
+            ),
+            crit_damage=(
+                stats.crit_damage
+                if FriendlyActorPanelStat.CRIT_DAMAGE in inherited_stats
+                else unlisted_stat
+            ),
+            anomaly_mastery=unlisted_stat,
+            anomaly_proficiency=(
+                stats.anomaly_proficiency
+                if FriendlyActorPanelStat.ANOMALY_PROFICIENCY in inherited_stats
+                else unlisted_stat
+            ),
+            penetration_rate=unlisted_stat,
+            penetration_flat=unlisted_stat,
+            energy_regen=unlisted_stat,
+            element_damage_bonus={element: unlisted_stat for element in Element},
+        )
+    return CharacterSnapshot(
+        character_id=template.damage_dealer,
+        level=owner.level,
+        settlement_stats=stats,
+    )
 
 
 class DirectMoveApplicationService:
@@ -314,14 +411,20 @@ class DirectMoveApplicationService:
                 for definition in _all_definitions(request)
                 for template in definition.damage_event_templates
             )
-            if not has_dynamic_discharge:
+            has_selected_anomaly_damage = any(
+                isinstance(template, AttributeAnomalyDamageEventTemplate)
+                and template.requires_selected_anomaly_source
+                for definition in _all_definitions(request)
+                for template in definition.damage_event_templates
+            )
+            if not has_dynamic_discharge and not has_selected_anomaly_damage:
                 return _execution_without_events(
                     request,
                     _diagnostic(
                         str(request.move_entry_id),
                         "discharge-source-on-non-discharge",
                         DiagnosticKind.AMBIGUOUS_SEMANTICS,
-                        "A Discharge source selection is valid only for a reviewed dynamic Discharge event.",
+                        "An anomaly source selection is valid only for a reviewed dynamic Discharge or selected-record anomaly event.",
                     ),
                 )
             request, discharge_source_diagnostics = _prepare_dynamic_discharge_source(
@@ -332,6 +435,19 @@ class DirectMoveApplicationService:
                 global_panel_application.applied_panel_effect_ids,
             )
             source_diagnostics = (*source_diagnostics, *discharge_source_diagnostics)
+        selected_anomaly_record = None
+        if request.discharge_anomaly_source_choice is not None:
+            selected_record_id = anomaly_source_record_id(
+                request.discharge_anomaly_source_choice
+            )
+            selected_anomaly_record = next(
+                (
+                    record
+                    for record in request.history_records
+                    if record.record_id == selected_record_id
+                ),
+                None,
+            )
         main_event = instantiate_damage_event(
             main_template,
             multiplier.multiplier,
@@ -346,6 +462,7 @@ class DirectMoveApplicationService:
             discharge_anomaly_source_choice=(
                 request.discharge_anomaly_source_choice
             ),
+            selected_anomaly_record=selected_anomaly_record,
         )
         # Static browser requests need an identity-only record before matching
         # (ANOMALY_CONTRIBUTORS can be a filter).  This is deliberately gated
@@ -651,6 +768,13 @@ class DirectMoveApplicationService:
                     apply_panel=False,
                     applied_panel_effect_ids=panel_application.applied_panel_effect_ids,
                 )
+                child_application = replace(
+                    child_application,
+                    panel_traces=(
+                        *panel_application.panel_traces,
+                        *child_application.panel_traces,
+                    ),
+                )
                 if child_non_stacking_diagnostics:
                     child_application = replace(
                         child_application,
@@ -765,6 +889,43 @@ class DirectMoveApplicationService:
         tuple[CalculationDiagnostic, ...],
     ]:
         diagnostics_list = list(event_diagnostics)
+        template = _find_template(request, instantiated.template_id)
+        if (
+            isinstance(template, DirectDamageEventTemplate)
+            and template.friendly_actor_owner_id is not None
+        ):
+            actor_snapshot = _friendly_actor_snapshot(template, application)
+            if actor_snapshot is None:
+                diagnostics_list.append(
+                    _diagnostic(
+                        str(instantiated.semantic_id),
+                        "friendly-actor-panel-owner",
+                        DiagnosticKind.MISSING_DATA,
+                        "The friendly actor's declared panel owner is not present in the current team snapshots.",
+                        blocking=True,
+                    )
+                )
+            elif any(
+                item.character_id == actor_snapshot.character_id
+                for item in application.character_snapshots
+            ):
+                diagnostics_list.append(
+                    _diagnostic(
+                        str(instantiated.semantic_id),
+                        "duplicate-friendly-actor-snapshot",
+                        DiagnosticKind.DATA_QUALITY,
+                        "The friendly actor identity collides with an existing panel snapshot.",
+                        blocking=True,
+                    )
+                )
+            else:
+                application = replace(
+                    application,
+                    character_snapshots=(
+                        *application.character_snapshots,
+                        actor_snapshot,
+                    ),
+                )
         calculation_event = _apply_guaranteed_crit_effects(
             instantiated.event,
             application.event_crit_guarantee_effect_ids,
@@ -1046,7 +1207,7 @@ class DirectMoveApplicationService:
                     "Turbulence requires exactly one matching non-Wind AnomalyRecord.",
                 )
             source_record = source_records[0]
-            turbulence_element = source_record.element
+            turbulence_element = _turbulence_element_for_source(source_record.element)
             if source_record.element is Element.WIND:
                 return _diagnostic(
                     str(record_id),
@@ -1094,6 +1255,19 @@ class DirectMoveApplicationService:
                 )
             else:
                 turbulence_crit_rule = NoCritRule()
+        selected_anomaly_record = None
+        if request.discharge_anomaly_source_choice is not None:
+            selected_record_id = anomaly_source_record_id(
+                request.discharge_anomaly_source_choice
+            )
+            selected_anomaly_record = next(
+                (
+                    record
+                    for record in request.history_records
+                    if record.record_id == selected_record_id
+                ),
+                None,
+            )
         child = instantiate_damage_event(
             instance_template,
             instance_multiplier,
@@ -1116,6 +1290,7 @@ class DirectMoveApplicationService:
             discharge_anomaly_source_choice=(
                 request.discharge_anomaly_source_choice
             ),
+            selected_anomaly_record=selected_anomaly_record,
         )
         return child, (*ancestry, template_id)
 

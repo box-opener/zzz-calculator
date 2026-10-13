@@ -250,8 +250,8 @@ BEN_REVIEWED_MAPPING = NanokaReviewedMapping(
     ),
     data_quality_notes=(
         "Shield capacity, incoming damage reduction, Energy, Support Points, and Daze are source effects without corresponding outputs in the current calculation result.",
-        "The Cinema 2 defense-scaling extra counter damage is retained as a local unresolved child until its parent element/crit attribution is confirmed; parent Special/EX counter damage remains available.",
-        "The Core's Initial Attack from Initial Defense formula is numerically known, but its out-of-combat versus combat-layer placement awaits the user's current clarification; this does not block direct entries or shield/Cinema states.",
+        "The user confirmed that Cinema 2's 300%-Current-DEF child inherits the successful Special/EX counter parent's element, Standard Crit behavior, skill group, and tags; each selected counter result creates it once.",
+        "The user confirmed that Core Initial ATK includes 80% of Initial DEF at Core 7 in the out-of-combat Initial ATK panel; combat ATK percentage then scales the converted Initial ATK.",
     ),
 )
 

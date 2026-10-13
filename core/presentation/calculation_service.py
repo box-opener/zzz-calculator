@@ -24,6 +24,14 @@ from core.application import (
 from core.application.characters.dialyn import DIALYN_ID
 from core.application.characters.remielle import REMIELLE_ID
 from core.application.characters.seed import SEED_ID
+from core.application.characters.koleda.reviewed import BEN_ID
+from core.application.characters.anton.reviewed import (
+    ANTON_ID,
+    ANTON_REVIEWED_MAPPING,
+    BURST_STATE_ACTIVE as ANTON_BURST_STATE_ACTIVE,
+    ENEMY_SHOCKED_ACTIVE as ANTON_ENEMY_SHOCKED_ACTIVE,
+    EXTRA_SHOCK_READY as ANTON_EXTRA_SHOCK_READY,
+)
 from core.application.characters.definition import CharacterCalculationDefinition
 from core.application.characters.templates import (
     AttributeAnomalyDamageEventTemplate,
@@ -148,6 +156,7 @@ from core.presentation.registry import (
     effective_character_damage_element,
     element_enables_frostbite_crit_damage,
     supported_character_registrations,
+    _apply_ben_initial_attack_conversion,
 )
 from core.presentation.frostbite import (
     FROSTBITE_CONDITION_PREFIX,
@@ -1841,7 +1850,28 @@ def _presentation_request(
             }
         )
     )
-    if aria_discharge_triggered or nangong_discharge_triggered or promeia_discharge_triggered:
+    enabled_rule_ids = {
+        str(item) for item in payload.get("enabled_rule_item_ids", ())
+    }
+    anton_direct_entry_ids = {
+        f"move-entry:{ANTON_ID}:{item.entry_key}"
+        for item in ANTON_REVIEWED_MAPPING.moves
+    }
+    anton_extra_shock_triggered = (
+        primary_id == str(ANTON_ID)
+        and move_entry_id in anton_direct_entry_ids
+        and str(ANTON_EXTRA_SHOCK_READY) in selected_conditions
+        and selected_conditions.get(str(ANTON_BURST_STATE_ACTIVE)) is True
+        and selected_conditions.get(str(ANTON_EXTRA_SHOCK_READY)) is True
+        and selected_conditions.get(str(ANTON_ENEMY_SHOCKED_ACTIVE)) is True
+        and "rule:character:1111:extra-ability:shock-extra-hit" in enabled_rule_ids
+    )
+    if (
+        aria_discharge_triggered
+        or nangong_discharge_triggered
+        or promeia_discharge_triggered
+        or anton_extra_shock_triggered
+    ):
         source_spec = raw_discharge_source
         if source_spec is None:
             source_spec = {"source_character_id": primary_id}
@@ -1856,6 +1886,10 @@ def _presentation_request(
                 source_character_id, ()
             )
             if element in ANOMALY_ELEMENTS
+            and (
+                not anton_extra_shock_triggered
+                or element is Element.ELECTRIC
+            )
         )
         if not source_options:
             raise ValueError(
@@ -1888,7 +1922,7 @@ def _presentation_request(
         )
         if not nangong_voice_entry:
             raise ValueError(
-                "discharge_anomaly_source requires a triggered Aria, Nangong Yu, or Promeia Discharge"
+                "discharge_anomaly_source requires a triggered dynamic Discharge or Anton extra Shock"
             )
     return MoveCalculationViewRequest(
         primary_character_id=primary_id,
@@ -2067,6 +2101,18 @@ def _build_records(
             ),
             rule_items=rule_items,
         )
+        if character_id == BEN_ID:
+            core_definition = definitions_by_character[character_id]
+            core_rule = next(
+                item
+                for item in core_definition.rule_items
+                if str(item.rule_id)
+                == "rule:character:1121:core:initial-defense-to-attack"
+            )
+            resolved_build = _apply_ben_initial_attack_conversion(
+                resolved_build,
+                core_rule.original_text,
+            )
         if not resolved_build.complete:
             messages = "; ".join(item.message for item in resolved_build.diagnostics)
             raise ValueError(

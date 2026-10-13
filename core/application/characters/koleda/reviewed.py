@@ -319,7 +319,7 @@ def reviewed_mapping(*, ben_in_team: bool, potential_level: int = 0) -> NanokaRe
         data_quality_notes=(
             "Koleda and Ben coordinated parameters are selected from their exact source curves only when Ben is in the team; quick Special/EX cooperation also needs the explicit enhanced-Basic follow-up state.",
             "Potential I adds source-described current states and move access; its empty ability-list description does not justify an invented additional damage multiplier.",
-            "Potential I describes a stronger first-stage chase effect without a separate numeric curve; no extra hit or multiplier is inferred.",
+            "The user confirmed that Potential I's first-stage chase-effect enhancement does not increase damage; no extra hit or multiplier is created.",
             "The source's class-7 [锋御] / 锐暴 potential branch remains outside the registered role model; the non-[锋御] team Crit Damage branch is modeled for current registered roles.",
             "Disorder, Energy, Daze, Support Point, furnace-generation, and timing/resource transitions are not replayed.",
         ),

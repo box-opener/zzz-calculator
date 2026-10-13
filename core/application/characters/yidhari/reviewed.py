@@ -265,9 +265,9 @@ YIDHARI_REVIEWED_MAPPING = NanokaReviewedMapping(
         "The Frost-Sinking Counter curve has no matching skill_list entry, so its "
         "event is reviewed without inventing a MoveId; it retains its Basic group "
         "and Basic tag from the raw skill.basic section.",
-        "The raw Core low-HP damage effect specifies its maximum and threshold but "
-        "not the intermediate HP-to-bonus function. Its current bonus input remains "
-        "explicit rather than inferred or interpolated.",
+        "The user confirmed the Core low-HP damage bonus is linear from 100% HP (0 bonus) "
+        "to 50% HP (the current Core maximum); lower HP stays capped at that maximum.",
+        "The Core's general attack-damage wording is applied to Yidhari's own Direct and Penetration events. It does not explicitly define whether static Anomaly/Disorder settlements share the bonus; those remain outside this modifier until source rules are clarified.",
     ),
 )
 

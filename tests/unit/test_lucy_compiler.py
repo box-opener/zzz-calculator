@@ -11,6 +11,7 @@ from core.application.characters.lucy import (
     compile_lucy,
     load_raw_record,
 )
+from core.application.characters.lucy.reviewed import PIG_ACTOR_ID
 from core.application.equipment import (
     SIGNATURE_WENGINE_BY_CHARACTER,
     load_wengine_raw_record,
@@ -230,9 +231,9 @@ def test_lucy_direct_curves_keep_source_elements_and_curve_expression_once() -> 
     assert entries["basic-1"].main_damage_event.element is Element.PHYSICAL
     assert entries["basic-2"].main_damage_event.element is Element.PHYSICAL
     assert entries["basic-3"].main_damage_event.element is Element.FIRE
-    assert "属性待确认" in entries["basic-3-derived"].display_name
-    assert entries["basic-3-derived"].multiplier_relation.value == "unresolved-relation"
-    assert entries["basic-3-derived"].diagnostics[0].blocking is True
+    assert entries["basic-3-derived"].main_damage_event.element is Element.FIRE
+    assert entries["basic-3-derived"].multiplier_relation.value == "complete"
+    assert not entries["basic-3-derived"].diagnostics
     assert entries["basic-4"].main_damage_event.element is Element.FIRE
     assert _ratio(entries["dash-attack"]) == pytest.approx(1.864)
     assert entries["dash-attack"].main_damage_event.element is Element.PHYSICAL
@@ -260,7 +261,7 @@ def test_lucy_direct_curves_keep_source_elements_and_curve_expression_once() -> 
     assert _ratio(entries["pig-random-slingshot"]) == pytest.approx(4.15)
     assert _ratio(entries["pig-revolving-swing"]) == pytest.approx(5.92)
     assert all(
-        entries[key].multiplier_relation.value == "unresolved-relation"
+        entries[key].multiplier_relation.value == "complete"
         and entries[key].main_damage_event.skill_group is None
         and entries[key].damage_tags == frozenset()
         for key in (
@@ -283,20 +284,16 @@ def test_lucy_ultimate_levels_follow_c3_and_c5_caps() -> None:
     assert levels == pytest.approx([34.379, 37.505, 40.631])
 
 
-def test_lucy_basic3_derived_retains_source_curve_without_guessing_its_element() -> (
-    None
-):
+def test_lucy_basic3_derived_uses_confirmed_fire_element() -> None:
     payload = _api_payload(cheer_active=False)
     payload["move_entry_id"] = "move-entry:character:1151:basic-3-derived"
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200, response.text
     result = response.json()
-    assert result["events"] == []
-    assert result["totals"]["expected"]["complete"] is False
-    assert any(
-        item["diagnostic_id"] == "review:character:1151:basic-3-derived-element"
-        for item in result["totals"]["expected"]["diagnostics"]
-    )
+    assert len(result["events"]) == 1
+    assert result["events"][0]["element"] == "fire"
+    assert result["events"][0]["damage_type"] == "direct"
+    assert result["totals"]["expected"]["complete"] is True
 
 
 def test_lucy_cheer_on_uses_special_skill_level_and_team_scopes() -> None:
@@ -354,7 +351,7 @@ def test_lucy_extra_ability_uses_actual_team_eligibility() -> None:
     )
 
 
-def test_lucy_cinema6_keeps_followers_local_and_does_not_forge_direct_hits() -> None:
+def test_lucy_cinema6_creates_separate_friendly_actor_packets() -> None:
     c0 = _definition(cinema=0)
     c6 = _definition(cinema=6)
     c0_rule = next(
@@ -371,16 +368,13 @@ def test_lucy_cinema6_keeps_followers_local_and_does_not_forge_direct_hits() -> 
     )
     assert rule.eligibility.value == "eligible"
     assert len(rule.effects) == 2
-    assert all(effect.result.unresolved_template is not None for effect in rule.effects)
-    # The selected Lucy direct entries remain their source ratios, with no pig attacks
-    # fabricated as extra Direct events from a random/follower hit history.
+    assert all(effect.result.event_template_id is not None for effect in rule.effects)
     entries = _entries(c6)
     assert len(entries) == 23
     assert _ratio(entries["cinema6-pig-explosion"]) == pytest.approx(3.0)
     assert _ratio(entries["cinema6-pig-revolving-swing"]) == pytest.approx(5.92)
     assert (
-        entries["cinema6-pig-explosion"].multiplier_relation.value
-        == "unresolved-relation"
+        entries["cinema6-pig-explosion"].multiplier_relation.value == "complete"
     )
 
 
@@ -427,7 +421,7 @@ def test_lucy_cheer_on_and_c4_apply_to_party_current_panels_and_direct_damage() 
     assert on_crit == pytest.approx(1.03)
 
 
-def test_lucy_basic4_only_reports_pig_followup_when_pigs_are_selected_on_field() -> (
+def test_lucy_basic4_adds_one_friendly_pig_swing_when_selected_on_field() -> (
     None
 ):
     rule = "rule:character:1151:skill:basic-four-pig-swing"
@@ -446,16 +440,16 @@ def test_lucy_basic4_only_reports_pig_followup_when_pigs_are_selected_on_field()
     true_response = client.post("/api/v1/moves/calculate", json=true_payload)
     assert true_response.status_code == 200, true_response.text
     true_result = true_response.json()
-    assert len(true_result["events"]) == 1
+    assert len(true_result["events"]) == 2
     assert true_result["totals"]["expected"]["complete"] is False
-    assert any(
-        item["diagnostic_id"]
-        == "application:effect:character:1151:basic-four-pig-swing:unresolved-template"
-        for item in true_result["totals"]["expected"]["diagnostics"]
+    assert (
+        true_result["events"][1]["common_application_trace"]["base_source_character_id"]
+        == str(PIG_ACTOR_ID)
     )
+    assert true_result["events"][1]["modes"]["expected"]["unresolved"]
 
 
-def test_lucy_selectable_pig_source_entries_do_not_emit_synthetic_direct_events() -> (
+def test_lucy_selectable_pig_entries_use_distinct_actor_snapshot() -> (
     None
 ):
     payload = _api_payload(cheer_active=False)
@@ -464,12 +458,39 @@ def test_lucy_selectable_pig_source_entries_do_not_emit_synthetic_direct_events(
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200, response.text
     result = response.json()
-    assert result["events"] == []
+    assert len(result["events"]) == 1
     assert result["totals"]["expected"]["complete"] is False
-    assert any(
-        item["diagnostic_id"]
-        == "source:character:1151:pig-random-bat:follower-identity"
-        for item in result["totals"]["expected"]["diagnostics"]
+    assert (
+        result["events"][0]["common_application_trace"]["base_source_character_id"]
+        == str(PIG_ACTOR_ID)
+    )
+
+
+def test_lucy_pig_attack_uses_lucy_current_panel_plus_its_cheer_inheritance() -> None:
+    payload = _api_payload(cheer_active=True)
+    payload["move_entry_id"] = "move-entry:character:1151:pig-random-bat"
+    payload["condition_values"]["condition:lucy:bodyguard-pigs-active"] = True
+    response = client.post("/api/v1/moves/calculate", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    lucy_snapshot = next(
+        item
+        for item in result["resolved_character_snapshots"]
+        if item["character_id"] == str(LUCY_ID)
+    )
+    cheer_trace = next(
+        item
+        for item in result["panel_traces"]
+        if item["recipient_character_id"] == str(LUCY_ID)
+        and item["effect_id"] == "effect:character:1151:cheer-on:team-attack"
+    )
+    assert result["events"][0]["common_application_trace"]["base_source_character_id"] == str(PIG_ACTOR_ID)
+    assert result["events"][0]["modes"]["expected"]["unresolved"]
+    assert result["totals"]["expected"]["complete"] is False
+    assert lucy_snapshot["stats"]["attack"] > cheer_trace["resolved_value"]
+    assert all(
+        item["character_id"] != str(PIG_ACTOR_ID)
+        for item in result["resolved_character_snapshots"]
     )
 
 
@@ -517,18 +538,13 @@ def test_lucy_cinema6_scopes_children_to_teammate_ex_including_penetration() -> 
     response = client.post("/api/v1/moves/calculate", json=payload)
     assert response.status_code == 200, response.text
     result = response.json()
-    assert len(result["events"]) == 1
+    assert len(result["events"]) == 3
     assert result["events"][0]["damage_type"] == "penetration"
     assert result["totals"]["expected"]["value"] > 0
     assert result["totals"]["expected"]["complete"] is False
-    assert (
-        sum(
-            diagnostic["diagnostic_id"].startswith(
-                "application:effect:character:1151:cinema6"
-            )
-            for diagnostic in result["totals"]["expected"]["diagnostics"]
-        )
-        == 2
+    assert all(
+        event["common_application_trace"]["base_source_character_id"] == str(PIG_ACTOR_ID)
+        for event in result["events"][1:]
     )
 
     self_payload = {

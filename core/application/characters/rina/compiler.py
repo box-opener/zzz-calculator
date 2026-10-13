@@ -286,23 +286,62 @@ def _ambiguous_element_entries(raw: NanokaRawRecord, config: RinaCompileConfig):
     templates = []
     diagnostics = []
     for stage, source_skill_id in enumerate(("1211001", "1211003", "1211004", "1211006"), start=1):
-        entry, template, diagnostic = _unresolved_source_move(
+        parameter_name = f"{stage_names[stage - 1]}伤害倍率"
+        ratio = raw_multiplier(
             raw_moves,
-            config,
-            key=f"basic-stage-{stage}-element-unresolved",
-            label=f"普通攻击：痛打呆子（{stage_names[stage - 1]}，元素待确认）",
-            source_name="普通攻击：痛打呆子",
-            parameter_name=f"{stage_names[stage - 1]}伤害倍率",
+            basic_source.name,
+            parameter_name,
+            effective_skill_level(config, SkillGroup.BASIC_ATTACK),
+            f"{RINA_ID}:basic-stage-{stage}",
+            diagnostics,
             source_skill_id=source_skill_id,
-            original_text=basic_source.description,
-            unresolved_message="普通攻击说明整套四段同时造成物理与电属性伤害，但没有把元素分配到各段；本段倍率保留，确认前不生成伤害事件。",
-            group=SkillGroup.BASIC_ATTACK,
-            tags=frozenset({DamageTag.BASIC_ATTACK}),
-            move_id=RINA_BASIC_MOVE_ID,
         )
-        entries.append(entry)
-        templates.append(template)
-        diagnostics.append(diagnostic)
+        if isinstance(ratio, Unresolved):
+            raise ValueError(f"Rina Basic stage {stage} source ratio is missing")
+        element = Element.PHYSICAL if stage <= 2 else Element.ELECTRIC
+        key = f"basic-stage-{stage}-element-unresolved"
+        label = f"普通攻击：痛打呆子（{stage_names[stage - 1]}）"
+        ref = DamageEventTemplateRef(
+            template_id=EventTemplateId(f"template:character:1211:{key}:main"),
+            semantic_id=DamageEventSemanticId(f"event:character:1211:{key}:main"),
+            label=label,
+            damage_type=DamageType.DIRECT,
+            skill_group=SkillGroup.BASIC_ATTACK,
+            damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
+            element=element,
+        )
+        templates.append(
+            DirectDamageEventTemplate(
+                ref=ref,
+                damage_dealer=RINA_ID,
+                element=element,
+                base_source=CurrentAttackValueSource(RINA_ID),
+                crit_rule=StandardCritRule(RINA_ID),
+                move_id=RINA_BASIC_MOVE_ID,
+            )
+        )
+        entries.append(
+            MoveCalculationEntry(
+                entry_id=MoveEntryId(f"move-entry:character:1211:{key}"),
+                character_id=RINA_ID,
+                move_id=RINA_BASIC_MOVE_ID,
+                display_name=label,
+                original_text=basic_source.description,
+                skill_group=SkillGroup.BASIC_ATTACK,
+                damage_tags=frozenset({DamageTag.BASIC_ATTACK}),
+                multiplier_relation=MultiplierRelation.SEQUENTIAL_STAGE,
+                multiplier_variants=(
+                    MultiplierVariant(
+                        variant_id=MultiplierVariantId(f"variant:character:1211:{key}:damage"),
+                        label=parameter_name,
+                        parameter_name=parameter_name,
+                        multiplier=FixedMultiplier(Resolved(ratio)),
+                    ),
+                ),
+                main_damage_event=ref,
+                stage_index=stage,
+            )
+        )
 
     if config.potential_level >= 1:
         sweep_source = raw_moves["普通攻击：晨间清扫"]

@@ -995,14 +995,6 @@ def compile_koleda(
                 )
             )
         potential_move = next(item for item in raw_record.moves if item.name == "普通攻击：砸扁，粉碎")
-        if "追击效果增强" in potential_move.description:
-            potential_diagnostics.append(
-                _diagnostic(
-                    "potential1-enhanced-basic-chase-value",
-                    "Potential I says the Enhanced Basic stage-one chase effect is enhanced, but no separate numeric chase curve is present; the reviewed stage-one source ratio remains calculable without inventing another hit or multiplier.",
-                    potential_move.description,
-                )
-            )
         if "失衡值提升20%" in potential_move.description:
             potential_diagnostics.append(
                 _diagnostic(

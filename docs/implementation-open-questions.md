@@ -1,5 +1,7 @@
 # Implementation notes and open questions
 
+当前未决项的中文清单（含技能原句和待确认点）：[已有角色未决项（中文）](implementation-open-questions.zh-CN.md)。本文件保留历史开发记录，包含已解决事项，不能直接按标题数量统计未决项。
+
 ## Stopped development checkpoint — 2026-10-12
 
 At the user's request, work stopped after the completed 1591 implementation. Unregistered 1611/1621 drafts and the unfinished shared integration patch are preserved outside the active package in [the checkpoint](in-progress/characters-1611-1621/README.md). That document distinguishes previously passed source checks from later unverified work and records the remaining typed-sharpened settlement, initial-panel conversion, Roxy rule/scope, signature, and UI tasks. These are unfinished implementation tasks, not newly inferred game semantics.
@@ -896,13 +898,13 @@ Cinema 1's combat-entry Energy restoration is retained as a non-blocking source 
 
 ## Yidhari (`character:1051`)
 
-### Low-HP damage increase between its source maximum states
+### Low-HP damage increase between its source maximum states — answered
 
-The Core text says `伊德海莉的当前生命值百分比越低，招式造成的伤害越高` and specifies that below 50% HP the effect reaches its level-dependent maximum (50%, 58%, 66%, 74%, 82%, 90%, or 100%). It also says the maximum effect persists for five seconds after HP returns to 50%. The source does not provide the intermediate HP-to-bonus curve. The calculator does not interpolate. It exposes the current Core damage increase explicitly, bounded by the current Core maximum; when the maximum state is selected, it applies the exact listed maximum. If the current amount is omitted while the intermediate rule is enabled, that event remains incomplete with a local missing-value diagnostic. No timer is simulated.
+The Core text says `伊德海莉的当前生命值百分比越低，招式造成的伤害越高` and specifies that below 50% HP the effect reaches its level-dependent maximum (50%, 58%, 66%, 74%, 82%, 90%, or 100%). The user confirmed linear scaling: full HP gives 0; at 50% HP or lower, the selected Core level's maximum applies. The current input is HP lost in percentage points, clamped at 50. The modifier covers Yidhari's own Direct and Penetration damage. The wording does not define Anomaly/Disorder settlement scope; those event types remain outside the modifier. No timer is simulated.
 
 ### Extra Ice-tentacle damage type and identity
 
-The Extra Ability text says `处于[以太帷幕·涌泉]中时` the third-charge `普通攻击：霜寒拥覆` or `强化特殊技：极寒重碾` summons `寒冰触手进行攻击，造成额外伤害` and then says the triggering moves count as EX Special. Its raw `寒冰触手` ratio is preserved under source curve `1051024` and scales with EX Special skill level. The text does not uniquely specify the extra hit's element, damage type, Crit owner, or standalone attack identity. When the current Veil is active and either reviewed source move is selected, the direct move remains calculated and only the separate tentacle branch receives an ambiguity diagnostic; no extra damage event is fabricated. Its 12-second cooldown is not replayed.
+The Extra Ability text says `处于[以太帷幕·涌泉]中时` the third-charge `普通攻击：霜寒拥覆` or `强化特殊技：极寒重碾` summons `寒冰触手进行攻击，造成额外伤害` and then says the triggering moves count as EX Special. The user confirmed that the tentacle hit itself is also treated as EX Special. Its raw `寒冰触手` ratio is preserved under source curve `1051024` and scales with EX Special skill level. Its element and any additional source identity beyond the confirmed EX Special classification remain local diagnostics; no synthetic child is fabricated. Its 12-second cooldown is not replayed.
 
 ### Frost-Sinking Counter MoveId
 
@@ -915,20 +917,9 @@ The Core's Flash restore, Cinema 1/2 Flash changes, and Daze curves remain sourc
 ## Velina Broad Cyclone infusion element scope
 
 Noun entry `1000017` says: `广域气旋首次命中处于[浸染]状态下的敌人，会触发[赋彩]效果，转化为相应属性的[广域气旋]，并会造成相应属性的伤害`.
-The calculator spec at line 87 describes浸染 as triggering when a Winded target
-is first hit by a non-Wind attack. Neither source enumerates whether Luminance
-or element variants are valid choices for the "corresponding element". The
-current selector supports the five ordinary non-Wind elements whose source
-multipliers are known. This leaves only the unenumerated Luminance/variant
-choices unresolved; it does not block Wind or those five known infusion paths,
-and the source is not being interpreted as an explicit five-element
-restriction.
+The calculator spec at line 87 describes浸染 as triggering when a Winded target is first hit by a non-Wind attack. The user confirmed that element variants use their base element: Lieshuang resolves as Ice, Xuanmo as Ether, and Linren as Physical. The source multipliers are selected by that base element; no additional variant multipliers are invented. Whether Luminance itself is a valid infusion choice remains unresolved. This does not block Wind or the reviewed ordinary-element paths, and the source is not interpreted as an explicit five-element restriction.
 
-The 2026-10-11 source-to-implementation audit found no additional explicitly
-specified damage behavior omitted from the current Velina implementation. The
-remaining element-choice uncertainty is limited to variants the source does
-not enumerate; the other listed gaps concern Daze, buildup, resources,
-durations, and timing, which have no result in the current static contract.
+The remaining implementation limits concern Daze, buildup, resources, duration, and timing, which have no result in the current static contract.
 
 ## Yanagi Polarity Disorder calculation decision
 
@@ -942,35 +933,39 @@ An EX Polarity multiplier starts at 15%. With its Cinema 2/6 rule enabled it is 
 
 The user confirmed `是，终结技能也提升`. Cinema 3 and Cinema 5 therefore each add two levels to Ultimate as well as the other skill groups, capped at level 16. The shared Nanoka skill-level helper now applies this rule across registered characters. Astra and Ye Shunguang use specialized compilers, so their manually resolved move curves and Astra's skill-scaled follow-ups were aligned with the same helper. Explicit level-16 selections remain capped and are not raised further.
 
-## Caesar Basic Attack stage 3 derived curve
+## Caesar Basic Attack stage 3 derived curve — answered
 
-Caesar's live raw description says `向前方进行至多六段的斩击，造成物理伤害`, while its Basic parameter table separately lists `三段伤害倍率` (source curve `1071003`) and `三段（派生）伤害倍率` (source curve `1071008`). At skill level 12 the two values are 296.8% and 237.2%. The source does not state whether the derived curve is an additional hit or an alternative stage result. The implementation exposes both source-linked values separately and does not infer a combined third-stage total until the user clarifies their relationship.
+Caesar's live raw description says `向前方进行至多六段的斩击，造成物理伤害`, while its Basic parameter table separately lists `三段伤害倍率` (source curve `1071003`) and `三段（派生）伤害倍率` (source curve `1071008`). At skill level 12 the two values are 296.8% and 237.2%. The user confirmed the derived curve replaces the ordinary third-stage curve. Both source-linked values remain separately selectable and are not summed.
+
+## Anton (`character:1111`) localized source limits
+
+The Additional Ability's extra Shock is 45% of one 125% Shock tick (`0.5625 ×` the selected record strength). The user confirmed that its source may be any currently active Shock record. The child uses that record's actual triggerer and captured source state; it does not use Anton's ATK or the total Shock duration, and no four-Crit or cooldown history is replayed. The Assist Strike still has one mixed Drill/Pile coefficient without a source-defined allocation, so only that entry remains local partial.
 
 ## Ben (`character:1121`) source-limited branches
 
 ### Core Initial DEF-to-ATK layer
 
-The live Nanoka 3.2 Core text says: `本的初始攻击力随初始防御力提升，提升效果等同于自身初始防御力的80%` (the coefficient varies by Core level; Core 7 is 80%). The source value and Initial DEF input are known, but the user is being asked whether the conversion belongs in the out-of-combat Initial ATK panel or only in a combat attack layer. Until clarified, the role preserves the raw coefficient and a local rule diagnostic, and does not invent an attack value or block otherwise known direct entries. `PanelStatDerivedValue` and its resolver now accept a typed Initial DEF source for this future path.
+The live Nanoka 3.2 Core text says: `本的初始攻击力随初始防御力提升，提升效果等同于自身初始防御力的80%`. The user confirmed this level-scaled conversion belongs in out-of-combat Initial ATK, after which combat ATK percentage is applied. Manual-panel ATK remains the final user-supplied panel and is not converted twice.
 
 ### Cinema 2 DEF-scaled counter child
 
-The live Cinema 2 text says: `在[特殊技]或[强化特殊技]中，成功触发格挡反击时，额外造成本300%防御力的伤害`. The 300% current-DEF coefficient and successful-counter inputs are known. The user is being asked whether the extra child inherits the selected counter parent's element, Standard Crit capability, and Special/EX tag, and whether an EX guard follow-up shares the same single proc. Until clarified, only the selected Special/EX counter branch receives a localized unresolved-child diagnostic; its known parent counter stays calculated and no typed Direct child is fabricated.
+The live Cinema 2 text says: `在[特殊技]或[强化特殊技]中，成功触发格挡反击时，额外造成本300%防御力的伤害`. The user confirmed that the 300%-current-DEF child fully inherits its successful Special/EX counter parent's element, Standard Crit behavior, skill group, and tags. It appears once for each selected counter result, including a complete EX counter query; ordinary tap attacks do not trigger it.
 
 ## Soukaku (`character:1131`) source-limited branches
 
-The live Nanoka 3.2 Core text says `队伍中其他角色通过[展旗]所触发的[快速支援]或[连携技]入场时，该增益效果将传递给对应的角色，并刷新其持续时间。` The self Core ATK formula is implemented from Soukaku's Initial ATK, including consumed-Vortex doubling and the source cap. The text does not state whether Soukaku keeps a copy after transfer or whether multiple teammates may hold it simultaneously. Until clarified, the compiler does not assign the transferred buff to a current operator or all teammates.
+The live Nanoka 3.2 Core text says `队伍中其他角色通过[展旗]所触发的[快速支援]或[连携技]入场时，该增益效果将传递给对应的角色，并刷新其持续时间。` The user confirmed one explicit holder can be selected from the active team, including Soukaku; after transfer, Soukaku no longer holds the buff. The recipient is stored by character ID and remains independent of current operator and formation order. The source's Initial-ATK formula, consumed-Vortex doubling, and cap still read Soukaku's panel.
 
-The EX source text says `多次点按可以连续发动招式，每次发动时将消耗一定能量，能量不足或停止点按时会自动释放终结一击`. Its raw parameters give the continuous-attack component as `{{Skill:1131011, Prop:1001}/2}` and the windfield as `{Skill:1131010, Prop:1001}`. The calculator exposes the source-defined half-curve continuous segment and windfield separately; it does not infer a full multi-click total or replay Energy/click counts. The exact relationship between those two components in a complete EX action remains under review.
+The EX source text says `多次点按可以连续发动招式，每次发动时将消耗一定能量，能量不足或停止点按时会自动释放终结一击`. Its raw parameters give the continuous-attack component as `{{Skill:1131011, Prop:1001}/2}` and the windfield as `{Skill:1131010, Prop:1001}`. The user confirmed these are components of one EX action. The complete entry adds each source expression once; standalone component entries remain available, and no clicks, Energy history, or duration are simulated.
 
 ## Lucy (`character:1151`) pig follower source attribution
 
-The Core says `亲卫队小猪可以继承露西的攻击力、冲击力和异常精通` and, when its Extra Ability team condition is met, `亲卫队小猪可以继承露西的暴击率和暴击伤害`. The Special source describes Cheer On as a team ATK increase based on Lucy's Initial ATK and flat ATK, while Core 7 raises the buff effect received by pigs to 200% of its original value. It is not yet clear whether a pig's inherited Lucy ATK already contains Lucy's normal Cheer On increase before applying the pig's 200% buff effect. For example, with Initial ATK 1000 and a normal Cheer On increase of 300, the pig could have 1600 ATK (1000 + twice 300) or 1900 ATK (Lucy current ATK 1300 + twice 300). This affects the known 300% C6 pig-ATK Fire explosion and the 592% pig Revolving Swing; the parent Lucy or teammate Direct action remains independently calculable.
+The Core says `亲卫队小猪可以继承露西的攻击力、冲击力和异常精通` and, when its Extra Ability team condition is met, `亲卫队小猪可以继承露西的暴击率和暴击伤害`. The user confirmed the pig starts from Lucy's current ATK and receives another 200% of the Cheer On increase; for example, Lucy at 1300 ATK after a 300 increase gives the pig 1900 ATK. Pig events use a separate friendly-actor identity, not Lucy's damage-dealer identity. They inherit the source-listed ATK, Impact, and Anomaly Proficiency, plus Crit stats only when the Extra Ability condition is eligible; they do not borrow Lucy's SkillGroup, tags, or character/W-Engine hit identity.
 
-Cinema 6 states: `处于[加油！]状态下的队友[强化特殊技]命中敌人时，一只亲卫队小猪会从空中落地引发爆炸，造成等同于亲卫队小猪300%攻击力的火属性伤害……亲卫队小猪落地引发爆炸后，将会发动一次[亲卫队小猪：回旋挥击！]`. The text gives the explosion's Fire element, 300% coefficient, and one subsequent swing; it does not specify the pig event's skill group/tags or how the pig's inherited Crit stats apply to these events. These event identities affect role/W-Engine scopes and Crit settlement. Basic 4 also explicitly triggers a pig Revolving Swing when pigs are present. The implementation leaves only those follower child events unresolved, without creating a synthetic Direct event; random automatic pig attack cadence and deferred attack history are not simulated.
+Cinema 6 says `处于[加油！]状态下的队友[强化特殊技]命中敌人时，一只亲卫队小猪会从空中落地引发爆炸，造成等同于亲卫队小猪300%攻击力的火属性伤害……亲卫队小猪落地引发爆炸后，将会发动一次[亲卫队小猪：回旋挥击！]`. The user confirmed one Fire explosion followed by one swing. Basic 4 and Cinema 6 use the same friendly pig actor. The source does not define pig Penetration or element-damage panel bonuses; those entries remain locally partial when the damage formula requires those values. If Extra Ability Crit inheritance is ineligible, the pig's own Crit panel is also unresolved. Random attack cadence and deferred attack history are not simulated.
 
-### Basic third-stage derived curve element
+### Basic third-stage derived curve element — resolved
 
-The Basic description says the sequence deals Physical and Fire damage, and its parameter table separately names the `三段（派生）伤害倍率` curve `1151003` (level-16 ratio 501%). The source skill-list action ID `1151003` is the high-fly Special, so that numeric collision cannot identify the Basic derived curve's element. The main third/fourth-stage curves have Fire buildup values, but the source does not assign the derived coefficient to Physical or Fire. Its ratio remains available and the selected derived branch stays locally unresolved without emitting a damage event; the named third and fourth stage entries remain calculated.
+The Basic description says the sequence deals Physical and Fire damage, and its parameter table separately names the `三段（派生）伤害倍率` curve `1151003` (level-16 ratio 501%). The user confirmed this derived branch is Fire. It is a separate selectable query, not automatically summed with the named third-stage curve; the action-ID/curve-ID collision is not used to infer its element.
 
 ## Continuous current-panel coefficients (2026-10-08)
 
@@ -1002,9 +997,9 @@ Raw text: `消耗所有<color=#FFFFFF>[电能]</color>发动<color=#FFFFFF>[特�
 
 The Basic prose says `向前方进行至多五段的穿透攻击，造成物理伤害和电属性伤害` but does not assign an element to each stage. The user confirmed `正确`: stages 1–3 are Physical and stages 4–5 Electric. The five raw curves are now selectable Direct Basic entries using that mapping; the raw infliction values do not override it.
 
-### Potential 1 Julei follow-up count and tag
+### Potential 1 Julei follow-up count and tag — resolved
 
-The Potential 1 Dash Slash text says `斩击命中处于失衡状态的敌人时会触发[逐雷]，造成1次额外的电属性伤害`. The curve for `逐雷` is 1201025 and the known L12 ratio is 83%. It is exposed as its single source coefficient, but it is unresolved whether it triggers once per Dash Slash stage or once for the complete action. The raw source is listed in the Dodge section without a clear DamageTag, so the compiler does not assign a Dash or Follow-up tag while that remains open.
+The Potential 1 Dash Slash text says `斩击命中处于失衡状态的敌人时会触发[逐雷]，造成1次额外的电属性伤害`. The user confirmed one Julei packet for each selected Dash Slash stage and the `DASH_ATTACK` tag. Each stage now includes one source-linked child; the calculator does not replay hit history or repeat the full Dash Slash.
 
 ### Cinema 6 electromagnetic explosion identity
 
@@ -1014,7 +1009,7 @@ Cinema 6 says `[甲乙矢]每命中同一名敌人12次，将额外触发1次电
 
 ### Basic four-stage element mapping
 
-The Basic source says `指派杜苏拉和安娜塔莎发动至多四段的攻击，造成物理伤害和电属性伤害`. Its four stage curves are `1211001`, `1211003`, `1211004`, and `1211006`, but the source does not say which stages are Physical or Electric. The four ratios remain available as selectable local partial entries; none emits a damage event until the user confirms the stage mapping.
+The Basic source says `指派杜苏拉和安娜塔莎发动至多四段的攻击，造成物理伤害和电属性伤害`. The user confirmed stages 1–2 are Physical and stages 3–4 are Electric. Curves `1211001`, `1211003`, `1211004`, and `1211006` are mapped to those four Direct Basic entries. Potential 1 Morning Sweep's three curves remain visible with unresolved Physical/Electric element identity.
 
 ### Potential 1 Morning Sweep element components
 
@@ -1024,21 +1019,21 @@ The Morning Sweep text says `杜苏拉或安娜塔莎会每间隔2.5秒，攻击
 
 ### Cinema 6 extra attack identity
 
-The source says `队伍中任意角色对敌人施加[强击]效果时，简将直接进入[狂热]状态，并使[狂热心流]回复至上限，此次[强击]伤害触发暴击时，将会对目标发动一次额外攻击，造成等同于简1600%异常精通的物理伤害`. The trigger, one-time count, current Jane AP base, and Physical element are known. The extra packet's damage type, Crit behavior, SkillGroup, and damage tags remain unresolved. The known 1600% AP coefficient is available as a local partial entry; the calculator emits no synthetic Direct event or weapon proc until the event identity is confirmed.
+The source says `队伍中任意角色对敌人施加[强击]效果时，简将直接进入[狂热]状态，并使[狂热心流]回复至上限，此次[强击]伤害触发暴击时，将会对目标发动一次额外攻击，造成等同于简1600%异常精通的物理伤害`. The user confirmed a single Jane-owned Physical Direct packet with a base of 1600% × Jane's current Anomaly Proficiency. It uses ordinary Direct Crit behavior and has no inherited ATK/source strength, SkillGroup, or damage tags. The selected current ready state creates one event; the 12-hit history is not replayed.
 
 ## Zhu Yuan (`character:1241`) localized source questions
 
 ### Assault Basic stage element mapping
 
-The live Basic description says `交替使用体术、手枪和以太鹿弹，向前方进行至多五段的攻击，造成物理伤害和以太伤害`. Its five source curves (`1241001`–`1241005`) are individually selectable with their known ratios, but the source does not assign Physical or Ether to each stage. The entries remain local partials without emitted damage events until the stage-to-element mapping is known.
+The live Basic description says `交替使用体术、手枪和以太鹿弹，向前方进行至多五段的攻击，造成物理伤害和以太伤害`. The user confirmed stage 1 Physical, stage 2 Ether, and stage 3 Physical. Stages 4–5 remain mixed Physical/Ether without a confirmed split, so only those two source entries remain local partials.
 
 ### Pressure-mode shot pairing
 
-The source says `使用霰弹枪向前方进行至多三段的穿透射击，造成物理伤害；开火时若拥有[强化霰弹]，则会消耗1枚[强化霰弹]，造成大量以太伤害`. Separate Physical (`1241006`–`1241008`) and Ether (`1241009`–`1241011`) curves are preserved. The exact relationship between those components for a shot that consumes a shell is unresolved, so no full multi-shot total is inferred; the components stay separately selectable.
+The source says `使用霰弹枪向前方进行至多三段的穿透射击，造成物理伤害；开火时若拥有[强化霰弹]，则会消耗1枚[强化霰弹]，造成大量以太伤害`. The user confirmed the Enhanced Shell Ether shot replaces the Physical shot. Physical and Ether variants remain separately selectable and are not summed.
 
 ### Cinema 6 extra Ether bullet event identity
 
-Cinema 6 says `发动[强化特殊技]时，将消耗[以太余温]效果，额外发射总计4枚以太鹿弹，每枚额外发射的以太鹿弹将造成朱鸢220%攻击力的伤害`. The known total is 880% ATK. The event's damage type, Crit behavior, skill group, and damage tags remain unresolved; the selector preserves the ratio as a local partial and does not fabricate a Direct event or trigger weapon effects.
+Cinema 6 says `发动[强化特殊技]时，将消耗[以太余温]效果，额外发射总计4枚以太鹿弹，每枚额外发射的以太鹿弹将造成朱鸢220%攻击力的伤害`. The user confirmed four Ether Direct packets attached to EX Special with Standard Crit. The selectable entry totals 880% ATK and creates the four children once; no resource history is replayed.
 
 ### Assist Strike Physical/Ether split
 
@@ -1086,13 +1081,13 @@ The source says:
 - Basic: “向前方进行至多五段攻击，随后向前发起强力火刀攻击，造成物理伤害和火属性伤害。” Curves 1301001–1301005 are retained as visible local partials because the source does not map Physical/Fire to individual stages. The separate 1301006 Fire Blade ratio is known.
 - Dodge Counter: “对前方敌人发动连击，造成物理伤害和火属性伤害；” Its single 1301013 curve is visible as a local partial without an inferred element.
 - Quick Assist: “对前方敌人发动连击，造成物理伤害和火属性伤害；” Its 1301017 curve is likewise preserved without an inferred element.
-- Special Light Eater: “进行四次激光追加攻击，造成火属性伤害；” The single curve 1301008 is retained once with its Follow-up classification, but its relationship to the four laser hits is not expanded into a hit count.
-- Ultimate: the source says a responding Quick Assist “会延长激光喷射的持续时间” and lists 1301016 “延长时间总伤害倍率”. The extension curve is exposed as its own Fire/Ultimate source component; the UI does not combine it with 1301015 into an inferred full-total entry.
-- Cinema 6: laser hits during Charge and Ultimate add one known 250% ATK Fire Direct Follow-up packet per trigger, with a 0.5-second trigger interval. The single packet is selectable; the total number of packets during the sustained beam is not inferred. Charge/Ultimate parent entries retain their known ratios and become local partials only with Cinema 6 unlocked.
+- Special Light Eater: “进行四次激光追加攻击，造成火属性伤害；” The user confirmed that curve 1301008 is the total for the four lasers, so it is used once, not multiplied by four.
+- Ultimate: the source says a responding Quick Assist “会延长激光喷射的持续时间” and lists 1301016 “延长时间总伤害倍率”. The complete extended Ultimate adds the original curve 1301015 and the extension curve 1301016 once each in the same action; no duration or action sequence is replayed.
+- Cinema 6: the known 250% ATK Fire Direct Follow-up packet inherits Cinema 1 Fire resistance ignore and Cinema 4's +40% damage when their source state applies. Its number of packets remains a local limit; the implementation does not invent periodic-hit counts.
 
-Core 7's Focus bonus is represented as a current team state. Each named teammate holder receives +280 ATK plus the source's continuous initial-ER contribution above 1.6, capped at 700 total; that calculation uses Orphie's Initial ER for all holders. Core and Cinema effects preserve the listed Follow-up events, while the current Focus state and the post-Ultimate ATK state are user-selected. Cinema 4's +40% damage applies to its named Charge and Ultimate events; whether the separate Cinema 6 Fire packet inherits that bonus is left locally partial only when Cinema 4 is enabled. Cinema 1's Fire resistance ignore uses its named Direct events; the relationship between that rule and the separately typed Cinema 6 packet remains local where enabled. Energy, Daze, Focus duration, and periodic-hit timing are not replayed.
+Core 7's Focus bonus is represented as a current team state. Each named teammate holder receives +280 ATK plus the source's continuous initial-ER contribution above 1.6, capped at 700 total; that calculation uses Orphie's Initial ER for all holders. Core and Cinema effects preserve the listed Follow-up events, while the current Focus state and the post-Ultimate ATK state are user-selected. Cinema 4's +40% damage applies to its named Charge and Ultimate events and to the Cinema 6 packet as confirmed by the user. Cinema 1's Fire resistance ignore applies to the separately typed Cinema 6 packet when its current source state is active. Cinema 6 packet count, Energy, Daze, Focus duration, and periodic-hit timing are not replayed.
 
-Cinema 1's +20% damage is a normal damage bonus for current Focus holders. Its 15% Fire resistance ignore applies to the four named source moves, while the Cinema 6 packet's parent-specific application remains locally unresolved as noted above. The Additional Ability's 25% Defense ignore applies to Follow-up events from Focus holders when a Stun or Support agent is present. Cinema 2's post-Ultimate +20% ATK is a current self-buff state; its 45-second expiration is not replayed. The signature's permanent Crit Rate and current 0–2 Defense-ignore layers use the existing Hellhound Boomstick implementation.
+Cinema 1's +20% damage is a normal damage bonus for current Focus holders. Its 15% Fire resistance ignore applies to the four named source moves and the separately typed Cinema 6 Fire packet when enabled. The Additional Ability's 25% Defense ignore applies to Follow-up events from Focus holders when a Stun or Support agent is present. Cinema 2's post-Ultimate +20% ATK is a current self-buff state; its 45-second expiration is not replayed. The signature's permanent Crit Rate and current 0–2 Defense-ignore layers use the existing Hellhound Boomstick implementation.
 
 ## Evelyn (`character:1321`) localized source limits
 
@@ -1180,7 +1175,7 @@ The Additional Ability adds three seconds to eligible current Ice/Lieshuang Fros
 
 The source gives Norma a Penetration Force conversion of 1.25 ATK per current Force, capped at 1200 ATK. Her Core resolves Force only from active Lucia and Yinhu team effects, then adds the conversion to Norma's current ATK; it does not derive Force from Norma's ATK/HP or reuse the Rupture formula.
 
-The source includes autonomous target-practice/turret damage curves but does not establish an independently modeled actor's panel ownership. Those source rows remain local actor diagnostics; the explicitly Norma-driven Basic, Counter, Chain, Quick Assist, Ultimate, and EX attacks remain usable. Term `1000012`'s localized name/effect is not resolved by the local term dictionary, but its source condition and level-60 ATK cap (+870) are represented as a separate current-state input. Cinema 6's source interval does not determine how many high-explosive missiles occur in a query, so the calculator handles the selected current missile packet and does not extrapolate a total count. No other reviewed Norma damage curve or element assignment is withheld.
+The user confirmed that Norma's autonomous target-practice/turret constructs use Norma's current panel. They now use separate friendly actor IDs, so their attacks do not masquerade as Norma hits or activate her character/W-Engine filters; eligible TEAM damage modifiers still apply to those actor events. Term `1000012` is 嗯呢弹幕: its +870 ATK and +20% TEAM damage are controlled by one current-state input. Cinema 6's source interval does not determine how many high-explosive missiles occur in a query, so the calculator handles the selected current missile packet and does not extrapolate a total count.
 
 ## Sigrid (`character:1591`) localized current-state limits
 

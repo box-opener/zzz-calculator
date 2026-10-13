@@ -272,7 +272,7 @@ CAESAR_REVIEWED_MAPPING = NanokaReviewedMapping(
         ),
     ),
     data_quality_notes=(
-        "The third Basic stage and its raw `三段（派生）伤害倍率` are shown as separate source-linked entries. The source does not state whether this curve is an additional hit or an alternative, so no combined stage total is inferred.",
+        "The source's `三段（派生）伤害倍率` is an alternative to the ordinary third-stage curve; both remain separate selectable entries and are never summed.",
         "Core Shield value, damage absorption, and timed shield state, Parry Support Daze, Energy/Support Point resource changes, and incoming damage are retained as source text because those results are outside the current contract. Current shield-holder attack buff and current enemy debuffs are modeled as explicit states.",
         "Raw damage values use Nanoka parameter IDs, while MoveIds come from the separate skill_list action records. EX entries only have the EX tag; Special and EX are not combined as tags.",
     ),

@@ -205,7 +205,7 @@ def test_rina_source_registration_panel_defaults_and_signature() -> None:
     assert normal_bonus == pytest.approx(0.202)
 
 
-def test_rina_reviewed_direct_curves_and_unknown_elements_stay_local() -> None:
+def test_rina_basic_stage_elements_match_the_confirmed_mapping() -> None:
     raw = load_raw_record(load_character_record(str(RINA_ID)), potential_level=0)
     definition = compile_rina(RinaCompileConfig(), raw)
     entries = {str(item.entry_id): item for item in definition.move_entries}
@@ -224,14 +224,17 @@ def test_rina_reviewed_direct_curves_and_unknown_elements_stay_local() -> None:
         entry = entries[f"move-entry:character:1211:{key}"]
         assert entry.multiplier_variants[0].multiplier.value.value == pytest.approx(expected)
     assert entries["move-entry:character:1211:basic-hold-electric"].main_damage_event.element is Element.ELECTRIC
-    for stage in range(1, 5):
+    expected_elements = (Element.PHYSICAL, Element.PHYSICAL, Element.ELECTRIC, Element.ELECTRIC)
+    for stage, element in enumerate(expected_elements, start=1):
         entry = entries[f"move-entry:character:1211:basic-stage-{stage}-element-unresolved"]
-        assert entry.multiplier_relation is MultiplierRelation.UNRESOLVED_RELATION
+        assert entry.multiplier_relation is MultiplierRelation.SEQUENTIAL_STAGE
+        assert entry.main_damage_event.element is element
 
-    for stage in range(1, 5):
+    for stage, element in enumerate(("physical", "physical", "electric", "electric"), start=1):
         result = _calculate(_payload(f"move-entry:character:1211:basic-stage-{stage}-element-unresolved"))
-        assert result["events"] == []
-        assert result["totals"]["expected"]["complete"] is False
+        assert len(result["events"]) == 1
+        assert result["events"][0]["element"] == element
+        assert result["totals"]["expected"]["complete"] is True
 
 
 def test_rina_morning_and_midnight_sweep_are_potential_one_current_state_entries() -> None:

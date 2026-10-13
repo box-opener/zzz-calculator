@@ -99,8 +99,14 @@ from .reviewed import (
 ICE_DISORDER_REMAINING_SECONDS = ScenarioParameterId(
     "parameter:yidhari:ice-disorder-remaining-seconds"
 )
+_CORE_DAMAGE_TYPES = AnyFilter(
+    (
+        DamageTypeFilter(DamageType.DIRECT),
+        DamageTypeFilter(DamageType.PENETRATION),
+    )
+)
 CORE_CURRENT_HP_DAMAGE_BONUS_PERCENT = ScenarioParameterId(
-    "parameter:yidhari:core-current-hp-damage-bonus-percent"
+    "parameter:yidhari:core-hp-deficit-percent"
 )
 ICE_ANOMALY_RECORD_ID = AnomalyRecordId("anomaly:yidhari:ice-shatter")
 
@@ -484,8 +490,9 @@ def _curtain_tentacle_unresolved_effect(source: RuleSource) -> EventCreationEffe
     unresolved = Unresolved(
         reason=UnresolvedReason.AMBIGUOUS_TEXT,
         notes=(
-            "The source multiplier is retained as raw. The additional tentacle hit cannot be "
-            "typed without choosing an unverified element, damage class, crit owner, or hit identity."
+            "The user confirmed the tentacle child is treated as an EX Special event. Its source multiplier is retained; "
+            "element, Direct versus Penetration damage class, crit owner, and independent hit identity remain unresolved, "
+            "so no synthetic child event is emitted."
         ),
         original_text=original_text,
     )
@@ -571,15 +578,15 @@ def compile_yidhari(
     )
     current_hp_bonus = ScenarioIntegerParameter(
         parameter_id=CORE_CURRENT_HP_DAMAGE_BONUS_PERCENT,
-        label=f"核心：当前低生命值增伤百分比（当前核心上限{max_hp_bonus_percent:g}%）",
+        label=f"核心：当前已损失生命值百分比（0–50%，当前核心增伤上限{max_hp_bonus_percent:g}%）",
         original_text=(
-            "原文说明当前生命值百分比越低伤害越高，并给出低于50%时的最大值；"
-            "没有给出中间生命值对应的增伤曲线，故显式选择当前增伤百分比。"
+            "用户确认核心增伤随生命值损失线性提高：满生命值时为0，损失50个百分点时达到核心当前上限；"
+            "生命值低于50%仍按上限计算。此参数表示从满生命值起已损失的百分点，最多计50。"
         ),
         resolution=ParameterResolution.USER_SELECTED,
         value=None,
         minimum=0,
-        maximum=int(max_hp_bonus_percent),
+        maximum=50,
     )
     core_max_damage_rule = _rule(
         "core:maximum-low-hp-damage-increase",
@@ -595,7 +602,7 @@ def compile_yidhari(
                 CalculationNode.DAMAGE_NORMAL_BONUS,
                 Resolved(max_hp_bonus_percent / 100.0),
                 condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-                filters=(DamageTypeFilter(DamageType.PENETRATION),),
+                filters=(_CORE_DAMAGE_TYPES,),
             ),
         ),
     )
@@ -613,12 +620,12 @@ def compile_yidhari(
                 CalculationNode.DAMAGE_NORMAL_BONUS,
                 ScenarioParameterDerivedValue(
                     parameter_id=str(CORE_CURRENT_HP_DAMAGE_BONUS_PERCENT),
-                    coefficient=Resolved(0.01),
+                    coefficient=Resolved(max_hp_bonus_percent / 5000.0),
                     base=Resolved(0.0),
                     cap_max=Resolved(max_hp_bonus_percent / 100.0),
                 ),
                 condition=DynamicIdentityCondition(DynamicIdentity.DAMAGE_DEALER),
-                filters=(DamageTypeFilter(DamageType.PENETRATION),),
+                filters=(_CORE_DAMAGE_TYPES,),
             ),
         ),
     )
@@ -682,7 +689,7 @@ def compile_yidhari(
     tentacle_rule = _rule(
         "extra-ability:ice-tentacle-source-unresolved",
         extra_source,
-        "额外能力：寒冰触手攻击身份待确认",
+        "额外能力：寒冰触手（已确认强化特殊技；伤害身份仍局部待定）",
         tentacle_original_text,
         extra_eligibility,
         condition_ids=(ETHER_CURTAIN_ACTIVE,),

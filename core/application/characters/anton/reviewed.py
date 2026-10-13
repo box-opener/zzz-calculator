@@ -207,7 +207,7 @@ ANTON_REVIEWED_MAPPING = NanokaReviewedMapping(
     data_quality_notes=(
         "The source's mixed Support Strike has one total multiplier for an Electric Drill hit followed by a Pile Driver finisher; no per-component ratios are provided, so the Core's two category bonuses are not guessed for this aggregate entry.",
         "Cinema 1 Energy recovery and Cinema 2 shield/incoming-damage behavior are retained in source text only; the result contract does not simulate resources, shields, or durations.",
-        "The Additional Ability's extra Shock hit has a known 45% of one 125% Shock tick (0.5625× the selected Electric anomaly record). Source-record attribution and its settlement ownership are kept as a local unresolved child until confirmed; burst/readiness/shocked-target state are explicit static inputs, not replayed history or cooldown.",
+        "The Additional Ability's extra Shock is 45% of one Shock tick (0.5625× one selected active Electric anomaly record). The source is chosen from the active team's reviewed Shock records, and the resulting anomaly packet follows that record; burst/readiness/current-Shock state are static inputs, not replayed history or cooldown.",
     ),
 )
 

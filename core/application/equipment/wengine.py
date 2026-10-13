@@ -4797,44 +4797,6 @@ def _heart_of_sword_rules(
             filters=electric_dash,
         ),
     )
-    if "harumasa-julei-tag-scope-unresolved" in capabilities.mechanisms:
-        electric_dash_effects = (
-            *electric_dash_effects,
-            EventCreationEffect(
-                rule=EffectRule(
-                    effect_id=_instance_effect_id(
-                        raw.wengine_id,
-                        owner,
-                        "harumasa-julei-tag-scope-unresolved",
-                    ),
-                    source=source,
-                    owner=owner,
-                    target=EffectTarget.TEAM,
-                    snapshot_rule=SnapshotRule.SETTLEMENT,
-                    filters=(
-                        DamageTypeFilter(DamageType.DIRECT),
-                        DamageDealerFilter(owner),
-                        EventTemplateIdFilter(
-                            EventTemplateId(
-                                "template:character:1201:potential1-julei:main"
-                            )
-                        ),
-                    ),
-                ),
-                result=EventCreationResult(
-                    event_kind=BattleEventKind.DAMAGE,
-                    unresolved_template=Unresolved(
-                        reason=UnresolvedReason.AMBIGUOUS_TEXT,
-                        notes=(
-                            "Heart of Sword's +Electric Dash damage is active, but the source does not identify whether the Julei follow-up carries the Dash Attack tag. "
-                            "Its known Direct base remains available; the possible weapon bonus is left unresolved without creating a synthetic hit."
-                        ),
-                        original_text=talent.text,
-                    ),
-                    unique_per_source_event=True,
-                ),
-            ),
-        )
     return (
         _rule(
             raw=raw,

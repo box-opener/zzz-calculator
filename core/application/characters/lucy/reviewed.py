@@ -14,6 +14,7 @@ from ..nanoka_compiler import (
 
 
 LUCY_ID = CharacterId("character:1151")
+PIG_ACTOR_ID = CharacterId("friendly-actor:character:1151:bodyguard-pig")
 CHEER_ON_ACTIVE = ScenarioConditionId("condition:lucy:cheer-on-active")
 PIGS_ACTIVE = ScenarioConditionId("condition:lucy:bodyguard-pigs-active")
 
@@ -118,9 +119,6 @@ LUCY_REVIEWED_MAPPING = NanokaReviewedMapping(
             relation=MultiplierRelation.SEQUENTIAL_STAGE,
             stage=3,
         ),
-        # The compiler blocks this entry before creating an event because the
-        # raw source doesn't map the derived curve to Physical or Fire. The
-        # required enum value here is only a non-emitted template placeholder.
         _move(
             "basic-3-derived",
             move_id=BASIC_MOVE_ID,
@@ -130,7 +128,7 @@ LUCY_REVIEWED_MAPPING = NanokaReviewedMapping(
             tags=_BASIC,
             parameter="三段（派生）伤害倍率",
             source_skill_id="1151003",
-            element=Element.PHYSICAL,
+            element=Element.FIRE,
         ),
         _move(
             "basic-4",
@@ -272,6 +270,7 @@ __all__ = [
     "FIRE_ANOMALY_RECORD_ID",
     "FIRE_DISORDER_MOVE_ID",
     "LUCY_ID",
+    "PIG_ACTOR_ID",
     "LUCY_REVIEWED_MAPPING",
     "PIGS_ACTIVE",
     "QUICK_ASSIST_MOVE_ID",

@@ -8,6 +8,7 @@ import re
 from core.types import (
     AnyFilter,
     CalculationNode,
+    CharacterId,
     CharacterRole,
     DamageDealerFilter,
     DamageSubtype,
@@ -140,6 +141,7 @@ def _modifier(
     value,
     *,
     target: EffectTarget,
+    recipient_character_id: CharacterId | None = None,
     filters=(),
 ) -> ModifierEffect:
     return ModifierEffect(
@@ -148,6 +150,7 @@ def _modifier(
             source=source,
             owner=SOUKAKU_ID,
             target=target,
+            recipient_character_id=recipient_character_id,
             snapshot_rule=SnapshotRule.SETTLEMENT,
             filters=tuple(filters),
         ),
@@ -381,19 +384,6 @@ def compile_soukaku(
     templates = list(templates)
     diagnostics = list(direct_diagnostics)
 
-    ex_total_note = _note(
-        "ex-special:multi-click-total",
-        "The EX source describes repeated clicks before an automatic finishing strike. This selected component's source value is resolved, but a full multi-click total is not inferred.",
-        next(item.description for item in raw_record.moves if item.name == "强化特殊技：扇走蚊虫"),
-    )
-    direct_entry_indexes = {
-        str(item.entry_id).rsplit(":", 1)[-1]: index
-        for index, item in enumerate(entries)
-    }
-    for key in ("ex-swat-insects-continuous", "ex-swat-insects-windfield"):
-        index = direct_entry_indexes[key]
-        entries[index] = replace(entries[index], diagnostics=(ex_total_note,))
-
     entry_index = {
         str(item.entry_id).rsplit(":", 1)[-1]: item for item in entries
     }
@@ -407,6 +397,15 @@ def compile_soukaku(
         key="special-cool-lunch-complete",
         label="特殊技：吹凉便当（风场与终结段，各一次）",
         move_id=MoveId("move:soukaku:special-cool-lunch-complete"),
+    )
+    _complete_entry(
+        first=entry_index["ex-swat-insects-continuous"],
+        second=entry_index["ex-swat-insects-windfield"],
+        templates=templates,
+        entries=entries,
+        key="ex-swat-insects-complete",
+        label="强化特殊技：扇走蚊虫（连续段与风场，各一次）",
+        move_id=MoveId("move:soukaku:ex-swat-insects-complete"),
     )
     _complete_entry(
         first=entry_index["flag-attack"],
@@ -458,23 +457,18 @@ def compile_soukaku(
         core_source,
         CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
         core_attack_value,
-        target=EffectTarget.SELF,
-    )
-    core_transfer_note = _note(
-        "core:flag-attack-transfer-recipient",
-        "The self ATK increase is modeled from Soukaku's current flag-attack state. The text also transfers it to the corresponding entrant after Flag-triggered Quick Assist or Chain; the holder retention and simultaneous recipient scope are awaiting clarification, so no other character is assigned this buff.",
-        core.description,
+        target=EffectTarget.RECIPIENT,
+        recipient_character_id=config.flag_attack_recipient_id,
     )
     rules: list[CalculationRuleItem] = [
         _rule(
             "core:flag-attack-self-atk",
             core_source,
-            f"核心被动：展旗当前自身攻击力+初始攻击力×{core_attack_percent:.1%}（上限{core_attack_cap:g}）",
+            f"核心被动：当前所选展旗增益持有者攻击力+初始攻击力×{core_attack_percent:.1%}（上限{core_attack_cap:g}）",
             core.description,
             RuleEligibility.ELIGIBLE,
             conditions=(FLAG_ATTACK_BUFF_ACTIVE,),
             effects=(core_attack_effect,),
-            diagnostics=(core_transfer_note,),
         ),
         _rule(
             "core:flag-attack-consumed-vortex-extra-atk",
@@ -489,7 +483,8 @@ def compile_soukaku(
                     core_source,
                     CalculationNode.CHARACTER_COMBAT_ATTACK_FLAT_BONUS,
                     core_attack_value,
-                    target=EffectTarget.SELF,
+                    target=EffectTarget.RECIPIENT,
+                    recipient_character_id=config.flag_attack_recipient_id,
                 ),
             ),
         ),

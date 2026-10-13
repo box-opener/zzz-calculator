@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from core.types import (
+    AnomalyRecord,
     AnomalyRecordValueSource,
     AnomalyRecordId,
     AnomalySourceChoice,
@@ -121,6 +122,7 @@ def instantiate_damage_event(
     burnice_anomaly_source_choice: AnomalySourceChoice | None = None,
     grace_anomaly_source_choice: AnomalySourceChoice | None = None,
     discharge_anomaly_source_choice: AnomalySourceChoice | None = None,
+    selected_anomaly_record: AnomalyRecord | None = None,
 ) -> InstantiatedDamageEvent:
     """Instantiate any typed template without collapsing anomaly identity."""
 
@@ -223,16 +225,52 @@ def instantiate_damage_event(
             repeat_count=repeat_count,
         )
     if isinstance(template, AttributeAnomalyDamageEventTemplate):
-        event = AttributeAnomalyDamageEvent(
-            metadata=metadata,
-            anomaly_triggerer=template.anomaly_triggerer,
-            base_settlement_data_source=AnomalyRecordValueSource(
-                template.history_record_source
-            ),
-            history_record_source=template.history_record_source,
-            multiplier=multiplier,
-            crit_rule=template.crit_rule,
-        )
+        if template.requires_selected_anomaly_source:
+            choice = discharge_anomaly_source_choice
+            if choice is None or selected_anomaly_record is None:
+                raise ValueError(
+                    "the selected anomaly-damage event requires one active source record"
+                )
+            expected_record_id = anomaly_source_record_id(choice)
+            if (
+                selected_anomaly_record.record_id != expected_record_id
+                or selected_anomaly_record.element is not choice.element
+                or selected_anomaly_record.element is not template.element
+            ):
+                raise ValueError(
+                    "selected anomaly record does not match the damage event source"
+                )
+            record_id = selected_anomaly_record.record_id
+            selected_metadata = replace(
+                metadata,
+                damage_dealer=selected_anomaly_record.anomaly_triggerer,
+                element=selected_anomaly_record.element,
+                skill_group=None,
+                move_id=None,
+                damage_tags=frozenset(),
+            )
+            event = AttributeAnomalyDamageEvent(
+                metadata=selected_metadata,
+                anomaly_triggerer=selected_anomaly_record.anomaly_triggerer,
+                base_settlement_data_source=AnomalyRecordValueSource(record_id),
+                history_record_source=record_id,
+                multiplier=multiplier,
+                crit_rule=RecordedAnomalyCritRule(
+                    record_id,
+                    selected_anomaly_record.crit_capability,
+                ),
+            )
+        else:
+            event = AttributeAnomalyDamageEvent(
+                metadata=metadata,
+                anomaly_triggerer=template.anomaly_triggerer,
+                base_settlement_data_source=AnomalyRecordValueSource(
+                    template.history_record_source
+                ),
+                history_record_source=template.history_record_source,
+                multiplier=multiplier,
+                crit_rule=template.crit_rule,
+            )
     elif isinstance(template, CurrentAttributeAnomalyDamageEventTemplate):
         event = CurrentAttributeAnomalyDamageEvent(
             metadata=metadata,

@@ -16,6 +16,7 @@ from ..nanoka_compiler import (
 
 
 NORMA_ID = CharacterId("character:1571")
+NORMA_CONSTRUCT_PREFIX = "friendly-actor:character:1571:"
 
 CORE_INITIAL_CRIT_DAMAGE_RULE_ID = RuleItemId(
     "rule:character:1571:core:initial-crit-damage"
@@ -29,9 +30,7 @@ CURRENT_TECH_GAP_STACKS = ScenarioParameterId(
 TERM_1000012_ACTIVE = ScenarioConditionId(
     "condition:character:1571:term-1000012-active"
 )
-EN_NI_BARRAGE_ACTIVE = ScenarioConditionId(
-    "condition:character:1571:en-ni-barrage-active"
-)
+EN_NI_BARRAGE_ACTIVE = TERM_1000012_ACTIVE
 CINEMA1_RESISTANCE_REDUCTION_ACTIVE = ScenarioConditionId(
     "condition:character:1571:cinema1-all-resistance-reduction-active"
 )
@@ -59,7 +58,7 @@ ASSIST_STRIKE_MOVE_ID = MoveId("move:norma:assist-strike-technical-suppression")
 
 @dataclass(frozen=True, slots=True)
 class NormaSourceCurve:
-    """A source ratio whose attack actor/event identity is not established."""
+    """A source curve emitted by a separate friendly construct actor."""
 
     entry_key: str
     display_name: str
@@ -287,7 +286,7 @@ NORMA_REVIEWED_MAPPING = NanokaReviewedMapping(
 )
 
 
-NORMA_UNRESOLVED_ACTOR_CURVES = (
+NORMA_FRIENDLY_ACTOR_CURVES = (
     NormaSourceCurve(
         entry_key="special-target-practice-turret",
         display_name="特殊技：打靶练习（自动炮塔攻击）",
@@ -296,7 +295,7 @@ NORMA_UNRESOLVED_ACTOR_CURVES = (
         source_skill_id="1571013",
         parameter_skill_group=SkillGroup.SPECIAL_ATTACK,
         element=Element.FIRE,
-        source_text_hint="This automatic attack is attributed to Term 1000010; the source does not establish its actor or inherited ATK/Crit snapshot.",
+        source_text_hint="The user confirmed this construct uses Norma's panel. It is a distinct friendly actor and does not masquerade as a Norma-owned hit.",
     ),
     NormaSourceCurve(
         entry_key="ex-firepower-armor-shell",
@@ -306,7 +305,7 @@ NORMA_UNRESOLVED_ACTOR_CURVES = (
         source_skill_id="1571014",
         parameter_skill_group=SkillGroup.SPECIAL_ATTACK,
         element=Element.FIRE,
-        source_text_hint="The source attributes this automatic shell to Term 1000010/its turret but does not establish the actor or inherited ATK/Crit snapshot.",
+        source_text_hint="The user confirmed this construct uses Norma's panel. It is a distinct friendly actor and does not masquerade as a Norma-owned hit.",
     ),
     NormaSourceCurve(
         entry_key="ex-firepower-high-explosive-shell",
@@ -316,7 +315,7 @@ NORMA_UNRESOLVED_ACTOR_CURVES = (
         source_skill_id="1571015",
         parameter_skill_group=SkillGroup.SPECIAL_ATTACK,
         element=Element.FIRE,
-        source_text_hint="The source attributes this automatic shell to Term 1000010/its turret but does not establish the actor or inherited ATK/Crit snapshot.",
+        source_text_hint="The user confirmed this construct uses Norma's panel. It is a distinct friendly actor and does not masquerade as a Norma-owned hit.",
     ),
 )
 
@@ -337,7 +336,8 @@ __all__ = [
     "HAT_TRICK_MOVE_ID",
     "NORMA_ID",
     "NORMA_REVIEWED_MAPPING",
-    "NORMA_UNRESOLVED_ACTOR_CURVES",
+    "NORMA_CONSTRUCT_PREFIX",
+    "NORMA_FRIENDLY_ACTOR_CURVES",
     "NormaSourceCurve",
     "QUICK_ASSIST_MOVE_ID",
     "SPECIAL_MOVE_ID",

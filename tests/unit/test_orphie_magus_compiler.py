@@ -218,9 +218,10 @@ def test_orphie_reviewed_curves_and_unresolved_mixed_elements() -> None:
     assert entries["move-entry:character:1301:special-light-eater"].main_damage_event.damage_tags == frozenset(
         {DamageTag.SPECIAL_ATTACK, DamageTag.FOLLOW_UP_ATTACK}
     )
-    assert any(
-        "四次激光" in item.message
-        for item in entries["move-entry:character:1301:special-light-eater"].diagnostics
+    assert not entries["move-entry:character:1301:special-light-eater"].diagnostics
+    assert entries["move-entry:character:1301:ultimate-extended-complete"].multiplier_variants[0].multiplier.value.value == pytest.approx(
+        entries["move-entry:character:1301:ultimate"].multiplier_variants[0].multiplier.value.value
+        + entries["move-entry:character:1301:ultimate-extension"].multiplier_variants[0].multiplier.value.value
     )
     c6_definition = compile_orphie_magus(
         OrphieMagusCompileConfig(cinema_level=6),
@@ -262,13 +263,12 @@ def test_orphie_unknown_element_sources_keep_ratios_without_direct_events() -> N
         assert any("元素" in item["message"] for item in result["diagnostics"])
 
 
-def test_orphie_four_follow_up_lasers_keep_one_source_curve_as_local_partial() -> None:
+def test_orphie_four_follow_up_lasers_use_the_source_total_once() -> None:
     result = _calculate(_payload("move-entry:character:1301:special-light-eater"))
     assert len(result["events"]) == 1
     assert result["events"][0]["element"] == "fire"
     assert result["events"][0]["modes"]["expected"]["value"] is not None
-    assert result["totals"]["expected"]["complete"] is False
-    assert any("四次激光追加攻击" in item["message"] for item in result["diagnostics"])
+    assert result["totals"]["expected"]["complete"] is True
 
     follow_up = _calculate(
         _payload(
@@ -277,7 +277,7 @@ def test_orphie_four_follow_up_lasers_keep_one_source_curve_as_local_partial() -
         )
     )
     assert _breakdown(follow_up["events"][0], "damage.normal-bonus") == pytest.approx(0.85)
-    assert follow_up["totals"]["expected"]["complete"] is False
+    assert follow_up["totals"]["expected"]["complete"] is True
 
 
 def test_orphie_focus_panel_uses_owners_initial_regeneration_for_all_recipients() -> None:
@@ -405,7 +405,7 @@ def test_orphie_cinema_fire_ignore_attack_bonus_and_c6_packet() -> None:
         )
     )
     assert _breakdown(four_lasers["events"][0], "resistance.damage-ignore") == pytest.approx(0.15)
-    assert four_lasers["totals"]["expected"]["complete"] is False
+    assert four_lasers["totals"]["expected"]["complete"] is True
 
     c2_without_buff = _calculate(
         _payload("move-entry:character:1301:special-hot-loaded", cinema=2)
@@ -465,8 +465,7 @@ def test_orphie_cinema_fire_ignore_attack_bonus_and_c6_packet() -> None:
         )
     )
     assert c6_packet_c1["events"][0]["modes"]["expected"]["value"] is not None
-    assert c6_packet_c1["totals"]["expected"]["complete"] is False
-    assert any("父招式可能为终结技" in item["message"] for item in c6_packet_c1["diagnostics"])
+    assert c6_packet_c1["totals"]["expected"]["complete"] is True
 
     for key in ("ex-special-heat-charge", "ultimate", "ultimate-extension"):
         c6_parent = _calculate(
@@ -487,8 +486,19 @@ def test_orphie_cinema_fire_ignore_attack_bonus_and_c6_packet() -> None:
         )
     )
     assert c6_packet_c4["events"][0]["modes"]["expected"]["value"] is not None
-    assert c6_packet_c4["totals"]["expected"]["complete"] is False
-    assert any("是否继承" in item["message"] for item in c6_packet_c4["diagnostics"])
+    assert c6_packet_c4["totals"]["expected"]["complete"] is True
+
+
+def test_orphie_extended_ultimate_adds_both_source_components_once() -> None:
+    result = _calculate(
+        _payload("move-entry:character:1301:ultimate-extended-complete")
+    )
+    assert len(result["events"]) == 1
+    assert result["events"][0]["modes"]["expected"]["calculation_breakdown"]
+    assert result["totals"]["expected"]["value"] == pytest.approx(
+        _calculate(_payload("move-entry:character:1301:ultimate"))["totals"]["expected"]["value"]
+        + _calculate(_payload("move-entry:character:1301:ultimate-extension"))["totals"]["expected"]["value"]
+    )
 
 
 def test_orphie_static_fire_anomaly_and_disorder_are_single_character_models() -> None:

@@ -46,6 +46,7 @@ from ...ids import (
     RuleItemId,
 )
 from ...moves import (
+    DerivedDamageEventTemplateRef,
     DamageEventTemplateRef,
     MoveCalculationEntry,
     MultiplierRelation,
@@ -378,14 +379,30 @@ def compile_anton(
 
     extra = core.extra_ability_description
     extra_source = _source("extra-ability", EffectSourceType.ADDITIONAL_ABILITY, core.extra_ability_name, extra)
-    extra_diagnostic = Unresolved(
-        reason=UnresolvedReason.AMBIGUOUS_IDENTITY,
-        notes=(
-            "The source fixes this extra Shock to 45% of one standard Electric Shock tick "
-            "(0.5625 of its selected Electric anomaly record). Its source-record attribution and "
-            "following settlement ownership are unresolved; only this triggered child event is blocked."
-        ),
-        original_text=extra,
+    extra_shock_rule_id = RuleItemId("rule:character:1111:extra-ability:shock-extra-hit")
+    extra_shock_ref = DamageEventTemplateRef(
+        template_id=EventTemplateId("template:character:1111:extra-ability:shock-extra-hit"),
+        semantic_id=DamageEventSemanticId("event:character:1111:extra-ability:shock-extra-hit"),
+        label="额外能力：额外感电（所选来源单跳×45%）",
+        damage_type=DamageType.ANOMALY,
+        damage_subtype=DamageSubtype.ATTRIBUTE_ANOMALY,
+        element=Element.ELECTRIC,
+        source_rule_item_id=extra_shock_rule_id,
+    )
+    extra_shock_template = AttributeAnomalyDamageEventTemplate(
+        ref=extra_shock_ref,
+        damage_dealer=ANTON_ID,
+        element=Element.ELECTRIC,
+        anomaly_triggerer=ANTON_ID,
+        history_record_source=ANTON_ELECTRIC_ANOMALY_RECORD_ID,
+        crit_rule=NoCritRule(),
+        move_id=None,
+        requires_selected_anomaly_source=True,
+    )
+    templates.append(extra_shock_template)
+    extra_shock_referral = DerivedDamageEventTemplateRef(
+        template=extra_shock_ref,
+        multiplier=FixedMultiplier(Resolved(0.5625)),
     )
     conditions.extend(
         (
@@ -417,7 +434,7 @@ def compile_anton(
                     ),
                     result=EventCreationResult(
                         event_kind=BattleEventKind.DAMAGE,
-                        unresolved_template=extra_diagnostic,
+                        event_template_id=extra_shock_ref.template_id,
                         unique_per_source_event=True,
                     ),
                 ),
@@ -533,6 +550,7 @@ def compile_anton(
         rules=rules,
         conditions=conditions,
         parameters=parameters,
+        independent_derived_damage_events=(extra_shock_referral,),
         diagnostics=diagnostics,
     )
 
