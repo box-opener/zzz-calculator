@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.calculation import PenetrationForceInput, calculate_penetration_force
-from core.types import CharacterSnapshot, Resolved
+from core.application.build import ResolvedBuild
+from core.types import BuildContributionLayer, CharacterSnapshot, CharacterStat, Resolved
 
 from .calculation import BuildContributionView
 from .diagnostics import DiagnosticView
@@ -36,6 +37,12 @@ class DriveDiscPreviewView:
 
 
 @dataclass(frozen=True, slots=True)
+class BuildStatBreakdownView:
+    white_value: float | None
+    additional_value: float | None
+
+
+@dataclass(frozen=True, slots=True)
 class BuildPreviewView:
     """Authoritative live panel and provenance returned by Build Assembly."""
 
@@ -46,11 +53,39 @@ class BuildPreviewView:
     build_mode: str
     base_stats: dict[str, object]
     out_of_combat_stats: dict[str, object]
+    stat_breakdown: dict[str, BuildStatBreakdownView]
     provenance: tuple[BuildContributionView, ...]
     drive_discs: tuple[DriveDiscPreviewView, ...]
     set_counts: tuple[dict[str, object], ...]
     diagnostics: tuple[DiagnosticView, ...]
     complete: bool
+
+
+def out_of_combat_stat_breakdown(build: ResolvedBuild) -> dict[str, BuildStatBreakdownView]:
+    """Present white values and additions from the same authoritative Build.
+
+    White-value contributions (including W-Engine base attack/defense) belong
+    to the percentage baseline. All other additions are final minus white.
+    Missing values stay missing, even when the rest of the build is known.
+    """
+    result = {}
+    for stat in (
+        CharacterStat.HP, CharacterStat.ATTACK, CharacterStat.DEFENSE,
+        CharacterStat.ANOMALY_MASTERY, CharacterStat.ENERGY_REGEN,
+    ):
+        key = stat.value.replace("-", "_")
+        base = getattr(build.base_stats, key, None)
+        white = float(base.value) if isinstance(base, Resolved) else None
+        for trace in build.provenance:
+            if trace.stat is stat and trace.layer is BuildContributionLayer.WHITE_VALUE:
+                if white is not None and isinstance(trace.applied_value, Resolved):
+                    white += float(trace.applied_value.value)
+                else:
+                    white = None
+        total = getattr(build.out_of_combat_stats, key)
+        additional = float(total.value) - white if isinstance(total, Resolved) and white is not None else None
+        result[key] = BuildStatBreakdownView(white, additional)
+    return result
 
 
 def out_of_combat_penetration_force(snapshot: CharacterSnapshot) -> float | None:
@@ -74,7 +109,9 @@ def out_of_combat_penetration_force(snapshot: CharacterSnapshot) -> float | None
 
 __all__ = [
     "BuildPreviewView",
+    "BuildStatBreakdownView",
     "DriveDiscPreviewView",
     "DriveDiscStatPreviewView",
     "out_of_combat_penetration_force",
+    "out_of_combat_stat_breakdown",
 ]
