@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cancelRecordVerification, loadGeetest, parseGeetestChallenge, type GeetestWidget, type RecordVerification } from "../state/miyousheVerification";
+import { hostGeetestPopups } from "../state/geetestPopupHost";
 
 type Props = {
   verification: RecordVerification;
@@ -17,17 +18,40 @@ export default function MiyousheVerification({ verification, onSuccess, onCancel
   const request = useRef<AbortController | null>(null);
   const widget = useRef<GeetestWidget | null>(null);
   const submitting = useRef(false);
+  // Bind-mode challenges must live inside the native dialog's top layer.
+  // GeeTest v3 supports `area` for bind challenges; appendTo is invalid in bind.
+  // https://docs.geetest.com/captcha/apirefer/api/web#product
+  const challengeAreaId = `miyoushe-verification-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const challengeArea = useRef<HTMLDivElement>(null);
+  const startButton = useRef<HTMLButtonElement>(null);
+  const releasePopupHost = useRef<(()=>void)|null>(null);
+  const readyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearReadyTimer = () => { if (readyTimer.current !== null) clearTimeout(readyTimer.current); readyTimer.current = null; };
   const clearWork = () => {
     generation.current += 1; request.current?.abort(); request.current = null;
+    clearReadyTimer();
     widget.current?.destroy(); widget.current = null; submitting.current = false;
+    releasePopupHost.current?.(); releasePopupHost.current = null;
   };
   const changeBusy = (value: boolean) => { setBusy(value); callbacks.current.onBusyChange(value); };
+  const closeChallenge = () => {
+    clearWork(); changeBusy(false); setMessage("已关闭验证，可以重新开始。");
+    requestAnimationFrame(() => startButton.current?.focus());
+  };
   useEffect(() => {
     const expire = () => { clearWork(); callbacks.current.onCancel("安全验证已过期，请重新获取角色。"); };
     const timer = setTimeout(expire, Math.max(0, Date.parse(verification.expires_at) - Date.now()));
     const leaving = () => { clearWork(); cancelRecordVerification(verification.verification_id); };
+    const dialog = challengeArea.current?.closest('dialog');
+    const escapeChallenge = (event:KeyboardEvent) => {
+      const popup = challengeArea.current?.querySelector('.geetest_panel');
+      if (event.key !== 'Escape' || submitting.current || !widget.current || !popup || getComputedStyle(popup).display === 'none') return;
+      // Close only the challenge, retaining the import dialog and its login.
+      event.preventDefault(); event.stopPropagation(); closeChallenge();
+    };
+    dialog?.addEventListener('keydown', escapeChallenge, true);
     window.addEventListener("pagehide", leaving);
-    return () => { clearTimeout(timer); window.removeEventListener("pagehide", leaving); clearWork(); cancelRecordVerification(verification.verification_id); callbacks.current.onBusyChange(false); };
+    return () => { clearTimeout(timer); dialog?.removeEventListener('keydown', escapeChallenge, true); window.removeEventListener("pagehide", leaving); clearWork(); cancelRecordVerification(verification.verification_id); callbacks.current.onBusyChange(false); };
   }, [verification.verification_id, verification.expires_at]);
 
   const api = async (action: string, body: Record<string, unknown>, abort: AbortController) => {
@@ -48,13 +72,25 @@ export default function MiyousheVerification({ verification, onSuccess, onCancel
       const challenge = parseGeetestChallenge(await api("start", {}, abort));
       const init = await loadGeetest();
       if (generation.current !== attempt || abort.signal.aborted) return;
-      init({ ...challenge, offline: false, product: "bind", protocol: "https://", api_server: "api.geetest.com", lang: "zh-cn" }, (captcha) => {
+      if (!challengeArea.current) throw new Error("安全验证窗口未就绪，请重新打开验证。");
+      releasePopupHost.current = hostGeetestPopups(challengeArea.current);
+      readyTimer.current = setTimeout(() => {
+        if (generation.current !== attempt || abort.signal.aborted) return;
+        clearWork(); changeBusy(false); setMessage("安全验证窗口加载超时，请重新打开验证；无需重新登录。");
+      }, 20000);
+      init({ ...challenge, offline: false, product: "bind", area: `#${challengeAreaId}`, protocol: "https://", api_server: "api.geetest.com", lang: "zh-cn" }, (captcha) => {
         if (generation.current !== attempt) { captcha.destroy(); return; }
         widget.current = captcha;
-        captcha.onReady(() => { if (generation.current === attempt) captcha.verify(); });
+        captcha.onReady(() => {
+          if (generation.current !== attempt) return;
+          clearReadyTimer();
+          setMessage("请在安全验证窗口中完成操作；关闭后可以重新打开。");
+          try { captcha.verify(); }
+          catch { clearWork(); changeBusy(false); setMessage("无法打开安全验证窗口，请重新开始验证。"); }
+        });
         captcha.onClose(() => {
           if (generation.current !== attempt || submitting.current) return;
-          clearWork(); changeBusy(false); setMessage("已关闭验证，可以重新开始。");
+          closeChallenge();
         });
         captcha.onError(() => {
           if (generation.current !== attempt || submitting.current) return;
@@ -82,9 +118,10 @@ export default function MiyousheVerification({ verification, onSuccess, onCancel
   };
 
   return <section className="miyoushe-qr" aria-label="米游社角色安全验证">
+    <div ref={challengeArea} id={challengeAreaId} className="miyoushe-verification-area" />
     <p className="miyoushe-message" role="status">{message}</p>
     <div className="miyoushe-actions">
-      <button className="primary-button" type="button" disabled={busy} onClick={() => { void start(); }}>{busy ? "验证中…" : "完成安全验证并继续获取"}</button>
+      <button ref={startButton} className="primary-button" type="button" disabled={busy} onClick={() => { void start(); }}>{busy ? "验证中…" : "完成安全验证并继续获取"}</button>
       <button className="secondary-button" type="button" onClick={() => { clearWork(); callbacks.current.onCancel("已取消安全验证，已有角色资料仍可加载。"); }}>取消验证</button>
     </div>
   </section>;

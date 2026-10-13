@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import DriveDiscCard from "./components/DriveDiscCard";
+import DriveDiscTile from "./components/DriveDiscTile";
+import ModalFrame from "./components/ModalFrame";
+import { editedTeamCharacter } from "./state/workbench";
 import PanelStatBreakdown, { type PanelStatBreakdownValue } from "./components/PanelStatBreakdown";
 import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTraceDetails";
 import NumberField from "./components/NumberField";
@@ -441,6 +444,7 @@ function App() {
   const [stunVulnerability, setStunVulnerability] = useState(1.5);
   const [calculation, setCalculation] = useState<CalculationView | null>(null);
   const [calculatedFingerprint, setCalculatedFingerprint] = useState('');
+  const [calculationContext,setCalculationContext]=useState<{operator:string;target:string;time:string}|null>(null);
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
@@ -448,6 +452,14 @@ function App() {
   const [collapsedEquipment, setCollapsedEquipment] = useState<Record<string, boolean>>({});
   const [miyousheBuilds, setMiyousheBuilds] = useState<Record<string, { count: number | null; stats:string[]|null }>>({});
   const [effectiveOverrides, setEffectiveOverrides] = useState<Record<string,string[]>>(readEffectivePreferences);
+  const [workbenchTab, setWorkbenchTab] = useState<'equipment'|'target'|'rules'>('equipment');
+  const [mobilePage, setMobilePage] = useState<'team'|'equipment'|'target'|'rules'|'results'>('equipment');
+  const [editedCharacterId, setEditedCharacterId] = useState<string|null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [activeDisc, setActiveDisc] = useState<{owner:string;slot:number}|null>(null);
+  const [activeEvent, setActiveEvent] = useState<string|null>(null);
+  const [resultDetail, setResultDetail] = useState<'panels'|'snapshots'|'diagnostics'|'build'|null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [librarySlot, setLibrarySlot] = useState<number | null>(null);
   const [libraryQuery, setLibraryQuery] = useState("");
@@ -1512,6 +1524,9 @@ function App() {
       })) return;
       setCalculation(result);
       setCalculatedFingerprint(calculationFingerprint);
+      setCalculationContext({operator:characters.find(character=>character.character_id===currentOperatorId)?.display_name??currentOperatorId,
+        target:targetMode==='normal'?`${selectedEnemy?.display_name??enemyId} · 变体 ${enemyVariantId}`:`${targetMode==='boss'?'危局':'式舆'} · ${result.scenario_provenance?.target_name??'场地目标'}`,
+        time:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
     } catch (error) {
       if (isCurrentCalculationResponse(calculationRequestGeneration, {
         calculation: calculationGeneration.current,
@@ -1561,22 +1576,26 @@ function App() {
     return <NumberField key={`${owner}-${field.field_id}`} label={field.label} value={Number(fieldValue)} integer min={field.minimum ?? undefined} max={field.maximum ?? undefined} unit={unit} helper={field.help_text ?? "整数配置"} disabled={!field.editable} onCommit={(value) => updateConfigField(owner, field, value)} />;
   };
 
-  return (
-    <main className="app-shell">
-      <header className="app-header glass-card">
-        <div className="app-brand"><h1 className="sr-only">ZZZ Calculator · 绝区零伤害计算器</h1><picture><source media="(max-width: 600px)" srcSet="/brand/zzz-calculator-logo.png"/><img className="app-logo" src="/brand/zzz-calculator-logo-wide.png" alt="ZZZ Calculator · 绝区零伤害计算器"/></picture><p className="muted">确定性战斗规则解释器</p></div>
-        <div className="header-status"><span className="status-dot" /><span>v2 · 词条收益分析</span></div>
-      </header>
+  const editedId=editedTeamCharacter(teamIds,editedCharacterId,currentOperatorId);
+  const calculationDisabled=teamIds.length===0||calculating||loading||!moveEntryId||Boolean(moveSelectionIssue)||(targetMode!=='normal'&&!endgameEditor);
+  const showWorkbench=(tab:'equipment'|'target'|'rules')=>{setWorkbenchTab(tab);setMobilePage(tab);};
+  const editCharacter=(id:string)=>{setEditedCharacterId(id);showWorkbench('equipment');};
+  const changeTargetMode=(mode:TargetMode)=>{if(mode===targetMode)return;setTargetMode(mode);calculationGeneration.current+=1;setCalculating(false);setCalculation(null);endgameTargetKey.current='';setEndgameSelection(null);setEndgameEditor(null);if(mode==='normal')selectEnemy('enemy:300021');};
+  useEffect(()=>{const shortcut=(event:KeyboardEvent)=>{if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)&&!document.querySelector('dialog[open]')){event.preventDefault();if(!calculationDisabled)void calculate();}};window.addEventListener('keydown',shortcut);return()=>window.removeEventListener('keydown',shortcut);});
 
-      <section className="dashboard-grid">
-        <section className="glass-card roster-panel">
-          <MiyoushePanel
-            ready={characters.length > 0 && wengines.length > 0 && driveDiscSets.length > 0}
-            catalog={{ wengines, driveDiscSets }}
-            supportedCharacterIds={characters.map((c) => c.character_id)}
-            onLoad={loadMiyousheCharacter}
-          />
-          <div className="section-heading"><div><p className="eyebrow">ROSTER · TEAM BUILDER</p><h2>队伍与当前角色</h2><p className="roster-hint">点击角色槽位设为主控；拖动交换位置，空位可添加角色。</p></div><span className="counter">{teamIds.length}/3</span></div>
+  return (
+    <main className="app-shell combat-workbench">
+      <a className="skip-link" href="#configuration-section">跳至计算工作台</a>
+      <header className="app-header">
+        <a className="app-brand" href="#configuration-section" aria-label="绝区零计算器"><img className="app-logo" src="/brand/zzz-calculator-logo-wide.png" alt="ZZZ Calculator · 绝区零伤害计算器"/><span>ZZZ CALCULATOR / COMBAT LAB</span></a>
+        <nav className="section-navigation" aria-label="主导航"><a href="#team-section" onClick={()=>setMobilePage('team')}>队伍与面板</a><a href="#configuration-section" onClick={()=>showWorkbench('equipment')}>构筑工作台</a><a href="#calculation-section" onClick={()=>setMobilePage('results')}>伤害与收益 ↗</a></nav>
+        <div className="header-tools"><span className="header-status"><span className="status-dot"/>v2 · 真实数据</span><button type="button" className="text-button" onClick={()=>setHelpOpen(true)}>使用说明 ⓘ</button></div>
+      </header>
+      <section className="workspace-intro"><div><p className="eyebrow">NEW ERIDU / THEORYCRAFTING WORKSPACE</p><h1>每一份伤害，都有迹可循<span>。</span></h1><p>配置队伍与装备，探索词条收益，追溯每一次招式结算。</p></div><div className="workspace-meta"><span><small>工作区状态</small>{teamIds.length} 位队员 · 独立编辑副本</span><span><small>数据环境</small>正式数据{enemyCatalog?.source_version?` · ${enemyCatalog.source_version}`:''}</span></div></section>
+      <div className="workbench-grid" data-mobile-page={mobilePage}>
+        <aside className="team-sidebar" aria-label="队伍与实时面板">
+        <section className="glass-card roster-panel" id="team-section">
+          <div className="section-heading"><div><p className="eyebrow">01 / TEAM BUILDER</p><h2>我的队伍</h2><p className="roster-hint">点击设为主控，拖动或箭头调整顺序。</p></div><span className="counter">{teamIds.length}/3</span></div>
           <div className="team-slot-grid" onPointerCancel={cancelTeamSlotDrag} onPointerMove={moveTeamSlotDrag} onPointerUp={finishTeamSlotDrag}>
             {Array.from({ length: 3 }, (_, slotIndex) => {
               const id = teamIds[slotIndex];
@@ -1601,6 +1620,7 @@ function App() {
                     if (event.detail > 0 && suppressTeamSlotClick.current) { suppressTeamSlotClick.current = false; return; }
                     suppressTeamSlotClick.current = false;
                     applyTeamAction({ type: "set-current-operator", characterId: id });
+                    setEditedCharacterId(id);
                   }}>
                 <span className="team-slot-art">
                   <img alt={character.display_name} draggable={false} src={character.image_path} style={{ objectPosition: character.image_object_position }} />
@@ -1611,13 +1631,19 @@ function App() {
                 <span className="team-slot-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small></span>
                 </button>
                 <div className="team-slot-actions">
+                  <button className="secondary-button team-slot-edit" aria-label={`编辑${character.display_name}装备，不切换主控`} type="button" onClick={()=>editCharacter(id)}>编辑</button>
                   <button className="secondary-button" onClick={() => openCharacterLibrary(slotIndex)} type="button">替换</button>
-                  <button className="secondary-button team-slot-remove" onClick={() => applyTeamAction({ type: "remove-character", characterId: id })} type="button">移除</button>
+                  <button className="secondary-button team-slot-move" disabled={slotIndex===0} aria-label={`将${character.display_name}前移一位`} type="button" onClick={()=>applyTeamAction({type:'swap-slots',firstSlot:slotIndex,secondSlot:slotIndex-1})}>↑</button>
+                  <button className="secondary-button team-slot-move" disabled={slotIndex===teamIds.length-1} aria-label={`将${character.display_name}后移一位`} type="button" onClick={()=>applyTeamAction({type:'swap-slots',firstSlot:slotIndex,secondSlot:slotIndex+1})}>↓</button>
+                  <button aria-label={`从队伍移除${character.display_name}`} className="secondary-button team-slot-remove" onClick={() => applyTeamAction({ type: "remove-character", characterId: id })} type="button">×</button>
                 </div>
               </article>;
             })}
           </div>
           {selectedCurrent && <div className="selection-summary"><span className="eyebrow">CURRENT OPERATOR</span><strong>{selectedCurrent.display_name}</strong><span className="muted">{selectedCurrent.character_id} · {supportingIds.length} 名支援角色</span></div>}
+          <button className="secondary-button roster-import" type="button" onClick={()=>setImportDialogOpen(true)}>↓ 从米游社加载角色</button>
+        </section>
+          <div className="glass-card sidebar-panel">
           <LivePanel
             teamIds={teamIds}
             currentOperatorId={currentOperatorId}
@@ -1626,41 +1652,17 @@ function App() {
             previews={buildPreviews}
             loading={loading}
           />
-        </section>
-
-        {libraryOpen && <div className="library-overlay" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeCharacterLibrary(); }}>
-          <section className="character-library" role="dialog" aria-modal="true" aria-labelledby="character-library-title">
-            <header className="character-library-header">
-              <div><p className="eyebrow">CHARACTER LIBRARY</p><h2 id="character-library-title">角色库</h2><p className="muted">选择角色加入第 {(librarySlot ?? 0) + 1} 个队伍槽位；已在队伍中的角色不可重复选择。</p></div>
-              <button className="icon-button library-close" aria-label="关闭角色库" onClick={closeCharacterLibrary} type="button">×</button>
-            </header>
-            <div className="character-library-filters">
-              <label><span>搜索角色</span><input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder="名称、职业、属性或阵营" /></label>
-              <label><span>职业</span><select value={librarySpecialty} onChange={(event) => setLibrarySpecialty(event.target.value)}><option value="">全部职业</option>{Array.from(new Set(characters.map((item) => item.specialty))).map((specialty) => <option key={specialty} value={specialty}>{specialtyLabel(specialty)}</option>)}</select></label>
-              <label><span>属性</span><select value={libraryElement} onChange={(event) => setLibraryElement(event.target.value)}><option value="">全部属性</option>{Array.from(new Set(characters.map((item) => item.element))).map((element) => <option key={element} value={element}>{elementLabel(element)}</option>)}</select></label>
-              <label><span>阵营</span><select value={libraryFaction} onChange={(event) => setLibraryFaction(event.target.value)}><option value="">全部阵营</option>{Array.from(new Set(characters.map((item) => item.faction))).filter(Boolean).map((faction) => <option key={faction} value={faction}>{faction}</option>)}</select></label>
-            </div>
-            <div className="library-results" aria-live="polite">
-              {filteredLibraryCharacters.map((character) => {
-                const alreadySelected = !isCharacterSelectable(character.character_id, teamIds);
-                return <button className={`library-character ${alreadySelected ? "library-character-selected" : ""}`} disabled={alreadySelected} key={character.character_id} onClick={() => selectLibraryCharacter(character.character_id)} type="button">
-                  <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} />
-                  <span className="library-character-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small><small>{character.faction}</small></span>
-                  <span className="rarity">{character.rarity}</span>
-                  {alreadySelected && <span className="library-selected-mark">队伍中</span>}
-                </button>;
-              })}
-              {filteredLibraryCharacters.length === 0 && <div className="library-empty">没有符合筛选条件的角色。</div>}
-            </div>
-          </section>
-        </div>}
-
-        <section className="glass-card build-panel">
-          <div className="section-heading build-panel-heading"><div><p className="eyebrow">BUILD INPUT</p><h2>角色装备配置</h2></div><span className="muted">每个角色独立保存</span></div>
+          </div>
+          <p className="workspace-note">本地资料只读；当前工作区没有自动保存。</p>
+        </aside>
+        <section className="glass-card configuration-panel" id="configuration-section">
+          <div className="workbench-tabs" role="tablist" aria-label="配置类型">{([{id:'equipment',label:'角色装备',icon:'◇'},{id:'target',label:'敌人与场地',icon:'◎'},{id:'rules',label:'场景与规则',icon:'☷'}] as const).map((tab,index,tabs)=><button type="button" role="tab" id={`tab-${tab.id}`} aria-selected={workbenchTab===tab.id} aria-controls={`${tab.id==='equipment'?'equipment':tab.id==='target'?'target':'rules'}-section`} tabIndex={workbenchTab===tab.id?0:-1} key={tab.id} onClick={()=>showWorkbench(tab.id)} onKeyDown={event=>{const next=event.key==='ArrowRight'?(index+1)%tabs.length:event.key==='ArrowLeft'?(index+tabs.length-1)%tabs.length:event.key==='Home'?0:event.key==='End'?tabs.length-1:null;if(next!==null){event.preventDefault();showWorkbench(tabs[next].id);document.getElementById(`tab-${tabs[next].id}`)?.focus();}}}><span aria-hidden="true">{tab.icon}</span>{tab.label}</button>)}</div>
+        <section className="build-panel workbench-tabpanel" id="equipment-section" role="tabpanel" aria-labelledby="tab-equipment" hidden={workbenchTab!=='equipment'}>
+          <div className="editor-character-tabs" role="group" aria-label="选择要编辑的角色，不改变主控">{teamIds.map(id=><button type="button" aria-pressed={editedId===id} key={id} onClick={()=>setEditedCharacterId(id)}>{characters.find(character=>character.character_id===id)?.display_name??id}<small>{id===currentOperatorId?'主控':'支援'}</small></button>)}</div>
           <div className="build-character-fields">
             {teamIds.length === 0
-              ? <div className="empty-team-hint">先从上方角色库添加角色，再配置音擎和驱动盘。</div>
-              : teamIds.map((id) => {
+              ? <div className="empty-team-hint"><strong>构筑从一名角色开始</strong><p>添加队伍角色，或加载已保存的米游社资料。</p><div className="empty-team-actions"><button className="primary-button" type="button" onClick={()=>openCharacterLibrary(0)}>添加角色</button><button className="secondary-button" type="button" onClick={()=>setImportDialogOpen(true)}>加载米游社资料</button></div></div>
+              : teamIds.filter(id=>id===editedId).map((id) => {
               const driveView = driveDiscViews[id];
               const selectedDiscs = driveDiscSelections[id] ?? [];
               const preview = buildPreviews[id];
@@ -1677,20 +1679,20 @@ function App() {
                     <div className="build-character-identity">
                       {character ? <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} /> : <span className="build-character-avatar">?</span>}
                       <div>
-                        <span className="build-character-role">{roleLabel}</span>
+                        <span className="build-character-role">{roleLabel} · 编辑副本</span>
                         <strong>{character?.display_name ?? id}</strong>
                         <small>{character ? `${specialtyLabel(character.specialty)} · ${elementLabel(character.element)}` : id}</small>
                       </div>
                     </div>
                     <div className="equipment-tools">
                       <button className="toolbar-button equipment-collapse" type="button" aria-expanded={!collapsed} aria-controls={`equipment-details-${id}`} onClick={() => setCollapsedEquipment((current) => ({ ...current, [id]: !collapsed }))}>{collapsed ? "展开装备配置 ▾" : "折叠装备配置 ▴"}</button>
-                      {!collapsed && <>
-                      <span className="equipment-schema-note">JSON · 角色配置 v2</span>
+                      <>
+
                       <button className="toolbar-button" type="button" onClick={() => equipmentImportInputRefs.current[id]?.click()}>
-                        <span aria-hidden="true">↑</span> 导入配置
+                        <span aria-hidden="true">↓</span> 导入配置
                       </button>
                       <button className="toolbar-button" type="button" onClick={() => exportEquipmentConfig(id)}>
-                        <span aria-hidden="true">↓</span> 另存配置
+                        <span aria-hidden="true">↑</span> 另存配置
                       </button>
                       <input
                         ref={(element) => { equipmentImportInputRefs.current[id] = element; }}
@@ -1704,7 +1706,7 @@ function App() {
                           if (file) void importEquipmentConfig(id, file);
                         }}
                       />
-                      </>}
+                      </>
                     </div>
                   </header>
                   <EffectiveStatsPanel discs={selectedDiscs} selected={effectiveFor(id)} specialty={character?.specialty}
@@ -1712,6 +1714,7 @@ function App() {
                     sourceLabel={effectiveOverrides[id] !== undefined ? '自定义方案' : imported?.stats !== null && imported?.stats !== undefined ? '米游社默认方案' : imported ? '未读取到方案 · 当前使用职业预设，可自行修改' : '职业预设 · 可自行修改'}
                     onChange={stats=>setEffectiveOverrides(current=>({...current,[id]:stats}))}
                     onReset={()=>setEffectiveOverrides(current=>{const next={...current};delete next[id];return next;})}/>
+                  {feedback && <p role="status" className={`equipment-feedback ${feedback.kind}`}>{feedback.kind === "success" ? "✓" : "!"} {feedback.message}</p>}
                   {collapsed && <dl className="equipment-compact-summary">
                     <div><dt>角色等级</dt><dd>{characterLevels[id] ?? 60} 级</dd></div>
                     <div><dt>影画层数</dt><dd>{String(configs[id]?.cinema_level ?? 0)} 层</dd></div>
@@ -1719,9 +1722,8 @@ function App() {
                     <div><dt>精炼</dt><dd>{selectedWengine ? `${wengineSelections[id]?.refinement ?? 1} 阶` : "—"}</dd></div>
                   </dl>}
                   <div id={`equipment-details-${id}`} hidden={collapsed}>
-                  <div className="equipment-schema-copy">编辑当前角色的等级、核心/影画、技能、音擎与驱动盘，可另存为独立配置文件。米游社本地资料保持导入时的配置，再次获取会覆盖对应账号资料。</div>
-                  {feedback && <p className={`equipment-feedback ${feedback.kind}`}>{feedback.kind === "success" ? "✓" : "!"} {feedback.message}</p>}
-
+                  <div className="subsection-heading"><h3>角色养成</h3><span className="subsection-badge">装备与技能等级</span></div>
+                  <div className="character-progress-layout">
                   <div className="build-level-strip">
                     <NumberField
                       label="角色等级"
@@ -1735,10 +1737,9 @@ function App() {
                     />
                   </div>
 
-                  {progressFields.length > 0 && <div className="character-progress-config">
-                    <div className="subsection-heading"><div><span className="eyebrow">CHARACTER CONFIG</span><h3>角色技能配置</h3></div><span className="subsection-badge">核心 · 影画 · 技能</span></div>
-                    <div className="character-progress-grid">{progressFields.map((field) => renderCompileField(id, field))}</div>
-                  </div>}
+                  <div className="character-growth-fields">{progressFields.filter(field=>field.field_id==='core_level'||field.field_id==='cinema_level').map(field=>renderCompileField(id,field))}</div>
+                  </div>
+                  {progressFields.some(field=>field.field_id!=='core_level'&&field.field_id!=='cinema_level')&&<details className="character-progress-config"><summary>技能等级</summary><div className="character-progress-grid">{progressFields.filter(field=>field.field_id!=='core_level'&&field.field_id!=='cinema_level').map(field=>renderCompileField(id,field))}</div></details>}
 
                   <div className="equipment-build-details">
                     <div className="subsection-heading"><div><span className="eyebrow">W-ENGINE</span><h3>音擎</h3></div><span className="subsection-badge">音擎构筑</span></div>
@@ -1755,23 +1756,7 @@ function App() {
                       {(driveView?.slot_schemas ?? []).map((schema) => {
                         const disc = selectedDiscs.find((item) => item.slot === schema.slot);
                         const discPreview = preview?.drive_discs.find((item) => item.slot === schema.slot);
-                        return <DriveDiscCard
-                          key={`${id}-disc-${schema.slot}`}
-                          schema={schema}
-                          disc={disc}
-                          preview={discPreview}
-                          driveDiscSets={driveDiscSets}
-                          substatOptions={driveView?.substat_options ?? []}
-                          diagnostics={driveView?.diagnostics ?? []}
-                          onSelectSet={(setId) => selectDriveDiscSet(id, schema.slot, setId)}
-                          onRemoveDisc={() => updateDriveDisc(id, schema.slot, null)}
-                          onUpdateMain={(mainStat) => updateDriveDiscMain(id, schema.slot, mainStat)}
-                          onUpdateSubstat={(index, next) => updateDriveDiscSubstat(id, schema.slot, index, next)}
-                          onUpdateRoll={(index, delta) => updateDriveDiscSubstatRoll(id, schema.slot, index, delta)}
-                          onRemoveSubstat={(index) => removeDriveDiscSubstatRow(id, schema.slot, index)}
-                          onAddSubstat={(stat) => addDriveDiscSubstatRow(id, schema.slot, stat)}
-                          formatValue={formatDriveValue}
-                        />;
+                        return <DriveDiscTile key={`${id}-disc-${schema.slot}`} ownerName={character?.display_name??id} schema={schema} disc={disc} preview={discPreview} sets={driveDiscSets} options={driveView?.substat_options??[]} formatValue={formatDriveValue} onEdit={()=>setActiveDisc({owner:id,slot:schema.slot})}/>;
                       })}
                     </div>
                     {driveView && driveView.set_counts.length > 0 && <div className="drive-set-summary"><span className="drive-set-summary-label">套装统计</span>{driveView.set_counts.map((item) => <span key={item.set_id}>{driveDiscSets.find((set) => set.set_id === item.set_id)?.display_name ?? item.set_id} ×{item.count}</span>)}</div>}
@@ -1781,9 +1766,11 @@ function App() {
               );
             })}
           </div>
-          {calculation && calculation.build_provenance.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">BUILD PROVENANCE</span><strong>构筑来源明细</strong></span><small>{calculation.build_provenance.length} 项</small></summary>{teamIds.map((owner) => { const traces = calculation.build_provenance.filter((trace) => trace.character_id === owner); return traces.length > 0 && <div className="provenance-character-group" key={owner}><h4>{characters.find((item) => item.character_id === owner)?.display_name ?? owner}</h4>{traces.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.source_label}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.stat} · {trace.layer}</small></div>)}</div>; })}</details>}
-          <div className="section-heading compact"><div><p className="eyebrow">TARGET</p><h2>敌人</h2></div></div>
-          <label className="target-mode"><span>计算模式</span><select value={targetMode} onChange={e=>{const mode=e.target.value as TargetMode;setTargetMode(mode);calculationGeneration.current+=1;setCalculating(false);setCalculation(null);endgameTargetKey.current='';setEndgameSelection(null);setEndgameEditor(null);if(mode==='normal')selectEnemy('enemy:300021');}}><option value="normal">普通怪物</option><option value="shiyu">式舆防卫战</option><option value="boss">危局强袭战</option></select></label>
+          <p className="workspace-note">修改装备自动更新局外预览；伤害需手动计算。当前配置为独立编辑副本。</p>
+        </section>
+          <section className="target-section workbench-tabpanel" id="target-section" role="tabpanel" aria-labelledby="tab-target" hidden={workbenchTab!=='target'}>
+          <div className="section-heading compact"><div><p className="eyebrow">TARGET & FIELD</p><h2>敌人与场地</h2></div></div>
+          <div className="target-mode-cards" role="group" aria-label="计算模式">{([{id:'normal',name:'普通怪物',note:'真实怪物 · 自由调整'},{id:'shiyu',name:'式舆防卫战',note:'选择期数与上下半场'},{id:'boss',name:'危局强袭战',note:'Boss 与场地增益'}] as const).map(item=><button type="button" key={item.id} aria-pressed={targetMode===item.id} onClick={()=>changeTargetMode(item.id)}><strong>{item.name}</strong><small>{item.note}</small></button>)}</div>
           {targetMode!=='normal' && <EndgamePanel mode={targetMode} enemyOverrides={endgameEnemyOverrides} teamPayload={{primary_character_id:currentOperatorId,team_character_ids:teamIds,compile_configs:Object.fromEntries(teamIds.map(id=>[id,{core_level:7,cinema_level:0,...configs[id]}]))}} onChange={changeEndgame}/>}
           {targetMode==='normal' && <>
           <div className="enemy-picker">
@@ -1800,17 +1787,14 @@ function App() {
             <NumberField label="防御力" value={targetMode!=='normal' && endgameEditor?.defaults.initial_defense===null && !manualEnemyFields.includes('initial_defense')?null:enemyDefenseAutomatic || targetMode!=='normal' && enemyDefense===endgameEditor?.defaults.initial_defense?Number(enemyDefense.toFixed(4)):enemyDefense} min={0} helper={targetMode!=='normal' && endgameEditor?.defaults.initial_defense===null && !manualEnemyFields.includes('initial_defense')?'源未提供，请明确填写':targetMode!=='normal' && enemyDefense===endgameEditor?.defaults.initial_defense?'本期房间目标的默认防御':enemyDefenseAutomatic?'按怪物等级成长曲线读取':'手动调整值'} onCommit={value=>{setEnemyDefenseAutomatic(false);setEnemyDefense(value);setManualEnemyFields(current=>[...new Set([...current,'initial_defense'])]);}} />
             {ENEMY_RESISTANCE_FIELDS.map(({ element, label }) => <NumberField key={element} label={label} value={enemyResistances[element]} unit="%" displayAsPercent helper={targetResistanceSource && element in targetResistanceSource?'怪物伤害抗性 · 可手动调整':'源未提供 · 手动输入值'} onCommit={(value) => updateEnemyResistance(element, value)} />)}
             <NumberField label="失衡易伤" value={targetMode!=='normal' && endgameEditor?.defaults.stun_vulnerability_bonus===null && !manualEnemyFields.includes('stun_vulnerability_bonus')?null:stunVulnerability} unit="×" helper={targetMode!=='normal' && endgameEditor?.defaults.stun_vulnerability_bonus===null && !manualEnemyFields.includes('stun_vulnerability_bonus')?'源未提供，请明确填写':'伤害倍率，例如 1.5×'} onCommit={value=>{setStunVulnerability(value);setManualEnemyFields(current=>[...new Set([...current,'stun_vulnerability_bonus'])]);}} />
-            <NumberField label="减易伤" value={enemyDamageReduction} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyDamageReduction} />
+            <NumberField label="减易伤" value={enemyDamageReduction} unit="%" displayAsPercent helper="目标减伤 · 按百分比输入" onCommit={setEnemyDamageReduction} />
             <label className="check-field"><span>当前处于失衡</span><input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label>
           </div>
           <p className="target-resistance-note">烈霜、玄墨、凛刃分别沿用冰、以太、物理抗性。</p>
           {targetResistanceSource && !('luminance' in targetResistanceSource) && <p className="target-resistance-note">源数据未提供流明抗性，流明伤害计算前需手动确认。<button className="secondary-button" type="button" onClick={()=>setManualResistanceElements(current=>current.includes('luminance')?current:[...current,'luminance'])}>{manualResistanceElements.includes('luminance')?'已确认流明抗性':'确认当前流明抗性输入'}</button></p>}
-        </section>
-      </section>
-
-      <section className="workspace-grid">
-        <section className="glass-card controls-panel">
-          <div className="section-heading"><div><p className="eyebrow">SCENARIO</p><h2>场景与规则</h2></div>{loading && <span className="muted">读取中…</span>}</div>
+          </section>
+        <section className="controls-panel workbench-tabpanel" id="rules-section" role="tabpanel" aria-labelledby="tab-rules" hidden={workbenchTab!=='rules'}>
+          <div className="section-heading"><div><p className="eyebrow">03 / SCENARIO</p><h2>场景与规则</h2></div>{loading && <span className="muted">读取中…</span>}</div>
           <div className="config-field-grid">{allConfigFields.filter(({ field }) => !isCharacterProgressField(field)).map(({ owner, field }) => renderCompileField(owner, field))}</div>
           {visibleScenarioConditions.length > 0 && <div className="control-list"><div className="section-heading compact"><div><p className="eyebrow">CHARACTER STATES</p><h2>角色状态</h2><p className="control-section-hint">只显示可直接理解的独立状态；招式倍率在右侧招式下拉框中选择。</p></div></div>{visibleScenarioConditions.map((condition) => <label className="toggle-row" key={condition.condition_id}><span><strong>{condition.label}</strong><small>{condition.resolution} · 影响相关规则</small></span><input type="checkbox" checked={conditionCheckboxChecked(condition.condition_id, condition.value, conditionValues)} onChange={(event) => { explicitConditionValuesRef.current[condition.condition_id] = event.target.checked; const next = { ...conditionValuesRef.current, [condition.condition_id]: event.target.checked }; commitConditionValues(next); void loadEditors(teamIds, currentOperatorId, configs, next, { conditionValues: next }); }} /></label>)}</div>}
           {currentOperatorId === remielleId && <div className="control-list remielle-source-slots">
@@ -1883,56 +1867,60 @@ function App() {
             const maximum = durationControl?.maximum ?? parameter.maximum;
             return <NumberField key={parameter.parameter_id} label={parameter.label} value={currentValue} integer min={parameter.minimum} max={maximum ?? undefined} unit={parameter.parameter_id.includes("count") || parameter.parameter_id.includes("repeat") ? "次" : undefined} helper={parameter.resolution} placeholder={currentValue === null ? "未指定" : undefined} onCommit={(value) => { setExplicitParameterIds((current) => new Set([...current, parameter.parameter_id])); setParameterValues((current) => ({ ...current, [parameter.parameter_id]: value })); }} />;
           })}</div></div>}
-          <div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.eligibility === "ineligible" ? "适用条件未满足" : rule.availability}</small></span><input disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stackValueForDisplay(stacks[rule.rule_id], rule.stack.default, rule.stack.minimum)} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div>
+          <details className="rule-disclosure"><summary>技能与装备规则 <small>{allRules.length} 项</small></summary><div className="rule-list">{allRules.map((rule) => <div className={`rule-row ${rule.availability !== "available" ? "disabled" : ""}`} key={rule.rule_id}><span><strong>{rule.label}</strong><small>{rule.source_label} · {rule.eligibility === "ineligible" ? "适用条件未满足" : rule.availability}</small></span><input aria-label={rule.label} disabled={!rule.toggleable} type="checkbox" checked={enabledRules.has(rule.rule_id)} onChange={(event) => { const checked = event.target.checked; setEnabledRules((current) => { const next = new Set(current); if (checked) next.add(rule.rule_id); else next.delete(rule.rule_id); return next; }); setDisabledRules((current) => { const next = new Set(current); if (checked) next.delete(rule.rule_id); else next.add(rule.rule_id); return next; }); }} />{rule.stack.minimum !== null && <NumberField className="stack-field" label="层数" unit="层" integer min={rule.stack.minimum} max={rule.stack.maximum ?? undefined} value={stackValueForDisplay(stacks[rule.rule_id], rule.stack.default, rule.stack.minimum)} helper={`范围 ${rule.stack.minimum}–${rule.stack.maximum ?? "∞"}`} onCommit={(value) => setStacks((current) => ({ ...current, [rule.rule_id]: value }))} />}</div>)}</div></details>
           {allTriggers.length > 0 && <><div className="section-heading compact"><div><p className="eyebrow">TRIGGER FACTS</p><h2>场景触发</h2><p className="control-section-hint">需要明确入场角色的 Effect 会在这里显示；留空时计算 trace 会标记为 blocked。</p></div></div><div className="trigger-field-grid">{allTriggers.map((trigger) => { const selectedActor = triggerActors[trigger.input_id]; return <label className={`trigger-field ${selectedActor ? "trigger-field-selected" : "trigger-field-missing"}`} key={trigger.input_id}><span>{trigger.label}</span><select value={selectedActor ?? ""} onChange={(event) => setTriggerActors((current) => { const next = { ...current }; if (event.target.value) next[trigger.input_id] = event.target.value; else delete next[trigger.input_id]; return next; })}><option value="">未指定</option>{trigger.actor_options.map((actor) => <option key={actor} value={actor}>{characters.find((item) => item.character_id === actor)?.display_name ?? actor}</option>)}</select><small>{selectedActor ? `已指定：${characters.find((item) => item.character_id === selectedActor)?.display_name ?? selectedActor}` : "⚠ 需要指定入场角色"}</small></label>; })}</div></>}
         </section>
 
-        <section className="glass-card result-panel">
-          <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={teamIds.length === 0 || calculating || loading || !moveEntryId || Boolean(moveSelectionIssue) || targetMode!=='normal' && !endgameEditor} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
-          <label className="move-select">招式<select disabled={teamIds.length === 0} value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
+        </section>
+        <section className="glass-card result-panel" id="calculation-section">
+          <div className="section-heading"><div><p className="eyebrow">03 / DAMAGE ANALYSIS</p><h2>招式结算</h2></div><span className="subsection-badge">{selectedCurrent?.display_name??'待配置'}</span></div>
+          <label className="move-select"><span>{selectedCurrent?.display_name??'当前主控'} · 当前主控招式</span><select disabled={teamIds.length === 0} value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
           {moveSelectionIssue && <p className="control-section-hint">⚠ {moveSelectionIssue}；未发送计算请求。</p>}
+          <button className="primary-button calculate-button" disabled={calculationDisabled} onClick={calculate} type="button"><span>{calculating?'计算中…':'ϟ 计算伤害'}</span><kbd>Ctrl / ⌘ ↵</kbd></button>
           {calculation ? (
             <div className="calculation-output">
+              {calculationContext&&<div className="calculation-context"><span>{calculationContext.operator} / {calculationContext.time}</span><small>{calculation.events.length} 个事件</small></div>}
               {calculation.scenario_provenance && <p className="control-section-hint">本次结果：{calculation.scenario_provenance.mode==='boss'?'危局':'式舆'} {calculation.scenario_provenance.season_id} · {calculation.scenario_provenance.room_name} · {calculation.scenario_provenance.target_name}</p>}
               {calculatedFingerprint!==calculationFingerprint && <p className="incomplete">配置已变化，请重新计算以更新伤害与词条收益。</p>}
               <div className="totals-grid">
                 {(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => (
-                  <div className="total-card" key={mode}>
-                    <small>{mode}</small>
+                  <div className={`total-card ${mode === "expected" ? "total-card-expected" : ""}`} key={mode}>
+                    <small>{({ "non-crit": "不暴击", expected: "期望伤害", "full-crit": "满暴击" } as Record<string, string>)[mode] ?? mode}</small>
                     <strong>{formatNumber(calculation.totals[mode]?.value)}</strong>
                     <span className={calculation.totals[mode]?.complete ? "complete" : "incomplete"}>
-                      {calculation.totals[mode]?.complete ? "complete" : "partial"}
+                      {calculation.totals[mode]?.complete ? "完整结算" : "部分结算"}
                     </span>
                   </div>
                 ))}
               </div>
+              {calculationContext&&<p className="result-target-note">◎ {calculationContext.target}</p>}
               {calculation.substat_gains && <SubstatGainPanel results={calculation.substat_gains} names={Object.fromEntries(characters.map(c=>[c.character_id,c.display_name]))}
-                effective={Object.fromEntries(teamIds.map(id=>[id,effectiveFor(id)]))} stale={calculatedFingerprint !== calculationFingerprint}/>}
-              <div className="event-list">
+                operatorId={currentOperatorId} effective={Object.fromEntries(teamIds.map(id=>[id,effectiveFor(id)]))} stale={calculatedFingerprint !== calculationFingerprint}/>}
+              <div className="event-list"><div className="section-heading compact"><h2>伤害事件与计算依据</h2><span className="subsection-badge">{calculation.events.length} EVENTS</span></div>
                 {calculation.events.map((event) => {
                   const dischargeSummary = dischargeMultiplierSummary(event);
                   const periodicAnomaly = event.damage_type === "anomaly"
                     && event.damage_subtype === "attribute-anomaly"
                     && event.repeat_count > 1;
+                  const preferred=event.modes.expected??event.modes[event.display_modes?.[0]??'non-crit'];
                   return <article className="event-card" key={event.semantic_id}>
-                    <div>
-                      <strong>{event.label}</strong>
-                      <small>{event.semantic_id} · {event.element ? elementLabel(event.element) : "属性未标注"} · ×{event.repeat_count}</small>
-                      {dischargeSummary && <p className="discharge-multiplier-summary">{dischargeSummary}</p>}
-                    </div>
+                    <button type="button" className="event-row" onClick={()=>setActiveEvent(event.semantic_id)}><span><strong>{event.label}</strong><small>{event.element?elementLabel(event.element):'属性未标注'} · ×{event.repeat_count} · {preferred?.status==='calculated'?'完整结算':'部分结算'}</small></span><b>{formatNumber(preferred?.known_value)}</b><span aria-hidden="true">↗</span></button>
+                    {activeEvent===event.semantic_id&&<ModalFrame drawer title={event.label} subtitle={`${event.semantic_id} · 重复 ${event.repeat_count} 次`} onClose={()=>setActiveEvent(null)}>
+                      {calculatedFingerprint!==calculationFingerprint&&<p className="incomplete">配置已变化，此处为上次计算的事件。</p>}
+                      {dischargeSummary&&<p className="discharge-multiplier-summary">{dischargeSummary}</p>}
                     <div className="event-values">
                       {(event.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => {
                         const modeResult = event.modes[mode];
                         return <span key={mode}>
-                          <small>{mode} · {modeResult?.status}{event.repeat_count > 1 ? " · 合计" : ""}</small>
+                          <small>{({'expected':'期望','non-crit':'不暴击','full-crit':'满暴击'} as Record<string,string>)[mode]??mode} · {modeResult?.status==='calculated'?'完整结算':'部分结算'}{event.repeat_count > 1 ? " · 合计" : ""}</small>
                           <b>{formatNumber(modeResult?.known_value)}</b>
                           {periodicAnomaly && modeResult?.value !== null && modeResult?.value !== undefined
                             && <small className="event-per-tick">每跳 {formatNumber(modeResult.value)}</small>}
                         </span>;
                       })}
                     </div>
-                    <details className="event-details">
-                      <summary>查看 breakdown</summary>
+                    <details open className="event-details">
+                      <summary>结算因子与来源</summary>
                       <div className="breakdown-list">
                         {(event.modes.expected?.calculation_breakdown ?? []).map((node) => (
                           <div key={node.node}><span>{calculationNodeLabel(node.node)}</span><b>{formatNumber(node.value)}</b><small>{node.read_rule}</small></div>
@@ -1952,29 +1940,30 @@ function App() {
                         <p className="inline-diagnostic" key={`${mode}-${index}`}>{mode}: {diagnostic.message}</p>
                       )))}
                     </details>
+                    </ModalFrame>}
                   </article>;
                 })}
               </div>
+          {calculation && calculation.build_provenance.length > 0 && <><button type="button" className="result-detail-button" onClick={()=>setResultDetail('build')}>构筑来源明细 <small>{calculation.build_provenance.length} 项 ↗</small></button>{resultDetail==='build'&&<ModalFrame drawer title="构筑来源明细" onClose={()=>setResultDetail(null)}><div className="trace-list provenance-details">{teamIds.map((owner) => { const traces = calculation.build_provenance.filter((trace) => trace.character_id === owner); return traces.length > 0 && <div className="provenance-character-group" key={owner}><h4>{characters.find((item) => item.character_id === owner)?.display_name ?? owner}</h4>{traces.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.source_label}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.stat} · {trace.layer}</small></div>)}</div>; })}</div></ModalFrame>}</>}
               <VivianPanelSourceResults results={(calculation.panel_source_results ?? []).filter(
                 (source) => calculation.move_entry_id !== VIVIAN_DISCHARGE_ENTRY_ID || source.source_character_id !== VIVIAN_ID,
               )} />
-              {calculation.panel_traces.length > 0 && <details className="trace-list provenance-details">
-                <summary><span><span className="eyebrow">PANEL PROVENANCE</span><strong>面板来源明细</strong></span><small>{calculation.panel_traces.length} 项</small></summary>
+              {calculation.panel_traces.length > 0 && <><button type="button" className="result-detail-button" onClick={()=>setResultDetail('panels')}>局内加成来源 <small>{calculation.panel_traces.length} 项 ↗</small></button>{resultDetail==='panels'&&<ModalFrame drawer title="局内加成来源" onClose={()=>setResultDetail(null)}><div className="trace-list provenance-details">
                 {calculation.panel_traces.map((trace) => <div className="trace-row" key={`${trace.effect_id}-${trace.recipient_character_id}`}>
                   <span>{trace.recipient_character_id}</span><strong>+{formatNumber(trace.resolved_value)}</strong>
                   <small>{trace.source_label ?? trace.effect_id} · {trace.modifier_path}</small>
                 </div>)}
-              </details>}
-              {calculation.resolved_character_snapshots.length > 0 && <details className="trace-list provenance-details">
-                <summary><span><span className="eyebrow">RESOLVED PANELS</span><strong>结算面板快照</strong></span><small>{calculation.resolved_character_snapshots.length} 名</small></summary>
+              </div></ModalFrame>}</>}
+              {calculation.resolved_character_snapshots.length > 0 && <><button type="button" className="result-detail-button" onClick={()=>setResultDetail('snapshots')}>结算面板快照 <small>{calculation.resolved_character_snapshots.length} 名 ↗</small></button>{resultDetail==='snapshots'&&<ModalFrame drawer title="结算面板快照" onClose={()=>setResultDetail(null)}><div className="trace-list provenance-details">
                 {calculation.resolved_character_snapshots.map((snapshot) => <div className="snapshot-row" key={snapshot.character_id}>
                   <strong>{snapshot.character_id}</strong>
                   <span>攻击力 {formatNumber(typeof snapshot.stats.attack === "number" ? snapshot.stats.attack : null)}</span>
                   <span>暴击率 {formatNumber(typeof snapshot.stats.crit_rate === "number" ? snapshot.stats.crit_rate : null)}</span>
                   <span>属性增伤 {formatElementBonus(snapshot.stats.element_damage_bonus, editorViews[snapshot.character_id]?.effective_damage_element ?? characters.find((character) => character.character_id === snapshot.character_id)?.element)}</span>
                 </div>)}
-              </details>}
-              <CalculationDiagnosticList diagnostics={calculation.diagnostics} />
+              </div></ModalFrame>}</>}
+              <button type="button" className="result-detail-button" onClick={()=>setResultDetail('diagnostics')}>本次诊断与说明 <small>{calculation.diagnostics.length} 项 ↗</small></button>
+              {resultDetail==='diagnostics'&&<ModalFrame drawer title="本次诊断与说明" onClose={()=>setResultDetail(null)}>{calculation.diagnostics.length?<CalculationDiagnosticList diagnostics={calculation.diagnostics}/>:<p className="complete">本次计算没有额外诊断。</p>}</ModalFrame>}
             </div>
           ) : (
             <div className="empty-state">
@@ -1984,9 +1973,55 @@ function App() {
             </div>
           )}
         </section>
-      </section>
-
+      </div>
+      <nav className="mobile-workbench-nav" aria-label="移动工作台导航">{([{id:'team',label:'队伍',icon:'◫'},{id:'equipment',label:'装备',icon:'◇'},{id:'target',label:'目标',icon:'◎'},{id:'rules',label:'状态',icon:'☷'},{id:'results',label:'结算',icon:'ϟ'}] as const).map(item=><button type="button" aria-pressed={mobilePage===item.id} key={item.id} onClick={()=>{if(item.id==='equipment'||item.id==='target'||item.id==='rules')showWorkbench(item.id);else setMobilePage(item.id);window.scrollTo({top:0,behavior:'smooth'});}}><span aria-hidden="true">{item.icon}</span>{item.label}</button>)}</nav>
+      {libraryOpen && <ModalFrame wide title="角色库" subtitle={`选择角色加入第 ${(librarySlot??0)+1} 个槽位；已在队伍中的角色不可重复选择。`} onClose={closeCharacterLibrary}>
+            <div className="character-library-filters">
+              <label><span>搜索角色</span><input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder="名称、职业、属性或阵营" /></label>
+              <label><span>职业</span><select value={librarySpecialty} onChange={(event) => setLibrarySpecialty(event.target.value)}><option value="">全部职业</option>{Array.from(new Set(characters.map((item) => item.specialty))).map((specialty) => <option key={specialty} value={specialty}>{specialtyLabel(specialty)}</option>)}</select></label>
+              <label><span>属性</span><select value={libraryElement} onChange={(event) => setLibraryElement(event.target.value)}><option value="">全部属性</option>{Array.from(new Set(characters.map((item) => item.element))).map((element) => <option key={element} value={element}>{elementLabel(element)}</option>)}</select></label>
+              <label><span>阵营</span><select value={libraryFaction} onChange={(event) => setLibraryFaction(event.target.value)}><option value="">全部阵营</option>{Array.from(new Set(characters.map((item) => item.faction))).filter(Boolean).map((faction) => <option key={faction} value={faction}>{faction}</option>)}</select></label>
+            </div>
+            <div className="library-results" aria-live="polite">
+              {filteredLibraryCharacters.map((character) => {
+                const alreadySelected = !isCharacterSelectable(character.character_id, teamIds);
+                return <button className={`library-character ${alreadySelected ? "library-character-selected" : ""}`} disabled={alreadySelected} key={character.character_id} onClick={() => selectLibraryCharacter(character.character_id)} type="button">
+                  <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} />
+                  <span className="library-character-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small><small>{character.faction}</small></span>
+                  <span className="rarity">{character.rarity}</span>
+                  {alreadySelected && <span className="library-selected-mark">队伍中</span>}
+                </button>;
+              })}
+              {filteredLibraryCharacters.length === 0 && <div className="library-empty">没有符合筛选条件的角色。</div>}
+            </div>
+      </ModalFrame>}
+      {activeDisc&&teamIds.includes(activeDisc.owner)&&(()=>{const id=activeDisc.owner;const schema=driveDiscViews[id]?.slot_schemas.find(item=>item.slot===activeDisc.slot);if(!schema)return null;const driveView=driveDiscViews[id];const disc=driveDiscSelections[id]?.find(item=>item.slot===schema.slot);const discPreview=buildPreviews[id]?.drive_discs.find(item=>item.slot===schema.slot);return <ModalFrame drawer title={`${characters.find(character=>character.character_id===id)?.display_name??id} · ${schema.slot}号驱动盘`} subtitle="编辑立即更新当前副本与局外预览。" onClose={()=>setActiveDisc(null)} footer={<><span>本地角色资料保持导入时的配置</span><button type="button" className="primary-button" onClick={()=>setActiveDisc(null)}>完成</button></>}>
+<DriveDiscCard
+                          key={`${id}-disc-${schema.slot}`}
+                          schema={schema}
+                          disc={disc}
+                          preview={discPreview}
+                          driveDiscSets={driveDiscSets}
+                          substatOptions={driveView?.substat_options ?? []}
+                          diagnostics={driveView?.diagnostics ?? []}
+                          onSelectSet={(setId) => selectDriveDiscSet(id, schema.slot, setId)}
+                          onRemoveDisc={() => updateDriveDisc(id, schema.slot, null)}
+                          onUpdateMain={(mainStat) => updateDriveDiscMain(id, schema.slot, mainStat)}
+                          onUpdateSubstat={(index, next) => updateDriveDiscSubstat(id, schema.slot, index, next)}
+                          onUpdateRoll={(index, delta) => updateDriveDiscSubstatRoll(id, schema.slot, index, delta)}
+                          onRemoveSubstat={(index) => removeDriveDiscSubstatRow(id, schema.slot, index)}
+                          onAddSubstat={(stat) => addDriveDiscSubstatRow(id, schema.slot, stat)}
+                          formatValue={formatDriveValue}
+                        />
+        </ModalFrame>;})()}
+      {importDialogOpen&&<ModalFrame wide title="从米游社加载角色" subtitle="原始角色资料只读；加载到队伍后编辑的是独立副本。" onClose={()=>setImportDialogOpen(false)}>
+        <MiyoushePanel defaultExpanded ready={characters.length>0&&wengines.length>0&&driveDiscSets.length>0} catalog={{wengines,driveDiscSets}} supportedCharacterIds={characters.map(character=>character.character_id)} onLoad={(config,character)=>{loadMiyousheCharacter(config,character);setEditedCharacterId(config.character_id);setImportDialogOpen(false);showWorkbench('equipment');}}/>
+      </ModalFrame>}
+      {helpOpen&&<ModalFrame title="工作台使用说明" onClose={()=>setHelpOpen(false)}>
+        <ol className="help-steps"><li><strong>配置队伍</strong><p>点击槽位切换主控。点击“编辑”只切换装备编辑对象；拖动或箭头调整队伍顺序。</p></li><li><strong>调整构筑与目标</strong><p>有效词条随当前驱动盘重新统计。点击驱动盘卡片编辑；在敌人与场地页选择真实怪物或终局期数。</p></li><li><strong>计算与比较</strong><p>装备改动自动更新局外面板，伤害需点击计算。收益比较仅增加一条词条，不修改装备。</p></li><li><strong>保留配置</strong><p>米游社本地资料只读，再次导入会覆盖该账号资料。当前工作区没有自动保存；角色与终局场景分别导出为文件。</p></li></ol>
+      </ModalFrame>}
       {diagnostics.length > 0 && <section className="diagnostics glass-card"><p className="eyebrow">DIAGNOSTICS</p>{diagnostics.map((message) => <div className="diagnostic" key={message}><strong>API</strong><span>{message}</span></div>)}</section>}
+      <footer className="workbench-footer"><span>ZZZ / COMBAT LAB</span><span>装备预览与伤害结算分别更新 · 配置可导出保存</span></footer>
     </main>
   );
 }
@@ -2105,6 +2140,7 @@ const LIVE_PANEL_STATS: { key: string; label: string; ratio?: boolean }[] = [
 ];
 
 function LivePanel({ teamIds, currentOperatorId, characters, editorViews, previews, loading }: LivePanelProps) {
+  const [sourceId,setSourceId]=useState<string|null>(null);
   return <section className="live-panel" aria-label="实时局外面板">
     <div className="section-heading compact live-panel-heading">
       <div><p className="eyebrow">LIVE OUT-OF-COMBAT PANEL</p><h2>实时局外面板</h2><p className="live-panel-subtitle">当前队伍的最终局外属性与来源</p></div>
@@ -2127,14 +2163,15 @@ function LivePanel({ teamIds, currentOperatorId, characters, editorViews, previe
           return formatPanelValue(value, ratio);
         };
         const elementValue = stats?.element_damage_bonus;
-        return <article className={`live-panel-card live-panel-card-${teamIndex} ${preview?.complete === false ? "live-panel-card-incomplete" : ""}`} key={id}>
-          <div className="live-panel-card-heading">
+        return <details open={id===currentOperatorId} className={`live-panel-card live-panel-card-${teamIndex} ${preview?.complete === false ? "live-panel-card-incomplete" : ""}`} key={id}>
+          <summary className="live-panel-card-heading">
             <div className="live-panel-character">
               {character ? <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} /> : <span className="live-panel-avatar">?</span>}
-              <div><strong>{character?.display_name ?? id}</strong><small>{id === currentOperatorId ? "主控角色" : "支援角色"}{damageElement ? ` · ${damageElement}` : ""}</small></div>
+              <div><strong>{character?.display_name ?? id}</strong><small>{id === currentOperatorId ? "主控角色" : "支援角色"}{damageElement ? ` · ${elementLabel(damageElement)}` : ""}</small></div>
             </div>
-            <span className={`live-panel-status ${statusClass}`}>{status}</span>
-          </div>
+            <span className="live-panel-summary-atk">ATK {readStat("attack")}</span>
+          </summary>
+          <span className={`live-panel-status ${statusClass}`}>{status}</span>
           <div className="live-panel-featured-grid">
             <div className="live-panel-stat live-panel-featured-stat"><span>攻击力</span><strong>{readStat("attack")}</strong><PanelStatBreakdown value={preview?.stat_breakdown?.attack} /><small>ATK</small></div>
             <div className="live-panel-stat live-panel-featured-stat"><span>暴击率</span><strong>{readStat("crit_rate", true)}</strong><small>CRIT RATE</small></div>
@@ -2146,15 +2183,15 @@ function LivePanel({ teamIds, currentOperatorId, characters, editorViews, previe
               && (key !== "penetration_force" || character?.specialty === "rupture"))
               .map(({ key, label, ratio }) => <div className="live-panel-stat" key={key}><span>{label}</span><strong>{readStat(key, ratio)}</strong><PanelStatBreakdown value={preview?.stat_breakdown?.[key]} /></div>)}
           </div>
-          <details className="live-panel-provenance">
-            <summary><span>来源明细</span><small>{preview ? `${preview.provenance.length} 项装备/基础贡献` : "等待装备构筑解析"}</small></summary>
+          <button type="button" className="text-button live-panel-source-button" onClick={()=>setSourceId(id)}>查看属性来源 <small>{preview ? `${preview.provenance.length} 项 ↗` : "等待解析"}</small></button>
+          {sourceId===id&&<ModalFrame drawer title={`${character?.display_name??id} · 属性来源`} subtitle="当前局外属性的基础值、装备贡献与解析说明。" onClose={()=>setSourceId(null)}>
             <div className="provenance-list">
               {preview ? preview.provenance.map((item) => <div className="provenance-row" key={item.contribution_id}>
                 <span>{item.source_label}</span><strong>{formatBuildContributionValue(item)}</strong><small>{item.stat}{item.element ? ` · ${item.element}` : ""}</small>
               </div>) : <div className="provenance-row"><span>角色基础属性</span><strong>等待解析</strong><small>由角色等级与装备构筑生成</small></div>}
             </div>
-          </details>
-        </article>;
+          </ModalFrame>}
+        </details>;
       })}
     </div>
   </section>;

@@ -15,9 +15,10 @@ type Props = {
   ready: boolean;
   supportedCharacterIds: string[];
   onLoad: (configuration: CharacterConfig, character: MiyousheCharacter) => void;
+  defaultExpanded?: boolean;
 };
 
-export default function MiyoushePanel({ catalog, ready, supportedCharacterIds, onLoad }: Props) {
+export default function MiyoushePanel({ catalog, ready, supportedCharacterIds, onLoad, defaultExpanded = false }: Props) {
   const [uid, setUid] = useState("");
   const [cookie, setCookie] = useState("");
   const [loginMode, setLoginMode] = useState<"qr" | "cookie">("qr");
@@ -109,7 +110,7 @@ export default function MiyoushePanel({ catalog, ready, supportedCharacterIds, o
     } catch { setFailed(true); setMessage("浏览器无法清除本地资料。"); }
   };
 
-  return <details className="miyoushe-panel">
+  return <details className="miyoushe-panel" open={defaultExpanded}>
     <summary>从米游社加载我的角色</summary>
     <p className="roster-hint">可使用米游社 App 扫码或手动 Cookie 获取国服角色。本地资料只读，再次获取会覆盖对应账号资料。加载后编辑的是独立副本，可另存为配置文件。登录凭据不保存到本地。</p>
     <form onSubmit={(e) => { e.preventDefault(); void fetchCharacters(); }} className="miyoushe-form">
