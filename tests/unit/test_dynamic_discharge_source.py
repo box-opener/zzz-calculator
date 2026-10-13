@@ -75,7 +75,7 @@ _SOURCE_TICKS = {
     Element.LIESHUANG: 5.0,
     Element.ETHER: 0.625,
     Element.XUANMO: 0.625,
-    Element.WIND: 17.5,
+    Element.WIND: 12.5,
 }
 
 

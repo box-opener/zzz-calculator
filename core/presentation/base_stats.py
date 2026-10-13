@@ -193,8 +193,9 @@ def character_base_stat_contributions(
 ) -> tuple[BuildStatContribution, ...]:
     """Return level-60 character modifiers that belong in Build's percent layer.
 
-    Nanoka property 11102 is an out-of-combat HP percentage.  Keep it separate
-    from the white HP value so equipment percentages add in the same layer.
+    Nanoka properties 11102 and 12102 are out-of-combat HP and ATK percentages.
+    Keep them separate from white values so equipment percentages add in the
+    same layer, including Sunna's core ATK percentage on character + W-Engine ATK.
     """
 
     raw = load_character_record(str(character_id))
@@ -210,30 +211,34 @@ def character_base_stat_contributions(
     extra_map = extra_60.get("extra", {})
     if not isinstance(extra_map, Mapping):
         return ()
-    raw_hp_percent = extra_map.get("11102", {})
-    if not isinstance(raw_hp_percent, Mapping):
-        return ()
-    value = raw_hp_percent.get("value", 0.0)
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"character extra stat '11102' is not numeric: {character_id}")
-    percentage = float(value) / 10000.0
-    if percentage == 0.0:
-        return ()
     owner = CharacterId(str(character_id))
-    source = BuildSource(
-        source_id=f"{owner}:extra-level-6:11102",
-        source_type=BuildSourceType.CHARACTER,
-        label="角色额外等级·生命值百分比",
-    )
-    return (
-        BuildStatContribution(
-            contribution_id=f"{source.source_id}:hp-percent",
+    contributions = []
+    for prop, stat, label in (
+        ("11102", CharacterStat.HP, "生命值"),
+        ("12102", CharacterStat.ATTACK, "攻击力"),
+    ):
+        raw_percent = extra_map.get(prop, {})
+        if not isinstance(raw_percent, Mapping):
+            continue
+        value = raw_percent.get("value", 0.0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"character extra stat {prop!r} is not numeric: {character_id}")
+        percentage = float(value) / 10000.0
+        if percentage == 0.0:
+            continue
+        source = BuildSource(
+            source_id=f"{owner}:extra-level-6:{prop}",
+            source_type=BuildSourceType.CHARACTER,
+            label=f"角色额外等级·{label}百分比",
+        )
+        contributions.append(BuildStatContribution(
+            contribution_id=f"{source.source_id}:{stat.value}-percent",
             source=source,
-            stat=CharacterStat.HP,
+            stat=stat,
             layer=BuildContributionLayer.OUT_OF_COMBAT_PERCENT,
             value=Resolved(percentage),
-        ),
-    )
+        ))
+    return tuple(contributions)
 
 
 def _element(value: str) -> Element:

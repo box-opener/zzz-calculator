@@ -12,7 +12,7 @@ FULL_GAUGE_ANOMALY_PROFILE: dict[Element, tuple[float, int]] = {
     Element.XUANMO: (0.625, 20),
     Element.FIRE: (0.5, 20),
     Element.ELECTRIC: (1.25, 10),
-    Element.WIND: (17.5, 1),
+    Element.WIND: (12.5, 1),
 }
 
 

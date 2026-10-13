@@ -24,4 +24,6 @@ def enemy_defaults(enemy_id: str, variant_id: str, level: int) -> dict:
     return {'enemy_id':enemy_id, 'variant_id':variant_id, 'level':level,
         'initial_defense': variant['base_defense'] * variant['defense_curve'][level - 1] / variant['curve_ratio'],
         'damage_resistance':variant['damage_resistance'], 'stun_multiplier':variant['stun_multiplier'],
+        # The catalog stores the total multiplier; settlement adds its own unit base.
+        'stun_vulnerability_bonus':variant['stun_multiplier'] - 1,
         'can_stun':variant['can_stun'], 'source_url':enemy['source_url']}

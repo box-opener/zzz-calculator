@@ -10,3 +10,6 @@ export type EnemyCatalog = { source_version: string; fetched_at: string; enemies
 export function enemyDefenseAtLevel(variant: EnemyVariant, level: number): number {
   return variant.base_defense * variant.defense_curve[level - 1] / variant.curve_ratio;
 }
+export function enemyStunVulnerabilityBonus(variant: EnemyVariant): number {
+  return variant.stun_multiplier - 1;
+}

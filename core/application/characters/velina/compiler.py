@@ -226,6 +226,7 @@ def _synthetic_entry(
     multiplier: float,
     *,
     repeat_count: int | None = None,
+    condition_ids=(),
 ) -> MoveCalculationEntry:
     relation = (
         MultiplierRelation.UNIT_REPEAT
@@ -244,13 +245,14 @@ def _synthetic_entry(
         multiplier_variants=(
             MultiplierVariant(
                 variant_id=MultiplierVariantId(f"variant:character:1561:{key}"),
-                label=f"倍率 {multiplier * 100:g}% × {repeat_count}",
+                label=f"倍率 {multiplier * 100:g}%" + (f" × {repeat_count}" if repeat_count is not None else ""),
                 parameter_name=label,
                 multiplier=FixedMultiplier(Resolved(multiplier)),
                 repeat_count=repeat_count,
             ),
         ),
         main_damage_event=template,
+        condition_ids=tuple(condition_ids),
     )
 
 
@@ -284,9 +286,9 @@ def _wind_entries(raw: NanokaRawRecord):
     weathering_entry = _synthetic_entry(
         "wind-weathering",
         "风属性异常：风化（完整结算）",
-        "风属性异常造成一次1750%风化伤害并施加30秒风化状态；不拆成周期跳数。",
+        "风属性异常造成一次1250%风化伤害并施加30秒风化状态；不拆成周期跳数。",
         wind_ref,
-        17.5,
+        12.5,
     )
     return (weathering_entry,), (wind_template,)
 
@@ -842,6 +844,23 @@ def compile_velina(
         broad_discharge_derived,
         ultimate_discharge_derived,
     )
+    discharge_entries = (
+        _synthetic_entry(
+            "micro-cyclone-dissipation", micro_discharge_ref.label, core.description,
+            micro_discharge_ref, micro_discharge_derived.multiplier.value.value,
+            condition_ids=(ENEMY_WIND_WEATHERED, MICRO_CYCLONE_DISSIPATING),
+        ),
+        _synthetic_entry(
+            "broad-cyclone-dissipation", broad_discharge_ref.label, core.description,
+            broad_discharge_ref, broad_discharge_derived.multiplier.value.value,
+            condition_ids=(ENEMY_WIND_WEATHERED, BROAD_CYCLONE_DISSIPATING),
+        ),
+        *((_synthetic_entry(
+            "ultimate-wind-discharge", ultimate_discharge_ref.label, extra_text,
+            ultimate_discharge_ref, ultimate_discharge_derived.multiplier.value.value,
+            condition_ids=(ENEMY_WIND_WEATHERED,),
+        ),) if config.additional_ability_eligible else ()),
+    )
     turbulence_ref = DamageEventTemplateRef(
         template_id="template:character:1561:turbulence-from-record",
         semantic_id=DamageEventSemanticId(
@@ -1069,7 +1088,7 @@ def compile_velina(
         role=CharacterRole.ANOMALY,
         element=Element.WIND,
         source=core_source,
-        entries=(*direct_entries, *wind_entries),
+        entries=(*direct_entries, *wind_entries, *discharge_entries),
         templates=(
             *direct_templates,
             *wind_templates,

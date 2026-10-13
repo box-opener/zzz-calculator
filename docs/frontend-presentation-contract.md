@@ -161,6 +161,10 @@ W-Engine picker; the shared editor continues to start mapped engines
 unequipped.
 
 Enemy `is_stunned` and `stun_vulnerability_bonus` are independent named inputs.
+`stun_vulnerability_bonus` is an additive bonus: a sourced total multiplier of
+150% (`stun_multiplier=1.5`) becomes 50% (`stun_vulnerability_bonus=0.5`). Both
+ordinary and endgame targets use this conversion; the editor shows the extra
+percentage, and the vulnerability calculator adds the unit base exactly once.
 The latter is supplied once by the enemy settlement environment; a character
 compiler must not carry a second copy. A veil-like mechanism is represented as
 an explicit vulnerability settlement policy for the current event, not as a

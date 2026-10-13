@@ -187,7 +187,7 @@ REVIEWED.update({
     '69011401': (c('stun', .25, state='失衡触发易伤有效'), c('atk', .2, state='连携增益有效', personal=True), c('cd', .3, state='连携增益有效', personal=True)),
     '69011501': (c('ap', 60), c('bonus', .25, state='目标当前处于属性异常'), c('ignore-def', .15, state='目标当前处于属性异常')),
     '69011601': (c('bonus', .2), c('bonus', .2, el='physical'), c('def-reduction', .1, state='异常减防有效'), c('def-reduction', .25, state='紊乱减防有效')),
-    '69011602': (c('received-anom', .08, state='异常增伤层数', maximum=6),),
+    '69011602': (c('anom', .08, state='异常增伤层数', maximum=6),),
     '69011701': (c('unknown', 0, tags='assist', note='支援攻击标签范围需核对'), c('bonus', .25, tags='ex ultimate'), c('ignore-res', .2, state='快速支援或连携增益有效', personal=True)),
     '69011801': (c('bonus', .3, el='electric physical'), c('atk', .08, state='异常全队攻击层数', maximum=4)),
     '69011901': (c('bonus', 0, count=('attack',1,.2,2,.4)), c('bonus', .3, el='electric', state='暴击增益有效', personal=True), c('cd', .4, role='attack', state='暴击增益有效', personal=True)),

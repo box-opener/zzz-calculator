@@ -37,7 +37,7 @@ from core.application.equipment import (
     signature_wengine_id_for,
 )
 from core.data.loader import load_character_record, supported_character_ids
-from core.presentation.base_stats import character_base_stats
+from core.presentation.base_stats import character_base_stats, character_base_stat_contributions
 from core.presentation.calculation_service import calculate_payload
 from core.presentation.catalog import supported_character_catalog, supported_wengine_catalog
 from core.presentation.registry import (
@@ -45,6 +45,7 @@ from core.presentation.registry import (
     compile_registered_definition,
     equipment_capabilities_for_definition,
     registration_for,
+    build_registered_build_preview,
 )
 from core.types import (
     AnyFilter,
@@ -232,6 +233,63 @@ def test_sunna_registry_panel_catalog_signature_and_eligibility(raw_record) -> N
         (SUNNA_ID, CharacterId("character:1421"))
     )
     assert not _sunna_additional_ability_eligibility((SUNNA_ID,))
+
+
+@pytest.mark.parametrize('engine, white_attack', [(None, 750.7503), ('wengine:14149', 1463.7503)])
+def test_sunna_core_attack_percent_adds_with_disc_percent_before_flat_attack(engine, white_attack):
+    contributions = character_base_stat_contributions(SUNNA_ID)
+    attack = next(item for item in contributions if item.stat.value == 'attack')
+    assert attack.value.value == pytest.approx(.21)
+    assert attack.layer.value == 'out-of-combat-percent'
+    bare = build_registered_build_preview(SUNNA_ID, wengine_id=engine, discs=())
+    assert bare.out_of_combat_stats['attack'] == pytest.approx(white_attack * 1.21)
+    discs = [{
+        'slot': 2, 'set_id': 'drive-disc:31000', 'main_stat': 'attack-flat',
+        'substats': [{'stat': 'attack-percent', 'roll_count': 5},
+                     {'stat': 'crit-rate', 'roll_count': 2},
+                     {'stat': 'crit-damage', 'roll_count': 1},
+                     {'stat': 'anomaly-proficiency-flat', 'roll_count': 1}],
+    }]
+    preview = build_registered_build_preview(SUNNA_ID, wengine_id=engine, discs=discs)
+    assert preview.complete
+    assert preview.base_stats['attack'] == pytest.approx(750.7503)
+    assert preview.out_of_combat_stats['attack'] == pytest.approx(white_attack * (1 + .21 + .15) + 316)
+    assert preview.stat_breakdown['attack'].white_value == pytest.approx(white_attack)
+    assert preview.stat_breakdown['attack'].additional_value == pytest.approx(white_attack * (.21 + .15) + 316)
+    assert sum(item.stat == 'attack' and item.source_type == 'character'
+               and item.layer == 'out-of-combat-percent' for item in preview.provenance) == 1
+
+
+def test_imported_sunna_build_keeps_core_attack_percent_once_in_preview_and_execution():
+    from web.miyoushe import normalize_character
+    character = str(SUNNA_ID)
+    record = normalize_character({
+        'id': 1491, 'level': 60, 'rank': 0, 'name_mi18n': '千夏',
+        'skills': [{'skill_type': t, 'level': 7 if t == 5 else 12}
+                   for t in (0, 1, 2, 3, 5, 6)],
+        'weapon': {'id': 14149, 'level': 60, 'star': 1}, 'equip': [],
+        'properties': [{'property_id': 2, 'base': '', 'final': '1771'}],
+    })
+    assert record['issues'] == []
+    config = record['configuration']
+    assert config['manual_panel_stats'] is None
+    preview = build_registered_build_preview(
+        SUNNA_ID, wengine_id=config['wengine']['id'], discs=config['drive_discs'],
+    )
+    raw = _calculation_payload(
+        primary=character, support_ids=(),
+        entry_id='move-entry:character:1491:basic-stage-1', conditions={},
+        attacks={character: 0}, configs={character: config['compile_config']},
+    )
+    raw['character_builds'][character] = {
+        'level': config['character_level'], 'build_mode': config['build_mode'],
+        'wengine_id': config['wengine']['id'], 'drive_discs': config['drive_discs'],
+    }
+    result = calculate_payload(raw)
+    expected = 1463.7503 * 1.21
+    assert preview.out_of_combat_stats['attack'] == pytest.approx(expected)
+    assert result['totals']['expected']['complete']
+    assert result['resolved_character_snapshots'][0]['stats']['attack'] == pytest.approx(expected)
 
 
 def _panel(attack: float) -> dict[str, object]:
