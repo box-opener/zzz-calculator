@@ -3,6 +3,7 @@ import DriveDiscCard from "./components/DriveDiscCard";
 import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTraceDetails";
 import NumberField from "./components/NumberField";
 import WEnginePicker from "./components/WEnginePicker";
+import MiyoushePanel from "./components/MiyoushePanel";
 import {
   canAddToTeamSlot,
   calculationTeamOrder,
@@ -46,6 +47,7 @@ import {
   createCharacterConfig,
   parseCharacterConfig,
   serializeCharacterConfig,
+  type CharacterConfig,
 } from "./state/equipmentConfig";
 import { filterCharacterCatalog, isCharacterSelectable } from "./state/characterLibrary";
 import { aggregateEditorViews } from "./state/editorAggregation";
@@ -861,6 +863,29 @@ function App() {
     );
   };
 
+  const loadMiyousheCharacter = (config: CharacterConfig) => {
+    const id = config.character_id;
+    if (!characters.some((c) => c.character_id === id)) return;
+    const slot = Math.max(0, teamIds.indexOf(currentOperatorId));
+    const nextTeam = teamIds.includes(id) ? [...teamIds]
+      : teamIds.length === 0 ? [id] : teamIds.map((c, i) => i === slot ? id : c);
+    if (!teamIds.includes(id)) dispatchTeam(teamIds.length === 0
+      ? { type: "add-character", characterId: id }
+      : { type: "replace-character", slotIndex: slot, characterId: id });
+    dispatchTeam({ type: "set-current-operator", characterId: id });
+    const nextConfigs = { ...configs, [id]: { ...config.compile_config } };
+    const nextWengines = { ...wengineSelections };
+    if (config.wengine) nextWengines[id] = { ...config.wengine };
+    else delete nextWengines[id];
+    const nextDiscs = { ...driveDiscSelections, [id]: config.drive_discs };
+    const nextLevels = { ...characterLevels, [id]: config.character_level };
+    setConfigs(nextConfigs); setWengineSelections(nextWengines);
+    setDriveDiscSelections(nextDiscs); setCharacterLevels(nextLevels);
+    calculationGeneration.current += 1;
+    setCalculation(null); setCalculating(false);
+    void loadEditors(nextTeam, id, nextConfigs, conditionValuesRef.current, {}, nextWengines, nextDiscs, nextLevels);
+  };
+
   const beginTeamSlotDrag = (slotIndex: number, event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest("button, input, select")) return;
@@ -1073,6 +1098,7 @@ function App() {
       core_level: currentCompileConfig.core_level ?? 7,
       cinema_level: currentCompileConfig.cinema_level ?? 0,
       ...(currentCompileConfig.skill_levels ? { skill_levels: currentCompileConfig.skill_levels } : {}),
+      ...(typeof currentCompileConfig.potential_level === "number" ? { potential_level: currentCompileConfig.potential_level } : {}),
       ...(typeof currentCompileConfig.mingxin_active === "boolean" ? { mingxin_active: currentCompileConfig.mingxin_active } : {}),
       ...(typeof currentCompileConfig.entry_move_uses_linren === "boolean" ? { entry_move_uses_linren: currentCompileConfig.entry_move_uses_linren } : {}),
     };
@@ -1410,6 +1436,12 @@ function App() {
 
       <section className="dashboard-grid">
         <section className="glass-card roster-panel">
+          <MiyoushePanel
+            ready={characters.length > 0 && wengines.length > 0 && driveDiscSets.length > 0}
+            catalog={{ wengines, driveDiscSets }}
+            supportedCharacterIds={characters.map((c) => c.character_id)}
+            onLoad={loadMiyousheCharacter}
+          />
           <div className="section-heading"><div><p className="eyebrow">ROSTER · TEAM BUILDER</p><h2>队伍与当前角色</h2><p className="roster-hint">从角色库选择 1–3 名角色；槽位顺序会保留，当前操作角色负责招式结算。</p></div><span className="counter">{teamIds.length}/3</span></div>
           <div className="team-slot-grid" onPointerCancel={cancelTeamSlotDrag} onPointerUp={finishTeamSlotDrag}>
             {Array.from({ length: 3 }, (_, slotIndex) => {
