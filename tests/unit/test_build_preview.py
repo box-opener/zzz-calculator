@@ -5,14 +5,74 @@ from dataclasses import replace
 import pytest
 from fastapi.testclient import TestClient
 
-from core.presentation.build_preview import out_of_combat_penetration_force
+from core.application.build import assemble_build
+from core.presentation.build_preview import out_of_combat_penetration_force, out_of_combat_stat_breakdown
 from core.presentation.base_stats import character_base_stats
 from core.presentation.registry import build_registered_build_preview
-from core.types import CharacterId, CharacterSnapshot, Resolved, Unresolved, UnresolvedReason
+from core.types import (
+    BuildContributionLayer, BuildMode, BuildSource, BuildSourceType, BuildStatContribution,
+    CharacterBuildDefinition, CharacterId, CharacterSnapshot, CharacterStat, Resolved,
+    Unresolved, UnresolvedReason,
+)
 from web.api import app
 
 
 client = TestClient(app)
+
+
+def test_attack_breakdown_counts_weapon_as_white_and_discs_as_additional() -> None:
+    response = client.post("/api/v1/builds/preview", json={
+        "character_id": "character:1431", "wengine_id": "wengine:14143",
+        "drive_discs": [
+            {"slot": 2, "set_id": "drive-disc:31000", "main_stat": "attack-flat", "substats": []},
+            {"slot": 6, "set_id": "drive-disc:31000", "main_stat": "attack-percent", "substats": []},
+        ],
+    })
+    assert response.status_code == 200, response.text
+    panel = response.json()
+    white = 938.2102 + 743
+    assert panel["stat_breakdown"]["attack"]["white_value"] == pytest.approx(white)
+    assert panel["stat_breakdown"]["attack"]["additional_value"] == pytest.approx(white * 0.30 + 316)
+    assert panel["out_of_combat_stats"]["attack"] == pytest.approx(white * 1.30 + 316)
+
+
+@pytest.mark.parametrize("stat,main,ratio", [
+    ("hp", "hp-percent", 0.30), ("defense", "defense-percent", 0.48),
+    ("anomaly_mastery", "anomaly-mastery-percent", 0.30),
+    ("energy_regen", "energy-regen-percent", 0.60),
+])
+def test_percentage_panel_breakdown_uses_the_matching_white_stat(stat, main, ratio) -> None:
+    response = client.post("/api/v1/builds/preview", json={
+        "character_id": "character:1431", "drive_discs": [
+            {"slot": 6, "set_id": "drive-disc:31000", "main_stat": main, "substats": []},
+        ],
+    })
+    assert response.status_code == 200, response.text
+    panel = response.json()
+    white = panel["base_stats"][stat]
+    assert panel["stat_breakdown"][stat]["white_value"] == white
+    assert panel["stat_breakdown"][stat]["additional_value"] == pytest.approx(white * ratio)
+    assert panel["out_of_combat_stats"][stat] == pytest.approx(white * (1 + ratio))
+
+
+def test_unknown_flat_addition_keeps_white_value_but_unknown_weapon_white_stays_missing() -> None:
+    owner = CharacterId("character:1431")
+    base = character_base_stats(owner)
+    for layer, expected_white in (
+        (BuildContributionLayer.OUT_OF_COMBAT_FLAT, base.attack.value),
+        (BuildContributionLayer.WHITE_VALUE, None),
+    ):
+        build = assemble_build(CharacterBuildDefinition(
+            character_id=owner, level=60, mode=BuildMode.EQUIPMENT_BUILD, base_stats=base,
+            contributions=(BuildStatContribution(
+                contribution_id="unknown-attack", source=BuildSource("unknown", BuildSourceType.WENGINE, "Unknown"),
+                stat=CharacterStat.ATTACK, layer=layer,
+                value=Unresolved(UnresolvedReason.MISSING_DATA, "Unknown contribution"),
+            ),),
+        ))
+        result = out_of_combat_stat_breakdown(build)["attack"]
+        assert result.white_value == expected_white
+        assert result.additional_value is None
 
 
 def test_ye_level_60_base_stats_are_normalized_from_fixed_nanoka_record() -> None:

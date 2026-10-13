@@ -1,4 +1,4 @@
-import { parseCharacterConfig, type CharacterConfig, type EquipmentValidationCatalog } from "./equipmentConfig";
+import { createCharacterConfig, parseCharacterConfig, type CharacterConfig, type EquipmentValidationCatalog } from "./equipmentConfig";
 
 export const MIYOUSHE_STORAGE_KEY = "zzz-miyoushe-profiles-v1";
 export type MiyousheCharacter = {
@@ -18,6 +18,21 @@ export type MiyousheProfile = {
   fetched_at: string;
   characters: MiyousheCharacter[];
 };
+
+/** Imported account snapshots may only be replaced by a new import. */
+function freezeSnapshot<T>(value: T): T {
+  if (value && typeof value === "object") {
+    for (const child of Object.values(value)) freezeSnapshot(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+/** Hand the editor an independent draft, including nested skills and substats. */
+export function createMiyousheDraft(config: CharacterConfig): CharacterConfig {
+  return createCharacterConfig(config.character_id, config.character_level, config.build_mode,
+    config.compile_config, config.wengine, config.drive_discs, null, config.effective_substats);
+}
 
 /** The official count belongs to the fetched drive-disc build, not final panel stats. */
 export function miyousheEffectiveStatCount(source: Record<string, unknown>): number | null {
@@ -68,8 +83,8 @@ export function validateMiyousheProfile(raw: unknown, catalog: EquipmentValidati
       source_data: source && typeof source === "object" && !Array.isArray(source) ? source as Record<string, unknown> : {},
     };
   });
-  return { schema_version: "zzz-miyoushe-profile-v1", provider: "miyoushe", uid: p.uid,
-    server: "prod_gf_cn", fetched_at: p.fetched_at, characters };
+  return freezeSnapshot({ schema_version: "zzz-miyoushe-profile-v1", provider: "miyoushe", uid: p.uid,
+    server: "prod_gf_cn", fetched_at: p.fetched_at, characters } as MiyousheProfile);
 }
 
 export function readMiyousheProfiles(storage: Pick<Storage, "getItem">, catalog: EquipmentValidationCatalog): MiyousheProfile[] {
@@ -81,5 +96,5 @@ export function readMiyousheProfiles(storage: Pick<Storage, "getItem">, catalog:
 }
 
 export function saveMiyousheProfile(profiles: MiyousheProfile[], incoming: MiyousheProfile): MiyousheProfile[] {
-  return [incoming, ...profiles.filter((p) => p.uid !== incoming.uid)].slice(0, 5);
+  return [freezeSnapshot(structuredClone(incoming)), ...profiles.filter((p) => p.uid !== incoming.uid)].slice(0, 5);
 }

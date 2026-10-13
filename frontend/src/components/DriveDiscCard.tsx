@@ -43,6 +43,7 @@ export type DriveDiscCardProps = {
   substatOptions: readonly DriveDiscStatOption[];
   diagnostics: readonly { diagnostic_id: string; message: string; blocking: boolean }[];
   onSelectSet: (setId: string) => void;
+  onRemoveDisc: () => void;
   onUpdateMain: (mainStat: string) => void;
   onUpdateSubstat: (index: number, next: DriveDiscSubstat) => void;
   onUpdateRoll: (index: number, delta: number) => void;
@@ -59,6 +60,7 @@ export function DriveDiscCard({
   substatOptions,
   diagnostics,
   onSelectSet,
+  onRemoveDisc,
   onUpdateMain,
   onUpdateSubstat,
   onUpdateRoll,
@@ -92,9 +94,10 @@ export function DriveDiscCard({
             <strong>{set?.display_name ?? "未装备驱动盘"}</strong>
           </div>
         </div>
-        <span className={`drive-disc-status ${complete ? "complete" : "incomplete"}`}>
+        <div className="drive-disc-card-actions"><span className={`drive-disc-status ${complete ? "complete" : "incomplete"}`}>
           {complete ? "完整" : disc ? "未完成" : "空槽"}
         </span>
+        {disc && <button type="button" className="toolbar-button" aria-label={`删除${schema.slot}号驱动盘`} onClick={onRemoveDisc}>删除</button>}</div>
       </header>
 
       <div className="drive-disc-section drive-disc-set-section">
