@@ -38,6 +38,91 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _FRONTEND_DIST = _PROJECT_ROOT / "frontend" / "dist"
 
 
+def _miyoushe_failure(exc) -> JSONResponse:
+    return JSONResponse(status_code=exc.status, headers={"Cache-Control": "no-store"}, content={
+        "schema_version": "presentation-v1",
+        **({"verification": exc.verification} if exc.verification else {}),
+        "diagnostics": [{"diagnostic_id": f"api:miyoushe:{exc.code}", "kind": "missing-data",
+                         "message": str(exc), "blocking": True}],
+    })
+
+
+@app.post("/api/v1/miyoushe/qr/start")
+async def start_miyoushe_qr() -> JSONResponse:
+    from .miyoushe import MiyousheError
+    from .miyoushe_qr import qr_sessions
+    try:
+        return JSONResponse(await qr_sessions.start(), headers={"Cache-Control": "no-store"})
+    except MiyousheError as exc:
+        return _miyoushe_failure(exc)
+
+
+@app.post("/api/v1/miyoushe/qr/status")
+async def poll_miyoushe_qr(payload: Any = Body(default={})) -> JSONResponse:
+    from .miyoushe import MiyousheError
+    from .miyoushe_qr import qr_sessions
+    try:
+        if not isinstance(payload, dict):
+            raise MiyousheError("扫码请求格式无效。")
+        return JSONResponse(await qr_sessions.status(payload.get("session_id")), headers={"Cache-Control": "no-store"})
+    except MiyousheError as exc:
+        return _miyoushe_failure(exc)
+
+
+@app.post("/api/v1/miyoushe/qr/cancel")
+async def cancel_miyoushe_qr(payload: Any = Body(default={})) -> JSONResponse:
+    from .miyoushe import MiyousheError
+    from .miyoushe_qr import qr_sessions
+    try:
+        if not isinstance(payload, dict):
+            raise MiyousheError("扫码请求格式无效。")
+        return JSONResponse(qr_sessions.cancel(payload.get("session_id")), headers={"Cache-Control": "no-store"})
+    except MiyousheError as exc:
+        return _miyoushe_failure(exc)
+
+
+@app.post("/api/v1/miyoushe/characters")
+async def import_miyoushe_characters(payload: Any = Body(default={})) -> JSONResponse:
+    from .miyoushe import MiyousheError, fetch_profile
+    try:
+        if not isinstance(payload, dict):
+            raise MiyousheError("请求必须包含 UID 和 Cookie 字段。")
+        device_headers = None
+        qr_session = None
+        if "qr_session" in payload:
+            from .miyoushe_qr import qr_sessions
+            if "cookie" in payload:
+                raise MiyousheError("请选择扫码登录或手动 Cookie 中的一种方式。")
+            payload = {**payload, "cookie": qr_sessions.cookie_header(payload["qr_session"])}
+            device_headers = qr_sessions.record_device_headers(payload["qr_session"])
+            qr_session = payload["qr_session"]
+        options = {"device_headers": device_headers, "qr_session": qr_session} if qr_session else {}
+        return JSONResponse(await fetch_profile(payload, **options), headers={"Cache-Control": "no-store"})
+    except MiyousheError as exc:
+        return _miyoushe_failure(exc)
+
+
+@app.post("/api/v1/miyoushe/verification/{action}")
+async def miyoushe_verification(action: str, payload: Any = Body(default={})) -> JSONResponse:
+    from .miyoushe import MiyousheError
+    from .miyoushe_verification import verification_sessions
+    try:
+        if not isinstance(payload, dict):
+            raise MiyousheError("验证请求格式无效。")
+        key = payload.get("verification_id")
+        if action == "start":
+            data = await verification_sessions.start(key)
+        elif action == "complete":
+            data = await verification_sessions.complete(key, payload.get("proof"))
+        elif action == "cancel":
+            data = verification_sessions.cancel(key)
+        else:
+            raise MiyousheError("验证请求不存在。", 404, "unknown-verification-action")
+        return JSONResponse(data, headers={"Cache-Control": "no-store"})
+    except MiyousheError as exc:
+        return _miyoushe_failure(exc)
+
+
 @app.get("/api/v1/characters")
 def list_characters() -> list[dict[str, Any]]:
     return [to_jsonable(item) for item in supported_character_catalog()]

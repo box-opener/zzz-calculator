@@ -40,6 +40,7 @@ const POTENTIAL_CONFIG_CHARACTER_IDS = new Set([
   "character:1201", // Harumasa
   "character:1211", // Rina
   "character:1261", // Jane Doe
+  "character:1381", // Soldier 0 - Anby
 ]);
 
 export function characterConfigFilename(

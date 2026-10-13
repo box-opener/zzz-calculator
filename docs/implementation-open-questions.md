@@ -8,6 +8,32 @@ This file records non-authoritative implementation limits. It does not change
 the terminology, calculation, or implementation specifications, and it does
 not decide game semantics.
 
+## 米游社角色获取（2026-10-13）
+
+已完成国服角色与实际装备导入、米游社 App 扫码登录、手动 Cookie 登录、由使用者完成验证码后的角色读取恢复，以及 Windows 一键配置运行。使用方法见 [README](../README.md#米游社角色获取)。角色资料按 UID 保存在当前浏览器，最多保留五个账号，可加载到当前队伍槽位；失败、取消和验证拒绝不会覆盖已有资料。
+
+### 登录和凭据生命周期
+
+扫码登录使用官方二维码接口；浏览器只持有随机会话标识，Cookie 留在后端有界内存中。二维码有效期最多三分钟，已确认登录最多十分钟；取消、退出、切换登录方式、离开页面和到期清理会话。未完成的角色安全验证保留原 UID、Cookie、扫码设备 ID/FP 及验证上下文最多五分钟。手动 Cookie 在请求开始时从输入框清除，也不进入浏览器缓存、返回资料或服务器文件。诊断仅记录请求阶段、异常类型、数字错误码和固定的错误类别，不记录 UID、Cookie、验证码证明或上游原文。
+
+### 战绩安全验证协议
+
+战绩返回10035时，使用国服 `https://api-takumi.mihoyo.com/event/toolcomsrv/risk/createGeetest` / `verifyGeetest`。创建带 `is_high=true` 和 `app_key=game_record_zzz`；提交的签名正文也包含相同 app_key。旧1034等战绩挑战使用 `card/wapi/createVerification?is_high=true` / `verifyVerification`。同一挑战的创建和校验保持同组接口，绑定游戏8、实际失败的角色列表或详情完整 URL，以及原响应 `x-trace-id`；追踪值限制为有界 ASCII，只在内存中保存。
+
+仅在上游返回整数 retcode=0 且 `data.challenge` 是有效服务器战绩令牌后继续读取角色。令牌与前端提交的 `geetest_challenge` 分开处理；扫码会话只复用米游社返回的令牌。社区验证码校验通过不能代替战绩验证通过。网页从官方 `gt.0.5.2.js` 加载极验组件，显式配置 HTTPS 和 `api.geetest.com`，验证码由使用者完成。
+
+协议依据：[GT-Manual-Plugin 接口定义](https://github.com/win-syswow64/GT-Manual-Plugin/blob/main/model/mysApi.js)及[10035分流与绝区零 app_key](https://github.com/win-syswow64/GT-Manual-Plugin/blob/main/model/index.js)、[TravelerNote 战绩验证协议](https://github.com/having5548/TravelerNote/blob/main/app/src/main/java/com/traveler/miyou/net/CardVerification.kt)、[PizzaHelper 创建与提交请求](https://github.com/pizza-studio/PizzaHelperUnited/blob/main/Packages/PZKit/Sources/PZAccountKit/HoYoAPIs/LoginRelated/ValidationAPI/CreateVerificationAPI.swift)、[FufuLauncher 极验组件接入](https://github.com/FufuLauncher/FufuLauncher/blob/master/FufuLauncher/Services/GeetestService.cs)及[极验前端文档](https://docs.geetest.com/captcha/apirefer/api/web)。HTTP 传输和签名复用 genshin.py；角色字段及装备转换依据 README 中列出的协议来源，不调用第三方解题服务。
+
+### 验证结果与现有范围
+
+后端全量1411项、前端180项测试、TypeScript检查和Vite生产构建通过。测试覆盖真实 SDK 请求边界、10035/1034分流、签名与 app_key、服务器令牌、详情验证上下文、凭据清理、Cookie失效、隐私、限流、缓存恢复及角色载入。Windows 启动脚本已在本机运行，能配置依赖、构建并启动服务。
+
+使用者重启服务并亲自扫码、完成验证码后，本地日志显示角色读取触发10035、验证创建200、`verification/complete` 返回200；该接口在校验通过并完整读取角色后才返回资料。使用者随后明确确认“已成功获取角色”，真实扫码、验证码校验和角色读取链路已通过。系统代理已由使用者排除，最终实现不包含排查时试加的代理继承代码。
+
+现有内核范围仍为60级角色、满核心突破（核心7级）、60级音擎及S级15级驱动盘。低等级、未满核心、未接入角色/装备等资料保留真实源字段并显示不可加载原因，不用满级或默认装备替代，也不阻塞其它可用角色。米游社最终局外面板只保留供参考，不重复叠加到装备组装结果；三、五影的技能加成还原为基础等级，潜能按源字段保留。
+
+未决项：支持任意养成等级需要补齐内核数据和模型；当前只接入国服 `prod_gf_cn`。登录和验证会话用于默认单进程本地服务，多进程或分布式部署需要共享会话机制。国际服及自动验证码处理未实现。
+
 ## Resolved Remielle source decisions (2026-10-05)
 
 The following branches were clarified directly by the user and are now implemented for the static calculation model; they are no longer open questions. The formulas below are implementation notes, not replacements for source text or the authoritative specifications.
