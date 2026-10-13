@@ -4,6 +4,7 @@ import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTr
 import NumberField from "./components/NumberField";
 import WEnginePicker from "./components/WEnginePicker";
 import MiyoushePanel from "./components/MiyoushePanel";
+import { miyousheEffectiveStatCount, type MiyousheCharacter } from "./state/miyousheProfiles";
 import {
   canAddToTeamSlot,
   calculationTeamOrder,
@@ -81,6 +82,7 @@ type Character = {
   specialty: string;
   image_path: string;
   image_object_position: string;
+  faction: string;
 };
 
 type WEngine = {
@@ -421,15 +423,21 @@ function App() {
   const [calculating, setCalculating] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [equipmentFeedback, setEquipmentFeedback] = useState<Record<string, { kind: "success" | "error"; message: string }>>({});
+  const [collapsedEquipment, setCollapsedEquipment] = useState<Record<string, boolean>>({});
+  const [miyousheBuilds, setMiyousheBuilds] = useState<Record<string, { count: number | null; discs: string }>>({});
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [librarySlot, setLibrarySlot] = useState<number | null>(null);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [librarySpecialty, setLibrarySpecialty] = useState("");
   const [libraryElement, setLibraryElement] = useState("");
+  const [libraryFaction, setLibraryFaction] = useState("");
   const editorGeneration = useRef(0);
   const editorAbortController = useRef<AbortController | null>(null);
   const equipmentImportInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const dragSourceTeamSlot = useRef<number | null>(null);
+  const dragOrigin = useRef<{ x: number; y: number } | null>(null);
+  const dragMoved = useRef(false);
+  const suppressTeamSlotClick = useRef(false);
   const [draggingTeamSlot, setDraggingTeamSlot] = useState<number | null>(null);
   const calculationGeneration = useRef(0);
 
@@ -863,7 +871,7 @@ function App() {
     );
   };
 
-  const loadMiyousheCharacter = (config: CharacterConfig) => {
+  const loadMiyousheCharacter = (config: CharacterConfig, source: MiyousheCharacter) => {
     const id = config.character_id;
     if (!characters.some((c) => c.character_id === id)) return;
     const slot = Math.max(0, teamIds.indexOf(currentOperatorId));
@@ -881,26 +889,41 @@ function App() {
     const nextLevels = { ...characterLevels, [id]: config.character_level };
     setConfigs(nextConfigs); setWengineSelections(nextWengines);
     setDriveDiscSelections(nextDiscs); setCharacterLevels(nextLevels);
+    setMiyousheBuilds((current) => ({ ...current, [id]: {
+      count: miyousheEffectiveStatCount(source.source_data), discs: JSON.stringify(config.drive_discs),
+    } }));
     calculationGeneration.current += 1;
     setCalculation(null); setCalculating(false);
     void loadEditors(nextTeam, id, nextConfigs, conditionValuesRef.current, {}, nextWengines, nextDiscs, nextLevels);
   };
 
   const beginTeamSlotDrag = (slotIndex: number, event: ReactPointerEvent<HTMLElement>) => {
+    suppressTeamSlotClick.current = false;
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    if (event.target instanceof Element && event.target.closest("button, input, select")) return;
     if (event.pointerType !== "mouse" && !(event.target instanceof Element && event.target.closest(".team-slot-art"))) return;
     dragSourceTeamSlot.current = slotIndex;
-    setDraggingTeamSlot(slotIndex);
+    dragOrigin.current = { x: event.clientX, y: event.clientY };
+    dragMoved.current = false;
     event.currentTarget.setPointerCapture(event.pointerId);
-    event.preventDefault();
+  };
+
+  const moveTeamSlotDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const origin = dragOrigin.current;
+    if (!origin || dragSourceTeamSlot.current === null) return;
+    if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 8) {
+      dragMoved.current = true;
+      setDraggingTeamSlot(dragSourceTeamSlot.current);
+    }
   };
 
   const finishTeamSlotDrag = (event: ReactPointerEvent<HTMLElement>) => {
     const sourceSlot = dragSourceTeamSlot.current;
     dragSourceTeamSlot.current = null;
+    dragOrigin.current = null;
     setDraggingTeamSlot(null);
     if (sourceSlot === null) return;
+    suppressTeamSlotClick.current = dragMoved.current;
+    if (!dragMoved.current) return;
     const target = document
       .elementFromPoint(event.clientX, event.clientY)
       ?.closest<HTMLElement>("[data-team-slot-index]");
@@ -911,6 +934,9 @@ function App() {
 
   const cancelTeamSlotDrag = () => {
     dragSourceTeamSlot.current = null;
+    dragOrigin.current = null;
+    dragMoved.current = false;
+    suppressTeamSlotClick.current = false;
     setDraggingTeamSlot(null);
   };
 
@@ -919,6 +945,7 @@ function App() {
     setLibraryQuery("");
     setLibrarySpecialty("");
     setLibraryElement("");
+    setLibraryFaction("");
     setLibraryOpen(true);
   };
 
@@ -942,8 +969,9 @@ function App() {
       query: libraryQuery,
       specialty: librarySpecialty,
       element: libraryElement,
+      faction: libraryFaction,
     });
-  }, [characters, libraryElement, libraryQuery, librarySpecialty]);
+  }, [characters, libraryElement, libraryFaction, libraryQuery, librarySpecialty]);
 
   useEffect(() => {
     Promise.all([
@@ -1442,8 +1470,8 @@ function App() {
             supportedCharacterIds={characters.map((c) => c.character_id)}
             onLoad={loadMiyousheCharacter}
           />
-          <div className="section-heading"><div><p className="eyebrow">ROSTER · TEAM BUILDER</p><h2>队伍与当前角色</h2><p className="roster-hint">从角色库选择 1–3 名角色；槽位顺序会保留，当前操作角色负责招式结算。</p></div><span className="counter">{teamIds.length}/3</span></div>
-          <div className="team-slot-grid" onPointerCancel={cancelTeamSlotDrag} onPointerUp={finishTeamSlotDrag}>
+          <div className="section-heading"><div><p className="eyebrow">ROSTER · TEAM BUILDER</p><h2>队伍与当前角色</h2><p className="roster-hint">点击角色槽位设为主控；拖动交换位置，空位可添加角色。</p></div><span className="counter">{teamIds.length}/3</span></div>
+          <div className="team-slot-grid" onPointerCancel={cancelTeamSlotDrag} onPointerMove={moveTeamSlotDrag} onPointerUp={finishTeamSlotDrag}>
             {Array.from({ length: 3 }, (_, slotIndex) => {
               const id = teamIds[slotIndex];
               const character = characters.find((item) => item.character_id === id);
@@ -1460,17 +1488,23 @@ function App() {
                 className={`team-slot team-slot-filled ${isOperator ? "team-slot-operator" : ""} ${draggingTeamSlot === slotIndex ? "team-slot-dragging" : ""}`}
                 data-team-slot-index={slotIndex}
                 key={id}
-                onPointerDown={(event) => beginTeamSlotDrag(slotIndex, event)}
               >
-                <div className="team-slot-art">
+                <button className="team-slot-select" type="button" aria-label={`选择${character.display_name}为主控`} aria-pressed={isOperator}
+                  onPointerDown={(event) => beginTeamSlotDrag(slotIndex, event)}
+                  onClick={(event) => {
+                    if (event.detail > 0 && suppressTeamSlotClick.current) { suppressTeamSlotClick.current = false; return; }
+                    suppressTeamSlotClick.current = false;
+                    applyTeamAction({ type: "set-current-operator", characterId: id });
+                  }}>
+                <span className="team-slot-art">
                   <img alt={character.display_name} draggable={false} src={character.image_path} style={{ objectPosition: character.image_object_position }} />
                   <span className="rarity">{character.rarity}</span>
                   {isOperator && <span className="operator-badge">当前操作</span>}
                   <span className="team-slot-drag-hint" aria-hidden="true">⠿ 拖动交换</span>
-                </div>
-                <div className="team-slot-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small></div>
+                </span>
+                <span className="team-slot-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small></span>
+                </button>
                 <div className="team-slot-actions">
-                  <button className="secondary-button" disabled={isOperator} onClick={() => applyTeamAction({ type: "set-current-operator", characterId: id })} type="button">设为当前操作</button>
                   <button className="secondary-button" onClick={() => openCharacterLibrary(slotIndex)} type="button">替换</button>
                   <button className="secondary-button team-slot-remove" onClick={() => applyTeamAction({ type: "remove-character", characterId: id })} type="button">移除</button>
                 </div>
@@ -1480,6 +1514,7 @@ function App() {
           {selectedCurrent && <div className="selection-summary"><span className="eyebrow">CURRENT OPERATOR</span><strong>{selectedCurrent.display_name}</strong><span className="muted">{selectedCurrent.character_id} · {supportingIds.length} 名支援角色</span></div>}
           <LivePanel
             teamIds={teamIds}
+            currentOperatorId={currentOperatorId}
             characters={characters}
             editorViews={editorViews}
             previews={buildPreviews}
@@ -1494,16 +1529,17 @@ function App() {
               <button className="icon-button library-close" aria-label="关闭角色库" onClick={closeCharacterLibrary} type="button">×</button>
             </header>
             <div className="character-library-filters">
-              <label><span>搜索角色</span><input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder="名称、职业或属性" /></label>
+              <label><span>搜索角色</span><input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder="名称、职业、属性或阵营" /></label>
               <label><span>职业</span><select value={librarySpecialty} onChange={(event) => setLibrarySpecialty(event.target.value)}><option value="">全部职业</option>{Array.from(new Set(characters.map((item) => item.specialty))).map((specialty) => <option key={specialty} value={specialty}>{specialtyLabel(specialty)}</option>)}</select></label>
               <label><span>属性</span><select value={libraryElement} onChange={(event) => setLibraryElement(event.target.value)}><option value="">全部属性</option>{Array.from(new Set(characters.map((item) => item.element))).map((element) => <option key={element} value={element}>{elementLabel(element)}</option>)}</select></label>
+              <label><span>阵营</span><select value={libraryFaction} onChange={(event) => setLibraryFaction(event.target.value)}><option value="">全部阵营</option>{Array.from(new Set(characters.map((item) => item.faction))).filter(Boolean).map((faction) => <option key={faction} value={faction}>{faction}</option>)}</select></label>
             </div>
             <div className="library-results" aria-live="polite">
               {filteredLibraryCharacters.map((character) => {
                 const alreadySelected = !isCharacterSelectable(character.character_id, teamIds);
                 return <button className={`library-character ${alreadySelected ? "library-character-selected" : ""}`} disabled={alreadySelected} key={character.character_id} onClick={() => selectLibraryCharacter(character.character_id)} type="button">
                   <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} />
-                  <span className="library-character-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small></span>
+                  <span className="library-character-copy"><strong>{character.display_name}</strong><small>{specialtyLabel(character.specialty)} · {elementLabel(character.element)}</small><small>{character.faction}</small></span>
                   <span className="rarity">{character.rarity}</span>
                   {alreadySelected && <span className="library-selected-mark">队伍中</span>}
                 </button>;
@@ -1518,14 +1554,17 @@ function App() {
           <div className="build-character-fields">
             {teamIds.length === 0
               ? <div className="empty-team-hint">先从上方角色库添加角色，再配置音擎和驱动盘。</div>
-              : teamIds.map((id, teamIndex) => {
+              : teamIds.map((id) => {
               const driveView = driveDiscViews[id];
               const selectedDiscs = driveDiscSelections[id] ?? [];
               const preview = buildPreviews[id];
               const character = characters.find((item) => item.character_id === id);
               const selectedWengine = wengines.find((item) => item.wengine_id === wengineSelections[id]?.id);
               const feedback = equipmentFeedback[id];
-              const roleLabel = teamIndex === 0 ? "主控角色" : "支援角色";
+              const roleLabel = id === currentOperatorId ? "主控角色" : "支援角色";
+              const collapsed = collapsedEquipment[id] ?? false;
+              const imported = miyousheBuilds[id];
+              const discsChanged = imported && imported.discs !== JSON.stringify(selectedDiscs);
               const progressFields = editorViews[id]?.compile_config_fields.filter(isCharacterProgressField) ?? [];
               return (
                 <article className="build-character build-character-equipment" key={id}>
@@ -1535,10 +1574,12 @@ function App() {
                       <div>
                         <span className="build-character-role">{roleLabel}</span>
                         <strong>{character?.display_name ?? id}</strong>
-                        <small>{character ? `${character.specialty} · ${character.element}` : id}</small>
+                        <small>{character ? `${specialtyLabel(character.specialty)} · ${elementLabel(character.element)}` : id}</small>
                       </div>
                     </div>
                     <div className="equipment-tools">
+                      <button className="toolbar-button equipment-collapse" type="button" aria-expanded={!collapsed} aria-controls={`equipment-details-${id}`} onClick={() => setCollapsedEquipment((current) => ({ ...current, [id]: !collapsed }))}>{collapsed ? "展开装备配置 ▾" : "折叠装备配置 ▴"}</button>
+                      {!collapsed && <>
                       <span className="equipment-schema-note">JSON · 角色配置 v2</span>
                       <button className="toolbar-button" type="button" onClick={() => equipmentImportInputRefs.current[id]?.click()}>
                         <span aria-hidden="true">↑</span> 导入配置
@@ -1558,8 +1599,17 @@ function App() {
                           if (file) void importEquipmentConfig(id, file);
                         }}
                       />
+                      </>}
                     </div>
                   </header>
+                  <div className="effective-stat-count"><span>驱动盘有效词条数量</span><strong>{imported?.count ?? "—"}<small>{imported?.count !== null && imported?.count !== undefined ? " 条" : ""}</small></strong><small>{!imported ? "加载米游社角色后显示" : imported.count === null ? "米游社未提供，请重新获取角色" : discsChanged ? "米游社获取时的数量 · 驱动盘已修改" : "米游社有效词条统计"}</small></div>
+                  {collapsed && <dl className="equipment-compact-summary">
+                    <div><dt>角色等级</dt><dd>{characterLevels[id] ?? 60} 级</dd></div>
+                    <div><dt>影画层数</dt><dd>{String(configs[id]?.cinema_level ?? 0)} 层</dd></div>
+                    <div className="equipment-compact-wengine"><dt>音擎</dt><dd>{selectedWengine?.display_name ?? "未装备"}</dd></div>
+                    <div><dt>精炼</dt><dd>{selectedWengine ? `${wengineSelections[id]?.refinement ?? 1} 阶` : "—"}</dd></div>
+                  </dl>}
+                  <div id={`equipment-details-${id}`} hidden={collapsed}>
                   <div className="equipment-schema-copy">导入或导出当前角色的等级、核心/影画、技能、音擎与驱动盘；文件会完整校验输入。</div>
                   {feedback && <p className={`equipment-feedback ${feedback.kind}`}>{feedback.kind === "success" ? "✓" : "!"} {feedback.message}</p>}
 
@@ -1615,6 +1665,7 @@ function App() {
                       })}
                     </div>
                     {driveView && driveView.set_counts.length > 0 && <div className="drive-set-summary"><span className="drive-set-summary-label">套装统计</span>{driveView.set_counts.map((item) => <span key={item.set_id}>{driveDiscSets.find((set) => set.set_id === item.set_id)?.display_name ?? item.set_id} ×{item.count}</span>)}</div>}
+                  </div>
                   </div>
                 </article>
               );
@@ -1893,7 +1944,7 @@ function elementLabel(element: string) {
 }
 
 function specialtyLabel(specialty: string) {
-  return ({ attack: "强攻", anomaly: "异常", support: "支援", stun: "击破", rupture: "命破" } as Record<string, string>)[specialty] ?? specialty;
+  return ({ attack: "强攻", anomaly: "异常", support: "支援", stun: "击破", rupture: "命破", defense: "防护" } as Record<string, string>)[specialty] ?? specialty;
 }
 
 function isCharacterProgressField(field: CompileField) {
@@ -1904,6 +1955,7 @@ function isCharacterProgressField(field: CompileField) {
 
 type LivePanelProps = {
   teamIds: string[];
+  currentOperatorId: string | null;
   characters: Character[];
   editorViews: Record<string, EditorView | null>;
   previews: Record<string, BuildPreview | null>;
@@ -1925,7 +1977,7 @@ const LIVE_PANEL_STATS: { key: string; label: string; ratio?: boolean }[] = [
   { key: "energy_regen", label: "能量自动回复" },
 ];
 
-function LivePanel({ teamIds, characters, editorViews, previews, loading }: LivePanelProps) {
+function LivePanel({ teamIds, currentOperatorId, characters, editorViews, previews, loading }: LivePanelProps) {
   return <section className="live-panel" aria-label="实时局外面板">
     <div className="section-heading compact live-panel-heading">
       <div><p className="eyebrow">LIVE OUT-OF-COMBAT PANEL</p><h2>实时局外面板</h2><p className="live-panel-subtitle">当前队伍的最终局外属性与来源</p></div>
@@ -1952,7 +2004,7 @@ function LivePanel({ teamIds, characters, editorViews, previews, loading }: Live
           <div className="live-panel-card-heading">
             <div className="live-panel-character">
               {character ? <img alt="" src={character.image_path} style={{ objectPosition: character.image_object_position }} /> : <span className="live-panel-avatar">?</span>}
-              <div><strong>{character?.display_name ?? id}</strong><small>{teamIndex === 0 ? "主控角色" : "支援角色"}{damageElement ? ` · ${damageElement}` : ""}</small></div>
+              <div><strong>{character?.display_name ?? id}</strong><small>{id === currentOperatorId ? "主控角色" : "支援角色"}{damageElement ? ` · ${damageElement}` : ""}</small></div>
             </div>
             <span className={`live-panel-status ${statusClass}`}>{status}</span>
           </div>

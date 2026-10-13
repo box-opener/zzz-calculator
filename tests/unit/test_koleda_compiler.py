@@ -177,7 +177,7 @@ def test_koleda_live_identity_panel_signature_and_potential_source_are_registere
     assert wengine["wengine:14110"].signature_character_id == str(KOLEDA_ID)
     catalog = {item.character_id: item for item in supported_character_catalog()}
     assert catalog[str(KOLEDA_ID)].code_name == "Koleda"
-    assert catalog[str(KOLEDA_ID)].image_path == "/characters/portrait-placeholder.svg"
+    assert catalog[str(KOLEDA_ID)].image_path == "/characters/1101.png"
     assert registration_for(KOLEDA_ID).role.value == "stun"
     asset_root = Path(__file__).parents[2] / "frontend" / "public" / "characters"
     assert (asset_root / "portrait-placeholder.svg").is_file()

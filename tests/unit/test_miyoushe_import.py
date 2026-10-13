@@ -72,6 +72,22 @@ def test_explicitly_unequipped_weapon_and_empty_discs_are_preserved():
     assert record["configuration"]["drive_discs"] == []
 
 
+@pytest.mark.parametrize("count", [0, 37])
+def test_official_effective_disc_stat_count_is_preserved_without_arbitrary_plan_data(count):
+    raw = avatar()
+    raw["equip_plan_info"] = {"valid_property_cnt": count, "cookie": COOKIE, "custom_info": {"token": COOKIE}}
+    record = miyoushe.normalize_character(raw)
+    assert record["source_data"]["equip_plan_info"] == {"valid_property_cnt": count}
+    assert COOKIE not in str(record)
+
+
+@pytest.mark.parametrize("plan", [None, {}, {"valid_property_cnt": -1}, {"valid_property_cnt": True}, {"valid_property_cnt": "37"}])
+def test_missing_or_invalid_effective_stat_count_is_not_invented(plan):
+    raw = avatar()
+    raw["equip_plan_info"] = plan
+    assert miyoushe.normalize_character(raw)["source_data"]["equip_plan_info"] is None
+
+
 @pytest.mark.parametrize("uid", ["https://example.com", "../12345678", True, 12345678, "00000000"])
 def test_invalid_uid_is_rejected_before_any_transport(uid):
     factory = AsyncMock()

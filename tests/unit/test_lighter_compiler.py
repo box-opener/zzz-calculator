@@ -182,7 +182,7 @@ def test_lighter_live_identity_panel_engine_and_source_defaults_are_registered()
     assert engine.advanced_stat_value == pytest.approx(0.18)
     catalog = {item.character_id: item for item in supported_character_catalog()}
     assert catalog[LIGHTER].code_name == "Lighter"
-    assert catalog[LIGHTER].image_path == "/characters/portrait-placeholder.svg"
+    assert catalog[LIGHTER].image_path == "/characters/1161.png"
     engine_catalog = {item.wengine_id: item for item in supported_wengine_catalog()}
     assert engine_catalog["wengine:14116"].signature_character_id == LIGHTER
     assert registration_for(LIGHTER_ID).role.value == "stun"

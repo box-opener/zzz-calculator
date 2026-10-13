@@ -171,7 +171,7 @@ def test_anton_raw_panel_a_rank_signature_and_catalog_are_registered() -> None:
     assert engine_catalog["wengine:13111"].signature_character_id == str(ANTON_ID)
     character_catalog = {item.character_id: item for item in supported_character_catalog()}
     assert character_catalog[str(ANTON_ID)].code_name == "Anton"
-    assert character_catalog[str(ANTON_ID)].image_path == "/characters/portrait-placeholder.svg"
+    assert character_catalog[str(ANTON_ID)].image_path == "/characters/1111.png"
     assert (Path(__file__).parents[2] / "frontend/public/characters/portrait-placeholder.svg").is_file()
     assert registration_for(ANTON_ID).base_element is Element.ELECTRIC
     assert registration_for(ANTON_ID).role.value == "attack"

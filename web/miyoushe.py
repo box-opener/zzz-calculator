@@ -303,11 +303,15 @@ def source_summary(raw: Mapping[str, Any]) -> dict[str, Any]:
                 for p in items[:30] if isinstance(p, Mapping)]
     weapon = raw.get("weapon")
     awakened = raw.get("skill_awaken")
+    plan = raw.get("equip_plan_info")
+    count = plan.get("valid_property_cnt") if isinstance(plan, Mapping) else None
+    valid_count = count if isinstance(count, int) and not isinstance(count, bool) and 0 <= count <= 2**53 - 1 else None
     return {
         **fields(raw, ("level", "rank")),
         "skills": [fields(s, ("skill_type", "level")) for s in items(raw.get("skills"), 7)],
         "skill_awaken": fields(awakened, ("awaken_level",)) if isinstance(awakened, Mapping) else None,
         "properties": properties(raw.get("properties")),
+        "equip_plan_info": {"valid_property_cnt": valid_count} if valid_count is not None else None,
         "weapon": fields(weapon, ("id", "name", "level", "star", "rarity")) if isinstance(weapon, Mapping) else None,
         "discs": [{**fields(d, ("equipment_type", "level", "rarity")),
                    "set": fields(d["equip_suit"], ("suit_id",)) if isinstance(d.get("equip_suit"), Mapping) else None,

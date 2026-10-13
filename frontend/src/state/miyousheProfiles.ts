@@ -19,6 +19,14 @@ export type MiyousheProfile = {
   characters: MiyousheCharacter[];
 };
 
+/** The official count belongs to the fetched drive-disc build, not final panel stats. */
+export function miyousheEffectiveStatCount(source: Record<string, unknown>): number | null {
+  const plan = source.equip_plan_info;
+  if (!plan || typeof plan !== "object" || Array.isArray(plan)) return null;
+  const count = (plan as Record<string, unknown>).valid_property_cnt;
+  return typeof count === "number" && Number.isSafeInteger(count) && count >= 0 ? count : null;
+}
+
 function safeSource(value: unknown, depth = 0): unknown {
   if (depth > 7) return null;
   if (value === null || typeof value === "boolean" || typeof value === "number") return value;
