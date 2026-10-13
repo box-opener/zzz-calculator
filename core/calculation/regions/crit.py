@@ -41,9 +41,10 @@ def _node(node: CalculationNode, value: float) -> CalculationNodeValue:
 
 
 def calculate_crit_region(input: CritRegionInput) -> CalculationResult:
-    region = 1.0 * (1.0 - input.crit_rate) + (
+    probability = min(1.0, max(0.0, input.crit_rate))
+    region = 1.0 * (1.0 - probability) + (
         1.0 + input.crit_damage
-    ) * input.crit_rate
+    ) * probability
     breakdown = (
         _node(CalculationNode.CHARACTER_CURRENT_CRIT_RATE, input.crit_rate),
         _node(CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE, input.crit_damage),
@@ -55,9 +56,10 @@ def calculate_crit_region(input: CritRegionInput) -> CalculationResult:
 def calculate_anomaly_crit_region(
     input: AnomalyCritRegionInput,
 ) -> CalculationResult:
-    region = 1.0 * (1.0 - input.crit_rate) + (
+    probability = min(1.0, max(0.0, input.crit_rate))
+    region = 1.0 * (1.0 - probability) + (
         1.0 + input.crit_damage
-    ) * input.crit_rate
+    ) * probability
     breakdown = (
         _node(CalculationNode.ANOMALY_CRIT_REGION, region),
     )
@@ -69,7 +71,8 @@ def _calculate_special_crit_region(
     crit_damage: float,
     node: CalculationNode,
 ) -> CalculationResult:
-    region = 1.0 * (1.0 - crit_rate) + (1.0 + crit_damage) * crit_rate
+    probability = min(1.0, max(0.0, crit_rate))
+    region = 1.0 * (1.0 - probability) + (1.0 + crit_damage) * probability
     return CalculationResult(
         value=region,
         breakdown=(_node(node, region),),

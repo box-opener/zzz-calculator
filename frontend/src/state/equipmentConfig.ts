@@ -1,4 +1,5 @@
 import type { DriveDiscConfig, DriveDiscSlotSchema, DriveDiscStatOption } from "./driveDiscState";
+import { validateEffectiveStats } from './effectiveStats';
 
 export const EQUIPMENT_CONFIG_SCHEMA_VERSION = "zzz-character-equipment-v1" as const;
 
@@ -68,6 +69,7 @@ export type CharacterConfig = {
   wengine: EquipmentWengineConfig | null;
   drive_discs: DriveDiscConfig[];
   manual_panel_stats: null;
+  effective_substats?: string[];
 };
 
 export type CharacterConfigParseResult =
@@ -365,6 +367,7 @@ function validateCharacterObject(
     "wengine",
     "drive_discs",
     "manual_panel_stats",
+    ...('effective_substats' in raw ? ['effective_substats'] : []),
   ])) {
     invalid("character config has unexpected or missing fields");
   }
@@ -378,6 +381,8 @@ function validateCharacterObject(
     invalid("build_mode must be manual-panel or equipment-build");
   }
   const compileConfig = validateCompileConfig(raw.compile_config, characterId);
+  const effectiveStats = 'effective_substats' in raw ? validateEffectiveStats(raw.effective_substats) : undefined;
+  if (effectiveStats === null) invalid('effective_substats contains invalid or duplicate stats');
   validateManualPanelStats(raw.manual_panel_stats);
   const equipment = validateEquipmentObject({
     schema_version: EQUIPMENT_CONFIG_SCHEMA_VERSION,
@@ -398,6 +403,7 @@ function validateCharacterObject(
       wengine: equipment.wengine,
       drive_discs: equipment.drive_discs,
       manual_panel_stats: null,
+      ...(effectiveStats !== undefined ? { effective_substats: effectiveStats } : {}),
     },
     equipment,
   };
@@ -411,6 +417,7 @@ export function createCharacterConfig(
   wengine: EquipmentWengineConfig | null,
   driveDiscs: readonly DriveDiscConfig[],
   _manualPanelStats: Record<string, unknown> | null,
+  effectiveStats?: string[],
 ): CharacterConfig {
   return {
     schema_version: CHARACTER_CONFIG_SCHEMA_VERSION,
@@ -424,6 +431,7 @@ export function createCharacterConfig(
       substats: disc.substats.map((substat) => ({ ...substat })),
     })),
     manual_panel_stats: null,
+    ...(effectiveStats !== undefined ? { effective_substats: [...effectiveStats] } : {}),
   };
 }
 

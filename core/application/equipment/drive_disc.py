@@ -223,6 +223,19 @@ def _diagnostic(owner: str, suffix: str, message: str) -> CalculationDiagnostic:
     )
 
 
+def compile_substat_increment(character_id: str, key: DriveDiscStatKey) -> BuildStatContribution:
+    """One hypothetical S-rank roll; never changes equipped discs or set counts."""
+    from core.types import DRIVE_DISC_SUBSTAT_VALUES
+    if key not in DRIVE_DISC_SUBSTAT_VALUES:
+        raise ValueError("increment must be a Drive Disc substat")
+    source = BuildSource(
+        source_id=f"substat-gain:{character_id}:{key.value}",
+        source_type=BuildSourceType.MANUAL_ADJUSTMENT,
+        label=f"新增一条副词条：{key.value}",
+    )
+    return _contribution(source, source.source_id, key, DRIVE_DISC_SUBSTAT_VALUES[key])
+
+
 def compile_drive_discs(
     build_input: DriveDiscBuildInput,
     *,

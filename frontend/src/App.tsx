@@ -4,6 +4,12 @@ import EventTraceDetails, { type EventTraceEnvelope } from "./components/EventTr
 import NumberField from "./components/NumberField";
 import WEnginePicker from "./components/WEnginePicker";
 import MiyoushePanel from "./components/MiyoushePanel";
+import EffectiveStatsPanel from './components/EffectiveStatsPanel';
+import EndgamePanel from './components/EndgamePanel';
+import {type TargetMode,type EndgameSelection,type EndgameEditor,type EnemyOverrides} from './state/endgame';
+import SubstatGainPanel, {type CharacterStatGains} from './components/SubstatGainPanel';
+import {defaultEffectiveStats, miyousheEffectiveStats, readEffectivePreferences, EFFECTIVE_STATS_STORAGE_KEY} from './state/effectiveStats';
+import {enemyDefenseAtLevel, type EnemyCatalog, type EnemyVariant} from './state/enemyCatalog';
 import { miyousheEffectiveStatCount, type MiyousheCharacter } from "./state/miyousheProfiles";
 import {
   canAddToTeamSlot,
@@ -331,6 +337,8 @@ type CalculationEvent = {
 };
 
 type CalculationView = {
+  scenario_provenance?:EndgameEditor['provenance'];
+  substat_gains?: CharacterStatGains[];
   move_entry_id: string;
   display_modes?: string[];
   events: CalculationEvent[];
@@ -413,18 +421,31 @@ function App() {
   const [driveDiscSelections, setDriveDiscSelections] = useState<Record<string, DriveDiscConfig[]>>({});
   const [buildPreviews, setBuildPreviews] = useState<Record<string, BuildPreview | null>>({});
   const [enemyLevel, setEnemyLevel] = useState(70);
+  const [targetMode,setTargetMode]=useState<TargetMode>('normal');
+  const [endgameSelection,setEndgameSelection]=useState<EndgameSelection|null>(null);
+  const [endgameEditor,setEndgameEditor]=useState<EndgameEditor|null>(null);
+  const endgameTargetKey=useRef('');
+  const [enemyCatalog, setEnemyCatalog] = useState<EnemyCatalog | null>(null);
+  const [enemyId, setEnemyId] = useState('enemy:300021');
+  const [enemyVariantId, setEnemyVariantId] = useState('11051');
+  const [enemyQuery, setEnemyQuery] = useState('');
+  const [enemyDefenseAutomatic, setEnemyDefenseAutomatic] = useState(true);
+  const [manualResistanceElements, setManualResistanceElements] = useState<string[]>([]);
+  const [manualEnemyFields,setManualEnemyFields]=useState<string[]>([]);
   const [enemyDamageReduction, setEnemyDamageReduction] = useState(0);
   const [enemyIsStunned, setEnemyIsStunned] = useState(false);
   const [enemyDefense, setEnemyDefense] = useState(857);
   const [enemyResistances, setEnemyResistances] = useState(INITIAL_ENEMY_RESISTANCES);
   const [stunVulnerability, setStunVulnerability] = useState(1.5);
   const [calculation, setCalculation] = useState<CalculationView | null>(null);
+  const [calculatedFingerprint, setCalculatedFingerprint] = useState('');
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [equipmentFeedback, setEquipmentFeedback] = useState<Record<string, { kind: "success" | "error"; message: string }>>({});
   const [collapsedEquipment, setCollapsedEquipment] = useState<Record<string, boolean>>({});
-  const [miyousheBuilds, setMiyousheBuilds] = useState<Record<string, { count: number | null; discs: string }>>({});
+  const [miyousheBuilds, setMiyousheBuilds] = useState<Record<string, { count: number | null; stats:string[]|null }>>({});
+  const [effectiveOverrides, setEffectiveOverrides] = useState<Record<string,string[]>>(readEffectivePreferences);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [librarySlot, setLibrarySlot] = useState<number | null>(null);
   const [libraryQuery, setLibraryQuery] = useState("");
@@ -440,6 +461,60 @@ function App() {
   const suppressTeamSlotClick = useRef(false);
   const [draggingTeamSlot, setDraggingTeamSlot] = useState<number | null>(null);
   const calculationGeneration = useRef(0);
+  const selectedEnemy = enemyCatalog?.enemies.find(e=>e.enemy_id === enemyId);
+  const selectedEnemyVariant = selectedEnemy?.variants.find(v=>v.variant_id === enemyVariantId);
+  const targetResistanceSource=targetMode==='normal'?selectedEnemyVariant?.damage_resistance:endgameEditor?.defaults.damage_resistance;
+  const applyEndgameEnemy=(enemy:EndgameEditor['enemy'],confirmed:string[]=[],fields:string[]=[])=>{
+    setEnemyId(enemy.enemy_id);setEnemyVariantId(enemy.variant_id);setEnemyLevel(enemy.level);
+    setEnemyDefense(enemy.initial_defense??0);setEnemyDefenseAutomatic(false);
+    setEnemyResistances({...INITIAL_ENEMY_RESISTANCES,...enemy.damage_resistance});setManualResistanceElements(confirmed);
+    setManualEnemyFields(fields);
+    setStunVulnerability(enemy.stun_vulnerability_bonus??1);setEnemyDamageReduction(enemy.damage_reduction);setEnemyIsStunned(enemy.is_stunned);
+    calculationGeneration.current+=1;setCalculating(false);setCalculation(null);
+  };
+  const changeEndgame=(selection:EndgameSelection|null,editor:EndgameEditor|null)=>{
+    setEndgameSelection(selection);setEndgameEditor(editor);
+    if(selection && editor){
+      const key=JSON.stringify([selection.mode,selection.season_id,selection.stage_id,selection.room_id,selection.target_id,selection.enemy_overrides]);
+      if(key!==endgameTargetKey.current){endgameTargetKey.current=key;applyEndgameEnemy(editor.enemy,Object.keys(selection.enemy_overrides?.damage_resistance??{}),Object.keys(selection.enemy_overrides??{}));}
+    }
+  };
+  const endgameEnemyOverrides:EnemyOverrides={};
+  if(endgameEditor){
+    const base=endgameEditor.defaults;
+    if(enemyLevel!==base.level)endgameEnemyOverrides.level=enemyLevel;
+    if(enemyDefense!==base.initial_defense && (base.initial_defense!==null || manualEnemyFields.includes('initial_defense')))endgameEnemyOverrides.initial_defense=enemyDefense;
+    if(stunVulnerability!==base.stun_vulnerability_bonus && (base.stun_vulnerability_bonus!==null || manualEnemyFields.includes('stun_vulnerability_bonus')))endgameEnemyOverrides.stun_vulnerability_bonus=stunVulnerability;
+    if(enemyDamageReduction!==base.damage_reduction)endgameEnemyOverrides.damage_reduction=enemyDamageReduction;
+    if(enemyIsStunned!==base.is_stunned)endgameEnemyOverrides.is_stunned=enemyIsStunned;
+    const resistance=Object.fromEntries(Object.entries(enemyResistances).filter(([element,value])=>element in base.damage_resistance?value!==base.damage_resistance[element]:manualResistanceElements.includes(element)));
+    if(Object.keys(resistance).length)endgameEnemyOverrides.damage_resistance=resistance;
+  }
+  const effectiveFor = (id:string) => effectiveOverrides[id] ?? miyousheBuilds[id]?.stats
+    ?? defaultEffectiveStats(characters.find(c=>c.character_id===id)?.specialty);
+  const applyEnemyDefaults = (variant:EnemyVariant, level=enemyLevel) => {
+    setEnemyDefenseAutomatic(true);
+    setEnemyDefense(enemyDefenseAtLevel(variant,level));
+    setEnemyResistances({...INITIAL_ENEMY_RESISTANCES,...variant.damage_resistance});
+    setManualResistanceElements([]);
+    setStunVulnerability(variant.stun_multiplier);
+    setEnemyDamageReduction(0);
+    setEnemyIsStunned(false);
+    calculationGeneration.current += 1;
+    setCalculating(false); setCalculation(null);
+  };
+  const selectEnemy = (id:string) => {
+    const enemy=enemyCatalog?.enemies.find(e=>e.enemy_id===id);
+    const variant=enemy?.variants.find(v=>v.variant_id===enemy.default_variant_id) ?? enemy?.variants[0];
+    if (!variant) return;
+    setEnemyId(id); setEnemyVariantId(variant.variant_id); applyEnemyDefaults(variant);
+  };
+  useEffect(()=>{
+    if (targetMode==='normal' && enemyDefenseAutomatic && selectedEnemyVariant) setEnemyDefense(enemyDefenseAtLevel(selectedEnemyVariant,enemyLevel));
+  },[enemyLevel,enemyDefenseAutomatic,selectedEnemyVariant,targetMode]);
+  useEffect(()=>{
+    try {localStorage.setItem(EFFECTIVE_STATS_STORAGE_KEY,JSON.stringify(effectiveOverrides));} catch { /* The current edit remains usable if storage is unavailable. */ }
+  },[effectiveOverrides]);
 
   const commitConditionValues = (next: Record<string, boolean | null>) => {
     conditionValuesRef.current = next;
@@ -890,7 +965,8 @@ function App() {
     setConfigs(nextConfigs); setWengineSelections(nextWengines);
     setDriveDiscSelections(nextDiscs); setCharacterLevels(nextLevels);
     setMiyousheBuilds((current) => ({ ...current, [id]: {
-      count: miyousheEffectiveStatCount(source.source_data), discs: JSON.stringify(config.drive_discs),
+      count: miyousheEffectiveStatCount(source.source_data),
+      stats:miyousheEffectiveStats(source.source_data),
     } }));
     calculationGeneration.current += 1;
     setCalculation(null); setCalculating(false);
@@ -978,11 +1054,16 @@ function App() {
       jsonRequest<Character[]>("/api/v1/characters"),
       jsonRequest<WEngine[]>("/api/v1/wengines"),
       jsonRequest<DriveDiscSet[]>("/api/v1/drive-discs"),
+      jsonRequest<EnemyCatalog>('/api/v1/enemies'),
     ])
-      .then(([loadedCharacters, loadedWengines, loadedDriveDiscSets]) => {
+      .then(([loadedCharacters, loadedWengines, loadedDriveDiscSets, loadedEnemies]) => {
         setCharacters(loadedCharacters);
         setWengines(loadedWengines);
         setDriveDiscSets(loadedDriveDiscSets);
+        setEnemyCatalog(loadedEnemies);
+        const guardian=loadedEnemies.enemies.find(e=>e.enemy_id==='enemy:300021');
+        const variant=guardian?.variants.find(v=>v.variant_id===guardian.default_variant_id) ?? guardian?.variants[0];
+        if (variant) {setEnemyVariantId(variant.variant_id); applyEnemyDefaults(variant,70);}
         return loadEditors(teamIds, currentOperatorId, configs, conditionValuesRef.current, {}, wengineSelections);
       })
       .catch((error: Error) => setDiagnostics([error.message]));
@@ -1117,6 +1198,7 @@ function App() {
 
   const updateEnemyResistance = (element: EnemyResistanceElement, value: number) => {
     setEnemyResistances((current) => ({ ...current, [element]: value }));
+    setManualResistanceElements(current=>current.includes(element)?current:[...current,element]);
   };
 
   const exportEquipmentConfig = (owner: string) => {
@@ -1140,6 +1222,7 @@ function App() {
         : null,
       driveDiscSelections[owner] ?? [],
       null,
+      effectiveFor(owner),
     );
     const blob = new Blob([serializeCharacterConfig(config)], {
       type: "application/json;charset=utf-8",
@@ -1180,6 +1263,8 @@ function App() {
         setDiagnostics([`装备配置导入失败：${result.message}`]);
         return;
       }
+
+      if (result.config.effective_substats !== undefined) setEffectiveOverrides(current=>({...current,[owner]:result.config.effective_substats!}));
 
       const nextWengineSelections = { ...wengineSelections };
       if (result.wengineProvided && result.equipment.wengine) {
@@ -1316,10 +1401,22 @@ function App() {
     }];
   }));
 
+  const calculationFingerprint = JSON.stringify({team:teamIds,operator:currentOperatorId,configs,wengineSelections,driveDiscSelections,
+    targetMode,endgameSelection,endgameEnemyOverrides,
+    characterLevels,enemyId,enemyVariantId,enemyLevel,enemyDefense,enemyResistances,enemyIsStunned,stunVulnerability,enemyDamageReduction,
+    moveEntryId,conditionValues,parameterValues,rules:[...enabledRules],stacks,triggerActors,
+    sources:[effectiveRemielleSourceSlots,effectivePolarAnomalySource,effectiveBurniceAnomalySource,effectiveGraceAnomalySource,effectiveDischargeAnomalySource]});
+
   const calculate = async () => {
     if (teamIds.length === 0 || !currentOperatorId || !moveEntryId || moveSelectionIssue) {
       if (moveSelectionIssue) setDiagnostics([moveSelectionIssue]);
       return;
+    }
+    if (targetMode!=='normal' && (!endgameSelection || !endgameEditor)){setDiagnostics(['请先完成终局场景读取。']);return;}
+    if (targetMode==='normal' && !selectedEnemyVariant) {setDiagnostics(['请先选择具有完整属性的真实怪物及变体。']); return;}
+    if (selectedMove?.element === 'luminance' && !('luminance' in (targetResistanceSource??{}))
+      && !manualResistanceElements.includes('luminance')) {
+      setDiagnostics(['Nanoka 未提供该怪物的流明抗性，请在敌人配置中输入并确认流明抗性后计算。']); return;
     }
     const calculationRequestGeneration: CalculationGeneration = {
       calculation: ++calculationGeneration.current,
@@ -1395,7 +1492,9 @@ function App() {
           condition_values: scenarioConditionValues,
           parameter_values: requestParameterValues,
           character_builds: buildPayloads(),
-          enemy: { enemy_id: "enemy:ui", level: enemyLevel, initial_defense: enemyDefense, damage_resistance: enemyResistances, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
+          substat_analysis: teamIds,
+          ...(targetMode!=='normal' && endgameSelection?{endgame_selection:{...endgameSelection,enemy_overrides:endgameEnemyOverrides}}:{}),
+          enemy: { enemy_id: enemyId, variant_id:enemyVariantId, level: enemyLevel, initial_defense: enemyDefense, damage_resistance: enemyResistances, damage_reduction: enemyDamageReduction, stun_vulnerability_bonus: stunVulnerability, is_stunned: enemyIsStunned },
           enabled_rule_item_ids: [...enabledRules],
           selected_trigger_inputs: Object.entries(triggerActors).filter(([, actor_id]) => actor_id).map(([input_id, actor_id]) => ({ input_id, actor_id })),
           rule_stack_counts: stacks,
@@ -1406,6 +1505,7 @@ function App() {
         editor: editorGeneration.current,
       })) return;
       setCalculation(result);
+      setCalculatedFingerprint(calculationFingerprint);
     } catch (error) {
       if (isCurrentCalculationResponse(calculationRequestGeneration, {
         calculation: calculationGeneration.current,
@@ -1458,8 +1558,8 @@ function App() {
   return (
     <main className="app-shell">
       <header className="app-header glass-card">
-        <div><p className="eyebrow">SPEC-V1 · PRESENTATION-V1</p><h1>ZZZ Calculator</h1><p className="muted">确定性战斗规则解释器</p></div>
-        <div className="header-status"><span className="status-dot" /><span>新计算内核</span></div>
+        <div className="app-brand"><h1 className="sr-only">ZZZ Calculator · 绝区零伤害计算器</h1><picture><source media="(max-width: 600px)" srcSet="/brand/zzz-calculator-logo.png"/><img className="app-logo" src="/brand/zzz-calculator-logo-wide.png" alt="ZZZ Calculator · 绝区零伤害计算器"/></picture><p className="muted">确定性战斗规则解释器</p></div>
+        <div className="header-status"><span className="status-dot" /><span>v2 · 词条收益分析</span></div>
       </header>
 
       <section className="dashboard-grid">
@@ -1564,7 +1664,6 @@ function App() {
               const roleLabel = id === currentOperatorId ? "主控角色" : "支援角色";
               const collapsed = collapsedEquipment[id] ?? false;
               const imported = miyousheBuilds[id];
-              const discsChanged = imported && imported.discs !== JSON.stringify(selectedDiscs);
               const progressFields = editorViews[id]?.compile_config_fields.filter(isCharacterProgressField) ?? [];
               return (
                 <article className="build-character build-character-equipment" key={id}>
@@ -1602,7 +1701,11 @@ function App() {
                       </>}
                     </div>
                   </header>
-                  <div className="effective-stat-count"><span>驱动盘有效词条数量</span><strong>{imported?.count ?? "—"}<small>{imported?.count !== null && imported?.count !== undefined ? " 条" : ""}</small></strong><small>{!imported ? "加载米游社角色后显示" : imported.count === null ? "米游社未提供，请重新获取角色" : discsChanged ? "米游社获取时的数量 · 驱动盘已修改" : "米游社有效词条统计"}</small></div>
+                  <EffectiveStatsPanel discs={selectedDiscs} selected={effectiveFor(id)} specialty={character?.specialty}
+                    officialCount={imported?.count} collapsed={collapsed}
+                    sourceLabel={effectiveOverrides[id] !== undefined ? '自定义方案' : imported?.stats !== null && imported?.stats !== undefined ? '米游社默认方案' : imported ? '未读取到方案 · 当前使用职业预设，可自行修改' : '职业预设 · 可自行修改'}
+                    onChange={stats=>setEffectiveOverrides(current=>({...current,[id]:stats}))}
+                    onReset={()=>setEffectiveOverrides(current=>{const next={...current};delete next[id];return next;})}/>
                   {collapsed && <dl className="equipment-compact-summary">
                     <div><dt>角色等级</dt><dd>{characterLevels[id] ?? 60} 级</dd></div>
                     <div><dt>影画层数</dt><dd>{String(configs[id]?.cinema_level ?? 0)} 层</dd></div>
@@ -1673,15 +1776,28 @@ function App() {
           </div>
           {calculation && calculation.build_provenance.length > 0 && <details className="trace-list provenance-details"><summary><span><span className="eyebrow">BUILD PROVENANCE</span><strong>构筑来源明细</strong></span><small>{calculation.build_provenance.length} 项</small></summary>{teamIds.map((owner) => { const traces = calculation.build_provenance.filter((trace) => trace.character_id === owner); return traces.length > 0 && <div className="provenance-character-group" key={owner}><h4>{characters.find((item) => item.character_id === owner)?.display_name ?? owner}</h4>{traces.map((trace) => <div className="trace-row" key={trace.contribution_id}><span>{trace.source_label}</span><strong>{trace.value === null ? "?" : `+${formatNumber(trace.value)}`}</strong><small>{trace.stat} · {trace.layer}</small></div>)}</div>; })}</details>}
           <div className="section-heading compact"><div><p className="eyebrow">TARGET</p><h2>敌人</h2></div></div>
+          <label className="target-mode"><span>计算模式</span><select value={targetMode} onChange={e=>{const mode=e.target.value as TargetMode;setTargetMode(mode);calculationGeneration.current+=1;setCalculating(false);setCalculation(null);endgameTargetKey.current='';setEndgameSelection(null);setEndgameEditor(null);if(mode==='normal')selectEnemy('enemy:300021');}}><option value="normal">普通怪物</option><option value="shiyu">式舆防卫战</option><option value="boss">危局强袭战</option></select></label>
+          {targetMode!=='normal' && <EndgamePanel mode={targetMode} enemyOverrides={endgameEnemyOverrides} teamPayload={{primary_character_id:currentOperatorId,team_character_ids:teamIds,compile_configs:Object.fromEntries(teamIds.map(id=>[id,{core_level:7,cinema_level:0,...configs[id]}]))}} onChange={changeEndgame}/>}
+          {targetMode==='normal' && <>
+          <div className="enemy-picker">
+            <label><span>搜索怪物</span><input value={enemyQuery} onChange={e=>setEnemyQuery(e.target.value)} placeholder="怪物名称、阵营或 ID"/></label>
+            <label><span>目标怪物</span><select value={enemyId} onChange={e=>selectEnemy(e.target.value)}>{enemyCatalog?.enemies.filter(e=>e.variants.length && (e.enemy_id===enemyId || `${e.display_name} ${e.faction??''} ${e.enemy_id}`.toLowerCase().includes(enemyQuery.trim().toLowerCase()))).map(e=><option key={e.enemy_id} value={e.enemy_id}>{e.display_name} · {e.enemy_id.split(':')[1]}</option>)}</select></label>
+            <label><span>怪物变体</span><select value={enemyVariantId} onChange={e=>{const variant=selectedEnemy?.variants.find(v=>v.variant_id===e.target.value);if(variant){setEnemyVariantId(variant.variant_id);applyEnemyDefaults(variant);}}}>{selectedEnemy?.variants.map(v=><option key={v.variant_id} value={v.variant_id}>变体 {v.variant_id}{v.variant_id===selectedEnemy.default_variant_id?'（默认）':''}</option>)}</select></label>
+            <p className="control-section-hint">{selectedEnemy?.faction} · {selectedEnemy?.rank} · Nanoka 正式版 {enemyCatalog?.source_version}{selectedEnemy?.page_url && <> · <a href={selectedEnemy.page_url} target="_blank" rel="noreferrer">查看怪物资料</a></>}</p>
+            <div className="enemy-picker-actions"><label className="effective-stat-option"><input type="checkbox" checked={enemyDefenseAutomatic} onChange={e=>setEnemyDefenseAutomatic(e.target.checked)}/>防御随怪物等级自动更新</label><button className="secondary-button" type="button" disabled={!selectedEnemyVariant} onClick={()=>selectedEnemyVariant && applyEnemyDefaults(selectedEnemyVariant)}>恢复怪物默认属性</button></div>
+          </div>
+          </>}
+          {targetMode!=='normal' && endgameEditor && <button className="secondary-button" type="button" onClick={()=>applyEndgameEnemy(endgameEditor.defaults)}>恢复场地目标默认属性</button>}
           <div className="target-fields">
             <NumberField label="等级" value={enemyLevel} integer min={1} max={80} unit="级" helper="敌人等级 1–80" onCommit={setEnemyLevel} />
-            <NumberField label="防御力" value={enemyDefense} min={0} helper="敌方初始防御力" onCommit={setEnemyDefense} />
-            {ENEMY_RESISTANCE_FIELDS.map(({ element, label }) => <NumberField key={element} label={label} value={enemyResistances[element]} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={(value) => updateEnemyResistance(element, value)} />)}
-            <NumberField label="失衡易伤" value={stunVulnerability} unit="×" helper="伤害倍率，例如 1.5×" onCommit={setStunVulnerability} />
+            <NumberField label="防御力" value={targetMode!=='normal' && endgameEditor?.defaults.initial_defense===null && !manualEnemyFields.includes('initial_defense')?null:enemyDefenseAutomatic || targetMode!=='normal' && enemyDefense===endgameEditor?.defaults.initial_defense?Number(enemyDefense.toFixed(4)):enemyDefense} min={0} helper={targetMode!=='normal' && endgameEditor?.defaults.initial_defense===null && !manualEnemyFields.includes('initial_defense')?'源未提供，请明确填写':targetMode!=='normal' && enemyDefense===endgameEditor?.defaults.initial_defense?'本期房间目标的默认防御':enemyDefenseAutomatic?'按怪物等级成长曲线读取':'手动调整值'} onCommit={value=>{setEnemyDefenseAutomatic(false);setEnemyDefense(value);setManualEnemyFields(current=>[...new Set([...current,'initial_defense'])]);}} />
+            {ENEMY_RESISTANCE_FIELDS.map(({ element, label }) => <NumberField key={element} label={label} value={enemyResistances[element]} unit="%" displayAsPercent helper={targetResistanceSource && element in targetResistanceSource?'怪物伤害抗性 · 可手动调整':'源未提供 · 手动输入值'} onCommit={(value) => updateEnemyResistance(element, value)} />)}
+            <NumberField label="失衡易伤" value={targetMode!=='normal' && endgameEditor?.defaults.stun_vulnerability_bonus===null && !manualEnemyFields.includes('stun_vulnerability_bonus')?null:stunVulnerability} unit="×" helper={targetMode!=='normal' && endgameEditor?.defaults.stun_vulnerability_bonus===null && !manualEnemyFields.includes('stun_vulnerability_bonus')?'源未提供，请明确填写':'伤害倍率，例如 1.5×'} onCommit={value=>{setStunVulnerability(value);setManualEnemyFields(current=>[...new Set([...current,'stun_vulnerability_bonus'])]);}} />
             <NumberField label="减易伤" value={enemyDamageReduction} unit="%" displayAsPercent helper="底层 ratio 值按百分比编辑" onCommit={setEnemyDamageReduction} />
             <label className="check-field"><span>当前处于失衡</span><input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label>
           </div>
           <p className="target-resistance-note">烈霜、玄墨、凛刃分别沿用冰、以太、物理抗性。</p>
+          {targetResistanceSource && !('luminance' in targetResistanceSource) && <p className="target-resistance-note">源数据未提供流明抗性，流明伤害计算前需手动确认。<button className="secondary-button" type="button" onClick={()=>setManualResistanceElements(current=>current.includes('luminance')?current:[...current,'luminance'])}>{manualResistanceElements.includes('luminance')?'已确认流明抗性':'确认当前流明抗性输入'}</button></p>}
         </section>
       </section>
 
@@ -1765,11 +1881,13 @@ function App() {
         </section>
 
         <section className="glass-card result-panel">
-          <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={teamIds.length === 0 || calculating || loading || !moveEntryId || Boolean(moveSelectionIssue)} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
+          <div className="section-heading"><div><p className="eyebrow">MOVE CALCULATION</p><h2>招式结算</h2></div><button className="primary-button" disabled={teamIds.length === 0 || calculating || loading || !moveEntryId || Boolean(moveSelectionIssue) || targetMode!=='normal' && !endgameEditor} onClick={calculate} type="button">{calculating ? "计算中…" : "计算"}</button></div>
           <label className="move-select">招式<select disabled={teamIds.length === 0} value={selectedMoveOption?.optionKey ?? ""} onChange={(event) => selectMoveOption(event.target.value)}><option value="" disabled>{moveSelectionIssue ?? "请选择招式"}</option>{moveOptions.map((option) => <option key={option.optionKey} value={option.optionKey}>{option.label}</option>)}</select></label>
           {moveSelectionIssue && <p className="control-section-hint">⚠ {moveSelectionIssue}；未发送计算请求。</p>}
           {calculation ? (
             <div className="calculation-output">
+              {calculation.scenario_provenance && <p className="control-section-hint">本次结果：{calculation.scenario_provenance.mode==='boss'?'危局':'式舆'} {calculation.scenario_provenance.season_id} · {calculation.scenario_provenance.room_name} · {calculation.scenario_provenance.target_name}</p>}
+              {calculatedFingerprint!==calculationFingerprint && <p className="incomplete">配置已变化，请重新计算以更新伤害与词条收益。</p>}
               <div className="totals-grid">
                 {(calculation.display_modes ?? ["non-crit", "expected", "full-crit"]).map((mode) => (
                   <div className="total-card" key={mode}>
@@ -1781,6 +1899,8 @@ function App() {
                   </div>
                 ))}
               </div>
+              {calculation.substat_gains && <SubstatGainPanel results={calculation.substat_gains} names={Object.fromEntries(characters.map(c=>[c.character_id,c.display_name]))}
+                effective={Object.fromEntries(teamIds.map(id=>[id,effectiveFor(id)]))} stale={calculatedFingerprint !== calculationFingerprint}/>}
               <div className="event-list">
                 {calculation.events.map((event) => {
                   const dischargeSummary = dischargeMultiplierSummary(event);

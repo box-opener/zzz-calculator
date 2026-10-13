@@ -192,6 +192,7 @@ class EffectOperation(StrEnum):
 
 
 class EffectSourceType(StrEnum):
+    ENVIRONMENT = "environment"
     CORE_PASSIVE = "core-passive"
     ADDITIONAL_ABILITY = "additional-ability"
     SKILL = "skill"

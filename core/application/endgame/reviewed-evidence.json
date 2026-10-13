@@ -1,0 +1,2146 @@
+{
+  "60000011": {
+    "sha256": "0d7866c677312da96ce7d01a136a493b01c1621ec0702bd7cb401977d5abe4fe",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 精英敌人/首领敌人会获得自身生命值上限30%/15%的属性护盾。对带有护盾的目标，使用其弱点属性攻击造成的伤害提升100%，对其施加弱点属性的异常状态，可以直接清除护盾。"
+  },
+  "61001011": {
+    "sha256": "307deeee1b3cd4a6fd636849ffbfbf6973be542da2ef07359e0f229d416079da",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 代理人的物理异常积蓄效率提升20%，[强击]造成的伤害提升80%。"
+  },
+  "61001021": {
+    "sha256": "0a3020158bd9406f5c8ab0d122dbd4fdf1aa5dc6380f4eeceb611cb0b81dd9b3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 代理人的电属性异常积蓄效率提升20%，[感电]造成的伤害提升80%。"
+  },
+  "61001031": {
+    "sha256": "e906dbe420c567709887000aed84a30d9f13fdca0a9e810f9bb2db0a2c8b81ec",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 代理人的以太异常积蓄效率提升20%，[侵蚀]造成的伤害提升80%。"
+  },
+  "61001041": {
+    "sha256": "2a63d452ec0cceb01064cc402085ad752f0e703e2290e62cbaf267c121805389",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 代理人的火属性异常积蓄效率提升20%，[灼烧]造成的伤害提升80%。"
+  },
+  "61001051": {
+    "sha256": "281ca97f39763e8030035ad8e1a073d524e6c3eccb7590798c1c59e616174c29",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 代理人的冰属性异常积蓄效率提升20%，[碎冰]造成的伤害提升80%。"
+  },
+  "61001061": {
+    "sha256": "9bbc67da7f971c1c19e27b76275e9e501d85a563df19628ba32c235959180e57",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· [连携技]造成的伤害提升100%，发动[连携技]时，全队造成的伤害提升10%，最多叠加3层，持续30秒，每层效果单独结算持续时间。"
+  },
+  "61001071": {
+    "sha256": "f1a013b08a945d787bda74359d5cb8e27321f4ed57cb7bae3506707255e9b1ac",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 代理人的属性异常积蓄效率提升25%，属性异常效果造成的伤害提升80%。"
+  },
+  "61001081": {
+    "sha256": "0c9a6bce6b41b8173ffeecbdaabb96e34b6ef18f71f6c600f21590a1c6f78694",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 代理人的冲击力提升50%，攻击命中处于失衡状态下的敌人时，目标的失衡易伤倍率提升75%。"
+  },
+  "61001091": {
+    "sha256": "8fb116fbb7dca02e805bae687c79f4aed6ce8d61b1a0b63b7bff6a1ad25e1d77",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· 代理人的喧响值获得效率提升50%，[终结技]造成的伤害提升120%。"
+  },
+  "61001101": {
+    "sha256": "b121cfb0a092738033d4167be5d014e8f579a34585aa81892e69d23e59346e5a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61001.json"
+    ],
+    "text": "· [招架支援]造成的失衡值提升100%，[支援突击]造成的伤害提升150%，发动[连携技]时，额外回复1点支援点数。"
+  },
+  "61002011": {
+    "sha256": "cf4133c4dbcdf90c9f3c3678d5d3e44e31cf59766d49635ce5f8ab784be3cba4",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61003.json"
+    ],
+    "text": "· [招架支援]造成的失衡值提升100%，[支援突击]造成的伤害提升100%。"
+  },
+  "61002021": {
+    "sha256": "eaef6952f5dc9f817d5c6e3a91c540711d068a88d62aea8a910814a0aa8bbe35",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61003.json"
+    ],
+    "text": "· [闪避反击]造成的伤害提升150%。"
+  },
+  "61002031": {
+    "sha256": "18a4da89e6f0a16393b840ad6486bf2b4b687061d49a55b5df31cc4caccf8c49",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json"
+    ],
+    "text": "· 发动[强化特殊技]时，代理人造成的伤害提升35%，承受的伤害降低25%，持续15秒。"
+  },
+  "61002041": {
+    "sha256": "7178ffe605591259725629f85b4597cdb04b526888b803ae1912313e2f0d1087",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json"
+    ],
+    "text": "· 代理人的冲击力提升30%。敌人进入失衡状态后，其失衡恢复速度降低20%。"
+  },
+  "61002051": {
+    "sha256": "2d0c933220954f32830ce4353ad5358d5cfed8518e330ffa1d780cc20c660616",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61003.json"
+    ],
+    "text": "· 发动[极限支援]时，代理人造成的伤害提升35%，承受的伤害降低25%，持续15秒。"
+  },
+  "61002061": {
+    "sha256": "dbd91b8baf495c76de1ff153ee70b3ffeb7a4b2d1071d8d37c979e3fd764e217",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61003.json"
+    ],
+    "text": "· 代理人的属性异常积蓄效率提升30%。使敌人进入属性异常状态时，其造成的伤害降低25%，持续10秒。"
+  },
+  "61002071": {
+    "sha256": "e1b1a9570cfcb1bca6b3f6e52796155a813ca57c6c8b491847c4602d6d314996",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61003.json"
+    ],
+    "text": "· 触发[极限闪避]时，代理人造成的伤害提升10%，承受的伤害降低10%，最多叠加3层，持续10秒，每层效果单独结算持续时间。"
+  },
+  "61002081": {
+    "sha256": "9609c94ace9e31df1a4c873af6d128c0aeecaf448d5b268d7d0b3ce0a8a4a416",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/61002.json"
+    ],
+    "text": "· 触发[极限闪避]或[极限支援]时，代理人造成的伤害提升40%，并缓慢恢复5%的生命值，持续5秒。\n· 上述增益效果持续期间，代理人受到敌方攻击时，伤害提升与生命值回复效果将被打断。"
+  },
+  "62001001": {
+    "sha256": "6f0dfa2d2629e560fc78ba9f438f7c2a06774f4ac51a6bf81f9eed7f34f88520",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62039.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62041.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62042.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62043.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62044.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62045.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62046.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62047.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62048.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62049.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62050.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62051.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62052.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62053.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62054.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62055.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62056.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62057.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62058.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62059.json"
+    ],
+    "text": "· 本关内，对敌人造成伤害可获得伤害得分，击败单个普通/精英敌人时将一次性获得击败得分。\n· 本关内，不同时间段获得的分数将额外享受倍率加成，时间越靠前，加成系数越高，加成后总得分上限为50000分。"
+  },
+  "62001011": {
+    "sha256": "841ba3ec03a3cc4734472234dd969bdb8a40536569230c424701c942fcc648bb",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62001.json"
+    ],
+    "text": "· 当场上存在普通敌人时，代理人对精英敌人和首领敌人造成的伤害降低25%，对普通敌人造成的伤害提升50%。\n· 代理人造成的冰属性伤害和以太伤害提升20%，[普通攻击]和[冲刺攻击]造成的伤害提升50%。"
+  },
+  "62001021": {
+    "sha256": "348259fa4068caa6c0e8a4f8a4943ca0f08e5d89d0c1de35dbd0fc80139bc2e1",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62002.json"
+    ],
+    "text": "· 敌人进入失衡状态前，代理人对其造成的伤害降低20%，对其造成的失衡值提升50%。敌人进入失衡状态后，其失衡持续时间提升20%。\n· 代理人造成的冰属性伤害和以太伤害提升20%。"
+  },
+  "62001031": {
+    "sha256": "15769711f035190b20685a0217152b0a02580784063fd68c88ffb8323cfbcce6",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62003.json"
+    ],
+    "text": "· [普通攻击]造成的失衡值提升15%，[连携技]造成的伤害提升100%。\n· 代理人对处于失衡状态下的敌人造成的伤害额外提升50%。"
+  },
+  "62001041": {
+    "sha256": "b1d15ce8e30df315e601b8e40cd93a7c58cc68517058cdb127620018e9d8a64e",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62004.json"
+    ],
+    "text": "· 使敌人进入失衡状态时，全队获得2层[战意]，使敌人进入属性异常状态时，全队获得1层[战意]。[战意]最多叠加3层，持续20秒，每层效果单独结算持续时间。\n· 每拥有1层[战意]，代理人的攻击力提升10%，异常精通提升10点。"
+  },
+  "62001051": {
+    "sha256": "a8d91275d4a5143a843e1c6e1e095b9a3ed23a8cef0e06004b915252ce01b1e9",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62005.json"
+    ],
+    "text": "· 代理人的攻击力提升20%，属性异常效果造成的伤害提升30%。"
+  },
+  "62001061": {
+    "sha256": "d7e7bf37d7e79faeec1a872f34ef79b22cba9f4d8b7f01e0776e8a62f7e4214d",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62006.json"
+    ],
+    "text": "· 代理人的攻击力提升20%，受到的伤害提升20%。\n· 获得护盾时，全队回复10点能量，攻击力额外提升20%，持续20秒，20秒内最多触发一次。"
+  },
+  "62001071": {
+    "sha256": "ab86993034ec06229a600ece921c9a34257b47591cf7500e41a8231d18b0e87b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62007.json"
+    ],
+    "text": "· 拥有护盾时，代理人的属性异常积蓄效率提升25%。\n· 攻击命中处于属性异常状态下的敌人时，代理人造成的伤害提升35%。"
+  },
+  "62001081": {
+    "sha256": "eb9d8c10f8b55ada719b483b3e94f66dee7e109782d714d79f17c5f128f05fb7",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62008.json"
+    ],
+    "text": "· 代理人造成的伤害提升25%。\n· 对敌人施加[灼烧]或[感电]效果时，代理人的攻击力提升20%，持续15秒；效果触发时，若敌人未处于失衡状态下，将直接累积20%失衡值。"
+  },
+  "62001091": {
+    "sha256": "bde2ce4e7ed37b3247c2e3cead86e18a882d2ac6d2e6c4bbbbc86102a5e23fbe",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62009.json"
+    ],
+    "text": "· [支援攻击]、[强化特殊技]、[终结技]累积的属性异常积蓄值提升30%，造成的伤害提升20%。\n· 对敌人施加[紊乱]效果时，额外获得400点喧响值，目标的防御力降低20%，持续20秒，喧响值获得效果10秒内最多触发一次。"
+  },
+  "62001101": {
+    "sha256": "7cef4aaa58361691a7f8259f87516944a52fa34126aa5774519a68b813b9ddc3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62010.json"
+    ],
+    "text": "· 代理人的冲击力提升20%；使敌人进入失衡状态时，全队回复20点能量，全队攻击力提升20%，持续20秒，能量回复效果15秒内最多触发一次。\n· 进入失衡状态后，敌人的失衡易伤倍率随时间提升，每秒提升10%，通过这种方式最多提升60%。"
+  },
+  "62001111": {
+    "sha256": "1863a4fcbab45962bbae901192700d92076609164927b631409cfc249ff1fc24",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62011.json"
+    ],
+    "text": "· 代理人的电属性异常积蓄效率和冰属性异常积蓄效率提升25%。\n· 使敌人进入属性异常状态时，全队暴击伤害提升20%，属性异常效果造成的伤害提升20%，最多叠加3层，持续30秒，每层效果单独结算持续时间。"
+  },
+  "62001121": {
+    "sha256": "ca5735c83f530c67fced6cc5d95eb836dbf716712a413e566a6828fa099bd335",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62012.json"
+    ],
+    "text": "· 代理人造成的电属性伤害和冰属性伤害提升20%。\n· 攻击处于属性异常状态下的敌人时，代理人的暴击率提升20%，暴击伤害提升40%。"
+  },
+  "62001131": {
+    "sha256": "eb3a021c60038d3b97d944fefe3aee9ab9c27d8150dc2aaac9fb939101bed235",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62013.json"
+    ],
+    "text": "· 代理人的属性异常积蓄效率提升25%。\n· [支援]特性的代理人发动[强化特殊技]、[连携技]、[终结技]时，全队攻击力提升15%，异常精通提升20点，持续20秒，最多叠加2层，每层效果单独结算持续时间。"
+  },
+  "62001141": {
+    "sha256": "46649eccd9d9c739223487c464af869c0e2dae1f229a0b24f591cc6512caaab8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62014.json"
+    ],
+    "text": "· 代理人的暴击伤害提升20%。\n· 代理人每次发动[快速支援]时，全队攻击力提升10%，最多叠加4层，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001151": {
+    "sha256": "f4820f8ae12faaf5cc0ee5110146c55e07a2a11edabc064c160ee4a4b53eaa3f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62015.json"
+    ],
+    "text": "· 代理人的火属性伤害和冰属性伤害提升20%。\n· [连携技]造成的伤害提升40%，每次触发 [连携技]时，代理人恢复10点能量。"
+  },
+  "62001161": {
+    "sha256": "aaba658f049fa6cf0d65034c1b46de986297e51899f4d96f6ef0a86781afbcc1",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62016.json"
+    ],
+    "text": "· 代理人的冲击力提升15%。\n· 代理人的[连携技]命中敌人时，其防御力降低25%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "62001171": {
+    "sha256": "9971487b0db7b94f6a4bea45b70830c6001e54b0a6395809cc43ed911b6c2091",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62017.json"
+    ],
+    "text": "· 代理人的火属性伤害和电属性伤害提升20%。\n· 代理人的[追加攻击]命中敌人或使敌人进入失衡状态时，全队的暴击率提升15%，暴击伤害提升30%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001181": {
+    "sha256": "a7be4a7b1176d35fd067729c03cccbe4ad23ef1c430d9eb91619fcc3d4f71db3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62018.json"
+    ],
+    "text": "· 敌人的失衡易伤倍率提升30%。\n· 代理人的[追加攻击]命中敌人时，其火属性伤害抗性和电属性伤害抗性降低20%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001191": {
+    "sha256": "17635fc2eda348bbfba671dff1c8ce4c8a516ea2d97d8d36f88260d26d8d93fc",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62019.json"
+    ],
+    "text": "· [追加攻击]、[强化特殊技]造成的伤害提升25%，失衡值提升15%。\n· 敌人进入失衡状态后，其失衡恢复速度降低15%，代理人对其造成的电属性伤害和以太属性伤害提升40%。"
+  },
+  "62001192": {
+    "sha256": "bea0f281486e4a8303ad190a562d4de263c49f269560605c282f786e11890592",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62020.json"
+    ],
+    "text": "· 代理人的以太属性异常积蓄效率和物理属性异常积蓄效率提升20%。\n· 使敌人进入失衡状态或属性异常状态后，代理人回复20点能量，能量回复效果20秒内最多触发1次，并使全队攻击力提升20%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001193": {
+    "sha256": "fd50f0bfcab7a18ff33f9cd2c2566eb9aee9548507422d73360dc8a68698db01",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62021.json"
+    ],
+    "text": "· [强化特殊技]造成的伤害提升40%。\n· 使敌人进入失衡状态或属性异常状态后，全队的以太属性伤害和冰属性伤害提升35%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001194": {
+    "sha256": "c5ba35b58890d3988b8662280f3088ab4cfa39e9ae0bc8d4bc63bf7a653e5058",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62022.json"
+    ],
+    "text": "· 代理人的攻击力提升10%，敌人的失衡恢复速度降低10%。使敌人进入属性异常状态时，若敌人未处于失衡状态下，将直接累积10%失衡值。\n·  [强攻]特性的代理人的[终结技]和[强化特殊技]造成的伤害提升30%，若命中处于失衡状态的敌人，此攻击的暴击伤害额外提升60%。"
+  },
+  "62001195": {
+    "sha256": "65c7b07fbfabb71fdcafdf26f40503f8f4214c6ea8d54dc2c6d477b246581447",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62023.json"
+    ],
+    "text": "· 代理人的生命值上限提升15%，以太属性伤害和冰属性伤害提升20%。\n· 代理人发动[快速支援]和[终结技]时，自身贯穿伤害提升30%，暴击伤害提升20%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "62001196": {
+    "sha256": "9fab50c78da5b3e2a60b437460984528a70048030eb0d1ad17fee498af7b84e2",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62024.json"
+    ],
+    "text": "· 代理人的贯穿伤害提升20%，能量获取效率和闪能获得效率提升15%。\n· 使敌人进入失衡状态时，全队回复600点喧响值，并使全队的以太属性伤害和火属性伤害提升20%，持续20秒，喧响值回复效果20秒内最多触发一次。"
+  },
+  "62001197": {
+    "sha256": "ffb31142550eb9df63d9005ae73c003307e9ea02df621117624007452a77cfa9",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62025.json"
+    ],
+    "text": "· 代理人造成的失衡值提升10%，[终结技]造成的伤害提升30%。\n· 使敌人进入失衡状态时，全队的贯穿伤害提升15%，暴击伤害提升20%，持续25秒，重复触发时刷新持续时间。"
+  },
+  "62001261": {
+    "sha256": "a771a8e96ef1778c0703fdde93f28e3957257d0f668a2953ed8e23bbfbcf9830",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62027.json"
+    ],
+    "text": "· 敌人的以太属性伤害抗性和物理属性伤害抗性降低15%。\n· 释放[强化特殊技]或[连携技]后，代理人的属性异常伤害提升15%，暴击伤害提升20%，贯穿伤害提升20%，持续20秒，重复触发刷新持续时间。"
+  },
+  "62001271": {
+    "sha256": "d1dd3b31a7c5999cefcb8377a49b89fab7e67f375649165e49927b940730df82",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62026.json"
+    ],
+    "text": "· 代理人的暴击伤害提升20%，异常精通提升40点。\n· [支援]特性的代理人发动[强化特殊技]、[追加攻击]后，全队攻击力提升20%，造成的属性异常伤害提升30%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001281": {
+    "sha256": "a0f5b12ce618fbf04fb68fcaad49aa48cce322e5841fee2474470f1d6b19c9ba",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62028.json"
+    ],
+    "text": "· 代理人的电属性异常积蓄效率和物理属性异常积蓄效率提升15%，攻击力提升15%。\n· 命中处于属性异常状态中的敌人时，代理人无视其15%的防御力，对其造成的伤害提升20%。"
+  },
+  "62001291": {
+    "sha256": "20d58661dce0a2bbf49ab5269c06c1b3be0a55bec4a305d7c5c75f2740a971c9",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62029.json"
+    ],
+    "text": "· 代理人的电属性伤害和物理伤害提升20%，异常精通提升40点。\n· [普通攻击]、[强化特殊技]、[终结技]命中敌人时，造成的伤害提升20%，暴击伤害提升40%。"
+  },
+  "62001301": {
+    "sha256": "dbbf86ebe8948141252968649d1eaa55882d6740900e41ff595703d134111e2d",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62030.json"
+    ],
+    "text": "· 代理人的电属性伤害和物理伤害提升30%，属性异常造成的伤害提升30%。\n· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。"
+  },
+  "62001311": {
+    "sha256": "467ed0859d59561b9b79bc16c8b2cf876b72d7c28682000ae26f60257915abda",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62031.json"
+    ],
+    "text": "· 若队伍内有1名/2名[强攻]特性的代理人，代理人命中敌人时无视其10%/20%全伤害抗性。\n· [追加攻击]命中后，代理人暴击伤害提升60%，持续10秒，重复触发刷新持续时间。"
+  },
+  "62001321": {
+    "sha256": "00664e8f6549292a9d371e2dd4f840e5c6232a390fca14755b0f551f7ee32eb2",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62032.json"
+    ],
+    "text": "· 代理人的电属性伤害和火属性伤害提升20%，贯穿伤害提升20%。\n· [追加攻击]、[终结技]命中敌人时，队伍内[强攻]与[命破]特性的代理人暴击伤害提升50%，持续15秒，重复触发刷新持续时间。"
+  },
+  "62001331": {
+    "sha256": "7bf0056b0c7e90e3692e75593e2bedc47d5037fcc65fa90a32b86fcbd7556869",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62033.json"
+    ],
+    "text": "· 代理人生命值上限提升15%，以太属性伤害和电属性伤害提升20%。\n· 当[支援]特性的代理人释放[强化特殊技]时，全队贯穿伤害提升20%，攻击力提升20%，持续20秒，重复触发刷新持续时间。"
+  },
+  "62001341": {
+    "sha256": "9119a5be5a542921f431f4156406185014aa2b786b1c3a9d5078b645974fe12a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62044.json"
+    ],
+    "text": "· 代理人的冰属性伤害和以太属性伤害提升15%。\n· 代理人处于以太帷幕中时，暴击伤害提升40%，贯穿伤害提升20%，退出以太帷幕后增益效果消失。"
+  },
+  "62001351": {
+    "sha256": "a8a60135f50e1df708e9ed7ba714cfb82afc2179a8988644808a176e00f05199",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62035.json"
+    ],
+    "text": "· [击破]特性的代理人造成的失衡值提升15%。\n· 代理人的贯穿伤害提升15%，攻击处于失衡状态中的敌人时，造成的暴击伤害提升50%。"
+  },
+  "62001361": {
+    "sha256": "117933223a3eaa42bff8fd41782a80dfb1bf225477368376df7e88d8430a7928",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62036.json"
+    ],
+    "text": "· [击破]特性的代理人命中失衡状态中的敌人后，其失衡易伤倍率提升50%。\n· 代理人的强化特殊技和终结技造成的伤害提升60%。"
+  },
+  "62001371": {
+    "sha256": "fee44a4ec63db433196d2c827ec1338951cfd0ff70d86753e457428e548abfa9",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62037.json"
+    ],
+    "text": "· 代理人的贯穿伤害提升15%，火属性伤害和冰属性伤害提升20%。\n· 代理人的[普通攻击]和[强化特殊技]命中敌人并触发暴击时，自身暴击伤害提升5%，持续5秒，最多可叠加10层，重复触发时刷新持续时间。"
+  },
+  "62001381": {
+    "sha256": "3282929524d61f6370d2ef94425393d6531ad90a2e343bf39d2f676fcb918d43",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62044.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62052.json"
+    ],
+    "text": "· 代理人的攻击力提升30%，暴击伤害提升15%。\n· 敌人的失衡易伤倍率提升20%。"
+  },
+  "62001382": {
+    "sha256": "c8c604eb2e66ecba160213ff02edc8fcefc34a2465cf085081b904bc40bc916a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62042.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62044.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62045.json"
+    ],
+    "text": "· 代理人的冰属性伤害提升20%，[普通攻击]造成的伤害提升40%。\n· 代理人发动[强化特殊技]后，代理人的冰属性伤害额外提升20%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001383": {
+    "sha256": "a46d65bc6aea4dc1e8f0b745671e969286a703265e26cf6c411b40c969e75303",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62044.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62046.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62049.json"
+    ],
+    "text": "· 代理人的电属性伤害提升20%。\n· 代理人的[普通攻击]、[特殊技]和[强化特殊技]造成的伤害提升40%，并无视敌人15%的防御力。"
+  },
+  "62001391": {
+    "sha256": "135c31590404a3beb6271e84afcb3f604a88fc4e395f1ac5c9c1767abbaeb9bd",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62039.json"
+    ],
+    "text": "· 代理人的暴击伤害提升15%，处于[以太帷幕]中时，代理人的攻击力提升25%，攻击命中敌人时无视其10%的防御力。"
+  },
+  "62001392": {
+    "sha256": "02077212402292e3c042bcc453fd95ee22de3b2492e9857963303db4fe7a4b15",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62039.json"
+    ],
+    "text": "· 代理人的电属性伤害和火属性伤害提升30%，异常精通提升60点。\n· 代理人初始额外获得40点能量，属性异常造成的伤害提升20%。"
+  },
+  "62001393": {
+    "sha256": "e852f0b0f767742237434a2775a5ae4d770254301e88dec9e301f0ac9b718db0",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62039.json"
+    ],
+    "text": "· 代理人的贯穿伤害提升10%，暴击伤害提升25%。\n· 代理人的[终结技]命中敌人时无视其10%的全伤害抗性。"
+  },
+  "62001401": {
+    "sha256": "c25f1c3829c29ff3e9c6ba45b3b7125d9371932a85d212ca0d86670e6a77d3d2",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62042.json"
+    ],
+    "text": "· 处于[以太帷幕]中时，代理人的攻击力提升25%，暴击伤害提升20%。\n· 代理人命中敌人时，无视敌人10%的物理属性伤害抗性。"
+  },
+  "62001402": {
+    "sha256": "6bd881c6369e15f439095a970428afa73961cb71b72d5b107d4e2d1a078caea6",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62040.json"
+    ],
+    "text": "· 代理人的冰属性伤害和物理属性伤害提升15%。\n· 代理人使敌人进入属性异常状态后，其防御力降低10%，且受到的属性异常伤害提升20%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "62001403": {
+    "sha256": "6753af1a803ff229cee5cb2aed706fa55a3a956dd1c6318d46005643458353de",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62040.json"
+    ],
+    "text": "· 代理人的火属性伤害提升20%。\n· 代理人的[普通攻击]和[连携技]造成的伤害提升40%，造成的暴击伤害提升30%。"
+  },
+  "62001411": {
+    "sha256": "ae6935436c02af462370fb4522c908657e5578b1ff57c41a8e4ae1a80ce9321d",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62041.json"
+    ],
+    "text": "· 代理人的暴击伤害提升20%。\n· 处于[以太帷幕]中时，代理人的物理属性伤害提升15%，攻击命中敌人时无视其10%的防御力。"
+  },
+  "62001412": {
+    "sha256": "66ad4e2c3f4c0b1589027ad3b21314460f9546cabd8b6d6303f1bfa02668f7ab",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62041.json"
+    ],
+    "text": "· 代理人的电属性伤害提升15%。\n· 代理人的[普通攻击]、[强化特殊技]和[终结技]造成的伤害提升20%，攻击命中敌人时无视其10%的全伤害抗性。"
+  },
+  "62001413": {
+    "sha256": "6da3c22f055c628baef3bdf3d3d437c2741d3437dd11a030bf43024de681bf29",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62041.json"
+    ],
+    "text": "· 代理人的火属性伤害提升20%，攻击力提升10%。\n· 代理人初始额外获得40点能量，暴击伤害提升40%。"
+  },
+  "62001423": {
+    "sha256": "66c6df40f3f85a0f98364471c2a55c99bb2d4f5b64a0999ea59dc5c666245dfa",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62042.json"
+    ],
+    "text": "· 代理人的生命值上限提升15%，冰属性伤害和以太属性伤害提升20%。\n· 代理人发动[终结技]后，贯穿伤害提升15%，持续20秒，重复触发时刷新持续时间"
+  },
+  "62001431": {
+    "sha256": "d90b53284a1ab3f05691fa7387effd484d88fb68c115286e48cc711b3f9e7189",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62043.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62045.json"
+    ],
+    "text": "· 代理人的物理属性伤害和电属性伤害提升15%，暴击伤害提升20%。\n· [强攻]特性的代理人命中敌人且暴击后，敌人防御力降低10%，持续5秒，重复触发时刷新持续时间。"
+  },
+  "62001432": {
+    "sha256": "b5f0fa5523893b3ac484cacde5262bed921ad405c88fb2276a1119f9054a2a89",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62043.json"
+    ],
+    "text": "· 代理人的贯穿伤害提升10%。\n·  处于[以太帷幕]中时，代理人的贯穿伤害额外提升15%，攻击命中敌人时无视其15%的全伤害抗性。"
+  },
+  "62001433": {
+    "sha256": "c615b6614de4e7bdefc6666f4d06f1406341d24c2a17941c735af0a55e98f8f9",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62043.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62046.json"
+    ],
+    "text": "· 代理人的以太属性伤害提升20%。\n· 处于[以太帷幕]中时，代理人的攻击力提升30%，攻击命中敌人时无视其10%的以太属性伤害抗性。"
+  },
+  "62001442": {
+    "sha256": "74c1a7599b76e9a253a27b45c4e41a7ebe7982dcec38612c9352c566199e9a01",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62044.json"
+    ],
+    "text": "· 代理人的以太属性伤害提升20%。\n· 使敌人进入属性异常状态后，代理人回复20点能量，并使全队攻击力提升35%，持续15秒，重复触发时刷新持续时间，能量回复效果20秒内最多触发1次。"
+  },
+  "62001451": {
+    "sha256": "c7a528f5a1efcf98af64961ea3dc59592631ee1857e4d6c9368fd9ad5f3eac80",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62045.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62048.json"
+    ],
+    "text": "· 代理人的以太属性伤害提升20%。\n· 处于失衡状态的敌人，其失衡恢复速度降低20%，受到的属性异常伤害提升20%。"
+  },
+  "62001463": {
+    "sha256": "ef34476696edfb2a78212e8ba0b5e71d2e2b071fcedc6414f139f720acbcf951",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62046.json"
+    ],
+    "text": "· 代理人的生命值上限提升15%，以太属性伤害和冰属性伤害提升20%。\n· 代理人发动[强化特殊技]后，自身的贯穿伤害提升15%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001471": {
+    "sha256": "faf8137ce32202460f6d9cff2fe4d10a7c6df8ce4c3a8a084e6bc6528b112de3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62047.json"
+    ],
+    "text": "· 若队伍内有1名/2名[强攻]特性的代理人，代理人命中敌人时无视其5%/15%全伤害抗性。\n· 代理人触发暴击后，自身的电属性伤害提升35%，持续5秒，重复触发刷新持续时间。"
+  },
+  "62001472": {
+    "sha256": "c9949f6d9b70bca394eb86cbb797a1cece10e74c98a97773eb59ae4382ffe71f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62047.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62051.json"
+    ],
+    "text": "· 代理人的以太异常积蓄效率和冰属性异常积蓄效率提升25%。\n· 代理人使敌人进入属性异常状态后，其防御力下降10%，且受到的属性异常伤害提升20%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "62001473": {
+    "sha256": "07d4dadee5253d6da603a64d4e3800d7ae74c861bc3e6710185e9eab0c345a93",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62047.json"
+    ],
+    "text": "· 代理人造成的失衡值提升10%，[终结技]造成的伤害提升20%。\n· 使敌人进入失衡状态时，全队造成的暴击伤害提升30%，持续30秒，重复触发时刷新持续时间。"
+  },
+  "62001481": {
+    "sha256": "ba17b87d1f7ca31c3df972eead4e96ec5b3ee3eb846f3eb01229e81e9196923c",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62048.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62049.json"
+    ],
+    "text": "· 代理人的冰属性伤害提升10%，异常精通提升40点。\n· 使敌人进入属性异常状态后，全队造成的[异放]伤害提升30%，[异放]伤害无视敌人20%的冰属性伤害抗性，持续10秒，重复触发时刷新持续时间。"
+  },
+  "62001482": {
+    "sha256": "c9355aefb8fe3d706d402d1352a3d951a5da05dc6544bd5a9d51cd046b7fc75a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62048.json"
+    ],
+    "text": "· 代理人的物理属性伤害和电属性伤害提升20%，暴击伤害提升30%。\n· 代理人命中敌人且暴击后，敌人防御力降低10%，持续5秒，重复触发时刷新持续时间。"
+  },
+  "62001491": {
+    "sha256": "ce8d3744cd432b7e0c8b7a09547fa8cbaa80a8e3cfd372730f93904a6e45e125",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62049.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62050.json"
+    ],
+    "text": "· 代理人的贯穿伤害提升35%，物理属性伤害提升10%。\n· 代理人的[普通攻击]、[强化特殊技]、[终结技]命中敌人时，无视其10%的物理属性伤害抗性。"
+  },
+  "62001501": {
+    "sha256": "bae4e11f0c178a75e8dfe2127429b46d5b7a693714498f2d1078f56dbffab071",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62050.json"
+    ],
+    "text": "· 代理人的异常精通提升30点，[异放]造成的伤害提升20%。\n· 代理人发动[强化特殊技]后，自身的冰属性伤害额外提升20%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001502": {
+    "sha256": "f43fa8686090a248d6345570fcdb0d294bb031dfd4f08ce946744e20084b1c14",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62050.json"
+    ],
+    "text": "· 代理人的攻击力提升10%，[普通攻击]、[强化特殊技]、[连携技]造成的伤害提升20%。\n· 代理人初始额外获得40点能量，暴击伤害提升30%。"
+  },
+  "62001511": {
+    "sha256": "d9d09d38ea9d055766ab93a7c162cd7a6b4d09ec999d378ae40c6f357d6aa1bc",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62051.json"
+    ],
+    "text": "· 代理人的风属性伤害和冰属性伤害提升30%，[乱流]造成的伤害提升30%。\n· 代理人发动[强化特殊技]后，自身的异常精通提升40点，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001512": {
+    "sha256": "08f7a58f1bce9b9040b9e13524cb774da2e35468d9d28595850a6fa4c7cadcfd",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62051.json"
+    ],
+    "text": "· 代理人的以太属性伤害提升30%，暴击伤害提升40%。\n· [强攻]特性的代理人命中敌人且暴击后，敌人防御力降低10%，持续5秒，重复触发时刷新持续时间。"
+  },
+  "62001521": {
+    "sha256": "55519f46f7ce96307cad1104f968cdf92a83fdbcc5aba59e07831c5d36473868",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62052.json"
+    ],
+    "text": "· 代理人的风属性伤害和冰属性伤害提升10%。\n· 命中处于属性异常状态中的敌人时，造成的伤害提升15%，无视其10%的全属性伤害抗性。"
+  },
+  "62001522": {
+    "sha256": "e0044e67df02dcb3db9446df91342c6051c4a87d6698ae0a837669005a68869b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62052.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62053.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62054.json"
+    ],
+    "text": "· 代理人的[终结技]、[连携技]造成的伤害提升40%。\n· [连携技]命中敌人后，其失衡易伤倍率提升20%，失衡恢复速度降低15%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001532": {
+    "sha256": "b5367ff3903be22baef0d04691af2c17163c37576dd68c224d63d1f4561d544f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62053.json"
+    ],
+    "text": "· 代理人的异常精通提升20点，造成的属性异常伤害提升15%。\n· 若队伍内有1名/2名[异常]特性的代理人，代理人的属性异常伤害命中敌人时无视其5%/15%全属性伤害抗性。"
+  },
+  "62001533": {
+    "sha256": "47580726a91fdfa279c67948259da0a8b468c173dd144c7d4dd3986e3558c88b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62053.json"
+    ],
+    "text": "· 代理人的冰属性伤害和以太属性伤害提升30%。\n· 代理人的[普通攻击]和[连携技]造成的伤害提升20%，造成的暴击伤害提升35%。"
+  },
+  "62001541": {
+    "sha256": "fc9989046607e8761c64313f996ddb333bee9a1890b48892967181c811e5bb22",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62054.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62056.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62059.json"
+    ],
+    "text": "· 若队伍内有2名/3名[异常]特性的代理人，代理人造成的属性异常伤害提升10%/60%，全队入场时初始获得500/1500点喧响值。"
+  },
+  "62001542": {
+    "sha256": "848c87fa6fce5e8cf628a265771b55898460e3464cc1d62bf786a3b0794cc84e",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62054.json"
+    ],
+    "text": "· 代理人的冰属性伤害和电属性伤害提升30%。 \n· [强攻]特性的代理人发动[强化特殊技]后，自身暴击伤害提升30%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "62001551": {
+    "sha256": "0194558568e6cc9270fe74dd1440f10687e7b9c65798d6a78267f9828adf2d22",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62055.json"
+    ],
+    "text": "· 代理人造成的属性异常伤害提升15%。 \n· 若队伍内有2名/3名[异常]特性的代理人，代理人的异常精通提升40点/120点。"
+  },
+  "62001552": {
+    "sha256": "912ca7103fe180e89130c74a8d8f225c1034504fc6a611ba15312ad456332b9b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62055.json"
+    ],
+    "text": "· 代理人的以太属性伤害提升20%。 \n· 代理人使敌人进入属性异常状态后，其防御力降低15%，全属性伤害抗性降低15%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "62001553": {
+    "sha256": "6527bc6072413c3bc9faa8f1fc3020d2a3b55c1269c5fd39250434bf40d9b53c",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62055.json"
+    ],
+    "text": "· [强攻]特性的代理人的[普通攻击]命中敌人时，无视其30%的冰属性伤害抗性。 \n· [强攻]特性的代理人发动[连携技]和[强化特殊技]后，自身冰属性伤害提升20%，暴击伤害提升40%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001561": {
+    "sha256": "241cd7a41d2fcb804566da905beab459928105ce06e6ae98ef2f8b1a343bdb72",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62056.json"
+    ],
+    "text": "· 代理人的以太属性伤害和冰属性伤害提升35%，暴击伤害提升25%。 \n· [强攻]特性的代理人攻击命中失衡状态中的敌人后，其防御力降低25%，持续5秒，重复触发时刷新持续时间。"
+  },
+  "62001562": {
+    "sha256": "e908524dc3e382620e15e1024270dbb2ca568b19d0aa1a3d8d8fe8a0e435ad29",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62056.json"
+    ],
+    "text": "· 代理人的防御力提升15%，攻击命中敌人时无视其20%的电属性伤害抗性。 \n· 代理人发动[强化特殊技]后，自身暴击率提升5%，暴击伤害提升20%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001571": {
+    "sha256": "254ded5d62987962a596073a08fde0594239b1aebbc0c4b9eb2d7f98fe3d1b3f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62057.json"
+    ],
+    "text": "· 代理人的锐化伤害提升25%，防御力提升15%。\n· 代理人命中敌人且触发暴击后，若敌人处于失衡状态，失衡易伤倍率提升20%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "62001572": {
+    "sha256": "097df49c50842e0cb302a84fd14a1ce10b9ef90bdc3ab55abb670f572f317adc",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62057.json"
+    ],
+    "text": "· 代理人造成的异常积蓄效率提升15%，造成的属性异常伤害提升20%。\n· 若队伍内有2名/3名[异常]特性的代理人，代理人的异常精通分别提升20/60点。"
+  },
+  "62001573": {
+    "sha256": "f3b17a1f56e2de1416b2f0f8fdb4eca18f8960a2f5bd8ff3e111274a65425720",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62057.json"
+    ],
+    "text": "· 代理人的以太伤害提升20%，异常精通提升20点。\n· 代理人使敌人进入属性异常状态后，失衡易伤倍率提升20%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001581": {
+    "sha256": "8d6f694f820da3c0cd77a2e018d1b1813ef2db20b9b6425591aedac13cecde29",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62058.json"
+    ],
+    "text": "· 代理人的锐化伤害提升20%，击杀普通敌人后，[击破]特性的代理人恢复15点能量。\n· 代理人的[连携技]命中敌人后，其失衡恢复速度降低15%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "62001582": {
+    "sha256": "51d811c660bad142a36b03eb71887ce1a4e4f83c8fad62bf4188863196c8774d",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62058.json"
+    ],
+    "text": "· 代理人的冰属性伤害与以太伤害提升25%，冰属性与以太属性异常积蓄效率提升15%。\n· 代理人使敌人进入属性异常状态后，敌人的防御力降低10%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "62001583": {
+    "sha256": "fb2eac8830a2fe424ab4f5d71e178386c8483bef29ebbeb3a46b7f55e46622a8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62058.json"
+    ],
+    "text": "· 代理人的火属性伤害和电属性伤害提升35%，[击破]特性的代理人造成的失衡值提升15%。\n· 代理人使敌人进入失衡状态后，敌人的失衡易伤倍率提升30%，且失衡恢复速度降低15%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "62001591": {
+    "sha256": "42e7f58e17af928715c5c2d004585e4c505e4a6bd54ccd4d6f1432ed21cd61d7",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62059.json"
+    ],
+    "text": "· 代理人的锐化伤害提升20%，击杀普通敌人后，[击破]特性的代理人恢复15点能量。\n· 代理人的[普通攻击]、[特殊技]和[终结技]命中敌人时，穿透率提升10%，若敌人处于失衡状态，无视其15%的电属性伤害抗性。"
+  },
+  "62001593": {
+    "sha256": "8133574ddafd70ffa3dc468139d41f91fae4d1bba8dcb60922020485549e0ada",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/shiyu/62059.json"
+    ],
+    "text": "· 代理人的火属性伤害与以太伤害提升15%，贯穿伤害提升15%。\n· 代理人的[终结技]造成的伤害提升30%，[终结技]攻击命中敌人时无视其10%的全属性伤害抗性。"
+  },
+  "69010101": {
+    "sha256": "ccdd0995e4dde6e953f4347ce7e4600ed7187a33833a73938a4724d4051dc997",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json"
+    ],
+    "text": "· 代理人的属性异常积蓄效率提升30%，[紊乱]效果造成的伤害提升40%。\n· 对敌人施加[紊乱]效果时，全队回复10点能量，代理人的攻击力提升25%，持续30秒，能量回复效果20秒内最多触发一次。"
+  },
+  "69010102": {
+    "sha256": "70c11eb8c9329d61ddff73b4c07544a5ca1ede32afdbd7fcb8f9b95903de0cff",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json"
+    ],
+    "text": "· 代理人的攻击力提升20%，喧响值获得效率提升20%；发动[终结技]时，代理人的攻击力额外提升15%，持续15秒。\n· [终结技]造成的伤害提升40%，造成的失衡值提升20%，累积的属性异常积蓄值提升20%。"
+  },
+  "69010103": {
+    "sha256": "9101c87d4e15c79819f9815f0628ac854609fe111cc5d3562241d55e67bea21b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json"
+    ],
+    "text": "· [普通攻击]、[闪避反击]、[强化特殊技]、[冲刺攻击]造成的伤害提升30%。\n· 触发[极限闪避]或[极限支援]后，全队攻击力提升10%，暴击伤害提升10%，持续15秒，最多叠加3层，每层效果单独结算持续时间。"
+  },
+  "69010104": {
+    "sha256": "8831b5fdac449b833e0d150a5a725279de3f610684afe23bedb780dbfed7b99a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json"
+    ],
+    "text": "· 对首领敌人施加属性异常或[紊乱]效果时，全队获得1层[心无旁骛]，最多叠加6层，每层[心无旁骛]会使代理人的暴击率提升5%；拥有至少3层[心无旁骛]后，队伍中任意代理人对敌人施加属性异常效果时，该效果的持续时间提升5秒；牲鬼·布林格召唤「牲祭之刃」发动攻击时，全队[心无旁骛]层数将会被重置。"
+  },
+  "69010105": {
+    "sha256": "8367260d7bc1881ee89bc5a1d2c6c4ed5d9d9174edf9077a11cc82e0fb6b8238",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json"
+    ],
+    "text": "· 首领敌人每10秒获得1层[愈战愈勇]，使自身造成伤害提升20%，最多叠加3层；队伍中任意代理人对敌人施加属性异常效果时，将移除1层[愈战愈勇]并削弱目标，使其受到伤害提升15%，持续20秒。"
+  },
+  "69010106": {
+    "sha256": "3ca4cf1bae33b12e2004c59b3718bbd412b63d31bac82d43e4a95474d4cc1dfb",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json"
+    ],
+    "text": "· 首领敌人造成伤害提升25%；分身被击破/本体进入失衡状态时，将对首领敌人施加1层/5层[如履薄冰]， 每层[如履薄冰]会使首领敌人造成的伤害降低5%，并使代理人对其造成的冰属性伤害和电属性伤害提升10%；敌人从失衡状态恢复时，[如履薄冰]层数将会被重置。"
+  },
+  "69010107": {
+    "sha256": "c503084d002bfb6c5b69ac5c992cab5d1c953d82599c2ac5b8c7d2a148e297fd",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json"
+    ],
+    "text": "· 成功打断吟唱时，可获得2000操作得分，最多获得5000操作得分。"
+  },
+  "69010108": {
+    "sha256": "c0913d6dae7f2de8df074ada61c53973fb3891e53abbfc4e1e1085cc54d00f2a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json"
+    ],
+    "text": "· 对敌人施加属性异常效果时，可获得150操作得分，最多获得5000操作得分。"
+  },
+  "69010109": {
+    "sha256": "5e3e949c3a3a6075d293d60007703c3f78d4559931ce5b5302fafa488003e6b3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69001.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json"
+    ],
+    "text": "· 成功击破舞者分身时，可获得200操作得分，最多获得5000操作得分。"
+  },
+  "69010201": {
+    "sha256": "4cac92c5dd58efc17bf516ba00ab56e4d656803c590a5052d392d6a87f012ed3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json"
+    ],
+    "text": "· 代理人的属性异常积蓄效率提升25%，异常精通提升40点。\n· 对敌人施加属性异常效果时，代理人额外获得500点喧响值，攻击力提升30%，持续15秒，喧响值获得效果15秒内最多触发一次。"
+  },
+  "69010202": {
+    "sha256": "9290633a61aa3f2ab2f31f9de1d259c6e97dd8c82bf03db545dfb487ac6ab609",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json"
+    ],
+    "text": "· 代理人的攻击力提升20%，喧响值获取效率提升20%；发动[终结技]时，代理人的攻击力额外提升15%，持续15秒。\n· [终结技]造成的伤害提升40%，造成的失衡值提升20%，累积的属性异常积蓄值提升20%。"
+  },
+  "69010203": {
+    "sha256": "d97e5fab1e11c811300dd91840094278c28bb92729fea80613dd6dad7d5a260e",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json"
+    ],
+    "text": "· 代理人造成的失衡值提升25%，[连携技]造成的伤害提升80%。\n· 发动[连携技]时，代理人回复20点能量，造成的伤害提升50%，持续20秒。"
+  },
+  "69010205": {
+    "sha256": "473071b096f84d91bf911871fe21036daee6720dae74c4198c3f0f2623765665",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json"
+    ],
+    "text": "· 代理人发动[招架支援]命中首领敌人时，将对其施加1层[难敌四手]，[招架支援]累计命中3次时，将触发部位破坏，并额外施加3层[难敌四手]，每层[难敌四手]会使代理人对首领敌人造成的失衡值提升15%，在失衡状态下[连携技]和[终结技]对其造成的伤害提升10%；敌人充电蓄能时，将修复受损部位并重置部位破坏进度；敌人从失衡状态恢复时，[难敌四手]层数将会被重置。"
+  },
+  "69010206": {
+    "sha256": "cd0d859fedecc4dac7a66b9de4e50c812518345eace4163cd6489e9bcc26198c",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json"
+    ],
+    "text": "· 未处于失衡状态下时，首领敌人每6秒获得1层[孤注一掷]，最多叠加3层，每层[孤注一掷]会使首领敌人造成的伤害提升10%；代理人攻击命中敌人时，目标每拥有1层[孤注一掷]，代理人的暴击伤害提升25%；敌人从失衡状态恢复时，[孤注一掷]层数将会被重置。"
+  },
+  "69010208": {
+    "sha256": "30d0c64b8ef197343a21afc507bd606dd62c686e3e4c2eaddf5161727c3917a8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json"
+    ],
+    "text": "· 成功造成部位破坏时，可获得600操作得分，最多获得5000操作得分。"
+  },
+  "69010209": {
+    "sha256": "f751c0bbd1f4bf20e011b6a3c8f10c39031eb9696c26113dc1b465cfccba5f4a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69002.json"
+    ],
+    "text": "· 成功触发[极限闪避]时，可获得150操作得分，最多获得5000操作得分。"
+  },
+  "69010301": {
+    "sha256": "4a56640a070019f9e55cd8d49833f08087abb96daf5688af98cd86c4bb99f999",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json"
+    ],
+    "text": "· 代理人的属性异常积蓄效率提升20%。\n· 对敌人施加属性异常效果时，全队提升60点异常精通，紊乱造成的伤害提升40%，持续15秒。"
+  },
+  "69010302": {
+    "sha256": "7709a747a8d77e1404bde8d12f75340d1741964d2e630cd1f60ecf5dd64ef1c1",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json"
+    ],
+    "text": "· 代理人的电属性伤害和冰属性伤害将提升25%。\n· [普通攻击]、[闪避反击]和[冲刺攻击]造成的伤害提升40%，无视敌人15%防御力。"
+  },
+  "69010303": {
+    "sha256": "8dddd2da71f60ecc67d5ffb890fcd35c79d089b0e609921ee73d1f5850a9e6e3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json"
+    ],
+    "text": "· 代理人的能量获取效率提升25%，[快速支援]造成的伤害提升50%。\n· 每次使用[快速支援]时，全队的攻击力提升10%，持续20秒，最多可叠加3层，重复触发时刷新持续时间。"
+  },
+  "69010305": {
+    "sha256": "bd635fdb454b48bf102b9403613fdb753b12cce8c3ed2d14a822ac73b376417c",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json"
+    ],
+    "text": "· 对首领敌人的腿部造成足够的伤害时，会触发[部位破坏]，代理人成功破坏首领敌人的腿部时，回复1000点喧响值，首领敌人获得1层[崩解]，持续20秒，最多4层；代理人攻击命中敌人时，目标每拥有1层[崩解]，暴击伤害提升25%。"
+  },
+  "69010307": {
+    "sha256": "4702c02bf1a53beddfcd44c026fff5c71b6a5a5a00cd6e411e531074685a20f8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json"
+    ],
+    "text": "· 成功造成部位破坏时，可获得800操作得分，最多获得5000操作得分。"
+  },
+  "69010308": {
+    "sha256": "553da33d48ff9d4a7ebee1952fd5a2e8f499d459fd411ee6983d7cb4ee2ce5dc",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json"
+    ],
+    "text": "· 该场战斗中，将不再消耗[支援点数]。"
+  },
+  "69010401": {
+    "sha256": "147f1e64af2bc32881f7debac2afa23f0ed34b733077408da182eba66eba6a56",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json"
+    ],
+    "text": "· 代理人造成的失衡值提升15%，[连携技]造成的伤害提升60%。\n· 每次使用[连携技]时，全队的攻击力提升10%，持续20秒，最多可叠加4层，每层效果单独结算持续时间。"
+  },
+  "69010402": {
+    "sha256": "36a81cc7909d67bcba9d14da627e195b4c5631de955bca9d8419d375a79fa58f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json"
+    ],
+    "text": "· 属性异常对首领敌人造成的伤害提升50%；恶名·死路屠夫处于[以太强化]状态时，承受的伤害降低15%，代理人对其造成的失衡值降低30%；代理人对恶名·死路屠夫触发[紊乱]后，使其立即退出[以太强化]状态。"
+  },
+  "69010501": {
+    "sha256": "a01a846cae4056ee9badf285211112222f37954dfa1127c47bc713c2d8fe6b3b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json"
+    ],
+    "text": "· 代理人的火属性异常积蓄效率和冰属性异常积蓄效率将提升20%，攻击力提升25%。\n·对敌人施加属性异常效果时，代理人回复300点喧响值，提升80点异常精通，持续15秒。"
+  },
+  "69010502": {
+    "sha256": "ab0cfaea95e04e54271deb75a09f62eb3df10ddb4bc54adaaaeae54027f2f4e1",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json"
+    ],
+    "text": "· 代理人的喧响值获取效率提升20%。\n·[终结技]造成的伤害提升30%，[终结技]命中敌人后，将使敌人的防御力降低15%，持续20秒。"
+  },
+  "69010503": {
+    "sha256": "cd0b4f74c7557e6c36c97c2ab4b0f072b8676a238b9d473ac05bf20655d68012",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json"
+    ],
+    "text": "·代理人发动[招架支援]或[连携技]命中首领敌人时，将对其施加1层[劣势]，持续20秒，每层效果单独结算持续时间。代理人攻击命中敌人时，目标每拥有1层[劣势]，代理人的暴击伤害提升15%；\n\n首领敌人拥有4层[劣势]时，[招架支援]会弹开首领敌人的攻击，造成硬直效果。"
+  },
+  "69010504": {
+    "sha256": "0b80e8c5e021891866b619891b4d76f41c212b0c198fc737a75218fda208ef80",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json"
+    ],
+    "text": "· 成功触发[极限支援]时，可获得300操作得分，最多获得5000操作得分。"
+  },
+  "69010505": {
+    "sha256": "7a8e2fe2fc81dfa4ae44f168e75d0272017875f9a56aca92050e0e5a85ef6f51",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json"
+    ],
+    "text": "· 对首领敌人施加属性异常或[紊乱]效果时，全队获得1层[心无旁骛]，最多叠加6层，每层[心无旁骛]会使代理人的攻击力提升8%；拥有至少3层[心无旁骛]后，队伍中任意代理人对敌人施加属性异常效果时，该效果的持续时间提升5秒；牲鬼·布林格召唤「牲祭之刃」发动攻击时，全队[心无旁骛]层数将会被重置。"
+  },
+  "69010507": {
+    "sha256": "6d1e136c8beafcf4dc0da51605782ad5d308a3692edba4c047e362c7c2701c4f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69003.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69004.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69005.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json"
+    ],
+    "text": "· 成功触发[极限闪避]时，可获得200操作得分，最多获得5000操作得分。"
+  },
+  "69010601": {
+    "sha256": "4aac7f97785be47b4b50fc22b7ecabd4193e8de750d5a9548c5af5b82ccd03e8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json"
+    ],
+    "text": "· 代理人的火属性伤害和电属性伤害将提升25%。\n· 触发[连携技]、[极限支援]或[快速支援]后，代理人的暴击率提升20%，暴击伤害提升40%，持续20秒。"
+  },
+  "69010602": {
+    "sha256": "e56a90fa998e53d434ce9606bf5cbaf7c9fb355732af854011495bf62c01f123",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69006.json"
+    ],
+    "text": "· 代理人的异常积蓄效率提升10%，拥有护盾时异常积蓄效率额外提升20%。\n· 攻击处于属性异常状态中的敌人时，代理人造成的伤害提升40%。"
+  },
+  "69010701": {
+    "sha256": "28011b4ef2e2ce85d940173b4fe0a70ebb8dc16cf0aef5dd7a1a9edb65d50538",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json"
+    ],
+    "text": "· 代理人的[追加攻击]、[连携技]造成的伤害提升30%。\n· [追加攻击]、[闪避反击]命中敌人时，全队的攻击力提升15%，暴击伤害提升40%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69010703": {
+    "sha256": "03a1d1a4d83937cdab1970ecf37665da4a7996d80f1662feb7916116d03af03d",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69007.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json"
+    ],
+    "text": "· 成功触发[极限支援]时，可获得200操作得分。\n· 成功造成部位破坏时，可获得600操作得分，最多获得5000操作得分。"
+  },
+  "69010801": {
+    "sha256": "94fc7acfeac4521d7952637771aab9056c252babf9917044291cdac92f085cbe",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json"
+    ],
+    "text": "· 代理人造成的失衡值提升10%，连携技造成的伤害提升50%。\n· [连携技]命中敌人时，敌人的失衡易伤倍率提升25%，且全队攻击力提升20%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69010802": {
+    "sha256": "2fb0d59e5b7eff34ae902ee42ee3aecbc1330cad2636095ba6cf2f62d1a21d8c",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json"
+    ],
+    "text": "· 成功触发[极限支援]时，可获得350操作得分，最多获得5000操作得分。"
+  },
+  "69010803": {
+    "sha256": "951893f10060394dc52cfa7f3a6152b06e2fa154be12a4850fc22fcd80d0d430",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69008.json"
+    ],
+    "text": "· 代理人的火属性异常积蓄效率和冰属性异常积蓄效率将提升20%，攻击力提升25%。\n·对敌人施加属性异常效果时，代理人回复400点喧响值，提升80点异常精通，持续15秒，喧响值回复效果15秒内最多触发一次。"
+  },
+  "69010901": {
+    "sha256": "d40de6c4054bfd1fa06298652d5686099406c133d6e4e6eca38f3ac77d0e7bac",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69009.json"
+    ],
+    "text": "· 代理人的火属性异常积蓄效率和以太属性异常积蓄效率将提升20%，异常精通提升80。\n· 触发属性异常时，敌人的防御力降低15%，且承受的属性异常伤害提升40%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69011001": {
+    "sha256": "9358d9c2476faac74bfc6456fd3ea6a33cce6191e45828f73d7a77d9dc7efb12",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69010.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json"
+    ],
+    "text": "· 代理人的以太属性异常积蓄效率和物理属性异常积蓄效率将提升25%，异常精通提升60点。\n· 触发属性异常时，敌人的防御力降低10%，且承受的属性异常伤害提升30%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69011101": {
+    "sha256": "95ed2e48f253482647f443aca1ea3a33b8e48c2e6fa467d34b3156b1ca0e5372",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69011.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json"
+    ],
+    "text": "· 代理人的[特殊技]、[强化特殊技]、[终结技]造成的伤害提升30%。\n· [强化特殊技]、[追加攻击]命中敌人时，代理人的暴击伤害提升30%，持续20秒，并使敌人的防御力降低15%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69011201": {
+    "sha256": "a2479acf2cf1889319ce9f440a5d7f6518f7deccedecebad61231e85c1a63be0",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json"
+    ],
+    "text": "· 代理人的[闪避反击]、[强化特殊技]造成的伤害提升30%。\n· 代理人命中非失衡状态敌人时，造成的失衡值提升10%；命中失衡状态中的敌人时，暴击伤害提升30%，敌人的失衡易伤倍率提升25%。"
+  },
+  "69011202": {
+    "sha256": "43a98f1d1e6818d5bd4b7068f93a49685c7857a11f91aa454d996cff66aff106",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json"
+    ],
+    "text": "· 代理人的喧响值获取效率提升20%。\n·[终结技]和[强化特殊技]命中敌人时，无视其20%的伤害抗性，[终结技]命中敌人后，代理人的[终结技]和[强化特殊技]造成的伤害提升50%，持续30秒，重复触发时刷新持续时间。"
+  },
+  "69011204": {
+    "sha256": "eb41d4df8de6992cfe71580eb8a6e8ca10c04131cb5a6f587011c562cca32e42",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69012.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json"
+    ],
+    "text": "· 首领敌人造成伤害提升25%；分身被击破/本体进入失衡状态时，将对首领敌人施加1层/5层[如履薄冰]， 每层[如履薄冰]会使首领敌人造成的伤害降低5%，并使代理人对其造成的冰属性伤害和以太属性伤害提升10%；敌人从失衡状态恢复时，[如履薄冰]层数将会被重置。"
+  },
+  "69011301": {
+    "sha256": "a4abbf4ec0a172f72e0ea0a4c9adb3a1e5e7a2ab1629621be571a48ab1d60148",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json"
+    ],
+    "text": "· 代理人的生命值上限提升30%，终结技造成的伤害提升40%。\n· 代理人释放终结技后，能量和闪能获得效率 提升15%，以太属性伤害和冰属性伤害提升40%，持续20秒。"
+  },
+  "69011302": {
+    "sha256": "47c06cacd054c500752416d9052ae0b7d576ec1ab00358cb211b4f266cde352c",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json"
+    ],
+    "text": "· 秽息司祭每次切换阶段时，会使自身异常积蓄抗性提升10%，同时使自身受到的暴击伤害提高30%，至多可以叠加2层，被打破时，清除所有层数。"
+  },
+  "69011303": {
+    "sha256": "51e88aeb115b7f3b603305bf9cccdd14be6720676730e7f5f082626d096381cb",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69013.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json"
+    ],
+    "text": "· 代理人3秒内成功发动3次[招架支援]时，可获得1000操作得分，最多获得5000操作得分。"
+  },
+  "69011401": {
+    "sha256": "cb71a6965c74bf6469bc1550680564e4c9f9a3f38130a23fdd70aa42522a813b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69014.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json"
+    ],
+    "text": "· 使敌人进入失衡状态后，其失衡易伤倍率提升25%，失衡恢复速度降低10%。\n· 代理人释放连携技后，自身的攻击力提升20%，暴击伤害提升30%，持续20秒。"
+  },
+  "69011501": {
+    "sha256": "e6754d55e2c5717a0cc984d9fd221a514c2059295937d071c0f6e72c4e3ad458",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69015.json"
+    ],
+    "text": "· 代理人的以太属性异常积蓄效率和物理属性异常积蓄效率提升20%，异常精通提升60点。\n· 代理人命中属性异常状态中的敌人时，造成的伤害提升25%，并无视敌人15%的防御力。"
+  },
+  "69011601": {
+    "sha256": "b3715de0c04055ee5565c381d7534da9275f8664c30a896f7351b2aad50bdb5e",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json"
+    ],
+    "text": "· 代理人造成的伤害提升20%，造成的物理属性伤害额外提升20%。\n· 使敌人进入属性异常后，敌人的防御力降低10%，持续10秒；对敌人施加[紊乱]效果后，敌人的防御力额外降低25%，持续10秒，两个效果独立刷新持续时间。"
+  },
+  "69011602": {
+    "sha256": "03ef68a4651767fb07e6e66cdafcef1ee8503ded813bdada9d690d18ebd48998",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "秽息妖鬼每次进入属性异常时，代理人对其造成的异常伤害增加8%，最多叠加6层；开启时清空所有层数，每层使[秽盾]被削减效率提升2.5%。"
+  },
+  "69011603": {
+    "sha256": "741d8c9309b1708ed9b5345cbbe278c4133f7e48b338a896b7e472863a3c3d13",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69016.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "· 代理人吸引秽息妖鬼地面攻击一次性引爆至少5处秽息泽，且未被该攻击及秽息泽爆炸命中时，可获得1700操作得分，最多获得5000操作得分。"
+  },
+  "69011701": {
+    "sha256": "bc1b61d5799c52222857e3bca11f3012b63c52dc3e2be8dcb26c4cdc6b9649f7",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json"
+    ],
+    "text": "· 代理人的[支援攻击]、[强化特殊技]、[终结技]造成的伤害提升25%。\n· 代理人每次发动[快速支援]或[连携技]时，喧响值获得效率提升30%，攻击时无视敌人20%伤害抗性，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69011702": {
+    "sha256": "34ceef47b94616fad99835ba7e26b7b94df350d28a0d30ee80c41b770c567b24",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69017.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json"
+    ],
+    "text": "· 成功施加[紊乱]时，可获得200操作得分，最多获得5000操作得分。"
+  },
+  "69011801": {
+    "sha256": "59543ad02c0b470168bdee86ead58d1c09c6ffdc21993ca52185719b4b9670f9",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69018.json"
+    ],
+    "text": "· 代理人的电属性伤害和物理伤害提升30%。\n· 使敌人进入属性异常时，全队的攻击力提升8%，喧响值获取效率提升8%，持续20秒，最多可叠加4层，重复触发时刷新持续时间。"
+  },
+  "69011901": {
+    "sha256": "31455e04e30c6c09599dfb282b22fcb81e51d874cb34c596632fd7d85de8bd39",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json"
+    ],
+    "text": "· 队伍内存在1名/2名[强攻]特性的代理人时，全队造成的伤害提升20%/40%。\n· 触发暴击后，代理人的电属性伤害提升30%，[强攻]特性代理人的暴击伤害额外提升40%，持续5秒，重复触发时刷新持续时间。"
+  },
+  "69011902": {
+    "sha256": "684f8cac25b28dbf9239b2776555cee38e2679735588ac4468d3798316a47fe6",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json"
+    ],
+    "text": "· 代理人发动招架支援命中亵渎者时，全队获得1层[裁夺]；代理人将在空中发动攻击的亵渎者击落时，全队获得4层[裁夺]。[裁夺]最多叠加6层，持续30秒，重复触发时刷新持续时间。\n· 每拥有1层[裁夺]，代理人的暴击伤害提升5%，物理伤害提升5%，电属性伤害提升5%。\n· 亵渎者受到的属性异常伤害降低25%。"
+  },
+  "69011903": {
+    "sha256": "e5adea10c8c25b9bf534b5954abbf3c6170e3a55a6b597752279016937143647",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json"
+    ],
+    "text": "· 代理人造成部位破坏时，可获得2500操作得分；代理人将在空中发动攻击的亵渎者击落时，可获得1500操作得分，最多获得5000操作得分。"
+  },
+  "69011904": {
+    "sha256": "456c657797b10a2c4010fe9d0931eb8704103021f34aaa48cb8cc8c1aa676d97",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69019.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json"
+    ],
+    "text": "· [终结技]造成的伤害提升30%。发动[终结技]时，代理人的攻击力提升15%，持续15秒，重复触发时刷新持续时间。\n· 使敌人进入失衡状态后，其失衡易伤倍率提升35%。"
+  },
+  "69012001": {
+    "sha256": "4bde80242651d1be837a54590d28130ad3f9ea682f82945f1922bb9f4734fdc4",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69020.json"
+    ],
+    "text": "· 代理人的[追加攻击]造成的伤害提升30%，暴击伤害提升30%。\n· 当[强攻]特性代理人的[强化特殊技]、[终结技]命中敌人时，其全伤害抗性降低30%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69012101": {
+    "sha256": "93dda1ab340ee01b01a12b3683ea1294e56b527e49709f173478615ff928550c",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69021.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json"
+    ],
+    "text": "· 代理人的生命值上限提升25%，贯穿伤害提升15%。\n· [命破]特性的代理人造成的伤害提升15%，终结技造成的伤害额外提升15%。"
+  },
+  "69012201": {
+    "sha256": "366c55669927fafd14fa535e69a277514528b53eaa9bb926e1076a7db9399661",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json"
+    ],
+    "text": "· [命破]特性的代理人贯穿伤害提升10%，造成的秽息盾削减值提升30%。\n· 处于以太帷幕中的代理人，贯穿伤害额外提升30%，攻击命中敌人后使其失衡易伤倍率提升45%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "69012301": {
+    "sha256": "d0b4d803f4268e4153446d7b2799069dce362b2835a9307948211fd98f391dbb",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json"
+    ],
+    "text": "· 代理人的异常精通提升40点。\n· 使敌人进入属性异常时，敌人的防御力降低10%，代理人对其造成的异常伤害提升20%，持续10秒，重新触发时刷新持续时间。"
+  },
+  "69012302": {
+    "sha256": "1e70e5fd9551afe5262ee47ce5fe37a4e37030f1c86c2dc1cc3978ca2e63ef81",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json"
+    ],
+    "text": "· 彷徨猎手处于[秽浊流界]中时，基础防御提高40%；代理人发动[支援突击]或[闪避反击]命中彷徨猎手时，将对其施加1层[动摇]。[动摇]最多叠加5层，持续15秒，重复触发时刷新持续时间。\n· 代理人攻击命中彷徨猎手时，对方每有1层[动摇]，代理人的贯穿伤害提升7%。"
+  },
+  "69012303": {
+    "sha256": "bb9ff13afd830585391eecb5da8f132b1944fbbe3221955c526637aad29af137",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json"
+    ],
+    "text": "· 在捉迷藏阶段，使用[觉感术]破除溺想者·卢西娅的真身，可获得3000操作得分；破除真身后发动[招架支援]或[支援突击]命中彷徨猎手，化解其突袭，可获得2000操作得分，最多获得5000操作得分。"
+  },
+  "69012401": {
+    "sha256": "3cc4be3b2a7517b2671a8db234ad6d9f446bce862e94cc84e87be3c2263f035e",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json"
+    ],
+    "text": "· 代理人的生命值上限提升20%，[终结技]造成的伤害提升40%。\n· 代理人发动[强化特殊技]后，能量和闪能获得效率提升20%，以太属性伤害提升35%，持续20秒，重复触发刷新持续时间。"
+  },
+  "69012402": {
+    "sha256": "ecf8e77f973112c14416daed63f9d46bb19e3880b4bf1f8027e7219714b537cf",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json"
+    ],
+    "text": "· [命破]特性的代理人的生命值低于上限的80%/50%时，攻击命中敌人时无视其10%/25%的冰属性伤害抗性。\n· 代理人开启或延长以太帷幕时，全队的贯穿伤害提升20%，暴击伤害提升30%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69012403": {
+    "sha256": "147cabe12b7602738f62960e806e899cffb67cfbc9829c9559da6f9801a2aeb4",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json"
+    ],
+    "text": "· 队伍内存在1名/2名[强攻]特性的代理人时，全队造成的暴击伤害提升20%/60%。\n· 发动[强化特殊技]、[终结技]后，代理人的电属性伤害提升20%，[强攻]特性代理人造成的伤害额外提升30%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69012501": {
+    "sha256": "b6a544ede24cae3d4465d03c17b0034b10565504cab91f46faddd93e64bdf220",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json"
+    ],
+    "text": "· 代理人的[终结技]造成的伤害提升30%，代理人使敌人进入失衡状态后，其失衡易伤倍率提升50%。\n· [击破]特性的代理人发动[强化特殊技]后，全队攻击命中敌人时，无视其7%全属性伤害抗性，持续30秒，最多可叠加3层，每层效果单独结算持续时间。"
+  },
+  "69012602": {
+    "sha256": "f7fc1295a658b62037956652ddcb244cd0a0d60aced5de63aa1f4119215c67c5",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "· 索贝克与魇缚者每次交替上场时，可使魇缚者获得1层[合契]与一层[舍身]，[合契]与[舍身]最多叠加3层，每层[合契]可使全属性异常积蓄抗性提升15%，每层[舍身]可使魇缚者防御降低8%；魇缚者进入失衡状态时，受到暴击伤害提升50%。"
+  },
+  "69012603": {
+    "sha256": "0758d416a216cfc287be81224bf240d1ed086cddc6b2c7e8c45c6aecd3d47960",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "· 代理人使索贝克与魇缚者进入虚弱状态时，可获得1500操作得分；代理人击杀索贝克时，可获得2000操作得分，最多获得5000操作得分。"
+  },
+  "69012604": {
+    "sha256": "e00e5b91bbff5bcce855b38c37de768123ea9937db9413ce8d1b2bf95d997d54",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json"
+    ],
+    "text": "· 索贝克与魇缚者每次交替上场时，可使魇缚者获得1层[合契]与一层[舍身]，[合契]与[舍身]最多叠加3层，每层[合契]可使全属性异常积蓄抗性提升15%，每层[舍身]可使魇缚者失衡易伤倍率提升10%；魇缚者进入失衡状态时，受到暴击伤害提升50%。"
+  },
+  "69012701": {
+    "sha256": "0767bbdfe3ca7bcf248d75f385734768b9b6c66a7694374ae1094082dead5f71",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json"
+    ],
+    "text": "· 代理人的贯穿伤害提升15%，[命破]特性的代理人攻击命中敌人时，无视其20%的全伤害抗性。\n· 发动[强化特殊技]后，代理人造成的火属性伤害提升40%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69012702": {
+    "sha256": "67124b718ed103373554953879429b9bc163cd46f7006ee70885a0631b490099",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json"
+    ],
+    "text": "· 代理人造成的伤害提升20%，攻击命中敌人时，无视其10%的全伤害抗性。\n· [强攻]特性的代理人攻击力提升20%，[普通攻击]造成的伤害提升40%，并无视敌人20%的防御力。"
+  },
+  "69012703": {
+    "sha256": "de6077fe1b4659dc87142e1103139d9d75561ab0f581c1e78a449335593e96b3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json"
+    ],
+    "text": "· 代理人的攻击力提升16%，敌人的失衡易伤倍率提升30%。\n· 处于以太帷幕中的代理人，攻击命中敌人时无视其10%的物理属性伤害抗性和15%的防御力。"
+  },
+  "69012704": {
+    "sha256": "6cf67aae07e71fc6943b9fec1226c0c4cc8e7378e30f58d7e02b34a530313a40",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "·首领受到的异常伤害降低30%，当其从状态切换回普通状态，或从普通状态切换为[秽盾]状态时，使代理人对其造成的暴击伤害提升20%，最多叠加3层，当其从失衡状态恢复时层数重置。"
+  },
+  "69012705": {
+    "sha256": "550dcf9bd05c6cc68a7c5a4630d180f08d8780bcb60464a73005f835c792e63e",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "·触发[秽盾净除]时，可获得1000操作得分；期间，每次成功应对首领的攻击，可获得500操作得分；[完美反制]首领的[控制技]时，可获得2000操作得分。期间，通过[反制支援]造成[完美反制]时，会获得该次控制技剩余的成功应对得分。最多获得5000操作得分。"
+  },
+  "69012801": {
+    "sha256": "382bee52830615a0df5fa3614018d70c0527003bb4fb609a23c78e0b55552f3a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json"
+    ],
+    "text": "· 代理人的攻击力提升25%，异常精通提升40点。\n· 对敌人施加属性异常效果后，敌人的全伤害抗性降低10%，代理人对其造成的属性异常伤害提升30%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69012901": {
+    "sha256": "c3baaee834c3d683c00b2db2d84ce678234aecb958ab1a071e718db4369ea7ed",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json"
+    ],
+    "text": "· 处于以太帷幕中时，代理人的攻击力提升20%，暴击伤害提升20%。\n· 敌人的失衡易伤倍率提升30%，代理人的普通攻击和终结技攻击命中敌人时，无视其10%的物理属性伤害抗性和10%的防御力。"
+  },
+  "69012902": {
+    "sha256": "11e8c8e184e3746af943d02a65dfec55883d71226bcf17923693c8bea0eed702",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json"
+    ],
+    "text": "· 代理人的冰属性伤害和物理伤害提升30%。\n· 使敌人进入属性异常时，全队的攻击力提升25%，喧响值获取效率提升20%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69012903": {
+    "sha256": "aa1ebda2a0ceffd0df1b4c6c3020f77f85c0a5b90ba3a3d0bc1cf2b8df85f061",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json"
+    ],
+    "text": "· 使敌人进入失衡状态后，其失衡易伤倍率提升35%，失衡恢复速度降低10%。\n· 代理人释放强化特殊技后，自身暴击伤害提升40%，持续20秒。"
+  },
+  "69012904": {
+    "sha256": "01998df4ecc3ea2e4f9b6af63818f5c91988decc985910b9b21403d0a5543ab4",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json"
+    ],
+    "text": "· 处于[以太帷幕]中的代理人攻击力提升15%，[普通攻击]和[终结技]命中敌人时无视其15%的防御力。\n· [支援]特性的代理人发动[强化特殊技]后，全队物理属性伤害提升20%，暴击伤害提升40%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69012905": {
+    "sha256": "3c647fb8dcc32ff1302aaf634984670f09370064668809658237a39f77f2a385",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json"
+    ],
+    "text": "· 代理人的生命值上限提升30%，终结技造成的伤害提升40%。\n· 代理人释放终结技后，能量和闪能获得效率提升15%，以太伤害和火属性伤害提升40%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69013001": {
+    "sha256": "1a371842e395131aa514e91d71a3647746aae487faf1635bbc0cbfefdc6cfe33",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "· 适合[强攻]特性的代理人挑战。"
+  },
+  "69013002": {
+    "sha256": "32418c992eaccf56d7610420d55b49ade0e0fa04e77f9b2f533514e9ab84908b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69022.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69024.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69028.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69029.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69030.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json"
+    ],
+    "text": "· 适合[命破]特性的代理人挑战。"
+  },
+  "69013003": {
+    "sha256": "e4211f6c1094c583c6ef62d428ec54327b8209d6f8eca9b888d6f401029aaa5f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69023.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69027.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 适合[异常]特性的代理人挑战。"
+  },
+  "69013004": {
+    "sha256": "02dc91d38bdf5b84288874bc018b7c3afbd72a7ef47f189689c6f23d521db849",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69025.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69026.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "· 适合[击破]特性的代理人挑战。"
+  },
+  "69013005": {
+    "sha256": "4cfd4abfa7578289a9a7f7bfd4a96acd0fe2305718de464416caf3b4fce30ad6",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 适合[锋御]特性的代理人挑战。"
+  },
+  "69013101": {
+    "sha256": "39b6d927f823c0c8858ecc5aae0d997073b3b64151bb1600333bf1f97243c5f8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json"
+    ],
+    "text": "· 代理人使敌人进入属性异常状态后，其全属性伤害抗性降低10%，以太伤害抗性降低10%，持续15秒，重复触发刷新持续时间。\n· 代理人造成的属性异常伤害提升15%，异放伤害提升15%，[连携技]、[终结技]造成的属性异常积蓄值提升20%。"
+  },
+  "69013102": {
+    "sha256": "c4557c16d40068b5274db1cd89a9abf5aa5e67c605ac8701087967f818262838",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json"
+    ],
+    "text": "· 代理人的电属性伤害和物理属性伤害提升20%，[普通攻击]、[连携技]和[终结技]命中敌人时暴击伤害提升30%。\n· 处于[以太帷幕]中的代理人攻击力提升10%，攻击命中敌人时无视其15%的防御力。"
+  },
+  "69013103": {
+    "sha256": "07ea568965e719eeec49fda225347651b8966670bf22c957c90a7fd54b29e3e3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json"
+    ],
+    "text": "· 代理人异常积蓄效率提升15%，对叛律孤歌造成的异常伤害提升30%，战斗中代理人处在[以太帷幕]状态时，叛律孤歌失衡易伤倍率提升30%。"
+  },
+  "69013104": {
+    "sha256": "8879f051ae770085589d7261af9e6495d775c6213edd6b5444026594267d9521",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69031.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json"
+    ],
+    "text": "[控制技]期间，每次成功应对首领的攻击，可获得350操作得分；[完美反制]首领的[控制技]时，或招架部分招式最后一击时，可对首领造成[部位破坏]效果，可获得750操作得分。期间，通过[反制支援]造成[完美反制]时，会获得该次[控制技]剩余的成功应对得分。最多获得5000操作得分。"
+  },
+  "69013201": {
+    "sha256": "7815b6f8d6acc0c5e70da3b0598994cc10dfe2d6b7453720b02109a237e113b9",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "· 代理人的暴击伤害提升30%。\n· [强攻]特性的代理人攻击力提升10%，[普通攻击]命中时造成的伤害提升30%，并无视敌人15%的防御力。"
+  },
+  "69013202": {
+    "sha256": "309150908f875379defe4be23b26e148c75cfdcd8fa1856ab90ffc1c704f7138",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69032.json"
+    ],
+    "text": "· 代理人使敌人进入属性异常状态后，其全属性伤害抗性降低10%，以太伤害抗性降低15%，持续15秒，重复触发刷新持续时间。\n· 代理人的[强化特殊技]、[连携技]、[终结技]造成的属性异常积蓄值提升15%，代理人造成的属性异常伤害提升15%，异放伤害提升20%。"
+  },
+  "69013301": {
+    "sha256": "1543f6c43e3b0eb8deeb5374bf9f5627327ee5a5bf936881e005c66cc2cd3739",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69034.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json"
+    ],
+    "text": "· 代理人使敌人进入属性异常状态后，其失衡恢复速度降低15%，全队攻击力提升15%，持续20秒，重复触发刷新持续时间。\n· 使敌人进入失衡状态时，全队回复20点能量，异放伤害提升30%，持续30秒，重复触发刷新持续时间，能量回复效果30秒内最多触发1次。"
+  },
+  "69013302": {
+    "sha256": "689de8e4a7555e149c1d0965fabb27d7b3e542b8c4e590bc41d5b1f73f6343f6",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json"
+    ],
+    "text": "· 代理人的[终结技]造成的伤害提升30%，发动[终结技]后，全队的贯穿伤害提升10%，暴击伤害提升25%，持续20秒，重复触发刷新持续时间。\n· 代理人使敌人进入失衡状态后，其失衡易伤倍率提升20%。"
+  },
+  "69013303": {
+    "sha256": "1e52d54fc651ead24e2f0849f5ea4f40b374f2bdeec7834b92b977f6b9d85170",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json"
+    ],
+    "text": "·[侵蚀壁垒]持续期间，代理人对其造成的异常伤害提升50%，造成的异常积蓄提升30%；首领在失衡状态下，受到的异常伤害提升15%，代理人对其造成的异常积蓄提升15%；首领在非失衡状态下，受到的伤害降低15%。"
+  },
+  "69013304": {
+    "sha256": "0432ffd459953e4ad2bf93cc44e28d0af5077c160e6d88c8b48763aea724079f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "·每次成功应对首领的攻击并使其触发特殊跪地，可获得1000操作得分；期间，每次成功应对首领的攻击，可获得500操作得分；[完美反制]首领的[控制技]时，可获得1500操作得分。期间，通过[反制支援]造成[完美反制]时，会获得该次[控制技]剩余的成功应对得分。最多获得5000操作得分。"
+  },
+  "69013402": {
+    "sha256": "b0308008e2f0aeeaff69bcaddada32c2b01535e8c1e0f7e4f2f96b4d2eff3ae4",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69033.json"
+    ],
+    "text": "· 代理人的[普通攻击]、[闪避反击]、[终结技]造成的伤害提升20%，无视敌人30%的冰属性伤害抗性。\n· 对敌人施加[紊乱]效果时，代理人的暴击伤害提升50%，敌人的失衡恢复速度降低15%，失衡易伤倍率提升30%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69013501": {
+    "sha256": "b56912e71b2e2954b0cd76e05d4741cf55fa57a3a21c04e306d7aff103302d3d",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69035.json"
+    ],
+    "text": "· 队伍内存在1名/2名[强攻]特性的代理人时，全队攻击力提升10%/25%。\n· 代理人的[普通攻击]造成的伤害提升40%，并无视敌人20%的电属性伤害抗性。"
+  },
+  "69013601": {
+    "sha256": "8f45c63513a4df73080d8368d45e7d4a6ff554d83fb424bdbbc4bc858adddd13",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "·焚昼余火开启[焚风]状态后，获得5层[赴火]，每层[赴火]使自身造成的伤害提升10%，且受到的暴击伤害降低25%。焚昼余火拥有[赴火]时，每次进入异常状态将失去一层[赴火]，并使后续受到的异放伤害提升10%，最多叠加3层，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69013602": {
+    "sha256": "680872a4f15d4ab9e4229ba93fe53adfd3f66b8ea01f5bbd933900c3c01e06c1",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "·焚昼余火处于[焚风]状态期间，对焚昼余火造成部位破坏时，可获得1250操作得分；代理人将在空中发动攻击的焚昼余火击落时，可获得1500操作得分；[完美反制]焚昼余火的时，可获得2000操作得分。最多获得5000操作得分。"
+  },
+  "69013603": {
+    "sha256": "ea8cdf0e36da1e1f4bac482df7e9d24c7f350a63678aad7ed9e0fafce1a007ef",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json"
+    ],
+    "text": "· 代理人的异常精通提升30点，[异放]造成的伤害提升10%。\n· 对敌人施加[异放]效果后，敌人的冰属性伤害抗性降低25%，代理人造成的冰属性伤害提升30%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69013604": {
+    "sha256": "2e8cf10db38266d28699bc39998852acf47b511cd2c07a7cb1c42198cf72df0a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69036.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json"
+    ],
+    "text": "· [命破]特性的代理人贯穿伤害提升15%，造成的秽息盾削减值提升30%。\n· 处于以太帷幕中的代理人，以太属性伤害提升25%，攻击命中敌人后使其失衡易伤倍率提升25%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "69013701": {
+    "sha256": "3fce96368329d4117bf94a94dca0d9929ac28a2589dc400a58c124bc94a2f6a8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json"
+    ],
+    "text": "· 代理人的贯穿伤害提升20%。\n· [命破]特性的代理人发动[强化特殊技]后，暴击伤害提升50%，[强化特殊技]、[终结技]命中敌人时无视其30%的物理伤害抗性，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69013702": {
+    "sha256": "d6f14f7dc3a7b495e4a21a04ae82bb6f3c1b69e38bb130a5a74157979a2c40c8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json"
+    ],
+    "text": "· 成功施加[紊乱]时，可获得300操作得分，最多获得5000操作得分。"
+  },
+  "69013703": {
+    "sha256": "18ded739ffd2f0c1210f6f7c9e7f2373bfe1a8a41035b6fd28566eb554a2f022",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69037.json"
+    ],
+    "text": "· 代理人的异常精通提升20点，造成的属性异常伤害提升10%。\n· 使敌人进入属性异常时，全队的暴击伤害提升60%，敌人的防御力降低10%，持续15秒，重新触发时刷新持续时间。"
+  },
+  "69013801": {
+    "sha256": "4fa13440fa5bb15e2b7268a23bb7125f281c9b2e71c1d0dc19e04a8ea8bc671b",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69038.json"
+    ],
+    "text": "· 代理人造成的冰属性伤害和物理属性伤害提升40%，[异放]造成的伤害额外提升20%。\n· 代理人使敌人进入属性异常状态后，其防御力降低15%，冰属性伤害抗性降低30%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "69013901": {
+    "sha256": "c8008e4170cc618554bd9e13ee1c50c64473a7446404ba3a954c5b316eee8e24",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json"
+    ],
+    "text": "· 代理人攻击力提升10%，对敌人施加[乱流]后，全队攻击力提升5%，异常精通提升10点，持续15秒，最多可叠加3层，重复触发时刷新持续时间。\n· 使敌人进入风属性、冰属性异常后，其防御力降低10%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69013902": {
+    "sha256": "04f7add904145bbdcde6307391d5f2b6a79b2339c68267f6d6e11277b899fc12",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json"
+    ],
+    "text": "· [强攻]特性代理人的以太属性伤害和冰属性伤害提升35%。\n· [普通攻击]、[终结技]造成的伤害提升20%，无视敌人10%的防御力，发动[连携技]/[强化特殊技]后，代理人暴击伤害提升45%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69013903": {
+    "sha256": "d3b0955b3cc3c0979bedddee1ebcb7b59caf4471d72c2717adb25b5a306765d6",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "· 代理人每次对首领施加异常状态时，会给首领施加1层[残翳]，每层[残翳]会令首领受到的异常伤害提升7.5%，受到的[乱流]伤害额外提升5%，持续10秒，[残翳]最多累计3层，每层效果单独结算持续时间；持续期间，首领被施加[残翳]时还会额外削减[侵蚀壁垒]最大值的20%，并累积15%的失衡值（15秒内不会重复触发）；[侵蚀壁垒]被击破时，首领立刻获得最大层数的[残翳]；首领进入失衡状态时，会移除所有[残翳]，并施加相同层数的[裂伤]，每层[裂伤]会降低首领5%异常积蓄抗性，并增加其10%失衡易伤倍率；首领失衡状态结束时，移除所有[裂伤]。"
+  },
+  "69013904": {
+    "sha256": "83c698c91625266d0749aa966552e1a92a7ccf6b4e54de27a6986d757f566aaf",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "· 每次成功招架基塔布鲁开启[侵蚀壁垒]后的连续下砸，可获得1000操作得分，成功触发应对最后一段下砸，可额外获得1000操作得分；成功击破[侵蚀壁垒]时，可获得1500操作得分。最多获得5000操作得分。"
+  },
+  "69014001": {
+    "sha256": "e74d9a87cf43c3eceb3d388fcea4f0b43fa2fa971308711d0233c29f5423e978",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json"
+    ],
+    "text": "· 代理人造成的伤害提升20%，暴击伤害提升20%。\n· [强攻]特性代理人攻击力提升10%，[普通攻击]/[终结技]造成的伤害提升20%，无视敌人10%的防御力。"
+  },
+  "69014002": {
+    "sha256": "6755cbe57bbc3ae9770528629910dc2351da4f2171ba91faec18fb20f689d065",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69040.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json"
+    ],
+    "text": "· 代理人造成的失衡值提升20%，[终结技]/[连携技]无视敌人30%的全属性伤害抗性。\n· 发动[连携技]后，全队的攻击力提升10%，暴击伤害提升15%，持续20秒，最多可叠加3层，重复触发时刷新持续时间。"
+  },
+  "69014003": {
+    "sha256": "b68a650a173ffb07352f318406b4187825f5d70c3fa7dac9a82d76a69a035588",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json"
+    ],
+    "text": "· 代理人的风属性伤害、冰属性伤害提升20%，异常精通提升20点。\n· 对敌人施加属性异常状态时，敌人的全伤害抗性降低10%，且全队造成的属性异常伤害提升10%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69014101": {
+    "sha256": "1b82d3bd3a4151d23bb30ad281681d34e25ac395a827864b30ea322da19408ce",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json"
+    ],
+    "text": "· 代理人的异常精通提升45点。\n· 使敌人进入属性异常状态后，敌人防御力降低10%，持续10秒，触发[紊乱]后，敌人防御力额外降低15%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "69014102": {
+    "sha256": "d1bcdb89213edb08a14a77a8f42259c7ab0e0c44b7c7a37c59ab81cfa78e6a6e",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69039.json"
+    ],
+    "text": "· 代理人的贯穿伤害提升20%，生命值提升15%。\n· [命破]特性的代理人发动[强化特殊技]后，暴击伤害提升40%，[强化特殊技]、[终结技]无视敌人15%的物理属性伤害抗性和以太属性伤害抗性，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69014103": {
+    "sha256": "9263beee7531a8a409e6e1a7fca7e381b9705dda3fafe56c4f113e3cb51d579d",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/69041.json"
+    ],
+    "text": "·代理人发动[招架支援]或[连携技]命中首领敌人时，将对其施加1层[劣势]，持续20秒，每层效果单独结算持续时间。代理人攻击命中敌人时，目标每拥有1层[劣势]，代理人的暴击伤害提升15%；\n·首领敌人拥有4层[劣势]时，[招架支援]会弹开首领敌人的攻击，造成硬直效果。\n·首领敌人受到的属性异常伤害降低30%。"
+  },
+  "69014201": {
+    "sha256": "16b3f8db3c92a76643ab9e7593848709d24772c3a25534752d17b7441b9f8edb",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json"
+    ],
+    "text": "· 队伍内存在2/3名[异常]特性代理人时，全队的异常精通分别提升30点/70点，造成的属性异常伤害分别提升10%/25%。\n· 对敌人施加属性异常效果后，敌人的全属性伤害抗性降低15%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "69014202": {
+    "sha256": "3b6c2b7d31a8a39d8820d2dadbc29ed58c59a7c454f3e8553cbf48ba81af6569",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json"
+    ],
+    "text": "· 代理人的攻击力提升10%，异常精通提升30点，暴击伤害提升40%。\n· 代理人对敌人施加属性异常效果后，其防御力降低10%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "69014203": {
+    "sha256": "07384f187d27cb489eb82520205112a48e09367052f84fe7aafec0d0537abba3",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json"
+    ],
+    "text": "· 代理人攻击命中首领敌人时，使首领敌人获得1点[紊相值]；同一名代理人每1秒最多施加1点[紊相值]。\n· 首领敌人持有的[紊相值]达到10点时，会立即移除所有[紊相值]并使首领敌人进入[紊相]状态。[紊相]状态期间，敌人受到的属性异常伤害提升40%，持续10秒，重复进入[紊相]状态时刷新持续时间。\n· 代理人成功对首领敌人施加属性异常状态时，全队代理人会获得[升变]效果：造成的伤害提升15%，异常精通提升20点；[升变]效果持续10秒，重复触发刷新持续时间。"
+  },
+  "69014204": {
+    "sha256": "0779af4edf75c4b7aed39f2a2778ab86d2c32419710ddb1b4a8b7e047c2b2d90",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 每次成功招架基塔布鲁召唤的眷属攻击并触发[活性转化]时，可获得500操作得分；成功触发应对基塔布鲁的攻击时，可获得1000操作得分，最多可触发3次；如果成功在基塔布鲁第一次开启后的25秒内击破[侵蚀壁垒]，可获得1500操作得分。最多获得5000操作得分。"
+  },
+  "69014301": {
+    "sha256": "df69955009477ca4795b7b907d29206c1d89441cf064e219e5752579f191c913",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json"
+    ],
+    "text": "· [强攻]特性的代理人攻击力提升25%，[普通攻击]、[强化特殊技]、[连携技]命中敌人时，无视其30%的冰属性伤害抗性和以太属性伤害抗性。\n· 代理人命中处于失衡状态的敌人时，其失衡易伤提升40%，持续5秒，重复触发时刷新持续时间。"
+  },
+  "69014401": {
+    "sha256": "4563ab90ac301949e5897c9d244ce38d712ffbb9b69bbf83f99fc3c970643f17",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "· 代理人的[普通攻击]、[终结技]造成的伤害提升30%。[强攻]特性的代理人攻击命中敌人时，无视其20%的冰属性伤害抗性。\n· 代理人发动[强化特殊技]后，自身的冰属性伤害提升30%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69014402": {
+    "sha256": "c967c5dbca9dcfb5e1c1f431fbace177492e6a884b6c5b6449394056fb899158",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "· 队伍中存在2/3名[异常]特性的代理人时，全队造成的属性异常伤害分别提升10%/30%，全队的攻击力分别提升5%/15%。\n· 对敌人造成属性异常伤害时，无视其10%的全属性伤害抗性与10%的防御力。"
+  },
+  "69014403": {
+    "sha256": "bffcc56d4ae6f5a0e876c314d45d8962494f607498a4c0936d4a83f8c003f410",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "· 未处于失衡状态下时，首领敌人每6秒获得1层[孤注一掷]，最多叠加3层，每层[孤注一掷]会使首领敌人造成的伤害提升10%；代理人攻击命中敌人时，目标每拥有1层[孤注一掷]，代理人攻击造成的暴击伤害提升25%，属性异常伤害降低15%；敌人进入失衡状态时，获得1层[孤注一掷]；敌人从失衡状态恢复时，[孤注一掷]层数将会被重置。"
+  },
+  "69014404": {
+    "sha256": "8c8a6758128f66c88c6210568562938631a3f9ad327d2d869f78c49f42a48698",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "· 成功触发[极限闪避]或[极限支援]时，可获得300操作得分，最多获得5000操作得分。"
+  },
+  "69014405": {
+    "sha256": "72a040b233ee5605656b0abf72f1c6b94b28b25a130e4a6f5c692a7e76d103c9",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json"
+    ],
+    "text": "· 代理人对敌人施加属性异常状态时，目标敌人获得1层对应属性的[凋蚀印记]，持续30秒，最多叠加2层，同属性的[凋蚀印记]重复触发刷新持续时间。\n· 敌人每持有1层[凋蚀印记]，受到的属性异常伤害提升8%，受到的伤害提升8%。\n· 对敌人造成[部位破坏]或[完美反制]时，全队异常精通提升60点，持续30秒，重复触发刷新持续时间。"
+  },
+  "69014406": {
+    "sha256": "20c0b9abccb0378d1f83a427db9cdff2f49fc8b660799fa6fb7e61189df318c1",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690421.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json"
+    ],
+    "text": "· 成功造成[部位破坏]时，可获得1000操作得分；每次成功应对时，可获得500操作得分；阻止敌人的[侵蚀壁垒]充能完成并造成部位破坏时，可获得1500操作得分。期间，通过造成[完美反制]时，会获得该次[控制技]剩余的成功应对得分。最多获得5000操作得分。"
+  },
+  "69014407": {
+    "sha256": "a4f624f9a1410fb9b1775896943b4c459fb8c8f76241cbbedda178284c6c59ad",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690431.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690441.json"
+    ],
+    "text": "代理人对敌人造成[完美反制]后，敌人的全属性抗性降低10%，且全队[强攻]特性的代理人攻击力提升20%，穿透率提升25%，造成的冰属性和以太属性伤害的暴击伤害提升60%。\n触发特殊跪地时，全队异常精通提升40点，异常伤害提升30%。"
+  },
+  "69014410": {
+    "sha256": "67d8cbc3ef714a6c7afc97bd29a4ceadd7719cbc8bd58dbc8bd95c0f728c1350",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "·熔狱行赭进入[熔狱]状态后,其受到的属性异常伤害降低30%;每触发一次首领会获得1层[过热];累计触发两次[招架支援]或[极限闪避]首领会获得1层[过热],每层[过热]会使全队代理人暴击伤害提升25%。最多叠加3层，持续20秒，触发[招架支援]或重复触发[过热]时刷新持续时间。"
+  },
+  "69014411": {
+    "sha256": "1aa38b40eb16e82dbdf7eb6b798a0f364e3674e9c455799aa7180db5492b6a56",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 成功触发[完美反制]时，可获得2000操作得分；每击碎一颗燧石可获得1000操作分，最多获得5000操作得分。"
+  },
+  "69014501": {
+    "sha256": "36ab940632902ac6fdb4582a4e4cd0e02e64acacfe807a40175fc5a4205dd8b0",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "· 代理人的锐化伤害提升15%，防御力提升15%。\n· 代理人发动[强化特殊技]、[特殊技]、[终结技]后，攻击命中敌人时无视其20%的电属性伤害抗性，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69014502": {
+    "sha256": "d86117aa1139f70ef9ae33e2c76dd92ab8587785d071777e35c4a4bd557e05ee",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "· 队伍中存在2/3名[异常]特性的代理人时，全队的异常精通分别提升20/60点，异常积蓄效率分别提升10%/20%。\n· 代理人使敌人进入属性异常状态后，敌人的防御力降低10%，持续10秒，重复触发时刷新持续时间。"
+  },
+  "69014503": {
+    "sha256": "8adba84239d7464b83b8ec7e28681b1eb2b2ce252423b182a8404bfc0db5d813",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json"
+    ],
+    "text": "· [强攻]特性的代理人的冰属性伤害提升20%。\n· 代理人的暴击伤害提升30%，攻击处于失衡状态的敌人时，该敌人的失衡易伤倍率额外提升20%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69014504": {
+    "sha256": "6eaa04b93742d7ec56a9f5c0813ab0547de9de8baf8e8aa007c35c15ff8dbe55",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "·对异构·焚昼余火其造成部位破坏或完美反制时，全队锐化伤害提高40%，持续60秒，重复触发时刷新持续时间。 \n·代理人攻击命中非失衡状态的敌人时，造成的失衡值提升15%。异构·焚昼余火处于失衡状态中时，失衡易伤倍率提升20%。"
+  },
+  "69014505": {
+    "sha256": "55012cff65787a88ca72d7fc0055a16a48e62ddd77092c4b0d158765fc8843d8",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "·异构·焚昼余火处于[岚幕]状态期间，使用[招架支援]反制异构·焚昼余火的攻击并对其造成部位破坏时，可获得1500操作得分；[完美反制]异构·焚昼余火的时，可获得2000操作得分。最多获得5000操作得分。"
+  },
+  "69014506": {
+    "sha256": "2231ef6ba43694939c2f61174b1e0ddd31005d0e25bcbd09c7aabdda1f7117c1",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 库萨里库受到的属性异常伤害降低40%。\n· 代理人成功使用[招架支援]应对库萨里库的时，将对其施加1层[识破]，使库萨里库进入失衡状态时，对其施加2层[识破]。每层[识破]会使其受到的锐暴伤害提升10%，[识破]最多叠加4层，持续30秒，重复触发时刷新持续时间。"
+  },
+  "69014507": {
+    "sha256": "f3fb620a7577050d7d86f1b03aea224aae372b523dc200504459b5a23117fd63",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json",
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 在库萨里库开启[侵蚀壁垒]后，使用[招架支援]反制库萨里库的并对其造成部位破坏，可获得1000操作得分；成功通过[招架支援]应对时，可获得700操作得分；[完美反制]库萨里库的时，可获得2000操作得分。最多获得5000操作得分。"
+  },
+  "69014601": {
+    "sha256": "1ae0c50a54f45be618000aed36b8e24a55cea68ad185f064195401df19f3c7fa",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690461.json"
+    ],
+    "text": "· 代理人的以太伤害和物理属性伤害提升25%，[击破]特性的代理人造成的失衡值提升20%。\n· 代理人使敌人进入失衡状态后，敌人的失衡易伤倍率提升40%，且失衡恢复速度降低15%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69014603": {
+    "sha256": "4f32ceccdfd26da82c41fc790062a9984f2f7da927a06775dc7543ca0edd6f2f",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690451.json"
+    ],
+    "text": "· 代理人的穿透率提升5%，攻击命中敌人时无视其15%的电属性伤害抗性。\n· 代理人发动[强化特殊技]、[特殊技]后，锐化伤害提升20%，防御力提升10%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69014701": {
+    "sha256": "662d6b4352ea45eee2b4da41894ee2439cc93f4532898a5e92664a44debedb52",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 代理人的冰属性伤害提升15%，异常精通提升60点。\n· 代理人对敌人触发[异放]或[紊乱]时，全队造成的属性异常伤害和[紊乱]伤害提升25%，同时积蓄效率提升15%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69014702": {
+    "sha256": "6428dd2331aecc21cc5b0fc643c0c9844841747172dcf1c29eb95c5ad7afb552",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 代理人对敌人造成的失衡值提升20%。\n· [强攻]特性的代理人攻击力提升20%，发动[终结技]后自身暴击伤害提升50%，持续20秒，重复触发时刷新持续时间。"
+  },
+  "69014703": {
+    "sha256": "48e2336f215537ef4de44f2b2b879dbe5ff1c61a34506fb86b8e1b7aab2d0b0a",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 代理人的防御力提升15%，锐化伤害提升15%。\n· [击破]特性的代理人的[强化特殊技]造成的失衡值提升20%。代理人发动[强化特殊技]、[特殊技]后，电属性伤害和风属性伤害提升30%，持续15秒，重复触发时刷新持续时间。"
+  },
+  "69014711": {
+    "sha256": "83e847cdde58905a7a031e2823b27795d019bf46741b29605ae13d0c22a574ff",
+    "sources": [
+      "https://static.nanoka.cc/zzz/3.2/zh/boss/690471.json"
+    ],
+    "text": "· 代理人攻击命中首领敌人时，使首领敌人获得1点[紊相值]；同一名代理人每1秒最多施加1点[紊相值]。\n· 首领敌人持有的[紊相值]达到10点时，会立即移除所有[紊相值]并使首领敌人进入[紊相]状态。[紊相]状态期间，敌人受到的属性异常伤害提升40%，受到的锐化伤害提升75%，持续10秒，重复进入[紊相]状态时刷新持续时间。\n· 代理人成功对首领敌人施加属性异常状态时，全队代理人会获得[升变]效果：造成的伤害提升15%，异常精通提升20点；[升变]效果持续10秒，重复触发刷新持续时间。"
+  }
+}
