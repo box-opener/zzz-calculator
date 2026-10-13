@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { version as frontendVersion } from "../package.json";
 import DriveDiscCard from "./components/DriveDiscCard";
 import DriveDiscTile from "./components/DriveDiscTile";
 import ModalFrame from "./components/ModalFrame";
@@ -13,7 +14,7 @@ import EndgamePanel from './components/EndgamePanel';
 import {type TargetMode,type EndgameSelection,type EndgameEditor,type EnemyOverrides} from './state/endgame';
 import SubstatGainPanel, {type CharacterStatGains} from './components/SubstatGainPanel';
 import {defaultEffectiveStats, miyousheEffectiveStats, readEffectivePreferences, EFFECTIVE_STATS_STORAGE_KEY} from './state/effectiveStats';
-import {enemyDefenseAtLevel, type EnemyCatalog, type EnemyVariant} from './state/enemyCatalog';
+import {enemyDefenseAtLevel, enemyStunVulnerabilityBonus, type EnemyCatalog, type EnemyVariant} from './state/enemyCatalog';
 import { miyousheEffectiveStatCount, type MiyousheCharacter } from "./state/miyousheProfiles";
 import {
   canAddToTeamSlot,
@@ -441,7 +442,7 @@ function App() {
   const [enemyIsStunned, setEnemyIsStunned] = useState(false);
   const [enemyDefense, setEnemyDefense] = useState(857);
   const [enemyResistances, setEnemyResistances] = useState(INITIAL_ENEMY_RESISTANCES);
-  const [stunVulnerability, setStunVulnerability] = useState(1.5);
+  const [stunVulnerability, setStunVulnerability] = useState(0.5);
   const [calculation, setCalculation] = useState<CalculationView | null>(null);
   const [calculatedFingerprint, setCalculatedFingerprint] = useState('');
   const [calculationContext,setCalculationContext]=useState<{operator:string;target:string;time:string}|null>(null);
@@ -483,7 +484,7 @@ function App() {
     setEnemyDefense(enemy.initial_defense??0);setEnemyDefenseAutomatic(false);
     setEnemyResistances({...INITIAL_ENEMY_RESISTANCES,...enemy.damage_resistance});setManualResistanceElements(confirmed);
     setManualEnemyFields(fields);
-    setStunVulnerability(enemy.stun_vulnerability_bonus??1);setEnemyDamageReduction(enemy.damage_reduction);setEnemyIsStunned(enemy.is_stunned);
+    setStunVulnerability(enemy.stun_vulnerability_bonus??0);setEnemyDamageReduction(enemy.damage_reduction);setEnemyIsStunned(enemy.is_stunned);
     calculationGeneration.current+=1;setCalculating(false);setCalculation(null);
   };
   const changeEndgame=(selection:EndgameSelection|null,editor:EndgameEditor|null)=>{
@@ -511,7 +512,7 @@ function App() {
     setEnemyDefense(enemyDefenseAtLevel(variant,level));
     setEnemyResistances({...INITIAL_ENEMY_RESISTANCES,...variant.damage_resistance});
     setManualResistanceElements([]);
-    setStunVulnerability(variant.stun_multiplier);
+    setStunVulnerability(enemyStunVulnerabilityBonus(variant));
     setEnemyDamageReduction(0);
     setEnemyIsStunned(false);
     calculationGeneration.current += 1;
@@ -1589,7 +1590,7 @@ function App() {
       <header className="app-header">
         <a className="app-brand" href="#configuration-section" aria-label="绝区零计算器"><img className="app-logo" src="/brand/zzz-calculator-logo-wide.png" alt="ZZZ Calculator · 绝区零伤害计算器"/><span>ZZZ CALCULATOR / COMBAT LAB</span></a>
         <nav className="section-navigation" aria-label="主导航"><a href="#team-section" onClick={()=>setMobilePage('team')}>队伍与面板</a><a href="#configuration-section" onClick={()=>showWorkbench('equipment')}>构筑工作台</a><a href="#calculation-section" onClick={()=>setMobilePage('results')}>伤害与收益 ↗</a></nav>
-        <div className="header-tools"><span className="header-status"><span className="status-dot"/>v2 · 真实数据</span><button type="button" className="text-button" onClick={()=>setHelpOpen(true)}>使用说明 ⓘ</button></div>
+        <div className="header-tools"><span className="header-status"><span className="status-dot"/>v{frontendVersion} · 真实数据</span><button type="button" className="text-button" onClick={()=>setHelpOpen(true)}>使用说明 ⓘ</button></div>
       </header>
       <section className="workspace-intro"><div><p className="eyebrow">NEW ERIDU / THEORYCRAFTING WORKSPACE</p><h1>每一份伤害，都有迹可循<span>。</span></h1><p>配置队伍与装备，探索词条收益，追溯每一次招式结算。</p></div><div className="workspace-meta"><span><small>工作区状态</small>{teamIds.length} 位队员 · 独立编辑副本</span><span><small>数据环境</small>正式数据{enemyCatalog?.source_version?` · ${enemyCatalog.source_version}`:''}</span></div></section>
       <div className="workbench-grid" data-mobile-page={mobilePage}>
@@ -1786,7 +1787,7 @@ function App() {
             <NumberField label="等级" value={enemyLevel} integer min={1} max={80} unit="级" helper="敌人等级 1–80" onCommit={setEnemyLevel} />
             <NumberField label="防御力" value={targetMode!=='normal' && endgameEditor?.defaults.initial_defense===null && !manualEnemyFields.includes('initial_defense')?null:enemyDefenseAutomatic || targetMode!=='normal' && enemyDefense===endgameEditor?.defaults.initial_defense?Number(enemyDefense.toFixed(4)):enemyDefense} min={0} helper={targetMode!=='normal' && endgameEditor?.defaults.initial_defense===null && !manualEnemyFields.includes('initial_defense')?'源未提供，请明确填写':targetMode!=='normal' && enemyDefense===endgameEditor?.defaults.initial_defense?'本期房间目标的默认防御':enemyDefenseAutomatic?'按怪物等级成长曲线读取':'手动调整值'} onCommit={value=>{setEnemyDefenseAutomatic(false);setEnemyDefense(value);setManualEnemyFields(current=>[...new Set([...current,'initial_defense'])]);}} />
             {ENEMY_RESISTANCE_FIELDS.map(({ element, label }) => <NumberField key={element} label={label} value={enemyResistances[element]} unit="%" displayAsPercent helper={targetResistanceSource && element in targetResistanceSource?'怪物伤害抗性 · 可手动调整':'源未提供 · 手动输入值'} onCommit={(value) => updateEnemyResistance(element, value)} />)}
-            <NumberField label="失衡易伤" value={targetMode!=='normal' && endgameEditor?.defaults.stun_vulnerability_bonus===null && !manualEnemyFields.includes('stun_vulnerability_bonus')?null:stunVulnerability} unit="×" helper={targetMode!=='normal' && endgameEditor?.defaults.stun_vulnerability_bonus===null && !manualEnemyFields.includes('stun_vulnerability_bonus')?'源未提供，请明确填写':'伤害倍率，例如 1.5×'} onCommit={value=>{setStunVulnerability(value);setManualEnemyFields(current=>[...new Set([...current,'stun_vulnerability_bonus'])]);}} />
+            <NumberField label="失衡易伤加成" value={targetMode!=='normal' && endgameEditor?.defaults.stun_vulnerability_bonus===null && !manualEnemyFields.includes('stun_vulnerability_bonus')?null:stunVulnerability} unit="%" displayAsPercent helper={targetMode!=='normal' && endgameEditor?.defaults.stun_vulnerability_bonus===null && !manualEnemyFields.includes('stun_vulnerability_bonus')?'源未提供，请明确填写':'额外易伤，50% 对应总倍率 1.5×'} onCommit={value=>{setStunVulnerability(value);setManualEnemyFields(current=>[...new Set([...current,'stun_vulnerability_bonus'])]);}} />
             <NumberField label="减易伤" value={enemyDamageReduction} unit="%" displayAsPercent helper="目标减伤 · 按百分比输入" onCommit={setEnemyDamageReduction} />
             <label className="check-field"><span>当前处于失衡</span><input type="checkbox" checked={enemyIsStunned} onChange={(event) => setEnemyIsStunned(event.target.checked)} /></label>
           </div>

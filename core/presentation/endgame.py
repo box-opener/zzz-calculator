@@ -46,10 +46,10 @@ def resolve_selection(selection: dict, definitions: tuple) -> dict:
     try:
         base = enemy_defaults(target['enemy_id'], target['variant_id'], target['level'])
     except ValueError:
-        base = {'damage_resistance': {}, 'stun_multiplier': None}
+        base = {'damage_resistance': {}, 'stun_vulnerability_bonus': None}
     enemy = {'enemy_id': target['enemy_id'], 'variant_id': target['variant_id'], 'level': target['level'],
         'initial_defense': target['stats'].get('defence'), 'damage_resistance': dict(base['damage_resistance']),
-        'stun_vulnerability_bonus': base['stun_multiplier'], 'damage_reduction': 0, 'is_stunned': False}
+        'stun_vulnerability_bonus': base['stun_vulnerability_bonus'], 'damage_reduction': 0, 'is_stunned': False}
     field_sources = {'level': detail['source_url'], 'initial_defense': detail['source_url'],
         'damage_resistance': base.get('source_url'), 'stun_vulnerability_bonus': base.get('source_url')}
     default_enemy = deepcopy(enemy)

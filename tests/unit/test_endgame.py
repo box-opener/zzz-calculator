@@ -73,6 +73,53 @@ def test_no_enabled_field_rule_is_identical_to_same_ordinary_target():
     assert calculate_payload(ordinary)['totals']==calculate_payload(endgame)['totals']
 
 
+@pytest.mark.parametrize('mode', ['boss', 'shiyu'])
+def test_all_sourced_endgame_targets_convert_total_stun_multiplier_to_bonus(mode):
+    from core.presentation.enemy_catalog import enemy_defaults
+    definitions = _compile_definitions(payload())
+    checked = 0
+    for season in seasons(mode)['seasons']:
+        detail = season_detail(mode, season['season_id'])
+        for stage in detail['stages']:
+            for room in stage['rooms']:
+                for target in room['targets']:
+                    try:
+                        source = enemy_defaults(target['enemy_id'], target['variant_id'], target['level'])
+                    except ValueError:
+                        continue
+                    sel = {'mode': mode, 'season_id': detail['season_id'],
+                           'stage_id': stage['stage_id'], 'room_id': room['room_id'],
+                           'target_id': target['target_id']}
+                    scene = resolve_selection(sel, definitions)
+                    assert scene['enemy']['stun_vulnerability_bonus'] == pytest.approx(source['stun_multiplier'] - 1)
+                    checked += 1
+    assert checked > 0
+
+
+@pytest.mark.parametrize('stunned, multiplier', [(False, 1), (True, 1.5)])
+def test_boss_default_150_percent_stun_multiplier_is_not_250_percent(stunned, multiplier):
+    raw = payload()
+    sel = selection('boss', '690471', 0, 0)
+    plain = calculate_payload({**raw, 'endgame_selection': sel})
+    sel['enemy_overrides'] = {'is_stunned': stunned}
+    result = calculate_payload({**raw, 'endgame_selection': sel})
+    values = {item['node']: item['value'] for item in
+              result['events'][0]['modes']['expected']['calculation_breakdown']}
+    assert values['vulnerability.enemy-stun'] == .5
+    assert values['vulnerability.effective-stun'] == (.5 if stunned else 0)
+    assert values['vulnerability.broad-region'] == multiplier
+    assert result['totals']['expected']['value'] == pytest.approx(plain['totals']['expected']['value'] * multiplier)
+
+
+@pytest.mark.parametrize('bonus', [0, .5, 1.5])
+def test_explicit_stun_bonus_override_is_already_additive_and_not_converted_again(bonus):
+    sel = {**selection('boss', '690471', 0, 0),
+           'enemy_overrides': {'stun_vulnerability_bonus': bonus}}
+    scene = resolve_selection(sel, _compile_definitions(payload()))
+    assert scene['enemy']['stun_vulnerability_bonus'] == bonus
+    assert scene['defaults']['stun_vulnerability_bonus'] == .5
+
+
 def test_triggered_defense_reduction_uses_formal_defense_region():
     raw=payload();sel=selection();scene=resolve_selection(sel,_compile_definitions(raw))
     sel['states']={'buff:62001582:异常后的减防仍有效':1}
@@ -175,6 +222,53 @@ def test_triggered_anomaly_and_disorder_buffs_use_their_own_regions(move,suffix)
     assert baseline['totals']['expected']['complete']
     assert active['totals']['expected']['complete']
     assert active['totals']['expected']['value']==pytest.approx(baseline['totals']['expected']['value']*1.25)
+
+
+@pytest.mark.parametrize('move', ['electric-anomaly', 'electric-disorder', 'luminance', 'direct'])
+@pytest.mark.parametrize('stacks', [1, 6])
+@pytest.mark.parametrize('stunned', [False, True])
+def test_mingkeming_stacks_increase_anomaly_bonus_without_changing_vulnerability(move, stacks, stunned):
+    raw = payload()
+    if move != 'direct':
+        cid = 'character:1581' if move == 'luminance' else 'character:1251'
+        raw.update(
+            primary_character_id=cid, team_character_ids=[cid],
+            compile_configs={cid: {'core_level': 7, 'cinema_level': 1 if move == 'luminance' else 0}},
+            character_builds={cid: {'level': 60, 'build_mode': 'equipment-build'}},
+            move_entry_id=f'move-entry:{cid}:{move}',
+        )
+        if move == 'luminance':
+            raw['move_entry_id'] = f'move-entry:{cid}:flare:basic-vertical-rainbow'
+            raw['luminance_source_slots'] = [{
+                'slot_id': 'special-entry', 'kind': 'special-entry', 'source_character_id': cid,
+            }]
+    sel = {**selection('boss', '69016', 1, 0), 'enemy_overrides': {
+        'is_stunned': stunned, 'damage_resistance': {'luminance': 0},
+    }}
+    baseline = calculate_payload({**raw, 'endgame_selection': sel})
+    sel['states'] = {'buff:69011602:异常增伤层数': stacks}
+    active = calculate_payload({**raw, 'endgame_selection': sel})
+    assert active['scenario_provenance']['target_name'] == '秽息妖鬼·名可名'
+    assert baseline['totals']['expected']['complete']
+    assert active['totals']['expected']['complete']
+
+    def nodes(result):
+        return {item['node']: item['value'] for item in
+                result['events'][0]['modes']['expected']['calculation_breakdown']}
+
+    before, after = nodes(baseline), nodes(active)
+    assert after['vulnerability.enemy-normal'] == before['vulnerability.enemy-normal']
+    assert after['vulnerability.broad-region'] == before['vulnerability.broad-region']
+    if move in {'direct', 'electric-disorder'}:
+        # Disorder uses its own bonus region and does not inherit anomaly damage bonuses.
+        assert active['totals'] == baseline['totals']
+    else:
+        assert active['totals']['expected']['value'] == pytest.approx(
+            baseline['totals']['expected']['value'] * (1 + .08 * stacks))
+        if move == 'electric-anomaly':
+            assert after['anomaly.attribute.damage-bonus-region'] == pytest.approx(1 + .08 * stacks)
+        else:
+            assert after['anomaly.luminance.anomaly-damage-bonus-region'] == pytest.approx(1 + .08 * stacks)
 
 
 def test_role_specific_buff_has_no_effect_on_support_character():

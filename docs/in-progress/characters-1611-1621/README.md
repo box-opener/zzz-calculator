@@ -22,7 +22,7 @@ The archived patch was checked with `git apply --check` against the active code 
 - The subsequent Core implementation was not retested. It still contains a temporary dynamic `ScenarioCondition` import/placeholder and is not a validated compile checkpoint. Extra/Cinema rules, derived cyclone events, registration, signature mapping, and formal scope/API checks are unfinished.
 - Initial Energy Regeneration conversion must use the continuous amount above 1.2: each 0.01 adds 5 ATK (cap 960) and 0.4 Impact (cap 76.8). Core's team Crit Damage reads Roxy's own Current Crit Rate with coefficient 0.4, cap 0.4; a recipient's Crit Rate must not change the result. Vanguard's separate sharp-crit coefficient requires its own supported contract.
 - Multiple current attribute buffs can coexist; Wind's contribution must apply once, rather than once per selected attribute. Current Winded vulnerability affects only the specified Direct elements. Extra eligibility requires another Attack/Rupture/Vanguard teammate, and its level-60 self damage bonus is 80%.
-- The Winded duration extension is 30 to 50 seconds while the Wind anomaly coefficient remains 17.5. Do not infer additional Wind ticks or ordinary Wind Disorder. C6's source multiplier is exactly 2.5 times the original cyclone, with two separately specified additional cyclones; timing history is not replayed.
+- The Winded duration extension is 30 to 50 seconds while the Wind anomaly coefficient remains 12.5. Do not infer additional Wind ticks or ordinary Wind Disorder. C6's source multiplier is exactly 2.5 times the original cyclone, with two separately specified additional cyclones; timing history is not replayed.
 
 ## Other remaining work
 

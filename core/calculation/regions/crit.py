@@ -40,11 +40,13 @@ def _node(node: CalculationNode, value: float) -> CalculationNodeValue:
     )
 
 
+def _expected_crit_multiplier(crit_rate: float, crit_damage: float) -> float:
+    """Excess crit rate gives no additional probability or expected damage."""
+    return 1.0 + min(1.0, max(0.0, crit_rate)) * crit_damage
+
+
 def calculate_crit_region(input: CritRegionInput) -> CalculationResult:
-    probability = min(1.0, max(0.0, input.crit_rate))
-    region = 1.0 * (1.0 - probability) + (
-        1.0 + input.crit_damage
-    ) * probability
+    region = _expected_crit_multiplier(input.crit_rate, input.crit_damage)
     breakdown = (
         _node(CalculationNode.CHARACTER_CURRENT_CRIT_RATE, input.crit_rate),
         _node(CalculationNode.CHARACTER_CURRENT_CRIT_DAMAGE, input.crit_damage),
@@ -56,10 +58,7 @@ def calculate_crit_region(input: CritRegionInput) -> CalculationResult:
 def calculate_anomaly_crit_region(
     input: AnomalyCritRegionInput,
 ) -> CalculationResult:
-    probability = min(1.0, max(0.0, input.crit_rate))
-    region = 1.0 * (1.0 - probability) + (
-        1.0 + input.crit_damage
-    ) * probability
+    region = _expected_crit_multiplier(input.crit_rate, input.crit_damage)
     breakdown = (
         _node(CalculationNode.ANOMALY_CRIT_REGION, region),
     )
@@ -71,8 +70,7 @@ def _calculate_special_crit_region(
     crit_damage: float,
     node: CalculationNode,
 ) -> CalculationResult:
-    probability = min(1.0, max(0.0, crit_rate))
-    region = 1.0 * (1.0 - probability) + (1.0 + crit_damage) * probability
+    region = _expected_crit_multiplier(crit_rate, crit_damage)
     return CalculationResult(
         value=region,
         breakdown=(_node(node, region),),

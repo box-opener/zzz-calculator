@@ -11,5 +11,7 @@ def test_probability_bounds_do_not_mutate_the_original_panel(calculator,input_ty
     original=input_type(crit_rate=1.4,crit_damage=2)
     assert calculator(original).value==3
     assert original.crit_rate==1.4
+    assert calculator(input_type(crit_rate=1,crit_damage=2)).value==3
+    assert calculator(input_type(crit_rate=1.424,crit_damage=2)).value==3
     assert calculator(input_type(crit_rate=-.2,crit_damage=2)).value==1
     assert calculator(input_type(crit_rate=.7,crit_damage=2)).value==pytest.approx(2.4)
